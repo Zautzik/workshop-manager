@@ -1,0 +1,287 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import { useNavigate } from '@/lib/navigation';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useAuth } from '@/contexts/AuthContext';
+import { useLanguage } from '@/contexts/LanguageContext';
+import { supabase } from '@/integrations/supabase/client';
+import {
+	LogOut,
+	Users,
+	Package,
+	FileText,
+	DollarSign,
+	Factory,
+	Wrench,
+	LayoutDashboard,
+} from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import UserManagement from '@/components/admin/UserManagement';
+import WorkersManagement from '@/components/admin/WorkersManagement';
+import InventoryManagement from '@/components/admin/InventoryManagement';
+import PurchasesManagement from '@/components/admin/PurchasesManagement';
+import ExecutiveOverview from '@/components/admin/ExecutiveOverview';
+
+const AdminDashboard = () => {
+	const { user, role, signOut } = useAuth();
+	const { t } = useLanguage();
+	const navigate = useNavigate();
+	const [stats, setStats] = useState({
+		totalUsers: 0,
+		totalWorkers: 0,
+		totalMachines: 0,
+		totalJobs: 0,
+	});
+
+	useEffect(() => {
+		if (!user || role !== 'admin') {
+			navigate('/');
+			return;
+		}
+
+		fetchStats();
+	}, [user, role, navigate]);
+
+	const fetchStats = async () => {
+		const [usersData, workersData, machinesData, jobsData] = await Promise.all([
+			supabase.from('user_roles').select('id', { count: 'exact', head: true }),
+			supabase
+				.from('workers' as any)
+				.select('id', { count: 'exact', head: true }),
+			supabase.from('machines').select('id', { count: 'exact', head: true }),
+			supabase.from('jobs').select('id', { count: 'exact', head: true }),
+		]);
+
+		setStats({
+			totalUsers: usersData.count || 0,
+			totalWorkers: workersData.count || 0,
+			totalMachines: machinesData.count || 0,
+			totalJobs: jobsData.count || 0,
+		});
+	};
+
+	const handleLogout = async () => {
+		await signOut();
+		navigate('/');
+	};
+
+	return (
+		<div className='min-h-screen bg-gradient-to-br from-background via-primary/5 to-background'>
+			<header
+				className='border-b border-primary/20 shadow-lg sticky top-0 z-50 backdrop-blur-sm bg-card/95'
+				role='banner'
+			>
+				<div className='container mx-auto px-4 py-4 flex items-center justify-between'>
+					<div className='flex items-center gap-4'>
+						<img
+							src='/gonsa-logo.jpg'
+							alt='Gonsa Impresores Company Logo'
+							className='h-12'
+						/>
+						<div>
+							<h1 className='text-2xl font-bold text-primary'>
+								{t('adminDashboard')}
+							</h1>
+							<p className='text-xs text-muted-foreground'>
+								System Administration
+							</p>
+						</div>
+					</div>
+					<nav aria-label='Main navigation' className='flex gap-2'>
+						<Button
+							onClick={() => navigate('/financial')}
+							variant='outline'
+							className='border-green-500/30 text-green-500 hover:bg-green-500/10'
+							aria-label='Navigate to Financial Report'
+						>
+							<DollarSign className='mr-2 h-4 w-4' aria-hidden='true' />
+							Financial Report
+						</Button>
+						<Button
+							onClick={() => navigate('/workflow')}
+							variant='default'
+							className='bg-blue-500 hover:bg-blue-600'
+							aria-label='Navigate to Workflow Management'
+						>
+							<Factory className='mr-2 h-4 w-4' aria-hidden='true' />
+							Workflow Management
+						</Button>
+						<Button
+							onClick={() => navigate('/maintenance')}
+							variant='outline'
+							className='border-orange-500/30 text-orange-500 hover:bg-orange-500/10'
+							aria-label='Navigate to Asset Maintenance'
+						>
+							<Wrench className='mr-2 h-4 w-4' aria-hidden='true' />
+							Maintenance
+						</Button>
+						<Button
+							onClick={handleLogout}
+							variant='outline'
+							className='border-primary/30 text-primary hover:bg-primary/10'
+							aria-label='Logout from admin dashboard'
+						>
+							<LogOut className='mr-2 h-4 w-4' aria-hidden='true' />
+							{t('logout')}
+						</Button>
+					</nav>
+				</div>
+			</header>
+
+			<main className='container mx-auto px-4 py-8 space-y-8' role='main'>
+				<section
+					aria-label='Dashboard statistics'
+					className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6'
+				>
+					<Card className='border-primary/20 hover:border-primary/40 transition-all hover:shadow-lg hover:-translate-y-1 duration-300'>
+						<CardHeader className='flex flex-row items-center justify-between pb-2'>
+							<CardTitle className='text-sm font-medium text-muted-foreground'>
+								{t('totalUsers')}
+							</CardTitle>
+							<div className='p-2 rounded-lg bg-primary/10' aria-hidden='true'>
+								<Users className='h-5 w-5 text-primary' />
+							</div>
+						</CardHeader>
+						<CardContent>
+							<div
+								className='text-4xl font-bold text-primary'
+								aria-label={`Total users: ${stats.totalUsers}`}
+							>
+								{stats.totalUsers}
+							</div>
+							<p className='text-xs text-muted-foreground mt-1'>
+								Active accounts
+							</p>
+						</CardContent>
+					</Card>
+
+					<Card className='border-supervisor/20 hover:border-supervisor/40 transition-all hover:shadow-lg hover:-translate-y-1 duration-300'>
+						<CardHeader className='flex flex-row items-center justify-between pb-2'>
+							<CardTitle className='text-sm font-medium text-muted-foreground'>
+								{t('totalWorkers')}
+							</CardTitle>
+							<div
+								className='p-2 rounded-lg bg-supervisor/10'
+								aria-hidden='true'
+							>
+								<Users className='h-5 w-5 text-supervisor' />
+							</div>
+						</CardHeader>
+						<CardContent>
+							<div
+								className='text-4xl font-bold text-supervisor'
+								aria-label={`Total workers: ${stats.totalWorkers}`}
+							>
+								{stats.totalWorkers}
+							</div>
+							<p className='text-xs text-muted-foreground mt-1'>
+								Production staff
+							</p>
+						</CardContent>
+					</Card>
+
+					<Card className='border-accent/20 hover:border-accent/40 transition-all hover:shadow-lg hover:-translate-y-1 duration-300'>
+						<CardHeader className='flex flex-row items-center justify-between pb-2'>
+							<CardTitle className='text-sm font-medium text-muted-foreground'>
+								{t('machines')}
+							</CardTitle>
+							<div className='p-2 rounded-lg bg-accent/10' aria-hidden='true'>
+								<Package className='h-5 w-5 text-accent' />
+							</div>
+						</CardHeader>
+						<CardContent>
+							<div
+								className='text-4xl font-bold text-accent'
+								aria-label={`Total machines: ${stats.totalMachines}`}
+							>
+								{stats.totalMachines}
+							</div>
+							<p className='text-xs text-muted-foreground mt-1'>
+								Equipment units
+							</p>
+						</CardContent>
+					</Card>
+
+					<Card className='border-manager/20 hover:border-manager/40 transition-all hover:shadow-lg hover:-translate-y-1 duration-300'>
+						<CardHeader className='flex flex-row items-center justify-between pb-2'>
+							<CardTitle className='text-sm font-medium text-muted-foreground'>
+								{t('totalJobs')}
+							</CardTitle>
+							<div className='p-2 rounded-lg bg-manager/10' aria-hidden='true'>
+								<FileText className='h-5 w-5 text-manager' />
+							</div>
+						</CardHeader>
+						<CardContent>
+							<div
+								className='text-4xl font-bold text-manager'
+								aria-label={`Total jobs: ${stats.totalJobs}`}
+							>
+								{stats.totalJobs}
+							</div>
+							<p className='text-xs text-muted-foreground mt-1'>All time</p>
+						</CardContent>
+					</Card>
+				</section>
+
+				<Tabs defaultValue='overview' className='w-full'>
+					<TabsList
+						className='grid w-full grid-cols-5'
+						role='tablist'
+						aria-label='Admin management sections'
+					>
+						<TabsTrigger value='overview' aria-label='Executive overview tab'>
+							<LayoutDashboard className='mr-2 h-4 w-4' aria-hidden='true' />
+							Overview
+						</TabsTrigger>
+						<TabsTrigger value='users' aria-label='User management tab'>
+							<Users className='mr-2 h-4 w-4' aria-hidden='true' />
+							{t('users')}
+						</TabsTrigger>
+						<TabsTrigger value='workers' aria-label='Worker management tab'>
+							<Users className='mr-2 h-4 w-4' aria-hidden='true' />
+							{t('workers')}
+						</TabsTrigger>
+						<TabsTrigger
+							value='inventory'
+							aria-label='Inventory management tab'
+						>
+							<Package className='mr-2 h-4 w-4' aria-hidden='true' />
+							{t('inventory')}
+						</TabsTrigger>
+						<TabsTrigger
+							value='purchases'
+							aria-label='Purchases management tab'
+						>
+							<DollarSign className='mr-2 h-4 w-4' aria-hidden='true' />
+							{t('purchases')}
+						</TabsTrigger>
+					</TabsList>
+
+					<TabsContent value='overview' className='space-y-4 mt-6'>
+						<ExecutiveOverview />
+					</TabsContent>
+
+					<TabsContent value='users' className='space-y-4'>
+						<UserManagement onUpdate={fetchStats} />
+					</TabsContent>
+
+					<TabsContent value='workers' className='space-y-4'>
+						<WorkersManagement onUpdate={fetchStats} />
+					</TabsContent>
+
+					<TabsContent value='inventory' className='space-y-4'>
+						<InventoryManagement />
+					</TabsContent>
+
+					<TabsContent value='purchases' className='space-y-4'>
+						<PurchasesManagement />
+					</TabsContent>
+				</Tabs>
+			</main>
+		</div>
+	);
+};
+
+export default AdminDashboard;
