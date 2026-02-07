@@ -1,3 +1,19 @@
+/**
+ * @fileoverview Language/Localization Context (i18n)
+ * 
+ * SYSTEM ROLE: Multi-Language Support Manager
+ * ORGAN ANALOGY: The "Translation Department" - Provides localized text in English & Spanish
+ * 
+ * This context manages application internationalization (i18n):
+ * - Stores all UI text translations in English (en) and Spanish (es)
+ * - Provides setLanguage() to switch between languages
+ * - Provides t() translation function to retrieve localized text
+ * - Covers all UI text: buttons, labels, dashboard titles, status texts, etc.
+ * 
+ * Usage: const { t } = useLanguage(); then t('login') returns "Login" or "Iniciar sesión"
+ * 
+ * Supports entire application with 300+ translation keys for both languages.
+ */
 'use client';
 
 import React, { createContext, useContext, useState, ReactNode } from 'react';

@@ -1,3 +1,21 @@
+/**
+ * @fileoverview Authentication Context (Custom Auth State)
+ * 
+ * SYSTEM ROLE: User Identity & Authorization State Manager
+ * ORGAN ANALOGY: The "Identity Card System" - Maintains user info, roles, and authentication status
+ * 
+ * This context provides:
+ * - Current authenticated user (id, email, name)
+ * - User's role for role-based access control (admin, supervisor, manager, technician)
+ * - Session data from Supabase authentication
+ * - Loading state during auth checks
+ * - signIn() and signOut() methods
+ * 
+ * Supplements NextAuth.js with additional user profile and role data from database.
+ * All components can access user info via useAuth() hook.
+ * 
+ * Flow: User logs in → Database is queried for role → Role is attached to context
+ */
 'use client';
 
 import React, {

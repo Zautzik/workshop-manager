@@ -1,3 +1,17 @@
+/**
+ * @fileoverview 404 Not Found Error Page Component
+ * 
+ * SYSTEM ROLE: Error Boundary / Invalid Route Handler
+ * ORGAN ANALOGY: The "Lost & Found" - Helps users when they reach a dead end
+ * 
+ * Displays when users try to access a route that doesn't exist:
+ * - Shows friendly 404 error message
+ * - Provides link back to home page
+ * - Logs error details to console for debugging
+ * - Responsive design centered on screen
+ * 
+ * Automatically rendered by Next.js when no matching route is found.
+ */
 'use client';
 
 import { useLocation } from "@/lib/navigation";

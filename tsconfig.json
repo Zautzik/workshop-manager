@@ -1,4 +1,19 @@
 {
+  /**
+   * @fileoverview TypeScript Configuration File
+   * 
+   * SYSTEM ROLE: TypeScript Compiler & Type System Configuration
+   * ORGAN ANALOGY: The "Brain" - Controls how TypeScript compiles and type-checks all code
+   * 
+   * This configuration defines:
+   * - Target JavaScript version (ES2020)
+   * - Module resolution strategy for imports/exports
+   * - Strict type checking rules
+   * - Path aliases (@/* maps to ./src/*)
+   * - JSX processing for React components
+   * 
+   * Changes here affect the entire codebase's type safety and compilation behavior.
+   */
   "compilerOptions": {
     "target": "ES2020",
     "useDefineForClassFields": true,

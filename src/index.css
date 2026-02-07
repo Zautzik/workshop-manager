@@ -1,13 +1,44 @@
+/**
+ * @fileoverview Global Styles & Design System (index.css)
+ * 
+ * SYSTEM ROLE: Design Tokens & Global CSS Variables
+ * ORGAN ANALOGY: The "DNA/Genetic Code" - Defines all visual design throughout application
+ * 
+ * This file establishes:
+ * 
+ * 1. DESIGN TOKENS (CSS Variables in HSL format):
+ *    - Colors: primary, secondary, destructive, accent, muted
+ *    - Role-specific: supervisor (green), manager (gray-blue), admin (cyan)
+ *    - Dark mode variants for all colors
+ *    - Border, input, ring colors for UI elements
+ * 
+ * 2. LIGHT/DARK MODE THEMES:
+ *    - Light mode (default): bright background, dark text
+ *    - Dark mode: dark background, light text (with .dark class)
+ * 
+ * 3. BASE STYLES:
+ *    - Border color default to CSS variable
+ *    - Body background and text color setup
+ * 
+ * 4. ACCESSIBILITY:
+ *    - sr-only: Screen reader only content (hidden visually, read aloud)
+ *    - focus-visible: Keyboard navigation outline styling
+ *    - skip-to-content: Link for keyboard users to skip navigation
+ * 
+ * All component colors inherit from these CSS variables for consistency.
+ */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
-All colors MUST be HSL.
-*/
-
+/**
+ * Design System Definition
+ * All colors are defined in HSL format for maximum flexibility
+ * Theme tokens are referenced throughout components via Tailwind classes
+ */
 @layer base {
   :root {
+    /* Light mode - Light background colors */
     --background: 0 0% 100%;
     --foreground: 220 15% 20%;
 
@@ -17,15 +48,15 @@ All colors MUST be HSL.
     --popover: 0 0% 100%;
     --popover-foreground: 220 15% 20%;
 
-    /* Company cyan blue */
+    /* Company cyan blue - Primary brand color */
     --primary: 190 95% 45%;
     --primary-foreground: 0 0% 100%;
 
-    /* Production green for supervisors */
+    /* Production green for supervisors - Conveys action/operations */
     --supervisor: 150 70% 45%;
     --supervisor-foreground: 0 0% 100%;
 
-    /* Analytical gray-blue for managers */
+    /* Analytical gray-blue for managers - Conveys professionalism */
     --manager: 210 25% 55%;
     --manager-foreground: 0 0% 100%;
 
@@ -50,6 +81,7 @@ All colors MUST be HSL.
     --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
+  /* Dark mode theme - Applied when .dark class is on html element */
   .dark {
     --background: 220 20% 10%;
     --foreground: 210 20% 95%;
@@ -87,6 +119,7 @@ All colors MUST be HSL.
   }
 }
 
+/* Base element styles */
 @layer base {
   * {
     @apply border-border;
@@ -97,9 +130,16 @@ All colors MUST be HSL.
   }
 }
 
-/* Accessibility improvements */
+/**
+ * Accessibility improvements
+ * These utilities improve keyboard navigation and screen reader support
+ */
 @layer utilities {
-  /* Screen reader only content */
+  /**
+   * Screen reader only content
+   * Text that should only be visible to screen readers, not to sighted users
+   * Example: <span class="sr-only">Loading</span>
+   */
   .sr-only {
     position: absolute;
     width: 1px;
@@ -112,12 +152,20 @@ All colors MUST be HSL.
     border-width: 0;
   }
 
-  /* Focus visible for keyboard navigation */
+  /**
+   * Focus visible style for keyboard navigation
+   * Shows outline when user tabs through interactive elements
+   * Improves accessibility for keyboard-only users
+   */
   *:focus-visible {
     @apply outline-none ring-2 ring-ring ring-offset-2 ring-offset-background;
   }
 
-  /* Skip to main content link */
+  /**
+   * Skip to main content link
+   * Allows keyboard users to skip past navigation to main content
+   * Visible only when focused (keyboard accessed)
+   */
   .skip-to-content {
     @apply sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-50 focus:px-4 focus:py-2 focus:bg-primary focus:text-primary-foreground focus:rounded-md;
   }

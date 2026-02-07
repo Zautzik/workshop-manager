@@ -1,13 +1,31 @@
+/**
+ * @fileoverview API Request Hook (useApi)
+ * 
+ * SYSTEM ROLE: HTTP Client / API Communication Layer
+ * ORGAN ANALOGY: The "Postal Service" - Handles all communication with backend API
+ * 
+ * Custom React hook that provides methods for making authenticated HTTP requests:
+ * 
+ * - get<T>(url, options): Fetch data (GET)
+ * - post<T>(url, data, options): Create resource (POST)
+ * - patch<T>(url, data, options): Partial update (PATCH)
+ * - put<T>(url, data, options): Full update (PUT)
+ * - delete<T>(url, options): Delete resource (DELETE)
+ * 
+ * Features:
+ * - Automatic JSON content-type header
+ * - Generic TypeScript typing for response types
+ * - Error handling with descriptive messages
+ * - Session state available via isAuthenticated and session properties
+ * 
+ * Used throughout components to fetch/update data from REST API endpoints.
+ */
 import { useSession } from 'next-auth/react';
 
 interface FetchOptions extends RequestInit {
 	data?: any;
 }
 
-/**
- * Custom hook for making authenticated API requests
- * Automatically includes authentication headers when user is logged in
- */
 export function useApi() {
 	const { data: session } = useSession();
 

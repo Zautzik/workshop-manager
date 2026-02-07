@@ -1,3 +1,25 @@
+/**
+ * @fileoverview Inventory Management Component
+ * 
+ * SYSTEM ROLE: Material & Supply Inventory Controller
+ * ORGAN ANALOGY: The "Warehouse Manager" - Tracks all materials and supplies
+ * 
+ * Provides complete inventory management interface:
+ * - Display list of all items in inventory table
+ * - Add new inventory items with name, quantity, cost per unit
+ * - Edit existing items
+ * - Delete items from inventory
+ * - Real-time updates to Supabase database
+ * - Automatic sorting by item name
+ * - Toast notifications for user feedback
+ * 
+ * Data Management:
+ * - Reads/writes to 'inventory' table in database
+ * - Tracks item_name, quantity, cost_per_unit
+ * - Maintains inventory count for procurement decisions
+ * 
+ * Admin-only component, shown in Admin Dashboard.
+ */
 'use client';
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';

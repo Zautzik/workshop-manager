@@ -1,3 +1,23 @@
+/**
+ * @fileoverview Theme Context (Light/Dark Mode)
+ * 
+ * SYSTEM ROLE: UI Theme State Manager
+ * ORGAN ANALOGY: The "Lighting System" - Controls application appearance (light/dark mode)
+ * 
+ * This context manages:
+ * - Current theme (light or dark)
+ * - Theme persistence in localStorage
+ * - Toggling dark class on root HTML element for CSS framework
+ * - Global theme state accessible via useTheme() hook
+ * 
+ * When user toggles theme:
+ * 1. New theme is set in state
+ * 2. Preference is saved to localStorage
+ * 3. Dark class is added/removed from <html> element
+ * 4. Tailwind CSS respects dark: class selector for styling
+ * 
+ * Provides consistent dark/light mode across all pages and components.
+ */
 'use client';
 
 import React, {

@@ -1,3 +1,27 @@
+/**
+ * @fileoverview Toast Notification Hook (useToast)
+ * 
+ * SYSTEM ROLE: Notification System Manager
+ * ORGAN ANALOGY: The "Notification Bell" - Displays temporary user alerts
+ * 
+ * Manages toast notifications across the application:
+ * - toast(options): Shows a new notification with optional title, description, action
+ * - dismiss(id?): Dismisses specific toast or all toasts
+ * - useToast(): Hook to access toast functionality and state
+ * 
+ * Features:
+ * - State management via reducer pattern (similar to Redux)
+ * - Automatic timeout removal (TOAST_REMOVE_DELAY)
+ * - Limit to 1 visible toast at a time (TOAST_LIMIT)
+ * - Listener pattern for state updates
+ * - Toast ID for targeted updates/dismissals
+ * 
+ * Usage:
+ *   const { toast } = useToast();
+ *   toast({ title: "Success", description: "Item created!" });
+ * 
+ * Toasts appear as temporary notifications at bottom of screen.
+ */
 'use client';
 import * as React from "react";
 

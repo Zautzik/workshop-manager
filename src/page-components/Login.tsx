@@ -1,3 +1,22 @@
+/**
+ * @fileoverview Login Page Component
+ * 
+ * SYSTEM ROLE: Authentication Entry Point
+ * ORGAN ANALOGY: The "Front Gate" - First point of user interaction, checks credentials
+ * 
+ * This component provides:
+ * - Email and password input fields
+ * - Authentication via signIn() from AuthContext
+ * - Theme toggle (light/dark mode)
+ * - Language selector (English/Spanish)
+ * - Auto-redirect after login based on user role:
+ *   - admin -> /admin
+ *   - supervisor -> /supervisor
+ *   - others -> /manager
+ * - Error/success toast notifications
+ * 
+ * Also handles loading state and prevents re-renders if already authenticated.
+ */
 'use client';
 
 import { useState, useEffect } from 'react';

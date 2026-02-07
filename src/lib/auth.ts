@@ -1,3 +1,20 @@
+/**
+ * @fileoverview Authentication Configuration (NextAuth.js)
+ * 
+ * SYSTEM ROLE: Authentication Engine & Session Management
+ * ORGAN ANALOGY: The "Immune System" - Controls access and verifies user identity
+ * 
+ * This file sets up NextAuth.js authentication with:
+ * - Credentials provider (email/password login)
+ * - Password verification using bcryptjs
+ * - User role fetching from database
+ * - JWT token management with user role information
+ * - Session callbacks that attach user ID and role to session
+ * - Custom login page redirect
+ * 
+ * All login requests are processed here, and session data is enriched with user role
+ * for role-based access control throughout the application.
+ */
 import { NextAuthOptions } from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
 import bcrypt from 'bcryptjs';

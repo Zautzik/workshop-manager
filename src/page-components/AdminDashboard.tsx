@@ -1,3 +1,34 @@
+/**
+ * @fileoverview Admin Dashboard Page Component
+ * 
+ * SYSTEM ROLE: Admin Control Panel & System Management
+ * ORGAN ANALOGY: The "Command Center" - Full system oversight and control
+ * 
+ * Provides comprehensive system administration features:
+ * 
+ * 1. Executive Overview: High-level statistics and KPIs
+ *    - Total users, workers, machines, jobs count
+ *    - System health indicators
+ * 
+ * 2. User Management: CRUD operations for system users
+ *    - Create/edit/delete user accounts
+ *    - Assign roles and departments
+ * 
+ * 3. Workers Management: Employee information and roster
+ *    - Worker profiles
+ *    - Worker roster/team assignments
+ * 
+ * 4. Inventory Management: Track all materials and supplies
+ *    - Item tracking
+ *    - Quantity management
+ * 
+ * 5. Purchases Management: Purchase orders and history
+ *    - Track spending
+ *    - Supplier management
+ * 
+ * Only accessible to users with 'admin' role.
+ * Includes logout functionality and role-based access checks.
+ */
 'use client';
 
 import { useState, useEffect } from 'react';
