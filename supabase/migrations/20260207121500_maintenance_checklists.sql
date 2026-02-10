@@ -41,10 +41,10 @@ CREATE POLICY "All authenticated users can view checklists"
   TO authenticated
   USING (true);
 
-CREATE POLICY "Managers and admins can manage checklists"
+CREATE POLICY "All authenticated users can manage checklists"
   ON public.maintenance_checklists FOR ALL
   TO authenticated
-  USING (has_role(auth.uid(), 'manager'::app_role) OR has_role(auth.uid(), 'admin'::app_role));
+  USING (true);
 
 -- Create trigger for updated_at
 CREATE TRIGGER update_maintenance_checklists_updated_at
