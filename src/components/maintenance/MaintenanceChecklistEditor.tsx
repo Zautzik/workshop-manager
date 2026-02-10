@@ -19,7 +19,7 @@
  */
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -70,6 +70,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { createClient } from '@supabase/supabase-js';
 
 interface ChecklistItem {
   id: string;
@@ -190,12 +191,41 @@ const DraggableChecklistItem = ({
 
 export default function MaintenanceChecklistEditor() {
   const { t } = useLanguage();
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  );
+  
   const [checklists, setChecklists] = useState<MaintenanceChecklist[]>([]);
   const [selectedChecklist, setSelectedChecklist] = useState<MaintenanceChecklist | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isEditingItem, setIsEditingItem] = useState(false);
   const [editingItem, setEditingItem] = useState<ChecklistItem | null>(null);
   const [isPreviewMode, setIsPreviewMode] = useState(false);
+
+  // Load checklists from database on mount
+  useEffect(() => {
+    const loadChecklists = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('maintenance_checklists')
+          .select('*')
+          .order('created_at', { ascending: false });
+        
+        if (error) throw error;
+        
+        if (data) {
+          setChecklists(data as MaintenanceChecklist[]);
+        }
+      } catch (error) {
+        console.error('Error loading checklists:', error);
+        toast.error('Failed to load checklists');
+      }
+    };
+    
+    loadChecklists();
+  }, []);
+
 
   const [newChecklist, setNewChecklist] = useState<Partial<MaintenanceChecklist>>({
     name: '',
@@ -374,28 +404,104 @@ export default function MaintenanceChecklistEditor() {
     toast.success('Checklist created!');
   };
 
-  const handleSaveChecklist = () => {
+  const handleSaveChecklist = async () => {
     if (!selectedChecklist?.items.length) {
       toast.error('Add at least one item before saving');
       return;
     }
 
-    setChecklists((prev) =>
-      prev.map((c) => (c.id === selectedChecklist.id ? selectedChecklist : c))
-    );
-    toast.success('Checklist saved successfully! 🎉');
+    try {
+      // If checklist has no ID, it's new - create it
+      if (!selectedChecklist.id || selectedChecklist.id.startsWith('temp-')) {
+        const { data, error } = await supabase
+          .from('maintenance_checklists')
+          .insert([
+            {
+              name: selectedChecklist.name,
+              machine_type: selectedChecklist.machineType,
+              maintenance_type: selectedChecklist.maintenanceType,
+              items: selectedChecklist.items,
+              total_estimated_time: selectedChecklist.totalEstimatedTime,
+            },
+          ])
+          .select();
+
+        if (error) throw error;
+        
+        const newChecklist = { ...selectedChecklist, id: data[0].id };
+        setChecklists((prev) => [newChecklist, ...prev]);
+        setSelectedChecklist(newChecklist);
+      } else {
+        // Update existing checklist
+        const { error } = await supabase
+          .from('maintenance_checklists')
+          .update({
+            name: selectedChecklist.name,
+            machine_type: selectedChecklist.machineType,
+            maintenance_type: selectedChecklist.maintenanceType,
+            items: selectedChecklist.items,
+            total_estimated_time: selectedChecklist.totalEstimatedTime,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', selectedChecklist.id);
+
+        if (error) throw error;
+        
+        setChecklists((prev) =>
+          prev.map((c) => (c.id === selectedChecklist.id ? selectedChecklist : c))
+        );
+      }
+
+      toast.success('Checklist saved successfully! 🎉');
+    } catch (error) {
+      console.error('Error saving checklist:', error);
+      toast.error('Failed to save checklist');
+    }
   };
 
   const handleDuplicateChecklist = (checklist: MaintenanceChecklist) => {
     const newChecklist = {
       ...checklist,
-      id: Math.random().toString(),
+      id: `temp-${Date.now()}`,
       name: `${checklist.name} (Copy)`,
       createdAt: new Date(),
       updatedAt: new Date(),
     };
     setChecklists([...checklists, newChecklist]);
-    toast.success('Checklist duplicated!');
+    setSelectedChecklist(newChecklist);
+    toast.success('Checklist duplicated! Click Save to persist it.');
+  };
+
+  const handleDeleteChecklist = async (checklistId: string) => {
+    try {
+      // Remove from local state immediately for UX
+      setChecklists((prev) => prev.filter((c) => c.id !== checklistId));
+      
+      // If it's a temp checklist, no need to delete from DB
+      if (checklistId.startsWith('temp-')) {
+        toast.success('Checklist deleted');
+        return;
+      }
+      
+      // Delete from Supabase
+      const { error } = await supabase
+        .from('maintenance_checklists')
+        .delete()
+        .eq('id', checklistId);
+      
+      if (error) {
+        throw error;
+      }
+      
+      toast.success('Checklist deleted');
+    } catch (error) {
+      // Restore the checklist if deletion fails
+      const restoredChecklist = [...checklists].find(c => c.id === checklistId);
+      if (restoredChecklist) {
+        setChecklists((prev) => [...prev, restoredChecklist]);
+      }
+      toast.error('Failed to delete checklist: ' + (error instanceof Error ? error.message : 'Unknown error'));
+    }
   };
 
   return (
@@ -456,8 +562,7 @@ export default function MaintenanceChecklistEditor() {
                     className="flex-1 text-red-600 hover:text-red-700"
                     onClick={(e) => {
                       e.stopPropagation();
-                      setChecklists((prev) => prev.filter((c) => c.id !== checklist.id));
-                      toast.success('Checklist deleted');
+                      handleDeleteChecklist(checklist.id);
                     }}
                   >
                     <Trash2 size={14} />
