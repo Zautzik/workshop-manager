@@ -201,6 +201,8 @@ export default function MaintenanceChecklistEditor() {
 
   // Load checklists from database on mount
   useEffect(() => {
+    let isMounted = true;
+
     const loadChecklists = async () => {
       try {
         const { data, error } = await supabase
@@ -210,16 +212,25 @@ export default function MaintenanceChecklistEditor() {
         
         if (error) throw error;
         
-        if (data) {
+        // Only update state if component is still mounted
+        if (isMounted && data) {
           setChecklists(data as MaintenanceChecklist[]);
         }
       } catch (error) {
-        console.error('Error loading checklists:', error);
-        toast.error('Failed to load checklists');
+        // Only update state if component is still mounted
+        if (isMounted) {
+          console.error('Error loading checklists:', error);
+          toast.error('Failed to load checklists');
+        }
       }
     };
     
     loadChecklists();
+
+    // Cleanup function to prevent state updates after unmount
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
 

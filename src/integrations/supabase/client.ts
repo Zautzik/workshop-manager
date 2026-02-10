@@ -19,5 +19,9 @@ export const supabase = createClient<Database>(
 			persistSession: true,
 			autoRefreshToken: true,
 		},
+		// Suppress multiple instances warning in development
+		db: {
+			schema: 'public',
+		},
 	}
 );
