@@ -14,6 +14,8 @@
  * - 📱 Fully responsive and mobile-friendly
  * 
  * Used by maintenance technicians and managers to plan equipment maintenance work.
+ * 
+ * Build: v1.0.1 - Fixed PointerSensor configuration
  */
 'use client';
 
