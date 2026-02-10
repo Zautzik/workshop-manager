@@ -254,7 +254,7 @@ export default function MaintenanceChecklistEditor() {
     }
 
     const item: ChecklistItem = {
-      id: Math.random().toString(),
+      id: `item-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       step: (selectedChecklist?.items.length || 0) + 1,
       title: newItem.title,
       description: newItem.description || '',
@@ -378,7 +378,7 @@ export default function MaintenanceChecklistEditor() {
     }
 
     const checklist: MaintenanceChecklist = {
-      id: Math.random().toString(),
+      id: `temp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       name: newChecklist.name,
       machineType: newChecklist.machineType,
       maintenanceType: newChecklist.maintenanceType as any,
