@@ -10,7 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Calendar, Clock, AlertCircle, CheckCircle, Wrench, FileText, ArrowLeft, BarChart3 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-import ChecklistManagement from '@/components/maintenance/ChecklistManagement';
+import MaintenanceChecklistEditor from '@/components/maintenance/MaintenanceChecklistEditor';
 import WorkOrderExecution from '@/components/maintenance/WorkOrderExecution';
 
 interface WorkOrderStats {
@@ -171,7 +171,7 @@ export default function MaintenanceDashboard() {
           </TabsContent>
 
           <TabsContent value="checklists" className="mt-6">
-            <ChecklistManagement />
+            <MaintenanceChecklistEditor />
           </TabsContent>
 
           <TabsContent value="calendar" className="mt-6">
