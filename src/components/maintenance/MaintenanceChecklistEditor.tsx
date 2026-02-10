@@ -213,9 +213,7 @@ export default function MaintenanceChecklistEditor() {
   const [toolInput, setToolInput] = useState('');
 
   const sensors = useSensors(
-    useSensor(PointerSensor, {
-      distance: 8,
-    }),
+    useSensor(PointerSensor),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
     })
