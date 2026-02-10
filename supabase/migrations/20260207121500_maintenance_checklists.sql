@@ -4,6 +4,15 @@
 -- This migration adds support for maintenance checklist templates
 -- that can be reused and customized for different maintenance tasks
 
+-- Create maintenance_type enum
+CREATE TYPE IF NOT EXISTS public.maintenance_type AS ENUM (
+  'preventive',
+  'corrective',
+  'predictive',
+  'scheduled',
+  'emergency'
+);
+
 -- Create maintenance_checklists table
 CREATE TABLE IF NOT EXISTS public.maintenance_checklists (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
