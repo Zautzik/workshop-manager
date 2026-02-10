@@ -70,7 +70,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { createClient } from '@supabase/supabase-js';
+import { supabase } from '@/integrations/supabase/client';
 
 interface ChecklistItem {
   id: string;
@@ -191,10 +191,6 @@ const DraggableChecklistItem = ({
 
 export default function MaintenanceChecklistEditor() {
   const { t } = useLanguage();
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  );
   
   const [checklists, setChecklists] = useState<MaintenanceChecklist[]>([]);
   const [selectedChecklist, setSelectedChecklist] = useState<MaintenanceChecklist | null>(null);
