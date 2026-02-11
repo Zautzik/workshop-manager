@@ -190,30 +190,42 @@ export type Database = {
           created_at: string | null
           created_by: string | null
           description: string | null
-          frequency: string
+          frequency: string | null
           id: string
+          items: Json
           machine_id: string | null
+          machine_type: string
+          maintenance_type: string | null
           name: string
+          total_estimated_time: number
           updated_at: string | null
         }
         Insert: {
           created_at?: string | null
           created_by?: string | null
           description?: string | null
-          frequency: string
+          frequency?: string | null
           id?: string
+          items?: Json
           machine_id?: string | null
+          machine_type: string
+          maintenance_type?: string | null
           name: string
+          total_estimated_time?: number
           updated_at?: string | null
         }
         Update: {
           created_at?: string | null
           created_by?: string | null
           description?: string | null
-          frequency?: string
+          frequency?: string | null
           id?: string
+          items?: Json
           machine_id?: string | null
+          machine_type?: string
+          maintenance_type?: string | null
           name?: string
+          total_estimated_time?: number
           updated_at?: string | null
         }
         Relationships: [
