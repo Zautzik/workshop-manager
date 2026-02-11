@@ -418,8 +418,9 @@ export default function MaintenanceChecklistEditor() {
     }
 
     try {
-      // If checklist has no ID, it's new - create it
-      if (!selectedChecklist.id || selectedChecklist.id.startsWith('temp-')) {
+      const isNew = !selectedChecklist.id || selectedChecklist.id.startsWith('temp-');
+
+      if (isNew) {
         const { data, error } = await supabase
           .from('maintenance_checklists')
           .insert([
@@ -427,17 +428,27 @@ export default function MaintenanceChecklistEditor() {
               name: selectedChecklist.name,
               machine_type: selectedChecklist.machineType,
               maintenance_type: selectedChecklist.maintenanceType,
-              items: selectedChecklist.items,
+              items: JSON.parse(JSON.stringify(selectedChecklist.items)),
               total_estimated_time: selectedChecklist.totalEstimatedTime,
             },
           ])
           .select();
 
-        if (error) throw error;
+        if (error) {
+          console.error('Supabase insert error:', JSON.stringify(error));
+          throw error;
+        }
         
-        const newChecklist = { ...selectedChecklist, id: data[0].id };
-        setChecklists((prev) => [newChecklist, ...prev]);
-        setSelectedChecklist(newChecklist);
+        if (!data || data.length === 0) {
+          throw new Error('No data returned from insert');
+        }
+
+        const savedChecklist = { ...selectedChecklist, id: data[0].id };
+        // Replace the temp checklist with the saved one
+        setChecklists((prev) =>
+          prev.map((c) => (c.id === selectedChecklist.id ? savedChecklist : c))
+        );
+        setSelectedChecklist(savedChecklist);
       } else {
         // Update existing checklist
         const { error } = await supabase
@@ -446,13 +457,16 @@ export default function MaintenanceChecklistEditor() {
             name: selectedChecklist.name,
             machine_type: selectedChecklist.machineType,
             maintenance_type: selectedChecklist.maintenanceType,
-            items: selectedChecklist.items,
+            items: JSON.parse(JSON.stringify(selectedChecklist.items)),
             total_estimated_time: selectedChecklist.totalEstimatedTime,
             updated_at: new Date().toISOString(),
           })
           .eq('id', selectedChecklist.id);
 
-        if (error) throw error;
+        if (error) {
+          console.error('Supabase update error:', JSON.stringify(error));
+          throw error;
+        }
         
         setChecklists((prev) =>
           prev.map((c) => (c.id === selectedChecklist.id ? selectedChecklist : c))
