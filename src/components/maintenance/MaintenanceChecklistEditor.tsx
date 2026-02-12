@@ -214,7 +214,18 @@ export default function MaintenanceChecklistEditor() {
         
         // Only update state if component is still mounted
         if (isMounted && data) {
-          setChecklists(data as MaintenanceChecklist[]);
+          // Map snake_case DB columns to camelCase interface fields
+          const mapped: MaintenanceChecklist[] = data.map((row: any) => ({
+            id: row.id,
+            name: row.name,
+            machineType: row.machine_type || row.machineType || '',
+            maintenanceType: row.maintenance_type || row.maintenanceType || 'preventive',
+            items: Array.isArray(row.items) ? row.items : [],
+            totalEstimatedTime: row.total_estimated_time ?? row.totalEstimatedTime ?? 0,
+            createdAt: row.created_at ? new Date(row.created_at) : new Date(),
+            updatedAt: row.updated_at ? new Date(row.updated_at) : new Date(),
+          }));
+          setChecklists(mapped);
         }
       } catch (error) {
         // Only update state if component is still mounted
