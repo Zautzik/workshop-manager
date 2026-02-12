@@ -12,6 +12,16 @@ import { Clock, Play, CheckCircle, Wrench, AlertCircle } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
+interface ChecklistItem {
+  id: string;
+  step: number;
+  title: string;
+  description: string;
+  estimatedTime: number;
+  priority: string;
+  toolsRequired?: string[];
+}
+
 interface WorkOrder {
   id: string;
   status: string;
@@ -20,21 +30,27 @@ interface WorkOrder {
   started_at: string | null;
   total_time_minutes: number;
   notes: string | null;
-  machines: { name: string; type: string };
-  maintenance_checklists: { name: string; frequency: string };
+  checklist_id: string;
+  machine_id: string | null;
+  machines: { name: string; type: string } | null;
+  maintenance_checklists: {
+    name: string;
+    frequency: string | null;
+    machine_type: string;
+    items: ChecklistItem[];
+  } | null;
 }
 
-interface TaskCompletion {
+// Unified task representation that works for both FK and JSONB approaches
+interface TaskEntry {
   id: string;
-  task_id: string;
+  step: number;
+  description: string;
+  estimatedMinutes: number;
   completed: boolean;
-  time_spent_minutes: number;
-  notes: string | null;
-  maintenance_tasks: {
-    task_number: number;
-    description: string;
-    estimated_minutes: number;
-  };
+  notes: string;
+  // If this comes from the FK approach (maintenance_task_completions)
+  completionId?: string;
 }
 
 export default function WorkOrderExecution() {
@@ -42,7 +58,7 @@ export default function WorkOrderExecution() {
   const { toast } = useToast();
   const [workOrders, setWorkOrders] = useState<WorkOrder[]>([]);
   const [selectedOrder, setSelectedOrder] = useState<WorkOrder | null>(null);
-  const [taskCompletions, setTaskCompletions] = useState<TaskCompletion[]>([]);
+  const [tasks, setTasks] = useState<TaskEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [executing, setExecuting] = useState(false);
   const [taskNotes, setTaskNotes] = useState<Record<string, string>>({});
@@ -57,7 +73,7 @@ export default function WorkOrderExecution() {
       .select(`
         *,
         machines(name, type),
-        maintenance_checklists(name, frequency)
+        maintenance_checklists(name, frequency, machine_type, items)
       `)
       .in('status', ['pending', 'in_progress'])
       .order('priority', { ascending: false })
@@ -66,32 +82,62 @@ export default function WorkOrderExecution() {
     if (error) {
       toast({ title: 'Error', description: 'Failed to fetch work orders', variant: 'destructive' });
     } else {
-      setWorkOrders(data || []);
+      // Cast to handle JSONB items field from Supabase
+      setWorkOrders((data || []) as unknown as WorkOrder[]);
     }
     setLoading(false);
   };
 
-  const fetchTaskCompletions = async (workOrderId: string) => {
-    const { data, error } = await supabase
+  const loadTasksForOrder = async (order: WorkOrder) => {
+    // First, try to load from the FK-based maintenance_task_completions table
+    const { data: fkTasks, error: fkError } = await supabase
       .from('maintenance_task_completions')
       .select(`
         *,
         maintenance_tasks(task_number, description, estimated_minutes)
       `)
-      .eq('work_order_id', workOrderId)
-      .order('maintenance_tasks(task_number)');
+      .eq('work_order_id', order.id)
+      .order('created_at');
 
-    if (error) {
-      toast({ title: 'Error', description: 'Failed to fetch tasks', variant: 'destructive' });
-    } else {
-      setTaskCompletions(data || []);
-      // Initialize task notes
+    if (!fkError && fkTasks && fkTasks.length > 0) {
+      // FK approach: we have task completions linked to maintenance_tasks
+      const mapped: TaskEntry[] = fkTasks.map((tc: any) => ({
+        id: tc.task_id,
+        step: tc.maintenance_tasks?.task_number || 0,
+        description: tc.maintenance_tasks?.description || 'Task',
+        estimatedMinutes: tc.maintenance_tasks?.estimated_minutes || 15,
+        completed: tc.completed || false,
+        notes: tc.notes || '',
+        completionId: tc.id,
+      }));
+      setTasks(mapped);
       const notes: Record<string, string> = {};
-      data?.forEach(tc => {
-        notes[tc.id] = tc.notes || '';
-      });
+      mapped.forEach(t => { notes[t.id] = t.notes; });
       setTaskNotes(notes);
+      return;
     }
+
+    // JSONB approach: read items from checklist
+    const checklistItems = order.maintenance_checklists?.items;
+    if (Array.isArray(checklistItems) && checklistItems.length > 0) {
+      const mapped: TaskEntry[] = checklistItems.map((item: any) => ({
+        id: item.id || `item-${item.step}`,
+        step: item.step || 0,
+        description: item.title || item.description || 'Task',
+        estimatedMinutes: item.estimatedTime || item.estimated_minutes || 15,
+        completed: false,
+        notes: '',
+      }));
+      setTasks(mapped);
+      const notes: Record<string, string> = {};
+      mapped.forEach(t => { notes[t.id] = ''; });
+      setTaskNotes(notes);
+      return;
+    }
+
+    // No tasks found at all
+    setTasks([]);
+    setTaskNotes({});
   };
 
   const startWorkOrder = async (order: WorkOrder) => {
@@ -107,50 +153,56 @@ export default function WorkOrderExecution() {
       toast({ title: 'Error', description: 'Failed to start work order', variant: 'destructive' });
     } else {
       toast({ title: 'Started', description: 'Work order started' });
+      const updatedOrder = { ...order, status: 'in_progress', started_at: new Date().toISOString() };
+      setSelectedOrder(updatedOrder);
+      await loadTasksForOrder(updatedOrder);
       fetchWorkOrders();
-      setSelectedOrder({ ...order, status: 'in_progress', started_at: new Date().toISOString() });
-      fetchTaskCompletions(order.id);
     }
   };
 
-  const openWorkOrder = (order: WorkOrder) => {
+  const openWorkOrder = async (order: WorkOrder) => {
     setSelectedOrder(order);
-    fetchTaskCompletions(order.id);
+    await loadTasksForOrder(order);
     setExecuting(true);
   };
 
-  const toggleTaskCompletion = async (taskCompletion: TaskCompletion) => {
-    const newCompleted = !taskCompletion.completed;
+  const toggleTaskCompletion = async (task: TaskEntry) => {
+    const newCompleted = !task.completed;
     
-    const { error } = await supabase
-      .from('maintenance_task_completions')
-      .update({
-        completed: newCompleted,
-        completed_at: newCompleted ? new Date().toISOString() : null,
-        completed_by: newCompleted ? user?.id : null,
-        notes: taskNotes[taskCompletion.id] || null
-      })
-      .eq('id', taskCompletion.id);
+    // If FK-based, update in DB
+    if (task.completionId) {
+      const { error } = await supabase
+        .from('maintenance_task_completions')
+        .update({
+          completed: newCompleted,
+          completed_at: newCompleted ? new Date().toISOString() : null,
+          completed_by: newCompleted ? user?.id : null,
+          notes: taskNotes[task.id] || null
+        })
+        .eq('id', task.completionId);
 
-    if (error) {
-      toast({ title: 'Error', description: 'Failed to update task', variant: 'destructive' });
-    } else {
-      setTaskCompletions(prev => 
-        prev.map(tc => tc.id === taskCompletion.id ? { ...tc, completed: newCompleted } : tc)
-      );
+      if (error) {
+        toast({ title: 'Error', description: 'Failed to update task', variant: 'destructive' });
+        return;
+      }
     }
+
+    // Update local state
+    setTasks(prev => 
+      prev.map(t => t.id === task.id ? { ...t, completed: newCompleted } : t)
+    );
   };
 
   const completeWorkOrder = async () => {
     if (!selectedOrder) return;
 
-    const allCompleted = taskCompletions.every(tc => tc.completed);
+    const allCompleted = tasks.every(t => t.completed);
     if (!allCompleted) {
       toast({ title: 'Warning', description: 'Please complete all tasks first', variant: 'destructive' });
       return;
     }
 
-    const totalTime = taskCompletions.reduce((sum, tc) => sum + (tc.time_spent_minutes || tc.maintenance_tasks.estimated_minutes), 0);
+    const totalTime = tasks.reduce((sum, t) => sum + t.estimatedMinutes, 0);
 
     const { error } = await supabase
       .from('maintenance_work_orders')
@@ -172,9 +224,9 @@ export default function WorkOrderExecution() {
   };
 
   const getCompletionProgress = () => {
-    if (taskCompletions.length === 0) return 0;
-    const completed = taskCompletions.filter(tc => tc.completed).length;
-    return (completed / taskCompletions.length) * 100;
+    if (tasks.length === 0) return 0;
+    const completed = tasks.filter(t => t.completed).length;
+    return (completed / tasks.length) * 100;
   };
 
   const getStatusColor = (status: string) => {
@@ -222,7 +274,9 @@ export default function WorkOrderExecution() {
               <CardHeader className="pb-3">
                 <div className="flex items-start justify-between">
                   <div>
-                    <CardTitle className="text-base">{order.machines?.name}</CardTitle>
+                    <CardTitle className="text-base">
+                      {order.machines?.name || order.maintenance_checklists?.machine_type || 'Machine'}
+                    </CardTitle>
                     <p className="text-sm text-muted-foreground mt-1">
                       {order.maintenance_checklists?.name}
                     </p>
@@ -279,51 +333,63 @@ export default function WorkOrderExecution() {
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-muted-foreground">Progress</span>
                   <span className="font-medium">
-                    {taskCompletions.filter(tc => tc.completed).length} / {taskCompletions.length} tasks
+                    {tasks.filter(t => t.completed).length} / {tasks.length} tasks
                   </span>
                 </div>
                 <Progress value={getCompletionProgress()} className="h-2" />
               </div>
 
               {/* Task List */}
-              <div className="space-y-3">
-                {taskCompletions.map(tc => (
-                  <Card key={tc.id} className={`p-4 border-border/40 transition-colors ${tc.completed ? 'bg-green-500/10' : 'bg-card/50'}`}>
-                    <div className="flex items-start gap-4">
-                      <Checkbox
-                        checked={tc.completed}
-                        onCheckedChange={() => toggleTaskCompletion(tc)}
-                        className="mt-1"
-                      />
-                      <div className="flex-1 space-y-2">
-                        <div className="flex items-center justify-between">
-                          <span className={`font-medium ${tc.completed ? 'line-through text-muted-foreground' : ''}`}>
-                            {tc.maintenance_tasks.task_number}. {tc.maintenance_tasks.description}
-                          </span>
-                          <Badge variant="outline" className="text-xs">
-                            ~{tc.maintenance_tasks.estimated_minutes} min
-                          </Badge>
+              {tasks.length === 0 ? (
+                <Card className="p-6 border-border/40 bg-card/50">
+                  <div className="text-center">
+                    <AlertCircle className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+                    <p className="text-muted-foreground">No tasks found for this work order.</p>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      The associated checklist may not have items defined.
+                    </p>
+                  </div>
+                </Card>
+              ) : (
+                <div className="space-y-3">
+                  {tasks.map(task => (
+                    <Card key={task.id} className={`p-4 border-border/40 transition-colors ${task.completed ? 'bg-green-500/10' : 'bg-card/50'}`}>
+                      <div className="flex items-start gap-4">
+                        <Checkbox
+                          checked={task.completed}
+                          onCheckedChange={() => toggleTaskCompletion(task)}
+                          className="mt-1"
+                        />
+                        <div className="flex-1 space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className={`font-medium ${task.completed ? 'line-through text-muted-foreground' : ''}`}>
+                              {task.step}. {task.description}
+                            </span>
+                            <Badge variant="outline" className="text-xs">
+                              ~{task.estimatedMinutes} min
+                            </Badge>
+                          </div>
+                          {!task.completed && (
+                            <Textarea
+                              placeholder="Add notes (optional)"
+                              value={taskNotes[task.id] || ''}
+                              onChange={(e) => setTaskNotes(prev => ({ ...prev, [task.id]: e.target.value }))}
+                              className="text-sm"
+                              rows={2}
+                            />
+                          )}
                         </div>
-                        {!tc.completed && (
-                          <Textarea
-                            placeholder="Add notes (optional)"
-                            value={taskNotes[tc.id] || ''}
-                            onChange={(e) => setTaskNotes(prev => ({ ...prev, [tc.id]: e.target.value }))}
-                            className="text-sm"
-                            rows={2}
-                          />
-                        )}
                       </div>
-                    </div>
-                  </Card>
-                ))}
-              </div>
+                    </Card>
+                  ))}
+                </div>
+              )}
 
               {/* Complete Button */}
               <Button
                 onClick={completeWorkOrder}
                 className="w-full"
-                disabled={!taskCompletions.every(tc => tc.completed)}
+                disabled={tasks.length === 0 || !tasks.every(t => t.completed)}
               >
                 <CheckCircle className="h-4 w-4 mr-2" />
                 Complete Work Order
