@@ -19,7 +19,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-import ChecklistManagement from '@/components/maintenance/ChecklistManagement';
+import MaintenanceChecklistEditor from '@/components/maintenance/MaintenanceChecklistEditor';
 import WorkOrderExecution from '@/components/maintenance/WorkOrderExecution';
 
 interface WorkOrderStats {
@@ -201,7 +201,7 @@ export default function MaintenanceDashboard() {
 					</TabsContent>
 
 					<TabsContent value='checklists' className='mt-6'>
-						<ChecklistManagement />
+						<MaintenanceChecklistEditor />
 					</TabsContent>
 
 					<TabsContent value='calendar' className='mt-6'>
@@ -226,7 +226,7 @@ function MaintenanceCalendar() {
 					`
           *,
           machines(name),
-          maintenance_checklists(name, frequency)
+          maintenance_checklists(name, frequency, machine_type)
         `
 				)
 				.order('scheduled_date', { ascending: true });

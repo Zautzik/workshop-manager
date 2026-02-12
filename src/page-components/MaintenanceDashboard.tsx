@@ -195,7 +195,7 @@ function MaintenanceCalendar() {
         .select(`
           *,
           machines(name),
-          maintenance_checklists(name, frequency)
+          maintenance_checklists(name, frequency, machine_type)
         `)
         .order('scheduled_date', { ascending: true });
 
