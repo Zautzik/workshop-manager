@@ -441,6 +441,7 @@ export default function MaintenanceChecklistEditor() {
               maintenance_type: selectedChecklist.maintenanceType,
               items: JSON.parse(JSON.stringify(selectedChecklist.items)),
               total_estimated_time: selectedChecklist.totalEstimatedTime,
+              frequency: 'as_needed',
             },
           ])
           .select();

@@ -50,6 +50,7 @@ export async function POST(request: NextRequest) {
           maintenance_type: body.maintenanceType || 'preventive',
           items: body.items || [],
           total_estimated_time: body.totalEstimatedTime || 0,
+          frequency: body.frequency || 'as_needed',
         },
       ])
       .select();
