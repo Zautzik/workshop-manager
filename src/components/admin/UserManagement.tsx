@@ -54,25 +54,39 @@ const UserManagement = ({ onUpdate }: UserManagementProps) => {
   }, []);
 
   const fetchUsers = async () => {
-    const { data: authUsers } = await supabase.auth.admin.listUsers();
-    const { data: roles, error } = await supabase
-      .from('user_roles')
-      .select('*');
-    
-    if (error) {
-      toast.error('Error loading users');
-      return;
+    try {
+      // Call our backend API route instead of calling Supabase admin directly
+      // This is secure because the backend uses the SERVICE_ROLE key
+      const response = await fetch('/api/admin/users');
+      
+      if (!response.ok) {
+        toast.error('Error loading users');
+        return;
+      }
+
+      const { users: authUsers } = await response.json();
+      const { data: roles, error } = await supabase
+        .from('user_roles')
+        .select('*');
+      
+      if (error) {
+        toast.error('Error loading user roles');
+        return;
+      }
+      
+      const usersWithEmails = (roles || []).map((role: any) => {
+        const authUser = authUsers?.find((u: any) => u.id === role.user_id);
+        return {
+          ...role,
+          email: authUser?.email || 'Unknown',
+        };
+      });
+      
+      setUsers(usersWithEmails);
+    } catch (error) {
+      console.error('Failed to fetch users:', error);
+      toast.error('Failed to fetch users');
     }
-    
-    const usersWithEmails = (roles || []).map((role: any) => {
-      const authUser = authUsers?.users.find((u: any) => u.id === role.user_id);
-      return {
-        ...role,
-        email: authUser?.email || 'Unknown',
-      };
-    });
-    
-    setUsers(usersWithEmails);
   };
 
   const handleSubmit = async () => {
