@@ -7,7 +7,6 @@ const SUPABASE_URL =
 	'https://placeholder.supabase.co';
 const SUPABASE_SERVICE_ROLE_KEY =
 	process.env.SUPABASE_SERVICE_ROLE_KEY ||
-	process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
 	'placeholder-service-role-key';
 
 // Server-side Supabase client using the service role key. Do NOT expose this to the browser.
