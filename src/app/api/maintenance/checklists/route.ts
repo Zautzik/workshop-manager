@@ -34,15 +34,22 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
 
+    if (!body.name?.trim() || !body.machineType?.trim()) {
+      return NextResponse.json(
+        { error: 'name and machineType are required' },
+        { status: 400 }
+      );
+    }
+
     const { data, error } = await supabase
       .from('maintenance_checklists')
       .insert([
         {
           name: body.name,
           machine_type: body.machineType,
-          maintenance_type: body.maintenanceType,
-          items: body.items,
-          total_estimated_time: body.totalEstimatedTime,
+          maintenance_type: body.maintenanceType || 'preventive',
+          items: body.items || [],
+          total_estimated_time: body.totalEstimatedTime || 0,
         },
       ])
       .select();
@@ -68,7 +75,7 @@ export async function PATCH(request: NextRequest) {
         maintenance_type: body.maintenanceType,
         items: body.items,
         total_estimated_time: body.totalEstimatedTime,
-        updated_at: new Date(),
+        updated_at: new Date().toISOString(),
       })
       .eq('id', id)
       .select();
