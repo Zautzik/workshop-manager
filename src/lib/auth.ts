@@ -6,8 +6,8 @@
  * 
  * This file sets up NextAuth.js authentication with:
  * - Credentials provider (email/password login)
- * - Password verification using bcryptjs
- * - User role fetching from database
+ * - Password verification via Supabase Auth
+ * - User profile and role fetching from database
  * - JWT token management with user role information
  * - Session callbacks that attach user ID and role to session
  * - Custom login page redirect
@@ -17,9 +17,29 @@
  */
 import { NextAuthOptions } from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
-import bcrypt from 'bcryptjs';
+import { createClient } from '@supabase/supabase-js';
 import { supabaseAdmin } from '@/integrations/supabase/server';
+import type { Database } from '@/integrations/supabase/types';
 import type { AppRole } from '@/types/app-role';
+
+const SUPABASE_URL =
+	process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
+const SUPABASE_PUBLISHABLE_KEY =
+	process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
+	process.env.SUPABASE_ANON_KEY;
+
+const getSupabaseAuthClient = () => {
+	if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
+		throw new Error('Supabase auth configuration missing');
+	}
+
+	return createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+		auth: {
+			persistSession: false,
+			storage: undefined,
+		},
+	});
+};
 
 export const authOptions: NextAuthOptions = {
 	providers: [
@@ -34,33 +54,36 @@ export const authOptions: NextAuthOptions = {
 					throw new Error('Email and password required');
 				}
 
-				const { data: user, error } = await (supabaseAdmin as any)
+				const supabaseAuth = getSupabaseAuthClient();
+				const { data: authData, error: authError } =
+					await supabaseAuth.auth.signInWithPassword({
+						email: credentials.email,
+						password: credentials.password,
+					});
+
+				if (authError || !authData?.user) {
+					throw new Error('Invalid credentials');
+				}
+
+				const authUser = authData.user;
+				const { data: profile } = await supabaseAdmin
 					.from('users')
 					.select('*, user_roles(*)')
-					.eq('email', credentials.email)
+					.eq('id', authUser.id)
 					.single();
 
-				if (!user) {
-					throw new Error('Invalid credentials');
-				}
-
-				const isPasswordValid = await bcrypt.compare(
-					credentials.password,
-					user.password
-				);
-
-				if (!isPasswordValid) {
-					throw new Error('Invalid credentials');
-				}
-
 				// Get primary role (first role in the array)
-				const role = (user?.user_roles && user.user_roles[0]?.role) || null;
+				const role = profile?.user_roles?.[0]?.role ?? null;
+				const name =
+					profile?.name ??
+					(authUser.user_metadata?.name as string | undefined) ??
+					null;
 
 				return {
-					id: user.id,
-					email: user.email,
-					name: user.name,
-					role: role,
+					id: authUser.id,
+					email: authUser.email ?? credentials.email,
+					name,
+					role,
 				};
 			},
 		}),
