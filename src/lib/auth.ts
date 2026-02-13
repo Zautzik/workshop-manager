@@ -66,7 +66,7 @@ export const authOptions: NextAuthOptions = {
 				}
 
 				const authUser = authData.user;
-				const { data: profile } = await supabaseAdmin
+				const { data: profile } = await (supabaseAdmin as any)
 					.from('users')
 					.select('*, user_roles(*)')
 					.eq('id', authUser.id)
