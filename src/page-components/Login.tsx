@@ -78,6 +78,15 @@ const Login = () => {
     );
   }
 
+  // If already authenticated, show loading and let useEffect redirect
+  if (user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-primary/5 to-accent/10 p-4">
+        <div className="text-sm text-muted-foreground">Redirecting...</div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-primary/5 to-accent/10 p-4">
       <nav className="absolute top-4 right-4 flex gap-2" aria-label="Theme and language settings">

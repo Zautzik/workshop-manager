@@ -53,10 +53,11 @@ const AdminDashboard = () => {
   const { data: stats = { totalUsers: 0, totalWorkers: 0, totalMachines: 0, totalJobs: 0 } } = useAdminStats();
 
   useEffect(() => {
-    if (!user || role !== 'admin') {
-      router.push('/');
+    // Redirect only if NOT authenticated at all
+    if (!user) {
+      router.push('/login');
     }
-  }, [user, role, router]);
+  }, [user, router]);
 
   const handleLogout = async () => {
     await signOut();

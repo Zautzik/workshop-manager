@@ -29,10 +29,11 @@ const ManagerDashboard = () => {
   }, [jobs]);
 
   useEffect(() => {
-    if (!user || role !== 'manager') {
-      router.push('/');
+    // Redirect only if NOT authenticated at all
+    if (!user) {
+      router.push('/login');
     }
-  }, [user, role, router]);
+  }, [user, router]);
 
   const handleLogout = async () => {
     await signOut();

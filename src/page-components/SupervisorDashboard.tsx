@@ -22,10 +22,11 @@ const SupervisorDashboard = () => {
   const { data: jobs = [] } = useJobs();
 
   useEffect(() => {
-    if (!user || role !== 'supervisor') {
-      router.push('/');
+    // Redirect only if NOT authenticated at all
+    if (!user) {
+      router.push('/login');
     }
-  }, [user, role, router]);
+  }, [user, router]);
 
   const handleLogout = async () => {
     await signOut();
