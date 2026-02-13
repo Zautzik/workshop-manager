@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -27,138 +27,143 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Plus, Pencil, Trash2 } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
+
+/* ------------------------------------------------------------------ */
+/*  Types                                                              */
+/* ------------------------------------------------------------------ */
+
+type AppRole = 'admin' | 'manager' | 'supervisor' | 'technician';
+
+interface UserRow {
+  id: string;
+  user_id: string;
+  email: string;
+  role: AppRole;
+  department: string | null;
+  manager_domain: string | null;
+}
 
 interface UserManagementProps {
   onUpdate: () => void;
 }
 
+/* ------------------------------------------------------------------ */
+/*  Component                                                          */
+/* ------------------------------------------------------------------ */
+
 const UserManagement = ({ onUpdate }: UserManagementProps) => {
   const { t } = useLanguage();
-  const [users, setUsers] = useState<any[]>([]);
+  const [users, setUsers] = useState<UserRow[]>([]);
   const [showDialog, setShowDialog] = useState(false);
-  const [editingUser, setEditingUser] = useState<any>(null);
+  const [editingUser, setEditingUser] = useState<UserRow | null>(null);
+  const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     email: '',
     password: '',
-    role: 'supervisor' as any,
+    role: 'supervisor' as AppRole,
     department: '',
     manager_domain: '',
   });
 
-  useEffect(() => {
-    fetchUsers();
-  }, []);
-
-  const fetchUsers = async () => {
+  const fetchUsers = useCallback(async () => {
     try {
-      // Call our backend API route instead of calling Supabase admin directly
-      // This is secure because the backend uses the SERVICE_ROLE key
-      const response = await fetch('/api/admin/users');
-      
-      if (!response.ok) {
+      const res = await fetch('/api/admin/users');
+      if (!res.ok) {
         toast.error('Error loading users');
         return;
       }
-
-      const { users: authUsers } = await response.json();
-      const { data: roles, error } = await supabase
-        .from('user_roles')
-        .select('*');
-      
-      if (error) {
-        toast.error('Error loading user roles');
-        return;
-      }
-      
-      const usersWithEmails = (roles || []).map((role: any) => {
-        const authUser = authUsers?.find((u: any) => u.id === role.user_id);
-        return {
-          ...role,
-          email: authUser?.email || 'Unknown',
-        };
-      });
-      
-      setUsers(usersWithEmails);
+      const data = await res.json();
+      setUsers(data.users ?? []);
     } catch (error) {
       console.error('Failed to fetch users:', error);
       toast.error('Failed to fetch users');
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchUsers();
+  }, [fetchUsers]);
+
+  /* ----- Create / Update ----------------------------------------- */
 
   const handleSubmit = async () => {
-    if (editingUser) {
-      // Update existing user role
-      const { error } = await supabase
-        .from('user_roles')
-        .update({
-          role: formData.role,
-          department: formData.department || null,
-          manager_domain: formData.manager_domain || null,
-        })
-        .eq('id', editingUser.id);
-
-      if (error) {
-        toast.error('Error updating user');
-      } else {
-        toast.success('User updated successfully');
-        fetchUsers();
-        onUpdate();
-        resetForm();
-      }
-    } else {
-      // Create new user
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: formData.email,
-        password: formData.password,
-      });
-
-      if (authError) {
-        toast.error(authError.message);
-        return;
-      }
-
-      if (authData.user) {
-        const { error: roleError } = await supabase
-          .from('user_roles')
-          .insert({
-            user_id: authData.user.id,
+    setLoading(true);
+    try {
+      if (editingUser) {
+        // Update existing user role via API
+        const res = await fetch('/api/admin/users', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id: editingUser.id,
             role: formData.role,
             department: formData.department || null,
             manager_domain: formData.manager_domain || null,
-          } as any);
+          }),
+        });
 
-        if (roleError) {
-          toast.error('Error creating user role');
-        } else {
-          toast.success('User created successfully');
-          fetchUsers();
-          onUpdate();
-          resetForm();
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          toast.error(err.error ?? 'Error updating user');
+          return;
         }
+
+        toast.success('User updated successfully');
+      } else {
+        // Create new user via secure server-side API
+        const res = await fetch('/api/admin/users', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email: formData.email,
+            password: formData.password,
+            role: formData.role,
+            department: formData.department || null,
+            manager_domain: formData.manager_domain || null,
+          }),
+        });
+
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          toast.error(err.error ?? 'Error creating user');
+          return;
+        }
+
+        toast.success('User created successfully');
       }
+
+      fetchUsers();
+      onUpdate();
+      resetForm();
+    } finally {
+      setLoading(false);
     }
   };
+
+  /* ----- Delete --------------------------------------------------- */
 
   const handleDelete = async (userId: string) => {
     if (!confirm(t('confirmDelete'))) return;
 
-    const { error } = await supabase
-      .from('user_roles')
-      .delete()
-      .eq('id', userId);
+    const res = await fetch(`/api/admin/users?id=${userId}`, {
+      method: 'DELETE',
+    });
 
-    if (error) {
-      toast.error('Error deleting user');
-    } else {
-      toast.success('User deleted successfully');
-      fetchUsers();
-      onUpdate();
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      toast.error(err.error ?? 'Error deleting user');
+      return;
     }
+
+    toast.success('User deleted successfully');
+    fetchUsers();
+    onUpdate();
   };
+
+  /* ----- Form helpers --------------------------------------------- */
 
   const resetForm = () => {
     setFormData({
@@ -172,14 +177,14 @@ const UserManagement = ({ onUpdate }: UserManagementProps) => {
     setShowDialog(false);
   };
 
-  const openEditDialog = (user: any) => {
+  const openEditDialog = (user: UserRow) => {
     setEditingUser(user);
     setFormData({
-      email: '',
+      email: user.email,
       password: '',
       role: user.role,
-      department: user.department || '',
-      manager_domain: user.manager_domain || '',
+      department: user.department ?? '',
+      manager_domain: user.manager_domain ?? '',
     });
     setShowDialog(true);
   };
@@ -189,9 +194,12 @@ const UserManagement = ({ onUpdate }: UserManagementProps) => {
       case 'admin': return 'bg-primary text-primary-foreground';
       case 'manager': return 'bg-manager text-manager-foreground';
       case 'supervisor': return 'bg-supervisor text-supervisor-foreground';
+      case 'technician': return 'bg-orange-500 text-white';
       default: return 'bg-secondary text-secondary-foreground';
     }
   };
+
+  /* ----- Render --------------------------------------------------- */
 
   return (
     <Card className="border-primary/20">
@@ -199,7 +207,7 @@ const UserManagement = ({ onUpdate }: UserManagementProps) => {
         <div>
           <CardTitle className="text-2xl">{t('userManagement')}</CardTitle>
           <p className="text-sm text-muted-foreground mt-1">
-            Manage user accounts and assign roles
+            {t('addUserDescription')}
           </p>
         </div>
         <Button 
@@ -226,7 +234,7 @@ const UserManagement = ({ onUpdate }: UserManagementProps) => {
               {users.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
-                    No users found. Add your first user to get started.
+                    {t('noData')}
                   </TableCell>
                 </TableRow>
               ) : (
@@ -235,10 +243,10 @@ const UserManagement = ({ onUpdate }: UserManagementProps) => {
                     <TableCell className="font-medium">{user.email}</TableCell>
                     <TableCell>
                       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getRoleBadgeColor(user.role)}`}>
-                        {user.role}
+                        {t(user.role)}
                       </span>
                     </TableCell>
-                    <TableCell className="text-muted-foreground">{user.department || '-'}</TableCell>
+                    <TableCell className="text-muted-foreground">{user.department ? t(user.department) : '-'}</TableCell>
                     <TableCell>
                       <div className="flex justify-end gap-2">
                         <Button
@@ -249,7 +257,7 @@ const UserManagement = ({ onUpdate }: UserManagementProps) => {
                           aria-label={`Edit user ${user.email}`}
                         >
                           <Pencil className="h-4 w-4 mr-1" aria-hidden="true" />
-                          Edit
+                          {t('edit')}
                         </Button>
                         <Button
                           variant="outline"
@@ -259,7 +267,7 @@ const UserManagement = ({ onUpdate }: UserManagementProps) => {
                           aria-label={`Delete user ${user.email}`}
                         >
                           <Trash2 className="h-4 w-4 mr-1" aria-hidden="true" />
-                          Delete
+                          {t('delete')}
                         </Button>
                       </div>
                     </TableCell>
@@ -278,14 +286,14 @@ const UserManagement = ({ onUpdate }: UserManagementProps) => {
               {editingUser ? t('editUser') : t('addUser')}
             </DialogTitle>
             <DialogDescription id="user-dialog-description" className="text-base">
-              {editingUser ? 'Update user role and details' : 'Create a new user account with role assignment'}
+              {editingUser ? t('editUserDescription') : t('addUserDescription')}
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-6 py-4">
             {!editingUser && (
               <div className="space-y-4 p-4 border rounded-lg bg-muted/50">
-                <h4 className="font-semibold text-sm">Account Credentials</h4>
+                <h4 className="font-semibold text-sm">{t('email')} &amp; {t('password')}</h4>
                 <div className="space-y-2">
                   <Label htmlFor="email">{t('email')}</Label>
                   <Input
@@ -323,10 +331,10 @@ const UserManagement = ({ onUpdate }: UserManagementProps) => {
             )}
 
             <div className="space-y-2">
-              <Label htmlFor="role" className="text-base font-semibold">User Role *</Label>
+              <Label htmlFor="role" className="text-base font-semibold">{t('role')} *</Label>
               <Select
                 value={formData.role}
-                onValueChange={(value) => setFormData({ ...formData, role: value })}
+                onValueChange={(value: string) => setFormData({ ...formData, role: value as AppRole })}
                 required
                 aria-required="true"
               >
@@ -338,7 +346,7 @@ const UserManagement = ({ onUpdate }: UserManagementProps) => {
                     <div className="flex items-center gap-2">
                       <div className="w-3 h-3 rounded-full bg-supervisor" />
                       <div>
-                        <div className="font-medium">Supervisor</div>
+                        <div className="font-medium">{t('supervisor')}</div>
                         <div className="text-xs text-muted-foreground">Manages workers, jobs, and production</div>
                       </div>
                     </div>
@@ -347,8 +355,17 @@ const UserManagement = ({ onUpdate }: UserManagementProps) => {
                     <div className="flex items-center gap-2">
                       <div className="w-3 h-3 rounded-full bg-manager" />
                       <div>
-                        <div className="font-medium">Manager</div>
+                        <div className="font-medium">{t('manager')}</div>
                         <div className="text-xs text-muted-foreground">Views reports and analytics</div>
+                      </div>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="technician">
+                    <div className="flex items-center gap-2">
+                      <div className="w-3 h-3 rounded-full bg-orange-500" />
+                      <div>
+                        <div className="font-medium">{t('technician')}</div>
+                        <div className="text-xs text-muted-foreground">Executes maintenance checklists</div>
                       </div>
                     </div>
                   </SelectItem>
@@ -356,7 +373,7 @@ const UserManagement = ({ onUpdate }: UserManagementProps) => {
                     <div className="flex items-center gap-2">
                       <div className="w-3 h-3 rounded-full bg-primary" />
                       <div>
-                        <div className="font-medium">Admin</div>
+                        <div className="font-medium">{t('admin')}</div>
                         <div className="text-xs text-muted-foreground">Full system access and user management</div>
                       </div>
                     </div>
@@ -365,7 +382,7 @@ const UserManagement = ({ onUpdate }: UserManagementProps) => {
               </Select>
             </div>
 
-            {(formData.role === 'supervisor' || formData.role === 'manager') && (
+            {(formData.role === 'supervisor' || formData.role === 'manager' || formData.role === 'technician') && (
               <div className="space-y-2">
                 <Label htmlFor="department">{t('department')}</Label>
                 <Select value={formData.department} onValueChange={(value) => setFormData({ ...formData, department: value })}>
@@ -405,8 +422,8 @@ const UserManagement = ({ onUpdate }: UserManagementProps) => {
             <Button variant="outline" onClick={resetForm}>
               {t('cancel')}
             </Button>
-            <Button onClick={handleSubmit} className="bg-primary hover:bg-primary/90">
-              {editingUser ? t('saveChanges') : t('createUser')}
+            <Button onClick={handleSubmit} disabled={loading} className="bg-primary hover:bg-primary/90">
+              {loading ? t('common.loading') : editingUser ? t('update') : t('create')}
             </Button>
           </DialogFooter>
         </DialogContent>

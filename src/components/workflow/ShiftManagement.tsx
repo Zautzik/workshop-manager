@@ -1,12 +1,12 @@
 'use client';
-import { useState, useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { supabase } from "@/integrations/supabase/client";
 import { Factory, Package, Clock, AlertCircle, Info } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { useMachines, useOTs } from "@/hooks/use-queries";
 
 interface ShiftManagementProps {
   onShiftChange: () => void;
@@ -31,74 +31,49 @@ interface MachineWithOT {
  * ShiftManagement - Gantt-style view of machines and their OT assignments
  */
 export function ShiftManagement({ onShiftChange }: ShiftManagementProps) {
-  const [machinesWithOTs, setMachinesWithOTs] = useState<MachineWithOT[]>([]);
-  const [loading, setLoading] = useState(true);
   const { toast } = useToast();
+  const { data: machines = [], isError: machinesError, isLoading: machinesLoading } = useMachines();
+  const { data: ots = [], isError: otsError, isLoading: otsLoading } = useOTs();
 
   useEffect(() => {
-    fetchMachineSchedule();
-  }, []);
-
-  const fetchMachineSchedule = async () => {
-    setLoading(true);
-    try {
-      // Fetch all machines
-      const { data: machines, error: machinesError } = await supabase
-        .from("machines")
-        .select("*")
-        .order("name");
-
-      if (machinesError) throw machinesError;
-
-      // Fetch OTs with their current workstation
-      const { data: ots, error: otsError } = await supabase
-        .from("ots")
-        .select("*")
-        .neq("status", "completed")
-        .order("priority", { ascending: false });
-
-      if (otsError) throw otsError;
-
-      // Match machines with their current OTs based on machine type and OT status
-      const machineSchedule: MachineWithOT[] = (machines || []).map((machine) => {
-        // Find if this machine is working on an OT based on status matching
-        const currentOT = (ots || []).find(ot => {
-          // Map machine types to OT statuses
-          if (machine.type === "offset_printer" && ot.status === "offset_printing") return true;
-          if (machine.type === "die_cutter" && ot.status === "die_cutting") return true;
-          if (machine.type === "guillotine" && (ot.status === "guillotine_first_cut" || ot.status === "guillotine_final_cut")) return true;
-          if (machine.type === "manual_workshop" && ot.status === "workshop_revision") return true;
-          if (machine.type === "delivery" && ot.status === "in_delivery") return true;
-          return false;
-        });
-
-        return {
-          id: machine.id,
-          name: machine.name,
-          type: machine.type,
-          status: machine.status,
-          currentOT: currentOT ? {
-            id: currentOT.id,
-            ot_number: currentOT.ot_number,
-            client_name: currentOT.client_name,
-            quantity: currentOT.quantity,
-            status: currentOT.status,
-            priority: currentOT.priority,
-          } : undefined,
-        };
+    if (machinesError || otsError) {
+      toast({
+        title: "Error loading machine schedule",
+        description: "Failed to load machines or work orders",
+        variant: "destructive"
       });
-
-      setMachinesWithOTs(machineSchedule);
-    } catch (error: any) {
-      toast({ 
-        title: "Error loading machine schedule", 
-        description: error.message,
-        variant: "destructive" 
-      });
-    } finally {
-      setLoading(false);
     }
-  };
+  }, [machinesError, otsError, toast]);
+
+  const machinesWithOTs = useMemo<MachineWithOT[]>(() => {
+    const activeOts = ots.filter((ot: any) => ot.status !== "completed");
+
+    return machines.map((machine: any) => {
+      const currentOT = activeOts.find((ot: any) => {
+        if (machine.type === "offset_printer" && ot.status === "offset_printing") return true;
+        if (machine.type === "die_cutter" && ot.status === "die_cutting") return true;
+        if (machine.type === "guillotine" && (ot.status === "guillotine_first_cut" || ot.status === "guillotine_final_cut")) return true;
+        if (machine.type === "manual_workshop" && ot.status === "workshop_revision") return true;
+        if (machine.type === "delivery" && ot.status === "in_delivery") return true;
+        return false;
+      });
+
+      return {
+        id: machine.id,
+        name: machine.name,
+        type: machine.type,
+        status: machine.status,
+        currentOT: currentOT ? {
+          id: currentOT.id,
+          ot_number: currentOT.ot_number,
+          client_name: currentOT.client_name,
+          quantity: currentOT.quantity,
+          status: currentOT.status,
+          priority: currentOT.priority,
+        } : undefined,
+      };
+    });
+  }, [machines, ots]);
 
   const getStatusColor = (status: string) => {
     const colors: Record<string, string> = {
@@ -129,7 +104,7 @@ export function ShiftManagement({ onShiftChange }: ShiftManagementProps) {
     return colors[status] || "bg-gray-500";
   };
 
-  if (loading) {
+  if (machinesLoading || otsLoading) {
     return (
       <Card className="bg-white/10 border-white/20 backdrop-blur-sm">
         <CardContent className="p-8 text-center text-white">

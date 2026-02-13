@@ -71,6 +71,7 @@ import {
 import { toast } from 'sonner';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { supabase } from '@/integrations/supabase/client';
+import { useMaintenanceChecklists } from '@/hooks/use-queries';
 
 interface ChecklistItem {
   id: string;
@@ -199,50 +200,27 @@ export default function MaintenanceChecklistEditor() {
   const [editingItem, setEditingItem] = useState<ChecklistItem | null>(null);
   const [isPreviewMode, setIsPreviewMode] = useState(false);
 
-  // Load checklists from database on mount
+  const { data: rawChecklists = [], isError } = useMaintenanceChecklists();
+
   useEffect(() => {
-    let isMounted = true;
+    if (isError) {
+      toast.error('Failed to load checklists');
+    }
+  }, [isError]);
 
-    const loadChecklists = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('maintenance_checklists')
-          .select('*')
-          .order('created_at', { ascending: false });
-        
-        if (error) throw error;
-        
-        // Only update state if component is still mounted
-        if (isMounted && data) {
-          // Map snake_case DB columns to camelCase interface fields
-          const mapped: MaintenanceChecklist[] = data.map((row: any) => ({
-            id: row.id,
-            name: row.name,
-            machineType: row.machine_type || row.machineType || '',
-            maintenanceType: row.maintenance_type || row.maintenanceType || 'preventive',
-            items: Array.isArray(row.items) ? row.items : [],
-            totalEstimatedTime: row.total_estimated_time ?? row.totalEstimatedTime ?? 0,
-            createdAt: row.created_at ? new Date(row.created_at) : new Date(),
-            updatedAt: row.updated_at ? new Date(row.updated_at) : new Date(),
-          }));
-          setChecklists(mapped);
-        }
-      } catch (error) {
-        // Only update state if component is still mounted
-        if (isMounted) {
-          console.error('Error loading checklists:', error);
-          toast.error('Failed to load checklists');
-        }
-      }
-    };
-    
-    loadChecklists();
-
-    // Cleanup function to prevent state updates after unmount
-    return () => {
-      isMounted = false;
-    };
-  }, []);
+  useEffect(() => {
+    const mapped: MaintenanceChecklist[] = rawChecklists.map((row: any) => ({
+      id: row.id,
+      name: row.name,
+      machineType: row.machine_type || row.machineType || '',
+      maintenanceType: row.maintenance_type || row.maintenanceType || 'preventive',
+      items: Array.isArray(row.items) ? row.items : [],
+      totalEstimatedTime: row.total_estimated_time ?? row.totalEstimatedTime ?? 0,
+      createdAt: row.created_at ? new Date(row.created_at) : new Date(),
+      updatedAt: row.updated_at ? new Date(row.updated_at) : new Date(),
+    }));
+    setChecklists(mapped);
+  }, [rawChecklists]);
 
 
   const [newChecklist, setNewChecklist] = useState<Partial<MaintenanceChecklist>>({

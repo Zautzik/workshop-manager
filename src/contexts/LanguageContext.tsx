@@ -1,285 +1,256 @@
 /**
- * @fileoverview Language/Localization Context (i18n)
- * 
- * SYSTEM ROLE: Multi-Language Support Manager
- * ORGAN ANALOGY: The "Translation Department" - Provides localized text in English & Spanish
- * 
- * This context manages application internationalization (i18n):
- * - Stores all UI text translations in English (en) and Spanish (es)
- * - Provides setLanguage() to switch between languages
- * - Provides t() translation function to retrieve localized text
- * - Covers all UI text: buttons, labels, dashboard titles, status texts, etc.
- * 
- * Usage: const { t } = useLanguage(); then t('login') returns "Login" or "Iniciar sesión"
- * 
- * Supports entire application with 300+ translation keys for both languages.
+ * @fileoverview Language/Localization Context — thin wrapper over i18next
+ *
+ * Provides backward-compatible useLanguage().t('flatKey') API while delegating
+ * to the real i18next instance. New code should prefer useTranslation() from
+ * react-i18next directly with namespaced keys (e.g. t('auth.login')).
  */
 'use client';
 
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useCallback, ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
+import i18n from '@/i18n/config';
 
 type Language = 'en' | 'es';
 
-interface Translations {
-	[key: string]: {
-		en: string;
-		es: string;
-	};
-}
+/** Maps legacy flat keys → namespaced i18next keys */
+const keyMap: Record<string, string> = {
+  // Auth
+  login: 'auth.login',
+  email: 'auth.email',
+  password: 'auth.password',
+  logout: 'auth.logout',
 
-const translations: Translations = {
-	// Auth
-	login: { en: 'Login', es: 'Iniciar sesión' },
-	email: { en: 'Email', es: 'Correo electrónico' },
-	password: { en: 'Password', es: 'Contraseña' },
-	logout: { en: 'Logout', es: 'Cerrar sesión' },
+  // Dashboards
+  supervisorDashboard: 'dashboard.supervisor',
+  managerDashboard: 'dashboard.manager',
+  adminDashboard: 'dashboard.admin',
+  totalUsers: 'dashboard.totalUsers',
+  totalWorkers: 'dashboard.totalWorkers',
+  totalJobs: 'dashboard.totalJobs',
 
-	// Dashboards
-	supervisorDashboard: {
-		en: 'Supervisor Dashboard',
-		es: 'Panel de Supervisor',
-	},
-	managerDashboard: { en: 'Manager Dashboard', es: 'Panel de Gerente' },
-	adminDashboard: { en: 'Admin Dashboard', es: 'Panel de Administrador' },
-	machines: { en: 'Machines', es: 'Máquinas' },
-	jobs: { en: 'Jobs', es: 'Trabajos' },
-	reports: { en: 'Reports', es: 'Reportes' },
-	users: { en: 'Users', es: 'Usuarios' },
-	workers: { en: 'Workers', es: 'Trabajadores' },
-	inventory: { en: 'Inventory', es: 'Inventario' },
-	purchases: { en: 'Purchases', es: 'Compras' },
-	totalUsers: { en: 'Total Users', es: 'Total de Usuarios' },
-	totalWorkers: { en: 'Total Workers', es: 'Total de Trabajadores' },
-	userManagement: { en: 'User Management', es: 'Gestión de Usuarios' },
-	workersManagement: {
-		en: 'Workers Management',
-		es: 'Gestión de Trabajadores',
-	},
-	inventoryManagement: {
-		en: 'Inventory Management',
-		es: 'Gestión de Inventario',
-	},
-	purchasesManagement: { en: 'Purchases Management', es: 'Gestión de Compras' },
-	addUser: { en: 'Add User', es: 'Agregar Usuario' },
-	addWorker: { en: 'Add Worker', es: 'Agregar Trabajador' },
-	addItem: { en: 'Add Item', es: 'Agregar Artículo' },
-	addPurchase: { en: 'Add Purchase', es: 'Agregar Compra' },
-	editUser: { en: 'Edit User', es: 'Editar Usuario' },
-	editWorker: { en: 'Edit Worker', es: 'Editar Trabajador' },
-	editItem: { en: 'Edit Item', es: 'Editar Artículo' },
-	editPurchase: { en: 'Edit Purchase', es: 'Editar Compra' },
-	role: { en: 'Role', es: 'Rol' },
-	department: { en: 'Department', es: 'Departamento' },
-	name: { en: 'Name', es: 'Nombre' },
-	actions: { en: 'Actions', es: 'Acciones' },
-	itemName: { en: 'Item Name', es: 'Nombre del Artículo' },
-	quantity: { en: 'Quantity', es: 'Cantidad' },
-	costPerUnit: { en: 'Cost per Unit', es: 'Costo por Unidad' },
-	supplier: { en: 'Supplier', es: 'Proveedor' },
-	date: { en: 'Date', es: 'Fecha' },
-	totalCost: { en: 'Total Cost', es: 'Costo Total' },
-	certificationDetails: {
-		en: 'Certification Details',
-		es: 'Detalles de Certificación',
-	},
-	confirmDelete: {
-		en: 'Are you sure you want to delete this?',
-		es: '¿Estás seguro de que deseas eliminar esto?',
-	},
-	create: { en: 'Create', es: 'Crear' },
-	update: { en: 'Update', es: 'Actualizar' },
-	admin: { en: 'Admin', es: 'Administrador' },
-	manager: { en: 'Manager', es: 'Gerente' },
-	supervisor: { en: 'Supervisor', es: 'Supervisor' },
-	press: { en: 'Press', es: 'Prensa' },
-	deliveries: { en: 'Deliveries', es: 'Entregas' },
-	administration: { en: 'Administration', es: 'Administración' },
-	managerDomain: { en: 'Manager Domain', es: 'Dominio del Gerente' },
-	cost: { en: 'Cost', es: 'Costos' },
-	production: { en: 'Production', es: 'Producción' },
-	quality: { en: 'Quality', es: 'Calidad' },
-	addUserDescription: {
-		en: 'Create a new user with role and department',
-		es: 'Crear un nuevo usuario con su rol y departamento',
-	},
-	editUserDescription: {
-		en: 'Modify user role and department',
-		es: 'Modificar el rol y departamento del usuario',
-	},
-	addWorkerDescription: {
-		en: 'Add a new worker to the system',
-		es: 'Agregar un nuevo trabajador al sistema',
-	},
-	editWorkerDescription: {
-		en: 'Modify worker information',
-		es: 'Modificar la información del trabajador',
-	},
-	addItemDescription: {
-		en: 'Add a new item to inventory',
-		es: 'Agregar un nuevo artículo al inventario',
-	},
-	editItemDescription: {
-		en: 'Modify item information',
-		es: 'Modificar la información del artículo',
-	},
-	addPurchaseDescription: {
-		en: 'Register a new purchase',
-		es: 'Registrar una nueva compra',
-	},
-	editPurchaseDescription: {
-		en: 'Modify purchase details',
-		es: 'Modificar los detalles de la compra',
-	},
+  // Navigation
+  machines: 'nav.machines',
+  jobs: 'nav.jobs',
+  reports: 'nav.reports',
+  users: 'nav.users',
+  workers: 'nav.workers',
+  inventory: 'nav.inventory',
+  purchases: 'nav.purchases',
 
-	// Machine statuses
-	idle: { en: 'Idle', es: 'Inactivo' },
-	running: { en: 'Running', es: 'En ejecución' },
-	maintenance: { en: 'Maintenance', es: 'Mantenimiento' },
-	offline: { en: 'Offline', es: 'Fuera de línea' },
+  // User management
+  userManagement: 'userMgmt.title',
+  addUser: 'userMgmt.addUser',
+  editUser: 'userMgmt.editUser',
+  role: 'userMgmt.role',
+  department: 'userMgmt.department',
+  managerDomain: 'userMgmt.managerDomain',
+  addUserDescription: 'userMgmt.addDescription',
+  editUserDescription: 'userMgmt.editDescription',
 
-	// Job statuses
-	pending: { en: 'Pending', es: 'Pendiente' },
-	in_progress: { en: 'In Progress', es: 'En progreso' },
-	completed: { en: 'Completed', es: 'Completado' },
-	delivered: { en: 'Delivered', es: 'Entregado' },
+  // Worker management
+  workersManagement: 'workerMgmt.title',
+  addWorker: 'workerMgmt.addWorker',
+  editWorker: 'workerMgmt.editWorker',
+  addWorkerDescription: 'workerMgmt.addDescription',
+  editWorkerDescription: 'workerMgmt.editDescription',
+  workerRoster: 'workerMgmt.roster',
+  createRoster: 'workerMgmt.createRoster',
+  rosterName: 'workerMgmt.rosterName',
+  addToRoster: 'workerMgmt.addToRoster',
+  removeFromRoster: 'workerMgmt.removeFromRoster',
+  allWorkers: 'workerMgmt.allWorkers',
+  filterByDept: 'workerMgmt.filterByDept',
+  sortBy: 'workerMgmt.sortBy',
+  workerStats: 'workerMgmt.stats',
+  viewStats: 'workerMgmt.viewStats',
+  performance: 'workerMgmt.performance',
+  avgTime: 'workerMgmt.avgTime',
+  rating: 'workerMgmt.rating',
+  efficiencyScore: 'workerMgmt.efficiencyScore',
+  totalTasks: 'workerMgmt.totalTasks',
+  logTask: 'workerMgmt.logTask',
+  taskType: 'workerMgmt.taskType',
+  timeSpent: 'workerMgmt.timeSpent',
+  notes: 'workerMgmt.notes',
 
-	// Machine types
-	offset_printer: { en: 'Offset Printer', es: 'Impresora Offset' },
-	die_cutter: { en: 'Die Cutter', es: 'Troqueladora' },
-	guillotine: { en: 'Guillotine', es: 'Guillotina' },
-	digital_printer: { en: 'Digital Printer', es: 'Impresora Digital' },
-	pre_press: { en: 'Pre-Press', es: 'Pre-Impresión' },
-	manual_workshop: { en: 'Manual Workshop', es: 'Taller Manual' },
-	delivery: { en: 'Delivery', es: 'Entrega' },
+  // Inventory management
+  inventoryManagement: 'inventoryMgmt.title',
+  addItem: 'inventoryMgmt.addItem',
+  editItem: 'inventoryMgmt.editItem',
+  itemName: 'inventoryMgmt.itemName',
+  quantity: 'inventoryMgmt.quantity',
+  costPerUnit: 'inventoryMgmt.costPerUnit',
+  supplier: 'inventoryMgmt.supplier',
+  totalCost: 'inventoryMgmt.totalCost',
+  certificationDetails: 'inventoryMgmt.certificationDetails',
+  addItemDescription: 'inventoryMgmt.addDescription',
+  editItemDescription: 'inventoryMgmt.editDescription',
 
-	// Actions
-	addJob: { en: 'Add Job', es: 'Agregar Trabajo' },
-	updateStatus: { en: 'Update Status', es: 'Actualizar Estado' },
-	addOT: { en: 'Add OT', es: 'Agregar OT' },
-	addBatch: { en: 'Add Batch', es: 'Agregar Lote' },
-	viewTraceability: { en: 'View Traceability', es: 'Ver Trazabilidad' },
-	exportPDF: { en: 'Export PDF', es: 'Exportar PDF' },
-	assignWorker: { en: 'Assign Worker', es: 'Asignar Trabajador' },
-	assignBatch: { en: 'Assign Batch', es: 'Asignar Lote' },
+  // Purchases management
+  purchasesManagement: 'purchasesMgmt.title',
+  addPurchase: 'purchasesMgmt.addPurchase',
+  editPurchase: 'purchasesMgmt.editPurchase',
+  addPurchaseDescription: 'purchasesMgmt.addDescription',
+  editPurchaseDescription: 'purchasesMgmt.editDescription',
 
-	// OT
-	ot: { en: 'Work Order', es: 'Orden de Trabajo' },
-	otNumber: { en: 'OT Number', es: 'Número de OT' },
-	otList: { en: 'Work Orders', es: 'Órdenes de Trabajo' },
-	createOT: { en: 'Create Work Order', es: 'Crear Orden de Trabajo' },
+  // Roles
+  admin: 'roles.admin',
+  manager: 'roles.manager',
+  supervisor: 'roles.supervisor',
 
-	// Batches & Materials
-	batch: { en: 'Batch', es: 'Lote' },
-	batches: { en: 'Batches', es: 'Lotes' },
-	batchNumber: { en: 'Batch Number', es: 'Número de Lote' },
-	paperType: { en: 'Paper Type', es: 'Tipo de Papel' },
-	quantityRemaining: { en: 'Quantity Remaining', es: 'Cantidad Disponible' },
-	certifications: { en: 'Certifications', es: 'Certificaciones' },
+  // Departments
+  press: 'departments.press',
+  deliveries: 'departments.deliveries',
+  administration: 'departments.administration',
+  pre_press: 'departments.pre_press',
+  manual_workshop: 'departments.manual_workshop',
 
-	// Costs
-	totalJobCost: { en: 'Total Job Cost', es: 'Costo Total del Trabajo' },
-	materialCost: { en: 'Material Cost', es: 'Costo de Material' },
-	laborCost: { en: 'Labor Cost', es: 'Costo de Mano de Obra' },
-	machineCost: { en: 'Machine Cost', es: 'Costo de Máquina' },
-	costBreakdown: { en: 'Cost Breakdown', es: 'Desglose de Costos' },
+  // Manager domains
+  cost: 'domains.cost',
+  production: 'domains.production',
+  quality: 'domains.quality',
 
-	// Reports
-	costReport: { en: 'Cost Report', es: 'Reporte de Costos' },
-	efficiencyReport: { en: 'Efficiency Report', es: 'Reporte de Eficiencia' },
-	traceabilityReport: {
-		en: 'Traceability Report',
-		es: 'Reporte de Trazabilidad',
-	},
+  // Machine statuses
+  idle: 'machineStatus.idle',
+  running: 'machineStatus.running',
+  maintenance: 'machineStatus.maintenance',
+  offline: 'machineStatus.offline',
 
-	// Stats
-	totalJobs: { en: 'Total Jobs', es: 'Total de Trabajos' },
-	completedJobs: { en: 'Completed Jobs', es: 'Trabajos Completados' },
-	pendingJobs: { en: 'Pending Jobs', es: 'Trabajos Pendientes' },
-	efficiency: { en: 'Efficiency', es: 'Eficiencia' },
-	totalOTs: { en: 'Total OTs', es: 'Total de OTs' },
+  // Job statuses
+  pending: 'jobStatus.pending',
+  in_progress: 'jobStatus.in_progress',
+  completed: 'jobStatus.completed',
+  delivered: 'jobStatus.delivered',
 
-	// Process flow
-	processFlow: { en: 'Process Flow', es: 'Flujo de Proceso' },
-	timeline: { en: 'Timeline', es: 'Línea de Tiempo' },
+  // Machine types
+  offset_printer: 'machineTypes.offset_printer',
+  die_cutter: 'machineTypes.die_cutter',
+  guillotine: 'machineTypes.guillotine',
+  digital_printer: 'machineTypes.digital_printer',
 
-	// Other
-	description: { en: 'Description', es: 'Descripción' },
-	status: { en: 'Status', es: 'Estado' },
-	machine: { en: 'Machine', es: 'Máquina' },
-	worker: { en: 'Worker', es: 'Trabajador' },
-	submit: { en: 'Submit', es: 'Enviar' },
-	cancel: { en: 'Cancel', es: 'Cancelar' },
-	save: { en: 'Save', es: 'Guardar' },
-	edit: { en: 'Edit', es: 'Editar' },
-	delete: { en: 'Delete', es: 'Eliminar' },
-	view: { en: 'View', es: 'Ver' },
-	overview: { en: 'Overview', es: 'Resumen' },
-	noData: { en: 'No data available', es: 'No hay datos disponibles' },
-	search: { en: 'Search', es: 'Buscar' },
-	createdAt: { en: 'Created At', es: 'Creado el' },
-	jobsPerDay: { en: 'Jobs per Day', es: 'Trabajos por día' },
+  // Actions
+  addJob: 'actions.addJob',
+  updateStatus: 'actions.updateStatus',
+  addOT: 'actions.addOT',
+  addBatch: 'actions.addBatch',
+  viewTraceability: 'actions.viewTraceability',
+  exportPDF: 'actions.exportPDF',
+  assignWorker: 'actions.assignWorker',
+  assignBatch: 'actions.assignBatch',
 
-	// Worker management
-	workerRoster: { en: 'Worker Roster', es: 'Plantilla de Trabajadores' },
-	createRoster: { en: 'Create Roster', es: 'Crear Plantilla' },
-	rosterName: { en: 'Roster Name', es: 'Nombre de Plantilla' },
-	addToRoster: { en: 'Add to Roster', es: 'Agregar a Plantilla' },
-	removeFromRoster: { en: 'Remove from Roster', es: 'Quitar de Plantilla' },
+  // OT
+  ot: 'ot.title',
+  otNumber: 'ot.otNumber',
+  otList: 'ot.list',
+  createOT: 'ot.create',
 
-	// Task types
-	detachment: { en: 'Detachment', es: 'Desmontaje' },
-	revision: { en: 'Revision', es: 'Revisión' },
-	packaging: { en: 'Packaging', es: 'Empaque' },
-	printing: { en: 'Printing', es: 'Impresión' },
-	cutting: { en: 'Cutting', es: 'Corte' },
+  // Batches
+  batch: 'batch.title',
+  batches: 'batch.batches',
+  batchNumber: 'batch.number',
+  paperType: 'batch.paperType',
+  quantityRemaining: 'batch.quantityRemaining',
+  certifications: 'batch.certifications',
 
-	// Worker stats
-	performance: { en: 'Performance', es: 'Rendimiento' },
-	avgTime: { en: 'Avg Time', es: 'Tiempo Promedio' },
-	rating: { en: 'Rating', es: 'Calificación' },
-	efficiencyScore: { en: 'Efficiency', es: 'Eficiencia' },
-	totalTasks: { en: 'Total Tasks', es: 'Tareas Totales' },
-	logTask: { en: 'Log Task', es: 'Registrar Tarea' },
-	taskType: { en: 'Task Type', es: 'Tipo de Tarea' },
-	timeSpent: { en: 'Time Spent (min)', es: 'Tiempo (min)' },
-	notes: { en: 'Notes', es: 'Notas' },
-	workerStats: { en: 'Worker Statistics', es: 'Estadísticas de Trabajadores' },
-	viewStats: { en: 'View Stats', es: 'Ver Estadísticas' },
-	allWorkers: { en: 'All Workers', es: 'Todos los Trabajadores' },
-	filterByDept: { en: 'Filter by Department', es: 'Filtrar por Departamento' },
-	sortBy: { en: 'Sort by', es: 'Ordenar por' },
+  // Costs
+  totalJobCost: 'costs.totalJobCost',
+  materialCost: 'costs.materialCost',
+  laborCost: 'costs.laborCost',
+  machineCost: 'costs.machineCost',
+  costBreakdown: 'costs.breakdown',
+
+  // Reports
+  costReport: 'reports.cost',
+  efficiencyReport: 'reports.efficiency',
+  traceabilityReport: 'reports.traceability',
+
+  // Stats
+  completedJobs: 'stats.completedJobs',
+  pendingJobs: 'stats.pendingJobs',
+  efficiency: 'stats.efficiency',
+  totalOTs: 'stats.totalOTs',
+  jobsPerDay: 'stats.jobsPerDay',
+
+  // Process
+  processFlow: 'process.flow',
+  timeline: 'process.timeline',
+
+  // Tasks
+  detachment: 'tasks.detachment',
+  revision: 'tasks.revision',
+  packaging: 'tasks.packaging',
+  printing: 'tasks.printing',
+  cutting: 'tasks.cutting',
+
+  // Common
+  name: 'common.name',
+  actions: 'common.actions',
+  date: 'common.date',
+  description: 'common.description',
+  status: 'common.status',
+  submit: 'common.submit',
+  cancel: 'common.cancel',
+  save: 'common.save',
+  edit: 'common.edit',
+  delete: 'common.delete',
+  view: 'common.view',
+  overview: 'common.overview',
+  noData: 'common.noData',
+  search: 'common.search',
+  createdAt: 'common.createdAt',
+  confirmDelete: 'common.confirmDelete',
+  create: 'common.create',
+  update: 'common.update',
+
+  // Singular nouns (used in some components)
+  machine: 'nav.machines',
+  worker: 'nav.workers',
+  delivery: 'departments.deliveries',
 };
 
 interface LanguageContextType {
-	language: Language;
-	setLanguage: (lang: Language) => void;
-	t: (key: string) => string;
+  language: Language;
+  setLanguage: (lang: Language) => void;
+  t: (key: string) => string;
 }
 
-const LanguageContext = createContext<LanguageContextType | undefined>(
-	undefined
-);
+const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
 
-export const LanguageProvider: React.FC<{ children: ReactNode }> = ({
-	children,
-}) => {
-	const [language, setLanguage] = useState<Language>('en');
+export const LanguageProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+  const { t: i18nT } = useTranslation();
 
-	const t = (key: string): string => {
-		return translations[key]?.[language] || key;
-	};
+  const language = (i18n.language?.startsWith('es') ? 'es' : 'en') as Language;
 
-	return (
-		<LanguageContext.Provider value={{ language, setLanguage, t }}>
-			{children}
-		</LanguageContext.Provider>
-	);
+  const setLanguage = useCallback((lang: Language) => {
+    i18n.changeLanguage(lang);
+  }, []);
+
+  const t = useCallback(
+    (key: string): string => {
+      // Try the key mapped to its namespace first, then as-is (for new code)
+      const mapped = keyMap[key];
+      if (mapped) return i18nT(mapped);
+      // Try directly (supports namespaced keys like 'auth.login')
+      const result = i18nT(key);
+      if (result !== key) return result;
+      // Fallback: return the key itself
+      return key;
+    },
+    [i18nT],
+  );
+
+  return (
+    <LanguageContext.Provider value={{ language, setLanguage, t }}>
+      {children}
+    </LanguageContext.Provider>
+  );
 };
 
 export const useLanguage = () => {
-	const context = useContext(LanguageContext);
-	if (!context) {
-		throw new Error('useLanguage must be used within a LanguageProvider');
-	}
-	return context;
+  const context = useContext(LanguageContext);
+  if (!context) {
+    throw new Error('useLanguage must be used within a LanguageProvider');
+  }
+  return context;
 };

@@ -4,23 +4,24 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ArrowLeft } from 'lucide-react';
-import { useNavigate } from '@/lib/navigation';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { OTFinancialTracking } from '@/components/financial/OTFinancialTracking';
 import { MachineCostAnalysis } from '@/components/financial/MachineCostAnalysis';
 import { EquipmentInvestmentAnalysis } from '@/components/financial/EquipmentInvestmentAnalysis';
 
 const FinancialReport = () => {
-  const navigate = useNavigate();
+  const router = useRouter();
   const { role } = useAuth();
 
   const handleBack = () => {
-    const dashboardRoutes = {
+    const dashboardRoutes: Record<string, string> = {
       manager: '/manager',
       admin: '/admin',
-      supervisor: '/supervisor'
+      supervisor: '/supervisor',
+      technician: '/supervisor'
     };
-    navigate(dashboardRoutes[role || 'manager']);
+    router.push(dashboardRoutes[role || 'manager']);
   };
 
   return (

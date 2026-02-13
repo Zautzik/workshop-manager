@@ -16,8 +16,9 @@ i18n
 		},
 		fallbackLng: 'es', // Default to Spanish for Chilean users
 		detection: {
-			order: ['navigator', 'localStorage', 'htmlTag'],
+			order: ['localStorage', 'navigator', 'htmlTag'],
 			caches: ['localStorage'],
+			lookupLocalStorage: 'i18nextLng',
 		},
 		interpolation: {
 			escapeValue: false,

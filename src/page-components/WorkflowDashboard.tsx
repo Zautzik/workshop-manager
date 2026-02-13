@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from "react";
-import { useNavigate } from "@/lib/navigation";
+import { useRouter } from 'next/navigation';
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -14,22 +14,23 @@ import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { Users, Factory, Clock, BarChart3, ClipboardList, ArrowLeft } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
+import { useWorkerAssignments, useWorkersByRating, useWorkstations, useShifts } from "@/hooks/use-queries";
 import { DndContext, DragEndEvent, DragOverlay } from "@dnd-kit/core";
 import { useTranslation } from "react-i18next";
 
 export default function WorkflowDashboard() {
   const [selectedWorker, setSelectedWorker] = useState<any>(null);
   const [selectedOT, setSelectedOT] = useState<any>(null);
-  const [workers, setWorkers] = useState<any[]>([]);
-  const [workstations, setWorkstations] = useState<any[]>([]);
-  const [assignments, setAssignments] = useState<any[]>([]);
-  const [shifts, setShifts] = useState<any[]>([]);
+  const { data: workers = [] } = useWorkersByRating();
+  const { data: workstations = [] } = useWorkstations();
+  const { data: shifts = [] } = useShifts();
+  const { data: assignments = [], refetch: refetchAssignments } = useWorkerAssignments();
   const [selectedShiftId, setSelectedShiftId] = useState<string | null>(null);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [activeOtBg, setActiveOtBg] = useState<string>("hsl(220, 20%, 10%)");
   const { toast } = useToast();
   const { role } = useAuth();
-  const navigate = useNavigate();
+  const router = useRouter();
   const { t } = useTranslation();
 
   const handleBackToDashboard = () => {
@@ -38,71 +39,14 @@ export default function WorkflowDashboard() {
       manager: '/manager',
       admin: '/admin'
     };
-    navigate(dashboardRoutes[role || 'supervisor']);
+    router.push(dashboardRoutes[role || 'supervisor']);
   };
 
   useEffect(() => {
-    fetchShifts();
-    fetchWorkers();
-    fetchWorkstations();
-    fetchAssignments();
-  }, []);
-
-  const fetchShifts = async () => {
-    const { data, error } = await supabase
-      .from("shifts")
-      .select("*")
-      .order("start_time");
-
-    if (error) {
-      toast({ title: "Error fetching shifts", variant: "destructive" });
-      return;
+    if (!selectedShiftId && shifts.length > 0) {
+      setSelectedShiftId(shifts[0].id);
     }
-
-    setShifts(data || []);
-    if (!selectedShiftId && data && data.length > 0) {
-      setSelectedShiftId(data[0].id);
-    }
-  };
-
-  const fetchWorkers = async () => {
-    const { data, error } = await supabase
-      .from("workers")
-      .select("*")
-      .order("overall_rating", { ascending: false });
-
-    if (error) {
-      toast({ title: "Error fetching workers", variant: "destructive" });
-      return;
-    }
-    setWorkers(data || []);
-  };
-
-  const fetchWorkstations = async () => {
-    const { data, error } = await supabase
-      .from("workstations")
-      .select("*")
-      .order("name");
-
-    if (error) {
-      toast({ title: "Error fetching workstations", variant: "destructive" });
-      return;
-    }
-    setWorkstations(data || []);
-  };
-
-  const fetchAssignments = async () => {
-    const { data, error } = await supabase
-      .from("worker_assignments")
-      .select(`*, worker:workers(*), workstation:workstations(*), shift:shifts(*)`)
-      .eq("date", new Date().toISOString().split("T")[0]);
-
-    if (error) {
-      toast({ title: "Error fetching assignments", variant: "destructive" });
-      return;
-    }
-    setAssignments(data || []);
-  };
+  }, [selectedShiftId, shifts]);
 
   const handleWorkerSelect = (worker: any) => {
     setSelectedWorker(worker);
@@ -177,7 +121,7 @@ export default function WorkflowDashboard() {
         description: `${worker.name} assigned to ${workstation.name}`
       });
 
-      fetchAssignments();
+      refetchAssignments();
     } catch (error: any) {
       toast({
         title: "Error assigning worker",
@@ -329,7 +273,7 @@ export default function WorkflowDashboard() {
                   selectedShift={selectedShiftId || ""}
                   selectedOT={selectedOT}
                   onWorkerSelect={handleWorkerSelect}
-                  onAssignmentChange={fetchAssignments}
+                  onAssignmentChange={refetchAssignments}
                 />
               </div>
               <div className="lg:col-span-1">
@@ -343,7 +287,7 @@ export default function WorkflowDashboard() {
           </TabsContent>
 
           <TabsContent value="shifts" className="mt-4">
-            <ShiftManagement onShiftChange={() => fetchAssignments()} />
+            <ShiftManagement onShiftChange={() => refetchAssignments()} />
           </TabsContent>
 
           <TabsContent value="stats" className="mt-4">

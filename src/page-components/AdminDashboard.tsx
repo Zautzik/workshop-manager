@@ -31,13 +31,13 @@
  */
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useNavigate } from '@/lib/navigation';
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { supabase } from '@/integrations/supabase/client';
+import { useAdminStats } from '@/hooks/use-queries';
 import { LogOut, Users, Package, FileText, DollarSign, Factory, Wrench, LayoutDashboard } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import UserManagement from '@/components/admin/UserManagement';
@@ -49,42 +49,18 @@ import ExecutiveOverview from '@/components/admin/ExecutiveOverview';
 const AdminDashboard = () => {
   const { user, role, signOut } = useAuth();
   const { t } = useLanguage();
-  const navigate = useNavigate();
-  const [stats, setStats] = useState({
-    totalUsers: 0,
-    totalWorkers: 0,
-    totalMachines: 0,
-    totalJobs: 0,
-  });
+  const router = useRouter();
+  const { data: stats = { totalUsers: 0, totalWorkers: 0, totalMachines: 0, totalJobs: 0 } } = useAdminStats();
 
   useEffect(() => {
     if (!user || role !== 'admin') {
-      navigate('/');
-      return;
+      router.push('/');
     }
-    
-    fetchStats();
-  }, [user, role, navigate]);
-
-  const fetchStats = async () => {
-    const [usersData, workersData, machinesData, jobsData] = await Promise.all([
-      supabase.from('user_roles').select('id', { count: 'exact', head: true }),
-      supabase.from('workers' as any).select('id', { count: 'exact', head: true }),
-      supabase.from('machines').select('id', { count: 'exact', head: true }),
-      supabase.from('jobs').select('id', { count: 'exact', head: true }),
-    ]);
-
-    setStats({
-      totalUsers: usersData.count || 0,
-      totalWorkers: workersData.count || 0,
-      totalMachines: machinesData.count || 0,
-      totalJobs: jobsData.count || 0,
-    });
-  };
+  }, [user, role, router]);
 
   const handleLogout = async () => {
     await signOut();
-    navigate('/');
+    router.push('/');
   };
 
   return (
@@ -100,7 +76,7 @@ const AdminDashboard = () => {
           </div>
           <nav aria-label="Main navigation" className="flex gap-2">
             <Button
-              onClick={() => navigate('/financial')}
+              onClick={() => router.push('/financial')}
               variant="outline"
               className="border-green-500/30 text-green-500 hover:bg-green-500/10"
               aria-label="Navigate to Financial Report"
@@ -109,7 +85,7 @@ const AdminDashboard = () => {
               Financial Report
             </Button>
             <Button
-              onClick={() => navigate('/workflow')}
+              onClick={() => router.push('/workflow')}
               variant="default"
               className="bg-blue-500 hover:bg-blue-600"
               aria-label="Navigate to Workflow Management"
@@ -118,7 +94,7 @@ const AdminDashboard = () => {
               Workflow Management
             </Button>
             <Button
-              onClick={() => navigate('/maintenance')}
+              onClick={() => router.push('/maintenance')}
               variant="outline"
               className="border-orange-500/30 text-orange-500 hover:bg-orange-500/10"
               aria-label="Navigate to Asset Maintenance"
@@ -231,11 +207,11 @@ const AdminDashboard = () => {
           </TabsContent>
 
           <TabsContent value="users" className="space-y-4">
-            <UserManagement onUpdate={fetchStats} />
+            <UserManagement onUpdate={() => {}} />
           </TabsContent>
 
           <TabsContent value="workers" className="space-y-4">
-            <WorkersManagement onUpdate={fetchStats} />
+            <WorkersManagement onUpdate={() => {}} />
           </TabsContent>
 
           <TabsContent value="inventory" className="space-y-4">

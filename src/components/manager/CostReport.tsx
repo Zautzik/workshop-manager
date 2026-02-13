@@ -1,53 +1,32 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { FileDown, DollarSign } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { supabase } from '@/integrations/supabase/client';
+import { useJobs } from '@/hooks/use-queries';
 import { toast } from 'sonner';
 
 const CostReport = () => {
   const { t } = useLanguage();
-  const [stats, setStats] = useState({
-    totalCost: 0,
-    materialCost: 0,
-    laborCost: 0,
-    machineCost: 0,
-    jobCount: 0,
-  });
-  const [jobs, setJobs] = useState<any[]>([]);
+  const { data: jobsData = [] } = useJobs();
+  const jobs = jobsData as any[];
 
-  useEffect(() => {
-    fetchCostData();
-  }, []);
-
-  const fetchCostData = async () => {
-    const { data, error } = await supabase
-      .from('jobs')
-      .select('*, ot(ot_number), machines(name), workers(name), batches(paper_type)') as any;
-
-    if (error) {
-      toast.error('Error loading cost data');
-      return;
-    }
-
-    setJobs(data || []);
-
-    const totalCost = data?.reduce((sum, job) => sum + (job.cost || 0), 0) || 0;
+  const stats = useMemo(() => {
+    const totalCost = jobs.reduce((sum: number, job: any) => sum + (job.cost || 0), 0);
     // Mock breakdown (in real app, store separately)
     const materialCost = totalCost * 0.3;
     const laborCost = totalCost * 0.5;
     const machineCost = totalCost * 0.2;
 
-    setStats({
+    return {
       totalCost,
       materialCost,
       laborCost,
       machineCost,
-      jobCount: data?.length || 0,
-    });
-  };
+      jobCount: jobs.length,
+    };
+  }, [jobs]);
 
   const exportToPDF = () => {
     toast.success('PDF export functionality would be implemented here');

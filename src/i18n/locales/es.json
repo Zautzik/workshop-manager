@@ -11,7 +11,17 @@
     "priority": "Prioridad",
     "date": "Fecha",
     "name": "Nombre",
-    "description": "Descripción"
+    "description": "Descripción",
+    "submit": "Enviar",
+    "view": "Ver",
+    "overview": "Resumen",
+    "noData": "No hay datos disponibles",
+    "createdAt": "Creado el",
+    "create": "Crear",
+    "update": "Actualizar",
+    "saveChanges": "Guardar Cambios",
+    "createUser": "Crear Usuario",
+    "confirmDelete": "¿Estás seguro de que quieres eliminar esto?"
   },
   "auth": {
     "login": "Iniciar Sesión",
@@ -20,6 +30,181 @@
     "password": "Contraseña",
     "welcomeBack": "Bienvenido de nuevo",
     "signInToContinue": "Inicia sesión para continuar al Sistema de Producción Gonsa"
+  },
+  "dashboard": {
+    "supervisor": "Panel del Supervisor",
+    "manager": "Panel del Gerente",
+    "admin": "Panel de Administración",
+    "totalUsers": "Total de Usuarios",
+    "totalWorkers": "Total de Trabajadores",
+    "totalJobs": "Total de Trabajos"
+  },
+  "nav": {
+    "machines": "Máquinas",
+    "jobs": "Trabajos",
+    "reports": "Reportes",
+    "users": "Usuarios",
+    "workers": "Trabajadores",
+    "inventory": "Inventario",
+    "purchases": "Compras"
+  },
+  "userMgmt": {
+    "title": "Gestión de Usuarios",
+    "addUser": "Agregar Usuario",
+    "editUser": "Editar Usuario",
+    "role": "Rol",
+    "department": "Departamento",
+    "managerDomain": "Dominio del Gerente",
+    "addDescription": "Crear un nuevo usuario con rol y departamento",
+    "editDescription": "Modificar rol y departamento del usuario"
+  },
+  "workerMgmt": {
+    "title": "Gestión de Trabajadores",
+    "addWorker": "Agregar Trabajador",
+    "editWorker": "Editar Trabajador",
+    "addDescription": "Agregar un nuevo trabajador al sistema",
+    "editDescription": "Modificar información del trabajador",
+    "roster": "Planilla de Trabajadores",
+    "createRoster": "Crear Planilla",
+    "rosterName": "Nombre de Planilla",
+    "addToRoster": "Agregar a Planilla",
+    "removeFromRoster": "Quitar de Planilla",
+    "allWorkers": "Todos los Trabajadores",
+    "filterByDept": "Filtrar por Departamento",
+    "sortBy": "Ordenar por",
+    "stats": "Estadísticas de Trabajadores",
+    "viewStats": "Ver Estadísticas",
+    "performance": "Rendimiento",
+    "avgTime": "Tiempo Promedio",
+    "rating": "Calificación",
+    "efficiencyScore": "Eficiencia",
+    "totalTasks": "Total de Tareas",
+    "logTask": "Registrar Tarea",
+    "taskType": "Tipo de Tarea",
+    "timeSpent": "Tiempo Dedicado (min)",
+    "notes": "Notas"
+  },
+  "inventoryMgmt": {
+    "title": "Gestión de Inventario",
+    "addItem": "Agregar Artículo",
+    "editItem": "Editar Artículo",
+    "itemName": "Nombre del Artículo",
+    "quantity": "Cantidad",
+    "costPerUnit": "Costo por Unidad",
+    "supplier": "Proveedor",
+    "totalCost": "Costo Total",
+    "certificationDetails": "Detalles de Certificación",
+    "addDescription": "Agregar un artículo al inventario",
+    "editDescription": "Modificar información del artículo"
+  },
+  "purchasesMgmt": {
+    "title": "Gestión de Compras",
+    "addPurchase": "Agregar Compra",
+    "editPurchase": "Editar Compra",
+    "addDescription": "Registrar una nueva compra",
+    "editDescription": "Modificar detalles de la compra"
+  },
+  "roles": {
+    "admin": "Administrador",
+    "manager": "Gerente",
+    "supervisor": "Supervisor",
+    "technician": "Técnico"
+  },
+  "departments": {
+    "press": "Prensa",
+    "manual_workshop": "Taller Manual",
+    "deliveries": "Entregas",
+    "pre_press": "Pre-Prensa",
+    "administration": "Administración"
+  },
+  "domains": {
+    "cost": "Costos",
+    "efficiency": "Eficiencia",
+    "production": "Producción",
+    "quality": "Calidad"
+  },
+  "machineStatus": {
+    "idle": "Inactiva",
+    "running": "En Marcha",
+    "maintenance": "En Mantenimiento",
+    "offline": "Fuera de Línea"
+  },
+  "jobStatus": {
+    "pending": "Pendiente",
+    "in_progress": "En Progreso",
+    "completed": "Completado",
+    "delivered": "Entregado"
+  },
+  "machineTypes": {
+    "offset_printer": "Impresora Offset",
+    "die_cutter": "Troqueladora",
+    "guillotine": "Guillotina",
+    "digital_printer": "Impresora Digital"
+  },
+  "actions": {
+    "addJob": "Agregar Trabajo",
+    "updateStatus": "Actualizar Estado",
+    "addOT": "Agregar OT",
+    "addBatch": "Agregar Lote",
+    "viewTraceability": "Ver Trazabilidad",
+    "exportPDF": "Exportar PDF",
+    "assignWorker": "Asignar Trabajador",
+    "assignBatch": "Asignar Lote"
+  },
+  "ot": {
+    "title": "Órdenes de Trabajo (OT)",
+    "new": "Nueva OT",
+    "otNumber": "Número de OT",
+    "client": "Cliente",
+    "quantity": "Cantidad",
+    "units": "unidades",
+    "active": "Órdenes de Trabajo Activas",
+    "completed": "Completadas",
+    "priority": "Prioridad",
+    "deadline": "Fecha Límite",
+    "due": "Vence",
+    "searchPlaceholder": "Buscar por número de OT o cliente...",
+    "list": "Órdenes de Trabajo",
+    "create": "Crear Orden de Trabajo"
+  },
+  "batch": {
+    "title": "Lote",
+    "batches": "Lotes",
+    "number": "Número de Lote",
+    "paperType": "Tipo de Papel",
+    "quantityRemaining": "Cantidad Restante",
+    "certifications": "Certificaciones"
+  },
+  "costs": {
+    "totalJobCost": "Costo Total del Trabajo",
+    "materialCost": "Costo de Materiales",
+    "laborCost": "Costo de Mano de Obra",
+    "machineCost": "Costo de Máquinas",
+    "breakdown": "Desglose de Costos"
+  },
+  "reports": {
+    "cost": "Reporte de Costos",
+    "efficiency": "Reporte de Eficiencia",
+    "traceability": "Reporte de Trazabilidad"
+  },
+  "stats": {
+    "totalJobs": "Total de Trabajos",
+    "completedJobs": "Trabajos Completados",
+    "pendingJobs": "Trabajos Pendientes",
+    "efficiency": "Eficiencia",
+    "totalOTs": "Total de OTs",
+    "jobsPerDay": "Trabajos por Día"
+  },
+  "process": {
+    "flow": "Flujo de Proceso",
+    "timeline": "Línea de Tiempo"
+  },
+  "tasks": {
+    "detachment": "Desprendimiento",
+    "revision": "Revisión",
+    "packaging": "Empaque",
+    "printing": "Impresión",
+    "cutting": "Corte"
   },
   "workflow": {
     "title": "Gestión de Taller",
@@ -39,20 +224,6 @@
     "grabWorker": "Toma una tarjeta de trabajador de la sección Trabajadores Disponibles",
     "dragWorker": "Arrastra el trabajador sobre cualquier estación de trabajo",
     "dropWorker": "¡Suelta para asignar! También puedes mover trabajadores asignados entre estaciones"
-  },
-  "ot": {
-    "title": "Órdenes de Trabajo (OT)",
-    "new": "Nueva OT",
-    "otNumber": "Número de OT",
-    "client": "Cliente",
-    "quantity": "Cantidad",
-    "units": "unidades",
-    "active": "Órdenes de Trabajo Activas",
-    "completed": "Completadas",
-    "priority": "Prioridad",
-    "deadline": "Fecha Límite",
-    "due": "Vence",
-    "searchPlaceholder": "Buscar por número de OT o cliente..."
   },
   "machines": {
     "offsetPrinters": "Impresoras Offset",

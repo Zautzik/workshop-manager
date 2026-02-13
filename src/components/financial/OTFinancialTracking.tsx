@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,21 +9,22 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { DollarSign, TrendingUp, TrendingDown, Plus, Edit2 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { useOTFinancials, useOTs } from '@/hooks/use-queries';
 
 interface OTFinancial {
   id: string;
   ot_id: string;
-  material_cost: number;
-  labor_cost: number;
-  machine_cost: number;
-  energy_cost: number;
-  outsourcing_cost: number;
-  overhead_cost: number;
-  hours_spent: number;
-  total_cost: number;
-  revenue: number;
-  profit: number;
-  notes: string;
+  material_cost: number | null;
+  labor_cost: number | null;
+  machine_cost: number | null;
+  energy_cost: number | null;
+  outsourcing_cost: number | null;
+  overhead_cost: number | null;
+  hours_spent: number | null;
+  total_cost: number | null;
+  revenue: number | null;
+  profit: number | null;
+  notes: string | null;
   ot?: {
     ot_number: string;
     client_name: string;
@@ -31,8 +32,8 @@ interface OTFinancial {
 }
 
 export const OTFinancialTracking = () => {
-  const [financials, setFinancials] = useState<OTFinancial[]>([]);
-  const [ots, setOts] = useState<any[]>([]);
+  const { data: financials = [], refetch: refetchFinancials } = useOTFinancials();
+  const { data: ots = [], refetch: refetchOts } = useOTs();
   const [selectedOtId, setSelectedOtId] = useState('');
   const [formData, setFormData] = useState({
     material_cost: 0,
@@ -47,28 +48,6 @@ export const OTFinancialTracking = () => {
   });
   const [editingId, setEditingId] = useState<string | null>(null);
   const [isOpen, setIsOpen] = useState(false);
-
-  useEffect(() => {
-    fetchData();
-  }, []);
-
-  const fetchData = async () => {
-    // Fetch OT financials
-    const { data: financialData } = await supabase
-      .from('ot_financials')
-      .select('*, ot:ots(ot_number, client_name)')
-      .order('created_at', { ascending: false });
-
-    if (financialData) setFinancials(financialData as any);
-
-    // Fetch OTs without financials
-    const { data: otsData } = await supabase
-      .from('ots')
-      .select('*')
-      .order('created_at', { ascending: false });
-
-    if (otsData) setOts(otsData);
-  };
 
   const handleSubmit = async () => {
     if (!selectedOtId && !editingId) {
@@ -95,7 +74,7 @@ export const OTFinancialTracking = () => {
     } else {
       const { error } = await supabase
         .from('ot_financials')
-        .insert([payload]);
+        .insert([payload] as any);
 
       if (error) {
         toast.error('Error adding financial data');
@@ -106,7 +85,8 @@ export const OTFinancialTracking = () => {
 
     setIsOpen(false);
     resetForm();
-    fetchData();
+    refetchFinancials();
+    refetchOts();
   };
 
   const resetForm = () => {
@@ -127,23 +107,23 @@ export const OTFinancialTracking = () => {
 
   const handleEdit = (financial: OTFinancial) => {
     setFormData({
-      material_cost: financial.material_cost,
-      labor_cost: financial.labor_cost,
-      machine_cost: financial.machine_cost,
-      energy_cost: financial.energy_cost,
-      outsourcing_cost: financial.outsourcing_cost,
-      overhead_cost: financial.overhead_cost,
-      hours_spent: financial.hours_spent,
-      revenue: financial.revenue,
+      material_cost: financial.material_cost ?? 0,
+      labor_cost: financial.labor_cost ?? 0,
+      machine_cost: financial.machine_cost ?? 0,
+      energy_cost: financial.energy_cost ?? 0,
+      outsourcing_cost: financial.outsourcing_cost ?? 0,
+      overhead_cost: financial.overhead_cost ?? 0,
+      hours_spent: financial.hours_spent ?? 0,
+      revenue: financial.revenue ?? 0,
       notes: financial.notes || ''
     });
     setEditingId(financial.id);
     setIsOpen(true);
   };
 
-  const totalRevenue = financials.reduce((sum, f) => sum + (f.revenue || 0), 0);
-  const totalCost = financials.reduce((sum, f) => sum + (f.total_cost || 0), 0);
-  const totalProfit = financials.reduce((sum, f) => sum + (f.profit || 0), 0);
+  const totalRevenue = financials.reduce((sum, f) => sum + (f.revenue ?? 0), 0);
+  const totalCost = financials.reduce((sum, f) => sum + (f.total_cost ?? 0), 0);
+  const totalProfit = financials.reduce((sum, f) => sum + (f.profit ?? 0), 0);
   const profitMargin = totalRevenue > 0 ? ((totalProfit / totalRevenue) * 100).toFixed(1) : 0;
 
   return (
@@ -353,9 +333,11 @@ export const OTFinancialTracking = () => {
               </thead>
               <tbody>
                 {financials.map((financial) => {
-                  const margin = financial.revenue > 0 ? ((financial.profit / financial.revenue) * 100).toFixed(1) : 0;
-                  const timeCosts = (financial.labor_cost || 0) + (financial.energy_cost || 0) + (financial.machine_cost || 0);
-                  const supplyCosts = (financial.material_cost || 0) + (financial.outsourcing_cost || 0) + (financial.overhead_cost || 0);
+                  const revenue = financial.revenue ?? 0;
+                  const profit = financial.profit ?? 0;
+                  const margin = revenue > 0 ? ((profit / revenue) * 100).toFixed(1) : 0;
+                  const timeCosts = (financial.labor_cost ?? 0) + (financial.energy_cost ?? 0) + (financial.machine_cost ?? 0);
+                  const supplyCosts = (financial.material_cost ?? 0) + (financial.outsourcing_cost ?? 0) + (financial.overhead_cost ?? 0);
                   
                   return (
                     <tr key={financial.id} className="border-b hover:bg-muted/50">
@@ -371,13 +353,13 @@ export const OTFinancialTracking = () => {
                         ${supplyCosts.toFixed(2)}
                       </td>
                       <td className="py-2 px-4 text-right font-semibold text-destructive">
-                        ${financial.total_cost.toFixed(2)}
+                        ${(financial.total_cost ?? 0).toFixed(2)}
                       </td>
                       <td className="py-2 px-4 text-right font-semibold text-primary">
-                        ${financial.revenue.toFixed(2)}
+                        ${revenue.toFixed(2)}
                       </td>
-                      <td className={`py-2 px-4 text-right font-bold ${financial.profit >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                        ${financial.profit.toFixed(2)}
+                      <td className={`py-2 px-4 text-right font-bold ${profit >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                        ${profit.toFixed(2)}
                       </td>
                       <td className="py-2 px-4 text-right">{margin}%</td>
                       <td className="py-2 px-4 text-center">

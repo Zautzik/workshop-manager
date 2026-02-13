@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,19 +11,20 @@ import { TrendingUp, TrendingDown, Plus, Edit2, AlertCircle } from 'lucide-react
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { useMachineCosts, useMachines } from '@/hooks/use-queries';
 
 interface MachineCost {
   id: string;
   machine_id: string;
   month: string;
-  energy_cost: number;
-  labor_cost: number;
-  maintenance_cost: number;
-  spare_parts_cost: number;
-  total_operating_cost: number;
-  outsourcing_cost: number;
-  revenue_generated: number;
-  notes: string;
+  energy_cost: number | null;
+  labor_cost: number | null;
+  maintenance_cost: number | null;
+  spare_parts_cost: number | null;
+  total_operating_cost: number | null;
+  outsourcing_cost: number | null;
+  revenue_generated: number | null;
+  notes: string | null;
   machines?: {
     name: string;
     type: string;
@@ -31,8 +32,8 @@ interface MachineCost {
 }
 
 export const MachineCostAnalysis = () => {
-  const [costs, setCosts] = useState<MachineCost[]>([]);
-  const [machines, setMachines] = useState<any[]>([]);
+  const { data: costs = [], refetch: refetchCosts } = useMachineCosts();
+  const { data: machines = [], refetch: refetchMachines } = useMachines();
   const [selectedMachineId, setSelectedMachineId] = useState('');
   const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7));
   const [formData, setFormData] = useState({
@@ -46,26 +47,6 @@ export const MachineCostAnalysis = () => {
   });
   const [editingId, setEditingId] = useState<string | null>(null);
   const [isOpen, setIsOpen] = useState(false);
-
-  useEffect(() => {
-    fetchData();
-  }, []);
-
-  const fetchData = async () => {
-    const { data: costsData } = await supabase
-      .from('machine_costs')
-      .select('*, machines(name, type)')
-      .order('month', { ascending: false });
-
-    if (costsData) setCosts(costsData as any);
-
-    const { data: machinesData } = await supabase
-      .from('machines')
-      .select('*')
-      .order('name');
-
-    if (machinesData) setMachines(machinesData);
-  };
 
   const handleSubmit = async () => {
     if (!selectedMachineId && !editingId) {
@@ -93,7 +74,7 @@ export const MachineCostAnalysis = () => {
     } else {
       const { error } = await supabase
         .from('machine_costs')
-        .insert([payload]);
+        .insert([payload] as any);
 
       if (error) {
         toast.error('Error adding machine cost data');
@@ -104,7 +85,8 @@ export const MachineCostAnalysis = () => {
 
     setIsOpen(false);
     resetForm();
-    fetchData();
+    refetchCosts();
+    refetchMachines();
   };
 
   const resetForm = () => {
@@ -123,12 +105,12 @@ export const MachineCostAnalysis = () => {
 
   const handleEdit = (cost: MachineCost) => {
     setFormData({
-      energy_cost: cost.energy_cost,
-      labor_cost: cost.labor_cost,
-      maintenance_cost: cost.maintenance_cost,
-      spare_parts_cost: cost.spare_parts_cost,
-      outsourcing_cost: cost.outsourcing_cost,
-      revenue_generated: cost.revenue_generated,
+      energy_cost: cost.energy_cost ?? 0,
+      labor_cost: cost.labor_cost ?? 0,
+      maintenance_cost: cost.maintenance_cost ?? 0,
+      spare_parts_cost: cost.spare_parts_cost ?? 0,
+      outsourcing_cost: cost.outsourcing_cost ?? 0,
+      revenue_generated: cost.revenue_generated ?? 0,
       notes: cost.notes || ''
     });
     setEditingId(cost.id);
@@ -138,8 +120,8 @@ export const MachineCostAnalysis = () => {
   // Group costs by machine for chart
   const chartData = machines.map(machine => {
     const machineCosts = costs.filter(c => c.machine_id === machine.id);
-    const totalOperating = machineCosts.reduce((sum, c) => sum + c.total_operating_cost, 0);
-    const totalOutsourcing = machineCosts.reduce((sum, c) => sum + c.outsourcing_cost, 0);
+    const totalOperating = machineCosts.reduce((sum, c) => sum + (c.total_operating_cost ?? 0), 0);
+    const totalOutsourcing = machineCosts.reduce((sum, c) => sum + (c.outsourcing_cost ?? 0), 0);
     const avgOutsourcing = machineCosts.length > 0 ? totalOutsourcing / machineCosts.length : 0;
 
     return {
@@ -308,17 +290,17 @@ export const MachineCostAnalysis = () => {
               </thead>
               <tbody>
                 {costs.map((cost) => {
-                  const difference = cost.outsourcing_cost - cost.total_operating_cost;
+                  const difference = (cost.outsourcing_cost ?? 0) - (cost.total_operating_cost ?? 0);
                   const shouldOutsource = difference > 0;
                   return (
                     <tr key={cost.id} className="border-b hover:bg-muted/50">
                       <td className="py-2 px-4">{cost.machines?.name}</td>
                       <td className="py-2 px-4">{new Date(cost.month).toLocaleDateString('en-US', { year: 'numeric', month: 'short' })}</td>
                       <td className="py-2 px-4 text-right font-semibold text-destructive">
-                        ${cost.total_operating_cost.toFixed(2)}
+                        ${(cost.total_operating_cost ?? 0).toFixed(2)}
                       </td>
                       <td className="py-2 px-4 text-right font-semibold text-accent">
-                        ${cost.outsourcing_cost.toFixed(2)}
+                        ${(cost.outsourcing_cost ?? 0).toFixed(2)}
                       </td>
                       <td className={`py-2 px-4 text-right font-bold ${shouldOutsource ? 'text-green-500' : 'text-red-500'}`}>
                         {shouldOutsource ? <TrendingUp className="inline h-4 w-4 mr-1" /> : <TrendingDown className="inline h-4 w-4 mr-1" />}

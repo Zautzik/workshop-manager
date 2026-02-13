@@ -20,7 +20,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useNavigate } from '@/lib/navigation';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -37,16 +37,17 @@ const Login = () => {
   const [loading, setLoading] = useState(false);
   const { signIn, user, role } = useAuth();
   const { language, setLanguage, t } = useLanguage();
-  const { theme, toggleTheme } = useTheme();
-  const navigate = useNavigate();
+  const { theme, setTheme } = useTheme();
+  const router = useRouter();
 
   useEffect(() => {
     if (user && role) {
-      if (role === 'admin') navigate('/admin');
-      else if (role === 'supervisor') navigate('/supervisor');
-      else navigate('/manager');
+      if (role === 'admin') router.push('/admin');
+      else if (role === 'supervisor') router.push('/supervisor');
+      else if (role === 'technician') router.push('/maintenance');
+      else router.push('/manager');
     }
-  }, [user, role, navigate]);
+  }, [user, role, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -69,7 +70,7 @@ const Login = () => {
         <Button
           variant="outline"
           size="icon"
-          onClick={toggleTheme}
+          onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
           className="hover:bg-primary/10"
           aria-label={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}
         >

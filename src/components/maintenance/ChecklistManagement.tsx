@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useMaintenanceChecklists } from '@/hooks/use-queries';
 
 interface ChecklistItem {
   id: string;
@@ -37,36 +38,27 @@ interface Checklist {
 
 export default function ChecklistManagement() {
   const { toast } = useToast();
-  const [checklists, setChecklists] = useState<Checklist[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: rawChecklists = [], isLoading, isError } = useMaintenanceChecklists();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedChecklist, setSelectedChecklist] = useState<string | null>(null);
   const [workOrderDate, setWorkOrderDate] = useState(new Date().toISOString().split('T')[0]);
   const [workOrderPriority, setWorkOrderPriority] = useState('3');
 
   useEffect(() => {
-    fetchChecklists();
-  }, []);
-
-  const fetchChecklists = async () => {
-    const { data, error } = await supabase
-      .from('maintenance_checklists')
-      .select(`*, machines(name)`)
-      .order('created_at', { ascending: false });
-
-    if (error) {
+    if (isError) {
       toast({ title: 'Error', description: 'Failed to fetch checklists', variant: 'destructive' });
-    } else {
-      setChecklists((data || []).map((row: any) => ({
-        ...row,
-        items: Array.isArray(row.items) ? row.items : [],
-        total_estimated_time: row.total_estimated_time ?? 0,
-        machine_type: row.machine_type || 'Unknown',
-        maintenance_type: row.maintenance_type || 'preventive',
-      })));
     }
-    setLoading(false);
-  };
+  }, [isError, toast]);
+
+  const checklists: Checklist[] = useMemo(() => {
+    return (rawChecklists || []).map((row: any) => ({
+      ...row,
+      items: Array.isArray(row.items) ? row.items : [],
+      total_estimated_time: row.total_estimated_time ?? 0,
+      machine_type: row.machine_type || 'Unknown',
+      maintenance_type: row.maintenance_type || 'preventive',
+    }));
+  }, [rawChecklists]);
 
   const getTypeColor = (type: string) => {
     switch (type) {
@@ -144,7 +136,7 @@ export default function ChecklistManagement() {
     return acc;
   }, {} as Record<string, Checklist[]>);
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>

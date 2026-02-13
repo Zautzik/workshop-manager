@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,24 +10,25 @@ import { toast } from 'sonner';
 import { Plus, Edit2, TrendingUp, Clock, DollarSign } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
+import { useEquipmentInvestments, useMachines } from '@/hooks/use-queries';
 
 interface Investment {
   id: string;
   machine_id: string | null;
   equipment_name: string;
   purchase_cost: number;
-  estimated_annual_savings: number;
-  payback_period_months: number;
-  status: string;
-  notes: string;
+  estimated_annual_savings: number | null;
+  payback_period_months: number | null;
+  status: string | null;
+  notes: string | null;
   machines?: {
     name: string;
-  };
+  } | null;
 }
 
 export const EquipmentInvestmentAnalysis = () => {
-  const [investments, setInvestments] = useState<Investment[]>([]);
-  const [machines, setMachines] = useState<any[]>([]);
+  const { data: investments = [], refetch: refetchInvestments } = useEquipmentInvestments();
+  const { data: machines = [], refetch: refetchMachines } = useMachines();
   const [formData, setFormData] = useState({
     machine_id: '',
     equipment_name: '',
@@ -38,26 +39,6 @@ export const EquipmentInvestmentAnalysis = () => {
   });
   const [editingId, setEditingId] = useState<string | null>(null);
   const [isOpen, setIsOpen] = useState(false);
-
-  useEffect(() => {
-    fetchData();
-  }, []);
-
-  const fetchData = async () => {
-    const { data: investmentsData } = await supabase
-      .from('equipment_investments')
-      .select('*, machines(name)')
-      .order('created_at', { ascending: false });
-
-    if (investmentsData) setInvestments(investmentsData as any);
-
-    const { data: machinesData } = await supabase
-      .from('machines')
-      .select('*')
-      .order('name');
-
-    if (machinesData) setMachines(machinesData);
-  };
 
   const handleSubmit = async () => {
     if (!formData.equipment_name) {
@@ -99,7 +80,8 @@ export const EquipmentInvestmentAnalysis = () => {
 
     setIsOpen(false);
     resetForm();
-    fetchData();
+    refetchInvestments();
+    refetchMachines();
   };
 
   const resetForm = () => {
@@ -119,8 +101,8 @@ export const EquipmentInvestmentAnalysis = () => {
       machine_id: investment.machine_id || '',
       equipment_name: investment.equipment_name,
       purchase_cost: investment.purchase_cost,
-      estimated_annual_savings: investment.estimated_annual_savings,
-      status: investment.status,
+      estimated_annual_savings: investment.estimated_annual_savings ?? 0,
+      status: investment.status || 'proposal',
       notes: investment.notes || ''
     });
     setEditingId(investment.id);
@@ -138,7 +120,7 @@ export const EquipmentInvestmentAnalysis = () => {
       return;
     }
     toast.success('Status updated');
-    fetchData();
+    refetchInvestments();
   };
 
   const getStatusColor = (status: string) => {
@@ -152,16 +134,16 @@ export const EquipmentInvestmentAnalysis = () => {
   };
 
   const totalProposed = investments
-    .filter(i => i.status === 'proposal')
+    .filter(i => (i.status ?? '') === 'proposal')
     .reduce((sum, i) => sum + i.purchase_cost, 0);
 
   const totalApproved = investments
-    .filter(i => i.status === 'approved')
+    .filter(i => (i.status ?? '') === 'approved')
     .reduce((sum, i) => sum + i.purchase_cost, 0);
 
   const estimatedAnnualSavings = investments
-    .filter(i => ['approved', 'completed'].includes(i.status))
-    .reduce((sum, i) => sum + i.estimated_annual_savings, 0);
+    .filter(i => ['approved', 'completed'].includes(i.status ?? ''))
+    .reduce((sum, i) => sum + (i.estimated_annual_savings ?? 0), 0);
 
   return (
     <div className="space-y-6">
@@ -331,7 +313,7 @@ export const EquipmentInvestmentAnalysis = () => {
                       ${investment.purchase_cost.toFixed(2)}
                     </td>
                     <td className="py-2 px-4 text-right font-semibold text-green-500">
-                      ${investment.estimated_annual_savings.toFixed(2)}
+                      ${(investment.estimated_annual_savings ?? 0).toFixed(2)}
                     </td>
                     <td className="py-2 px-4 text-right">
                       {investment.payback_period_months ? (
@@ -344,8 +326,8 @@ export const EquipmentInvestmentAnalysis = () => {
                       )}
                     </td>
                     <td className="py-2 px-4 text-center">
-                      <Badge className={getStatusColor(investment.status)}>
-                        {investment.status}
+                      <Badge className={getStatusColor(investment.status || 'proposal')}>
+                        {investment.status || 'proposal'}
                       </Badge>
                     </td>
                     <td className="py-2 px-4 text-center">

@@ -11,15 +11,200 @@
     "priority": "Priority",
     "date": "Date",
     "name": "Name",
-    "description": "Description"
+    "description": "Description",
+    "submit": "Submit",
+    "view": "View",
+    "overview": "Overview",
+    "noData": "No data available",
+    "createdAt": "Created At",
+    "create": "Create",
+    "update": "Update",
+    "saveChanges": "Save Changes",
+    "createUser": "Create User",
+    "confirmDelete": "Are you sure you want to delete this?"
   },
   "auth": {
-    "login": "Log In",
+    "login": "Login",
     "logout": "Log Out",
     "email": "Email",
     "password": "Password",
     "welcomeBack": "Welcome back",
     "signInToContinue": "Sign in to continue to Gonsa Production System"
+  },
+  "dashboard": {
+    "supervisor": "Supervisor Dashboard",
+    "manager": "Manager Dashboard",
+    "admin": "Admin Dashboard",
+    "totalUsers": "Total Users",
+    "totalWorkers": "Total Workers",
+    "totalJobs": "Total Jobs"
+  },
+  "nav": {
+    "machines": "Machines",
+    "jobs": "Jobs",
+    "reports": "Reports",
+    "users": "Users",
+    "workers": "Workers",
+    "inventory": "Inventory",
+    "purchases": "Purchases"
+  },
+  "userMgmt": {
+    "title": "User Management",
+    "addUser": "Add User",
+    "editUser": "Edit User",
+    "role": "Role",
+    "department": "Department",
+    "managerDomain": "Manager Domain",
+    "addDescription": "Create a new user with role and department",
+    "editDescription": "Modify user role and department"
+  },
+  "workerMgmt": {
+    "title": "Workers Management",
+    "addWorker": "Add Worker",
+    "editWorker": "Edit Worker",
+    "addDescription": "Add a new worker to the system",
+    "editDescription": "Modify worker information",
+    "roster": "Worker Roster",
+    "createRoster": "Create Roster",
+    "rosterName": "Roster Name",
+    "addToRoster": "Add to Roster",
+    "removeFromRoster": "Remove from Roster",
+    "allWorkers": "All Workers",
+    "filterByDept": "Filter by Department",
+    "sortBy": "Sort by",
+    "stats": "Worker Statistics",
+    "viewStats": "View Stats",
+    "performance": "Performance",
+    "avgTime": "Avg Time",
+    "rating": "Rating",
+    "efficiencyScore": "Efficiency",
+    "totalTasks": "Total Tasks",
+    "logTask": "Log Task",
+    "taskType": "Task Type",
+    "timeSpent": "Time Spent (min)",
+    "notes": "Notes"
+  },
+  "inventoryMgmt": {
+    "title": "Inventory Management",
+    "addItem": "Add Item",
+    "editItem": "Edit Item",
+    "itemName": "Item Name",
+    "quantity": "Quantity",
+    "costPerUnit": "Cost per Unit",
+    "supplier": "Supplier",
+    "totalCost": "Total Cost",
+    "certificationDetails": "Certification Details",
+    "addDescription": "Add a new item to inventory",
+    "editDescription": "Modify item information"
+  },
+  "purchasesMgmt": {
+    "title": "Purchases Management",
+    "addPurchase": "Add Purchase",
+    "editPurchase": "Edit Purchase",
+    "addDescription": "Register a new purchase",
+    "editDescription": "Modify purchase details"
+  },
+  "roles": {
+    "admin": "Admin",
+    "manager": "Manager",
+    "supervisor": "Supervisor",
+    "technician": "Technician"
+  },
+  "departments": {
+    "press": "Press",
+    "manual_workshop": "Manual Workshop",
+    "deliveries": "Deliveries",
+    "pre_press": "Pre-Press",
+    "administration": "Administration"
+  },
+  "domains": {
+    "cost": "Cost",
+    "efficiency": "Efficiency",
+    "production": "Production",
+    "quality": "Quality"
+  },
+  "machineStatus": {
+    "idle": "Idle",
+    "running": "Running",
+    "maintenance": "Maintenance",
+    "offline": "Offline"
+  },
+  "jobStatus": {
+    "pending": "Pending",
+    "in_progress": "In Progress",
+    "completed": "Completed",
+    "delivered": "Delivered"
+  },
+  "machineTypes": {
+    "offset_printer": "Offset Printer",
+    "die_cutter": "Die Cutter",
+    "guillotine": "Guillotine",
+    "digital_printer": "Digital Printer"
+  },
+  "actions": {
+    "addJob": "Add Job",
+    "updateStatus": "Update Status",
+    "addOT": "Add OT",
+    "addBatch": "Add Batch",
+    "viewTraceability": "View Traceability",
+    "exportPDF": "Export PDF",
+    "assignWorker": "Assign Worker",
+    "assignBatch": "Assign Batch"
+  },
+  "ot": {
+    "title": "Work Orders (OT)",
+    "new": "New OT",
+    "otNumber": "OT Number",
+    "client": "Client",
+    "quantity": "Quantity",
+    "units": "units",
+    "active": "Active Work Orders",
+    "completed": "Completed",
+    "priority": "Priority",
+    "deadline": "Deadline",
+    "due": "Due",
+    "searchPlaceholder": "Search by OT number or client...",
+    "list": "Work Orders",
+    "create": "Create Work Order"
+  },
+  "batch": {
+    "title": "Batch",
+    "batches": "Batches",
+    "number": "Batch Number",
+    "paperType": "Paper Type",
+    "quantityRemaining": "Quantity Remaining",
+    "certifications": "Certifications"
+  },
+  "costs": {
+    "totalJobCost": "Total Job Cost",
+    "materialCost": "Material Cost",
+    "laborCost": "Labor Cost",
+    "machineCost": "Machine Cost",
+    "breakdown": "Cost Breakdown"
+  },
+  "reports": {
+    "cost": "Cost Report",
+    "efficiency": "Efficiency Report",
+    "traceability": "Traceability Report"
+  },
+  "stats": {
+    "totalJobs": "Total Jobs",
+    "completedJobs": "Completed Jobs",
+    "pendingJobs": "Pending Jobs",
+    "efficiency": "Efficiency",
+    "totalOTs": "Total OTs",
+    "jobsPerDay": "Jobs per Day"
+  },
+  "process": {
+    "flow": "Process Flow",
+    "timeline": "Timeline"
+  },
+  "tasks": {
+    "detachment": "Detachment",
+    "revision": "Revision",
+    "packaging": "Packaging",
+    "printing": "Printing",
+    "cutting": "Cutting"
   },
   "workflow": {
     "title": "Workshop Management",
@@ -39,20 +224,6 @@
     "grabWorker": "Grab a worker card from the Available Workers section",
     "dragWorker": "Drag the worker over any workstation",
     "dropWorker": "Drop to assign! You can also move assigned workers between workstations"
-  },
-  "ot": {
-    "title": "Work Orders (OT)",
-    "new": "New OT",
-    "otNumber": "OT Number",
-    "client": "Client",
-    "quantity": "Quantity",
-    "units": "units",
-    "active": "Active Work Orders",
-    "completed": "Completed",
-    "priority": "Priority",
-    "deadline": "Deadline",
-    "due": "Due",
-    "searchPlaceholder": "Search by OT number or client..."
   },
   "machines": {
     "offsetPrinters": "Offset Printers",

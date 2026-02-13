@@ -7,13 +7,30 @@ import { Label } from '@/components/ui/label';
 import { Search, Package, FileText, ShieldCheck } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { supabase } from '@/integrations/supabase/client';
+import { useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
 
 const TraceabilityReport = () => {
   const { t } = useLanguage();
   const [otNumber, setOtNumber] = useState('');
-  const [traceData, setTraceData] = useState<any>(null);
-  const [loading, setLoading] = useState(false);
+  const { data: traceData, refetch, isFetching } = useQuery<any>({
+    queryKey: ['traceability', otNumber],
+    queryFn: async () => {
+      const { data: otData, error: otError } = await supabase
+        .from('ot' as any)
+        .select('*, jobs(*, batches(*, purchases(*)))')
+        .eq('ot_number', otNumber)
+        .single();
+
+      if (otError || !otData) {
+        throw new Error('OT not found');
+      }
+
+      return otData as any;
+    },
+    enabled: false,
+    retry: false,
+  });
 
   const handleSearch = async () => {
     if (!otNumber.trim()) {
@@ -21,22 +38,11 @@ const TraceabilityReport = () => {
       return;
     }
 
-    setLoading(true);
-
-    const { data: otData, error: otError } = await supabase
-      .from('ot' as any)
-      .select('*, jobs(*, batches(*, purchases(*)))')
-      .eq('ot_number', otNumber)
-      .single();
-
-    if (otError || !otData) {
+    try {
+      await refetch();
+    } catch (error) {
       toast.error('OT not found');
-      setTraceData(null);
-    } else {
-      setTraceData(otData);
     }
-
-    setLoading(false);
   };
 
   return (
@@ -61,7 +67,7 @@ const TraceabilityReport = () => {
             </div>
             <Button
               onClick={handleSearch}
-              disabled={loading}
+              disabled={isFetching}
               className="self-end bg-primary hover:bg-primary/90"
             >
               <Search className="mr-2 h-4 w-4" />

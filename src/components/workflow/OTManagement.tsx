@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { supabase } from "@/integrations/supabase/client";
+import { useOTs } from "@/hooks/use-queries";
 import { Plus, ArrowRight, Edit2, Info, Package, Clock, User } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { CreateOTDialog } from "./CreateOTDialog";
@@ -34,31 +35,13 @@ const STATUS_FLOW = [
 ];
 
 export function OTManagement({ onOTSelect }: OTManagementProps) {
-  const [ots, setOts] = useState<any[]>([]);
+  const { data: ots = [], refetch: refetchOTs } = useOTs();
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [editingOT, setEditingOT] = useState<any>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const { toast } = useToast();
   const { t, i18n } = useTranslation();
-
-  useEffect(() => {
-    fetchOTs();
-  }, []);
-
-  const fetchOTs = async () => {
-    const { data, error } = await supabase
-      .from("ots")
-      .select("*, workstation:workstations(*)")
-      .order("priority", { ascending: false })
-      .order("created_at", { ascending: false });
-
-    if (error) {
-      toast({ title: "Error fetching OTs", variant: "destructive" });
-      return;
-    }
-    setOts(data || []);
-  };
 
   const updateOTStatus = async (otId: string, newStatus: string) => {
     const { error } = await supabase
@@ -72,7 +55,7 @@ export function OTManagement({ onOTSelect }: OTManagementProps) {
     }
     
     toast({ title: "OT advanced to next station" });
-    fetchOTs();
+    refetchOTs();
   };
 
   const filteredOTs = ots.filter(ot => 
@@ -260,7 +243,7 @@ export function OTManagement({ onOTSelect }: OTManagementProps) {
       <CreateOTDialog
         open={showCreateDialog}
         onOpenChange={setShowCreateDialog}
-        onSuccess={fetchOTs}
+        onSuccess={refetchOTs}
       />
 
       {editingOT && (
@@ -268,7 +251,7 @@ export function OTManagement({ onOTSelect }: OTManagementProps) {
           ot={editingOT}
           open={showEditDialog}
           onOpenChange={setShowEditDialog}
-          onSuccess={fetchOTs}
+          onSuccess={refetchOTs}
         />
       )}
     </div>

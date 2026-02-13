@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -31,6 +31,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Plus, Pencil, Trash2 } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useWorkers } from '@/hooks/use-queries';
 
 interface WorkersManagementProps {
   onUpdate: () => void;
@@ -38,30 +39,13 @@ interface WorkersManagementProps {
 
 const WorkersManagement = ({ onUpdate }: WorkersManagementProps) => {
   const { t } = useLanguage();
-  const [workers, setWorkers] = useState<any[]>([]);
+  const { data: workers = [], refetch: refetchWorkers } = useWorkers();
   const [showDialog, setShowDialog] = useState(false);
   const [editingWorker, setEditingWorker] = useState<any>(null);
   const [formData, setFormData] = useState({
     name: '',
     department: 'press',
   });
-
-  useEffect(() => {
-    fetchWorkers();
-  }, []);
-
-  const fetchWorkers = async () => {
-    const { data, error } = await supabase
-      .from('workers' as any)
-      .select('*')
-      .order('name');
-    
-    if (error) {
-      toast.error('Error loading workers');
-    } else {
-      setWorkers(data || []);
-    }
-  };
 
   const handleSubmit = async () => {
     if (editingWorker) {
@@ -74,7 +58,7 @@ const WorkersManagement = ({ onUpdate }: WorkersManagementProps) => {
         toast.error('Error updating worker');
       } else {
         toast.success('Worker updated successfully');
-        fetchWorkers();
+        refetchWorkers();
         onUpdate();
         resetForm();
       }
@@ -87,7 +71,7 @@ const WorkersManagement = ({ onUpdate }: WorkersManagementProps) => {
         toast.error('Error creating worker');
       } else {
         toast.success('Worker created successfully');
-        fetchWorkers();
+        refetchWorkers();
         onUpdate();
         resetForm();
       }
@@ -106,7 +90,7 @@ const WorkersManagement = ({ onUpdate }: WorkersManagementProps) => {
       toast.error('Error deleting worker');
     } else {
       toast.success('Worker deleted successfully');
-      fetchWorkers();
+      refetchWorkers();
       onUpdate();
     }
   };

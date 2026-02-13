@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Select,
@@ -8,7 +8,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { supabase } from '@/integrations/supabase/client';
+import { useWorkerStats } from '@/hooks/use-queries';
 import { toast } from 'sonner';
 import { useLanguage } from '@/contexts/LanguageContext';
 import WorkerCard from '../supervisor/WorkerCard';
@@ -17,37 +17,25 @@ import { FileDown } from 'lucide-react';
 
 const WorkerStatsReport = () => {
   const { t } = useLanguage();
-  const [workers, setWorkers] = useState<any[]>([]);
   const [departmentFilter, setDepartmentFilter] = useState<string>('all');
+  const { data: workers = [], isError } = useWorkerStats(departmentFilter);
+
+  const safeWorkers = useMemo(() => {
+    return workers.filter((worker: any) => worker?.id && worker?.name);
+  }, [workers]);
 
   useEffect(() => {
-    fetchWorkers();
-  }, [departmentFilter]);
-
-  const fetchWorkers = async () => {
-    let query = supabase
-      .from('worker_stats' as any)
-      .select('*');
-    
-    if (departmentFilter !== 'all') {
-      query = query.eq('department', departmentFilter);
-    }
-    
-    const { data, error } = await query.order('efficiency_score', { ascending: false });
-    
-    if (error) {
+    if (isError) {
       toast.error('Error loading worker stats');
-    } else {
-      setWorkers(data || []);
     }
-  };
+  }, [isError]);
 
   const calculateAverages = () => {
-    if (workers.length === 0) return { avgEfficiency: 0, avgRating: 0, totalTasks: 0 };
+    if (safeWorkers.length === 0) return { avgEfficiency: 0, avgRating: 0, totalTasks: 0 };
     
-    const avgEfficiency = workers.reduce((sum, w) => sum + (w.efficiency_score || 0), 0) / workers.length;
-    const avgRating = workers.reduce((sum, w) => sum + (w.avg_rating || 0), 0) / workers.length;
-    const totalTasks = workers.reduce((sum, w) => sum + (w.total_tasks || 0), 0);
+    const avgEfficiency = safeWorkers.reduce((sum: number, w: any) => sum + (w.efficiency_score || 0), 0) / safeWorkers.length;
+    const avgRating = safeWorkers.reduce((sum: number, w: any) => sum + (w.avg_rating || 0), 0) / safeWorkers.length;
+    const totalTasks = safeWorkers.reduce((sum: number, w: any) => sum + (w.total_tasks || 0), 0);
     
     return {
       avgEfficiency: Math.round(avgEfficiency),
@@ -119,13 +107,13 @@ const WorkerStatsReport = () => {
           </div>
         </CardHeader>
         <CardContent>
-          {workers.length === 0 ? (
+          {safeWorkers.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
               {t('noData')}
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-              {workers.map((worker) => (
+              {safeWorkers.map((worker: any) => (
                 <WorkerCard
                   key={worker.id}
                   worker={worker}

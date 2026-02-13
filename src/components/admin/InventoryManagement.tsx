@@ -21,7 +21,7 @@
  * Admin-only component, shown in Admin Dashboard.
  */
 'use client';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -46,10 +46,11 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Plus, Pencil, Trash2 } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useInventory } from '@/hooks/use-queries';
 
 const InventoryManagement = () => {
   const { t } = useLanguage();
-  const [items, setItems] = useState<any[]>([]);
+  const { data: items = [], refetch: refetchItems } = useInventory();
   const [showDialog, setShowDialog] = useState(false);
   const [editingItem, setEditingItem] = useState<any>(null);
   const [formData, setFormData] = useState({
@@ -57,23 +58,6 @@ const InventoryManagement = () => {
     quantity: 0,
     cost_per_unit: 0,
   });
-
-  useEffect(() => {
-    fetchItems();
-  }, []);
-
-  const fetchItems = async () => {
-    const { data, error } = await supabase
-      .from('inventory' as any)
-      .select('*')
-      .order('item_name');
-    
-    if (error) {
-      toast.error('Error loading inventory');
-    } else {
-      setItems(data || []);
-    }
-  };
 
   const handleSubmit = async () => {
     if (editingItem) {
@@ -86,7 +70,7 @@ const InventoryManagement = () => {
         toast.error('Error updating item');
       } else {
         toast.success('Item updated successfully');
-        fetchItems();
+        refetchItems();
         resetForm();
       }
     } else {
@@ -98,7 +82,7 @@ const InventoryManagement = () => {
         toast.error('Error creating item');
       } else {
         toast.success('Item created successfully');
-        fetchItems();
+        refetchItems();
         resetForm();
       }
     }
@@ -116,7 +100,7 @@ const InventoryManagement = () => {
       toast.error('Error deleting item');
     } else {
       toast.success('Item deleted successfully');
-      fetchItems();
+      refetchItems();
     }
   };
 

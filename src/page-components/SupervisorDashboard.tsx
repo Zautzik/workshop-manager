@@ -1,13 +1,12 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useNavigate } from '@/lib/navigation';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { supabase } from '@/integrations/supabase/client';
-import { toast } from 'sonner';
+import { useMachines, useJobs } from '@/hooks/use-queries';
 import { LogOut, Plus, Package, FileText, Factory } from 'lucide-react';
 import MachineList from '@/components/supervisor/MachineList';
 import JobList from '@/components/supervisor/JobList';
@@ -17,50 +16,20 @@ import WorkerRoster from '@/components/supervisor/WorkerRoster';
 const SupervisorDashboard = () => {
   const { user, role, signOut } = useAuth();
   const { t } = useLanguage();
-  const navigate = useNavigate();
+  const router = useRouter();
   const [showAddJob, setShowAddJob] = useState(false);
-  const [machines, setMachines] = useState<any[]>([]);
-  const [jobs, setJobs] = useState<any[]>([]);
+  const { data: machines = [] } = useMachines();
+  const { data: jobs = [] } = useJobs();
 
   useEffect(() => {
     if (!user || role !== 'supervisor') {
-      navigate('/');
-      return;
+      router.push('/');
     }
-    
-    fetchMachines();
-    fetchJobs();
-  }, [user, role, navigate]);
-
-  const fetchMachines = async () => {
-    const { data, error } = await supabase
-      .from('machines')
-      .select('*')
-      .order('name');
-    
-    if (error) {
-      toast.error('Error loading machines');
-    } else {
-      setMachines(data || []);
-    }
-  };
-
-  const fetchJobs = async () => {
-    const { data, error } = await supabase
-      .from('jobs')
-      .select('*, machines(name)')
-      .order('created_at', { ascending: false });
-    
-    if (error) {
-      toast.error('Error loading jobs');
-    } else {
-      setJobs(data || []);
-    }
-  };
+  }, [user, role, router]);
 
   const handleLogout = async () => {
     await signOut();
-    navigate('/');
+    router.push('/');
   };
 
   return (
@@ -76,7 +45,7 @@ const SupervisorDashboard = () => {
           </div>
           <div className="flex gap-2">
             <Button
-              onClick={() => navigate('/workflow')}
+              onClick={() => router.push('/workflow')}
               className="bg-supervisor hover:bg-supervisor/90"
             >
               <Factory className="mr-2 h-4 w-4" />
@@ -105,7 +74,7 @@ const SupervisorDashboard = () => {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <MachineList machines={machines} onUpdate={fetchMachines} />
+            <MachineList machines={machines} onUpdate={() => {}} />
           </CardContent>
         </Card>
 
@@ -124,7 +93,7 @@ const SupervisorDashboard = () => {
             </Button>
           </CardHeader>
           <CardContent>
-            <JobList jobs={jobs} machines={machines} onUpdate={fetchJobs} />
+            <JobList jobs={jobs} machines={machines} onUpdate={() => {}} />
           </CardContent>
         </Card>
       </main>
@@ -133,7 +102,7 @@ const SupervisorDashboard = () => {
         open={showAddJob}
         onOpenChange={setShowAddJob}
         machines={machines}
-        onJobAdded={fetchJobs}
+        onJobAdded={() => {}}
       />
     </div>
   );

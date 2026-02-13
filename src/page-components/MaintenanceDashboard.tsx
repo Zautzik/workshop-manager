@@ -1,8 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useNavigate } from '@/lib/navigation';
-import { supabase } from '@/integrations/supabase/client';
+import { useRouter } from 'next/navigation';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -10,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Calendar, Clock, AlertCircle, CheckCircle, Wrench, FileText, ArrowLeft, BarChart3 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import { useMaintenanceStats, useMaintenanceWorkOrders } from '@/hooks/use-queries';
 import MaintenanceChecklistEditor from '@/components/maintenance/MaintenanceChecklistEditor';
 import WorkOrderExecution from '@/components/maintenance/WorkOrderExecution';
 
@@ -23,38 +22,19 @@ interface WorkOrderStats {
 export default function MaintenanceDashboard() {
   const { role } = useAuth();
   const { toast } = useToast();
-  const navigate = useNavigate();
-  const [stats, setStats] = useState<WorkOrderStats>({ pending: 0, in_progress: 0, completed: 0, total: 0 });
-  const [loading, setLoading] = useState(true);
+  const router = useRouter();
+  const { data: stats, isLoading, isError } = useMaintenanceStats();
+  const safeStats: WorkOrderStats = stats || { pending: 0, in_progress: 0, completed: 0, total: 0 };
 
-  useEffect(() => {
-    fetchStats();
-  }, []);
+  if (isError) {
+    toast({
+      title: 'Error',
+      description: 'Failed to fetch statistics',
+      variant: 'destructive',
+    });
+  }
 
-  const fetchStats = async () => {
-    const { data, error } = await supabase
-      .from('maintenance_work_orders')
-      .select('status');
-
-    if (error) {
-      toast({
-        title: 'Error',
-        description: 'Failed to fetch statistics',
-        variant: 'destructive',
-      });
-    } else {
-      const orders = data || [];
-      setStats({
-        pending: orders.filter(o => o.status === 'pending').length,
-        in_progress: orders.filter(o => o.status === 'in_progress').length,
-        completed: orders.filter(o => o.status === 'completed').length,
-        total: orders.length
-      });
-    }
-    setLoading(false);
-  };
-
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="flex items-center justify-center h-screen bg-background">
         <div className="text-center">
@@ -82,7 +62,7 @@ export default function MaintenanceDashboard() {
           </div>
           <div className="flex items-center gap-2">
             <Button
-              onClick={() => navigate('/admin')}
+              onClick={() => router.push('/admin')}
               variant="outline"
               className="border-primary/30"
             >
@@ -100,7 +80,7 @@ export default function MaintenanceDashboard() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">Pending</p>
-                <p className="text-3xl font-bold text-yellow-400">{stats.pending}</p>
+                <p className="text-3xl font-bold text-yellow-400">{safeStats.pending}</p>
                 <p className="text-xs text-muted-foreground mt-1">Awaiting start</p>
               </div>
               <div className="p-3 rounded-lg bg-yellow-500/10">
@@ -113,7 +93,7 @@ export default function MaintenanceDashboard() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">In Progress</p>
-                <p className="text-3xl font-bold text-blue-400">{stats.in_progress}</p>
+                <p className="text-3xl font-bold text-blue-400">{safeStats.in_progress}</p>
                 <p className="text-xs text-muted-foreground mt-1">Being executed</p>
               </div>
               <div className="p-3 rounded-lg bg-blue-500/10">
@@ -126,7 +106,7 @@ export default function MaintenanceDashboard() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">Completed</p>
-                <p className="text-3xl font-bold text-green-400">{stats.completed}</p>
+                <p className="text-3xl font-bold text-green-400">{safeStats.completed}</p>
                 <p className="text-xs text-muted-foreground mt-1">This period</p>
               </div>
               <div className="p-3 rounded-lg bg-green-500/10">
@@ -139,7 +119,7 @@ export default function MaintenanceDashboard() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">Total Orders</p>
-                <p className="text-3xl font-bold text-primary">{stats.total}</p>
+                <p className="text-3xl font-bold text-primary">{safeStats.total}</p>
                 <p className="text-xs text-muted-foreground mt-1">All time</p>
               </div>
               <div className="p-3 rounded-lg bg-primary/10">
@@ -185,24 +165,7 @@ export default function MaintenanceDashboard() {
 
 // Simple Calendar Component
 function MaintenanceCalendar() {
-  const [workOrders, setWorkOrders] = useState<any[]>([]);
-  const { toast } = useToast();
-
-  useEffect(() => {
-    const fetchWorkOrders = async () => {
-      const { data, error } = await supabase
-        .from('maintenance_work_orders')
-        .select(`
-          *,
-          machines(name),
-          maintenance_checklists(name, frequency, machine_type)
-        `)
-        .order('scheduled_date', { ascending: true });
-
-      if (!error) setWorkOrders(data || []);
-    };
-    fetchWorkOrders();
-  }, []);
+  const { data: workOrders = [] } = useMaintenanceWorkOrders();
 
   // Group by date
   const groupedByDate = workOrders.reduce((acc, wo) => {

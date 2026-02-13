@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -20,6 +20,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { supabase } from '@/integrations/supabase/client';
+import { useWorkerName } from '@/hooks/use-queries';
 import { toast } from 'sonner';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { Slider } from '@/components/ui/slider';
@@ -35,33 +36,13 @@ interface TaskLogDialogProps {
 
 const TaskLogDialog = ({ open, onOpenChange, workerId, jobId, otId, onSuccess }: TaskLogDialogProps) => {
   const { t } = useLanguage();
-  const [workerName, setWorkerName] = useState('');
+  const { data: workerName = '' } = useWorkerName(workerId, open);
   const [formData, setFormData] = useState({
     task_type: 'detachment',
     time_spent_minutes: 30,
     performance_rating: 75,
     notes: '',
   });
-
-  useEffect(() => {
-    if (workerId && open) {
-      fetchWorkerName();
-    }
-  }, [workerId, open]);
-
-  const fetchWorkerName = async () => {
-    if (!workerId) return;
-    
-    const { data, error } = await supabase
-      .from('workers' as any)
-      .select('name')
-      .eq('id', workerId)
-      .maybeSingle();
-    
-    if (!error && data && 'name' in data) {
-      setWorkerName((data as any).name);
-    }
-  };
 
   const handleSubmit = async () => {
     if (!workerId) return;

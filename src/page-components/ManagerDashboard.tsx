@@ -1,13 +1,12 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useNavigate } from '@/lib/navigation';
+import { useEffect, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { supabase } from '@/integrations/supabase/client';
-import { toast } from 'sonner';
+import { useMachines, useJobs } from '@/hooks/use-queries';
 import { LogOut, TrendingUp, CheckCircle, Clock, Package, DollarSign } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import CostReport from '@/components/manager/CostReport';
@@ -18,59 +17,26 @@ import gonsaLogo from '@/assets/gonsa-logo.jpg';
 const ManagerDashboard = () => {
   const { user, role, signOut } = useAuth();
   const { t } = useLanguage();
-  const navigate = useNavigate();
-  const [stats, setStats] = useState({
-    total: 0,
-    completed: 0,
-    pending: 0,
-    inProgress: 0,
-  });
-  const [jobs, setJobs] = useState<any[]>([]);
-  const [machines, setMachines] = useState<any[]>([]);
+  const router = useRouter();
+  const { data: jobs = [] } = useJobs();
+  const { data: machines = [] } = useMachines();
+
+  const stats = useMemo(() => {
+    const completed = jobs.filter((j: any) => j.status === 'completed' || j.status === 'delivered').length;
+    const pending = jobs.filter((j: any) => j.status === 'pending').length;
+    const inProgress = jobs.filter((j: any) => j.status === 'in_progress').length;
+    return { total: jobs.length, completed, pending, inProgress };
+  }, [jobs]);
 
   useEffect(() => {
     if (!user || role !== 'manager') {
-      navigate('/');
-      return;
+      router.push('/');
     }
-    
-    fetchData();
-  }, [user, role, navigate]);
-
-  const fetchData = async () => {
-    const { data: jobsData, error: jobsError } = await supabase
-      .from('jobs')
-      .select('*, machines(name)')
-      .order('created_at', { ascending: false });
-    
-    const { data: machinesData, error: machinesError } = await supabase
-      .from('machines')
-      .select('*')
-      .order('name');
-    
-    if (jobsError || machinesError) {
-      toast.error('Error loading data');
-      return;
-    }
-    
-    setJobs(jobsData || []);
-    setMachines(machinesData || []);
-    
-    const completed = jobsData?.filter(j => j.status === 'completed' || j.status === 'delivered').length || 0;
-    const pending = jobsData?.filter(j => j.status === 'pending').length || 0;
-    const inProgress = jobsData?.filter(j => j.status === 'in_progress').length || 0;
-    
-    setStats({
-      total: jobsData?.length || 0,
-      completed,
-      pending,
-      inProgress,
-    });
-  };
+  }, [user, role, router]);
 
   const handleLogout = async () => {
     await signOut();
-    navigate('/');
+    router.push('/');
   };
 
   const efficiencyRate = stats.total > 0 ? ((stats.completed / stats.total) * 100).toFixed(1) : '0';
@@ -88,7 +54,7 @@ const ManagerDashboard = () => {
           </div>
           <div className="flex gap-2">
             <Button
-              onClick={() => navigate('/financial')}
+              onClick={() => router.push('/financial')}
               variant="outline"
               className="border-primary/30 text-primary hover:bg-primary/10"
             >

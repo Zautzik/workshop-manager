@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -16,6 +16,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { useBatchesAvailable, useMachines, useWorkers } from '@/hooks/use-queries';
 
 interface AddJobToOTDialogProps {
   open: boolean;
@@ -31,28 +32,10 @@ const AddJobToOTDialog = ({ open, onOpenChange, otId, onJobAdded }: AddJobToOTDi
   const [machineId, setMachineId] = useState('');
   const [workerId, setWorkerId] = useState('');
   const [batchId, setBatchId] = useState('');
-  const [machines, setMachines] = useState<any[]>([]);
-  const [workers, setWorkers] = useState<any[]>([]);
-  const [batches, setBatches] = useState<any[]>([]);
+  const { data: machines = [] } = useMachines();
+  const { data: workers = [] } = useWorkers();
+  const { data: batches = [] } = useBatchesAvailable() as { data: any[] };
   const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    if (open) {
-      fetchData();
-    }
-  }, [open]);
-
-  const fetchData = async () => {
-    const [machinesData, workersData, batchesData] = await Promise.all([
-      supabase.from('machines').select('*').order('name'),
-      supabase.from('workers' as any).select('*').order('name'),
-      supabase.from('batches' as any).select('*').gt('quantity_remaining', 0).order('batch_number'),
-    ]);
-
-    setMachines(machinesData.data || []);
-    setWorkers(workersData.data || []);
-    setBatches(batchesData.data || []);
-  };
 
   const calculateCost = async (batchId: string, machineId: string) => {
     // Dummy rates: $0.1/sheet, $10/hour labor, $5/hour machine

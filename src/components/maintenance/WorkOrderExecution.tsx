@@ -11,6 +11,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Clock, Play, CheckCircle, Wrench, AlertCircle } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { useMaintenanceTaskCompletions, useMaintenanceWorkOrdersByStatus } from '@/hooks/use-queries';
 
 interface ChecklistItem {
   id: string;
@@ -25,10 +26,10 @@ interface ChecklistItem {
 interface WorkOrder {
   id: string;
   status: string;
-  priority: number;
+  priority: number | null;
   scheduled_date: string;
   started_at: string | null;
-  total_time_minutes: number;
+  total_time_minutes: number | null;
   notes: string | null;
   checklist_id: string;
   machine_id: string | null;
@@ -37,7 +38,7 @@ interface WorkOrder {
     name: string;
     frequency: string | null;
     machine_type: string;
-    items: ChecklistItem[];
+    items: ChecklistItem[] | null;
   } | null;
 }
 
@@ -56,51 +57,22 @@ interface TaskEntry {
 export default function WorkOrderExecution() {
   const { user } = useAuth();
   const { toast } = useToast();
-  const [workOrders, setWorkOrders] = useState<WorkOrder[]>([]);
+  const { data: rawWorkOrders = [], isLoading, refetch: refetchWorkOrders } = useMaintenanceWorkOrdersByStatus(['pending', 'in_progress']);
+  const workOrders = rawWorkOrders as unknown as WorkOrder[];
   const [selectedOrder, setSelectedOrder] = useState<WorkOrder | null>(null);
   const [tasks, setTasks] = useState<TaskEntry[]>([]);
-  const [loading, setLoading] = useState(true);
   const [executing, setExecuting] = useState(false);
   const [taskNotes, setTaskNotes] = useState<Record<string, string>>({});
+  const { data: fkTasks = [] } = useMaintenanceTaskCompletions(selectedOrder?.id);
 
   useEffect(() => {
-    fetchWorkOrders();
-  }, []);
-
-  const fetchWorkOrders = async () => {
-    const { data, error } = await supabase
-      .from('maintenance_work_orders')
-      .select(`
-        *,
-        machines(name, type),
-        maintenance_checklists(name, frequency, machine_type, items)
-      `)
-      .in('status', ['pending', 'in_progress'])
-      .order('priority', { ascending: false })
-      .order('scheduled_date', { ascending: true });
-
-    if (error) {
-      toast({ title: 'Error', description: 'Failed to fetch work orders', variant: 'destructive' });
-    } else {
-      // Cast to handle JSONB items field from Supabase
-      setWorkOrders((data || []) as unknown as WorkOrder[]);
+    if (!selectedOrder) {
+      setTasks([]);
+      setTaskNotes({});
+      return;
     }
-    setLoading(false);
-  };
 
-  const loadTasksForOrder = async (order: WorkOrder) => {
-    // First, try to load from the FK-based maintenance_task_completions table
-    const { data: fkTasks, error: fkError } = await supabase
-      .from('maintenance_task_completions')
-      .select(`
-        *,
-        maintenance_tasks(task_number, description, estimated_minutes)
-      `)
-      .eq('work_order_id', order.id)
-      .order('created_at');
-
-    if (!fkError && fkTasks && fkTasks.length > 0) {
-      // FK approach: we have task completions linked to maintenance_tasks
+    if (fkTasks.length > 0) {
       const mapped: TaskEntry[] = fkTasks.map((tc: any) => ({
         id: tc.task_id,
         step: tc.maintenance_tasks?.task_number || 0,
@@ -117,8 +89,7 @@ export default function WorkOrderExecution() {
       return;
     }
 
-    // JSONB approach: read items from checklist
-    const checklistItems = order.maintenance_checklists?.items;
+    const checklistItems = selectedOrder.maintenance_checklists?.items;
     if (Array.isArray(checklistItems) && checklistItems.length > 0) {
       const mapped: TaskEntry[] = checklistItems.map((item: any) => ({
         id: item.id || `item-${item.step}`,
@@ -135,10 +106,9 @@ export default function WorkOrderExecution() {
       return;
     }
 
-    // No tasks found at all
     setTasks([]);
     setTaskNotes({});
-  };
+  }, [fkTasks, selectedOrder]);
 
   const startWorkOrder = async (order: WorkOrder) => {
     const { error } = await supabase
@@ -155,14 +125,12 @@ export default function WorkOrderExecution() {
       toast({ title: 'Started', description: 'Work order started' });
       const updatedOrder = { ...order, status: 'in_progress', started_at: new Date().toISOString() };
       setSelectedOrder(updatedOrder);
-      await loadTasksForOrder(updatedOrder);
-      fetchWorkOrders();
+      refetchWorkOrders();
     }
   };
 
   const openWorkOrder = async (order: WorkOrder) => {
     setSelectedOrder(order);
-    await loadTasksForOrder(order);
     setExecuting(true);
   };
 
@@ -219,7 +187,7 @@ export default function WorkOrderExecution() {
       toast({ title: 'Completed', description: 'Work order completed successfully' });
       setExecuting(false);
       setSelectedOrder(null);
-      fetchWorkOrders();
+      refetchWorkOrders();
     }
   };
 
@@ -237,13 +205,14 @@ export default function WorkOrderExecution() {
     }
   };
 
-  const getPriorityColor = (priority: number) => {
-    if (priority >= 4) return 'bg-red-500/20 text-red-400 border-red-500/30';
-    if (priority >= 3) return 'bg-orange-500/20 text-orange-400 border-orange-500/30';
+  const getPriorityColor = (priority: number | null) => {
+    const value = priority ?? 0;
+    if (value >= 4) return 'bg-red-500/20 text-red-400 border-red-500/30';
+    if (value >= 3) return 'bg-orange-500/20 text-orange-400 border-orange-500/30';
     return 'bg-blue-500/20 text-blue-400 border-blue-500/30';
   };
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>

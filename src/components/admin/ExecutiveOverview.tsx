@@ -1,9 +1,8 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { 
   TrendingUp, TrendingDown, Target, AlertTriangle, CheckCircle2, 
@@ -13,6 +12,7 @@ import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart as RechartsPie, Pie, Cell, BarChart, Bar, Legend
 } from 'recharts';
+import { useMaintenanceWorkOrdersByStatus, useMachines, useOTs, useWorkers } from '@/hooks/use-queries';
 
 interface OTByStatus {
   status: string;
@@ -32,106 +32,63 @@ interface WorkerPerformance {
 
 const ExecutiveOverview = () => {
   const { t } = useLanguage();
-  const [loading, setLoading] = useState(true);
-  const [otsByStatus, setOtsByStatus] = useState<OTByStatus[]>([]);
-  const [machineStatus, setMachineStatus] = useState<MachineStatus[]>([]);
-  const [workerPerformance, setWorkerPerformance] = useState<WorkerPerformance[]>([]);
-  const [kpis, setKpis] = useState({
-    activeOTs: 0,
-    completedThisMonth: 0,
-    avgCycleTime: 0,
-    machineUtilization: 0,
-    onTimeDelivery: 0,
-    workforceEfficiency: 0,
-    pendingMaintenance: 0,
-    criticalAlerts: 0,
-  });
+  const { data: ots = [], isLoading: otsLoading } = useOTs();
+  const { data: machines = [], isLoading: machinesLoading } = useMachines();
+  const { data: workers = [], isLoading: workersLoading } = useWorkers();
+  const { data: pendingMaintenance = [], isLoading: maintenanceLoading } = useMaintenanceWorkOrdersByStatus(['pending']);
 
-  useEffect(() => {
-    fetchAllData();
-  }, []);
+  const loading = otsLoading || machinesLoading || workersLoading || maintenanceLoading;
 
-  const fetchAllData = async () => {
-    setLoading(true);
-    await Promise.all([
-      fetchOTStats(),
-      fetchMachineStats(),
-      fetchWorkerStats(),
-      fetchKPIs(),
-    ]);
-    setLoading(false);
-  };
+  const otsByStatus: OTByStatus[] = useMemo(() => {
+    const statusCounts = ots.reduce((acc: Record<string, number>, ot: any) => {
+      acc[ot.status] = (acc[ot.status] || 0) + 1;
+      return acc;
+    }, {});
+    return Object.entries(statusCounts).map(([status, count]) => ({ status, count }));
+  }, [ots]);
 
-  const fetchOTStats = async () => {
-    const { data } = await supabase.from('ots').select('status');
-    if (data) {
-      const statusCounts = data.reduce((acc: Record<string, number>, ot) => {
-        acc[ot.status] = (acc[ot.status] || 0) + 1;
-        return acc;
-      }, {});
-      setOtsByStatus(Object.entries(statusCounts).map(([status, count]) => ({ status, count })));
-    }
-  };
+  const machineStatus: MachineStatus[] = useMemo(() => {
+    const statusCounts = machines.reduce((acc: Record<string, number>, machine: any) => {
+      acc[machine.status] = (acc[machine.status] || 0) + 1;
+      return acc;
+    }, {});
+    return Object.entries(statusCounts).map(([status, count]) => ({ status, count }));
+  }, [machines]);
 
-  const fetchMachineStats = async () => {
-    const { data } = await supabase.from('machines').select('status');
-    if (data) {
-      const statusCounts = data.reduce((acc: Record<string, number>, machine) => {
-        acc[machine.status] = (acc[machine.status] || 0) + 1;
-        return acc;
-      }, {});
-      setMachineStatus(Object.entries(statusCounts).map(([status, count]) => ({ status, count })));
-    }
-  };
+  const workerPerformance: WorkerPerformance[] = useMemo(() => {
+    const deptStats = workers.reduce((acc: Record<string, { total: number; count: number }>, worker: any) => {
+      const dept = worker.department;
+      if (!acc[dept]) acc[dept] = { total: 0, count: 0 };
+      acc[dept].total += ((worker.quality_score || 75) + (worker.speed_score || 75)) / 2;
+      acc[dept].count += 1;
+      return acc;
+    }, {});
+    return Object.entries(deptStats).map(([department, stats]) => ({
+      department,
+      avgEfficiency: Math.round(stats.total / stats.count),
+      totalWorkers: stats.count,
+    }));
+  }, [workers]);
 
-  const fetchWorkerStats = async () => {
-    const { data } = await supabase.from('workers').select('department, quality_score, speed_score');
-    if (data) {
-      const deptStats = data.reduce((acc: Record<string, { total: number; count: number }>, worker) => {
-        const dept = worker.department;
-        if (!acc[dept]) acc[dept] = { total: 0, count: 0 };
-        acc[dept].total += ((worker.quality_score || 75) + (worker.speed_score || 75)) / 2;
-        acc[dept].count += 1;
-        return acc;
-      }, {});
-      setWorkerPerformance(
-        Object.entries(deptStats).map(([department, stats]) => ({
-          department,
-          avgEfficiency: Math.round(stats.total / stats.count),
-          totalWorkers: stats.count,
-        }))
-      );
-    }
-  };
-
-  const fetchKPIs = async () => {
-    const [otsData, completedData, machinesData, maintenanceData] = await Promise.all([
-      supabase.from('ots').select('id, status, created_at, completed_at'),
-      supabase.from('ots').select('id').eq('status', 'completed'),
-      supabase.from('machines').select('status'),
-      supabase.from('maintenance_work_orders').select('status').eq('status', 'pending'),
-    ]);
-
-    const activeOTs = otsData.data?.filter(ot => ot.status !== 'completed').length || 0;
-    const completedThisMonth = completedData.data?.length || 0;
-    
-    const runningMachines = machinesData.data?.filter(m => m.status === 'running').length || 0;
-    const totalMachines = machinesData.data?.length || 1;
+  const kpis = useMemo(() => {
+    const activeOTs = ots.filter((ot: any) => ot.status !== 'completed').length;
+    const completedThisMonth = ots.filter((ot: any) => ot.status === 'completed').length;
+    const runningMachines = machines.filter((m: any) => m.status === 'running').length;
+    const totalMachines = machines.length || 1;
     const machineUtilization = Math.round((runningMachines / totalMachines) * 100);
+    const pendingCount = pendingMaintenance.length;
 
-    const pendingMaintenance = maintenanceData.data?.length || 0;
-
-    setKpis({
+    return {
       activeOTs,
       completedThisMonth,
       avgCycleTime: 4.2,
       machineUtilization,
       onTimeDelivery: 94,
       workforceEfficiency: 87,
-      pendingMaintenance,
-      criticalAlerts: pendingMaintenance > 3 ? pendingMaintenance - 3 : 0,
-    });
-  };
+      pendingMaintenance: pendingCount,
+      criticalAlerts: pendingCount > 3 ? pendingCount - 3 : 0,
+    };
+  }, [machines, ots, pendingMaintenance]);
 
   const statusColors: Record<string, string> = {
     pre_press: 'hsl(var(--primary))',

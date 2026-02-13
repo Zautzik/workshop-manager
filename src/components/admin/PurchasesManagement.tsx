@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -25,10 +25,11 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Plus, Pencil, Trash2 } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { usePurchases } from '@/hooks/use-queries';
 
 const PurchasesManagement = () => {
   const { t } = useLanguage();
-  const [purchases, setPurchases] = useState<any[]>([]);
+  const { data: purchases = [], refetch: refetchPurchases } = usePurchases();
   const [showDialog, setShowDialog] = useState(false);
   const [editingPurchase, setEditingPurchase] = useState<any>(null);
   const [formData, setFormData] = useState({
@@ -37,23 +38,6 @@ const PurchasesManagement = () => {
     certification_details: '',
     total_cost: 0,
   });
-
-  useEffect(() => {
-    fetchPurchases();
-  }, []);
-
-  const fetchPurchases = async () => {
-    const { data, error } = await supabase
-      .from('purchases' as any)
-      .select('*')
-      .order('purchase_date', { ascending: false });
-    
-    if (error) {
-      toast.error('Error loading purchases');
-    } else {
-      setPurchases(data || []);
-    }
-  };
 
   const handleSubmit = async () => {
     if (editingPurchase) {
@@ -66,7 +50,7 @@ const PurchasesManagement = () => {
         toast.error('Error updating purchase');
       } else {
         toast.success('Purchase updated successfully');
-        fetchPurchases();
+        refetchPurchases();
         resetForm();
       }
     } else {
@@ -78,7 +62,7 @@ const PurchasesManagement = () => {
         toast.error('Error creating purchase');
       } else {
         toast.success('Purchase created successfully');
-        fetchPurchases();
+        refetchPurchases();
         resetForm();
       }
     }
@@ -96,7 +80,7 @@ const PurchasesManagement = () => {
       toast.error('Error deleting purchase');
     } else {
       toast.success('Purchase deleted successfully');
-      fetchPurchases();
+      refetchPurchases();
     }
   };
 

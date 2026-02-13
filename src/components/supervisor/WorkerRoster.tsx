@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { supabase } from '@/integrations/supabase/client';
+import { useWorkerStats } from '@/hooks/use-queries';
 import { toast } from 'sonner';
 import { Plus, Search } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -25,7 +25,7 @@ const WorkerRoster = ({
   showActions = true 
 }: WorkerRosterProps) => {
   const { t } = useLanguage();
-  const [workers, setWorkers] = useState<any[]>([]);
+  const { data: workers = [], refetch: refetchWorkers, isError } = useWorkerStats(departmentFilter);
   const [filteredWorkers, setFilteredWorkers] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [sortBy, setSortBy] = useState('name');
@@ -33,38 +33,22 @@ const WorkerRoster = ({
   const [showTaskLog, setShowTaskLog] = useState(false);
 
   useEffect(() => {
-    fetchWorkers();
-  }, [departmentFilter]);
-
-  useEffect(() => {
     filterAndSortWorkers();
   }, [workers, searchTerm, sortBy, departmentFilter]);
 
-  const fetchWorkers = async () => {
-    let query = supabase
-      .from('worker_stats' as any)
-      .select('*');
-    
-    if (departmentFilter) {
-      query = query.eq('department', departmentFilter);
-    }
-    
-    const { data, error } = await query;
-    
-    if (error) {
+  useEffect(() => {
+    if (isError) {
       toast.error('Error loading workers');
-    } else {
-      setWorkers(data || []);
     }
-  };
+  }, [isError]);
 
   const filterAndSortWorkers = () => {
     let filtered = [...workers];
     
     // Search filter
     if (searchTerm) {
-      filtered = filtered.filter(w => 
-        w.name.toLowerCase().includes(searchTerm.toLowerCase())
+      filtered = filtered.filter((w) =>
+        (w.name ?? '').toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
     
@@ -72,7 +56,7 @@ const WorkerRoster = ({
     filtered.sort((a, b) => {
       switch (sortBy) {
         case 'name':
-          return a.name.localeCompare(b.name);
+          return (a.name ?? '').localeCompare(b.name ?? '');
         case 'efficiency':
           return (b.efficiency_score || 0) - (a.efficiency_score || 0);
         case 'rating':
@@ -152,7 +136,7 @@ const WorkerRoster = ({
         open={showTaskLog}
         onOpenChange={setShowTaskLog}
         workerId={selectedWorkerId}
-        onSuccess={fetchWorkers}
+        onSuccess={refetchWorkers}
       />
     </>
   );
