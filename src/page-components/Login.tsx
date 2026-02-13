@@ -46,7 +46,8 @@ const Login = () => {
   }, []);
 
   useEffect(() => {
-    if (user && role) {
+    if (user) {
+      // Redirect based on role, default to /manager if no role assigned
       if (role === 'admin') router.push('/admin');
       else if (role === 'supervisor') router.push('/supervisor');
       else if (role === 'technician') router.push('/maintenance');
@@ -62,11 +63,11 @@ const Login = () => {
 
     if (error) {
       toast.error(error.message);
+      setLoading(false);
     } else {
       toast.success(t('login') + ' successful');
+      // useEffect will handle redirect once session updates
     }
-
-    setLoading(false);
   };
 
   if (!mounted) {
