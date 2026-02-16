@@ -68,12 +68,18 @@ export const authOptions: NextAuthOptions = {
 				const authUser = authData.user;
 				const { data: profile } = await (supabaseAdmin as any)
 					.from('users')
-					.select('*, user_roles(*)')
+					.select('*')
 					.eq('id', authUser.id)
 					.single();
 
-				// Get primary role (first role in the array)
-				const role = profile?.user_roles?.[0]?.role ?? null;
+				const { data: roleRow } = await (supabaseAdmin as any)
+					.from('user_roles')
+					.select('role')
+					.eq('user_id', authUser.id)
+					.order('created_at', { ascending: false })
+					.maybeSingle();
+
+				const role = roleRow?.role ?? null;
 				const name =
 					profile?.name ??
 					(authUser.user_metadata?.name as string | undefined) ??
