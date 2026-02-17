@@ -6,7 +6,6 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
-import { supabase } from "@/integrations/supabase/client";
 import { useOTs } from "@/hooks/use-queries";
 import { Plus, ArrowRight, Edit2, Info, Package, Clock, User } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -44,13 +43,19 @@ export function OTManagement({ onOTSelect }: OTManagementProps) {
   const { t, i18n } = useTranslation();
 
   const updateOTStatus = async (otId: string, newStatus: string) => {
-    const { error } = await supabase
-      .from("ots")
-      .update({ status: newStatus as any })
-      .eq("id", otId);
+    const response = await fetch(`/api/ots/${otId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: newStatus }),
+    });
 
-    if (error) {
-      toast({ title: "Error updating OT status", variant: "destructive" });
+    if (!response.ok) {
+      const errorBody = await response.json().catch(() => null);
+      toast({
+        title: "Error updating OT status",
+        description: errorBody?.error || 'Request failed',
+        variant: "destructive",
+      });
       return;
     }
     

@@ -27,7 +27,6 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Plus, Pencil, Trash2 } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -49,13 +48,15 @@ const WorkersManagement = ({ onUpdate }: WorkersManagementProps) => {
 
   const handleSubmit = async () => {
     if (editingWorker) {
-      const { error } = await supabase
-        .from('workers' as any)
-        .update(formData as any)
-        .eq('id', editingWorker.id);
+      const response = await fetch(`/api/workers/${editingWorker.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData),
+      });
 
-      if (error) {
-        toast.error('Error updating worker');
+      if (!response.ok) {
+        const errorBody = await response.json().catch(() => null);
+        toast.error(errorBody?.error || 'Error updating worker');
       } else {
         toast.success('Worker updated successfully');
         refetchWorkers();
@@ -63,12 +64,15 @@ const WorkersManagement = ({ onUpdate }: WorkersManagementProps) => {
         resetForm();
       }
     } else {
-      const { error } = await supabase
-        .from('workers' as any)
-        .insert(formData as any);
+      const response = await fetch('/api/workers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData),
+      });
 
-      if (error) {
-        toast.error('Error creating worker');
+      if (!response.ok) {
+        const errorBody = await response.json().catch(() => null);
+        toast.error(errorBody?.error || 'Error creating worker');
       } else {
         toast.success('Worker created successfully');
         refetchWorkers();
@@ -81,13 +85,13 @@ const WorkersManagement = ({ onUpdate }: WorkersManagementProps) => {
   const handleDelete = async (workerId: string) => {
     if (!confirm(t('confirmDelete'))) return;
 
-    const { error } = await supabase
-      .from('workers' as any)
-      .delete()
-      .eq('id', workerId);
+    const response = await fetch(`/api/workers/${workerId}`, {
+      method: 'DELETE',
+    });
 
-    if (error) {
-      toast.error('Error deleting worker');
+    if (!response.ok) {
+      const errorBody = await response.json().catch(() => null);
+      toast.error(errorBody?.error || 'Error deleting worker');
     } else {
       toast.success('Worker deleted successfully');
       refetchWorkers();

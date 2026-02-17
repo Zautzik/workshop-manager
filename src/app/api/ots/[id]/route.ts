@@ -1,0 +1,56 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
+import { requireAuth, isAuthError } from '@/lib/api-middleware';
+import { supabaseAdmin } from '@/integrations/supabase/server';
+
+const UpdateOTSchema = z.object({
+	ot_number: z.string().min(1).max(100).optional(),
+	client_name: z.string().min(1).max(255).optional(),
+	description: z.string().max(2000).optional().nullable(),
+	quantity: z.number().int().min(0).optional(),
+	priority: z.number().int().min(1).max(10).optional(),
+	deadline: z.string().datetime().optional().nullable(),
+	status: z.string().optional(),
+});
+
+export async function PATCH(req: NextRequest, context: { params: { id: string } }) {
+	const auth = await requireAuth(['supervisor', 'admin']);
+	if (isAuthError(auth)) return auth;
+
+	try {
+		const { id } = context.params;
+		if (!id || !z.string().uuid().safeParse(id).success) {
+			return NextResponse.json({ error: 'Valid OT id required' }, { status: 400 });
+		}
+
+		const body = await req.json();
+		const parsed = UpdateOTSchema.safeParse(body);
+
+		if (!parsed.success) {
+			return NextResponse.json(
+				{ error: 'Invalid input', details: parsed.error.flatten().fieldErrors },
+				{ status: 400 }
+			);
+		}
+
+		const { data, error } = await supabaseAdmin
+			.from('ots')
+			.update({
+				...parsed.data,
+				updated_at: new Date().toISOString(),
+			})
+			.eq('id', id)
+			.select('*')
+			.single();
+
+		if (error) {
+			console.error('Error updating OT:', error);
+			return NextResponse.json({ error: 'Failed to update OT' }, { status: 500 });
+		}
+
+		return NextResponse.json(data);
+	} catch (error) {
+		console.error('Error updating OT:', error);
+		return NextResponse.json({ error: 'Failed to update OT' }, { status: 500 });
+	}
+}

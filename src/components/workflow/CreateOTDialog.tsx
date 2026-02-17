@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
 interface CreateOTDialogProps {
@@ -30,20 +29,29 @@ export function CreateOTDialog({ open, onOpenChange, onSuccess }: CreateOTDialog
     e.preventDefault();
     setLoading(true);
 
-    const { error } = await supabase.from("ots").insert({
-      ot_number: formData.ot_number,
-      client_name: formData.client_name,
-      description: formData.description || null,
-      quantity: parseInt(formData.quantity) || 0,
-      priority: parseInt(formData.priority) || 1,
-      deadline: formData.deadline || null,
-      status: 'pre_press'
+    const response = await fetch('/api/ots', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ot_number: formData.ot_number,
+        client_name: formData.client_name,
+        description: formData.description || null,
+        quantity: parseInt(formData.quantity) || 0,
+        priority: parseInt(formData.priority) || 1,
+        deadline: formData.deadline || null,
+        status: 'pre_press',
+      }),
     });
 
     setLoading(false);
 
-    if (error) {
-      toast({ title: "Error creating OT", description: error.message, variant: "destructive" });
+    if (!response.ok) {
+      const errorBody = await response.json().catch(() => null);
+      toast({
+        title: "Error creating OT",
+        description: errorBody?.error || 'Request failed',
+        variant: "destructive",
+      });
       return;
     }
 

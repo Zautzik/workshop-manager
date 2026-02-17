@@ -6,7 +6,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
 interface EditOTDialogProps {
@@ -74,12 +73,16 @@ export function EditOTDialog({ ot, open, onOpenChange, onSuccess }: EditOTDialog
         deadline: formData.deadline ? new Date(formData.deadline).toISOString() : null,
       };
 
-      const { error } = await supabase
-        .from("ots")
-        .update(updateData)
-        .eq("id", ot.id);
+      const response = await fetch(`/api/ots/${ot.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updateData),
+      });
 
-      if (error) throw error;
+      if (!response.ok) {
+        const errorBody = await response.json().catch(() => null);
+        throw new Error(errorBody?.error || 'Request failed');
+      }
 
       toast({
         title: "OT updated successfully",
