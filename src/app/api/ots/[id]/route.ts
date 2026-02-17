@@ -13,12 +13,15 @@ const UpdateOTSchema = z.object({
 	status: z.string().optional(),
 });
 
-export async function PATCH(req: NextRequest, context: { params: { id: string } }) {
+export async function PATCH(
+	req: NextRequest,
+	context: { params: Promise<{ id: string }> }
+) {
 	const auth = await requireAuth(['supervisor', 'admin']);
 	if (isAuthError(auth)) return auth;
 
 	try {
-		const { id } = context.params;
+		const { id } = await context.params;
 		if (!id || !z.string().uuid().safeParse(id).success) {
 			return NextResponse.json({ error: 'Valid OT id required' }, { status: 400 });
 		}

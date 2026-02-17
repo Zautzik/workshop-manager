@@ -35,6 +35,7 @@ const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [didLogin, setDidLogin] = useState(false);
   const [mounted, setMounted] = useState(false);
   const { signIn, user, role } = useAuth();
   const { language, setLanguage, t } = useLanguage();
@@ -46,14 +47,14 @@ const Login = () => {
   }, []);
 
   useEffect(() => {
-    if (user) {
+    if (didLogin && user) {
       // Redirect based on role, default to /manager if no role assigned
       if (role === 'admin') router.push('/admin');
       else if (role === 'supervisor') router.push('/supervisor');
       else if (role === 'technician') router.push('/maintenance');
       else router.push('/manager');
     }
-  }, [user, role, router]);
+  }, [didLogin, user, role, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -66,6 +67,7 @@ const Login = () => {
       setLoading(false);
     } else {
       toast.success(t('login') + ' successful');
+      setDidLogin(true);
       // useEffect will handle redirect once session updates
     }
   };
@@ -78,11 +80,34 @@ const Login = () => {
     );
   }
 
-  // If already authenticated, show loading and let useEffect redirect
+  // If already authenticated, show continue/sign-out actions instead of auto-redirect
   if (user) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-primary/5 to-accent/10 p-4">
-        <div className="text-sm text-muted-foreground">Redirecting...</div>
+        <div className="w-full max-w-md space-y-4 rounded-lg border border-primary/20 bg-card p-6 text-center shadow-xl">
+          <h2 className="text-xl font-semibold text-foreground">Already signed in</h2>
+          <p className="text-sm text-muted-foreground">
+            Choose where to go next or sign out to switch accounts.
+          </p>
+          <div className="flex flex-col gap-2">
+            <Button
+              onClick={() => {
+                if (role === 'admin') router.push('/admin');
+                else if (role === 'supervisor') router.push('/supervisor');
+                else if (role === 'technician') router.push('/maintenance');
+                else router.push('/manager');
+              }}
+            >
+              Continue to Dashboard
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => router.push('/api/auth/signout')}
+            >
+              Sign out
+            </Button>
+          </div>
+        </div>
       </div>
     );
   }

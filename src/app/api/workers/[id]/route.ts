@@ -9,12 +9,15 @@ const UpdateWorkerSchema = z.object({
 	status: z.enum(['active', 'inactive']).optional(),
 });
 
-export async function PATCH(req: NextRequest, context: { params: { id: string } }) {
+export async function PATCH(
+	req: NextRequest,
+	context: { params: Promise<{ id: string }> }
+) {
 	const auth = await requireAuth(['supervisor', 'admin']);
 	if (isAuthError(auth)) return auth;
 
 	try {
-		const { id } = context.params;
+		const { id } = await context.params;
 		if (!id || !z.string().uuid().safeParse(id).success) {
 			return NextResponse.json({ error: 'Valid worker id required' }, { status: 400 });
 		}
@@ -51,12 +54,15 @@ export async function PATCH(req: NextRequest, context: { params: { id: string } 
 	}
 }
 
-export async function DELETE(_req: NextRequest, context: { params: { id: string } }) {
+export async function DELETE(
+	_req: NextRequest,
+	context: { params: Promise<{ id: string }> }
+) {
 	const auth = await requireAuth(['supervisor', 'admin']);
 	if (isAuthError(auth)) return auth;
 
 	try {
-		const { id } = context.params;
+		const { id } = await context.params;
 		if (!id || !z.string().uuid().safeParse(id).success) {
 			return NextResponse.json({ error: 'Valid worker id required' }, { status: 400 });
 		}
