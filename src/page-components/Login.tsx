@@ -37,7 +37,7 @@ const Login = () => {
   const [loading, setLoading] = useState(false);
   const [didLogin, setDidLogin] = useState(false);
   const [mounted, setMounted] = useState(false);
-  const { signIn, user, role } = useAuth();
+  const { signIn, signOut, user, role } = useAuth();
   const { language, setLanguage, t } = useLanguage();
   const { theme, setTheme } = useTheme();
   const router = useRouter();
@@ -102,7 +102,10 @@ const Login = () => {
             </Button>
             <Button
               variant="outline"
-              onClick={() => router.push('/api/auth/signout')}
+              onClick={async () => {
+                await signOut();
+                router.push('/');
+              }}
             >
               Sign out
             </Button>
