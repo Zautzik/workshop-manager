@@ -19,13 +19,26 @@ const OTStatusSchema = z.enum([
 	'completed',
 ]);
 
+const DeadlineSchema = z.preprocess((value) => {
+	if (value === null || value === undefined || value === '') {
+		return null;
+	}
+	if (typeof value === 'string') {
+		const date = new Date(value);
+		if (!Number.isNaN(date.getTime())) {
+			return date.toISOString();
+		}
+	}
+	return value;
+}, z.union([z.string().datetime(), z.null()]));
+
 const CreateOTSchema = z.object({
 	ot_number: z.string().min(1).max(100),
 	client_name: z.string().min(1).max(255),
 	description: z.string().max(2000).optional().nullable(),
-	quantity: z.number().int().min(0),
-	priority: z.number().int().min(1).max(10),
-	deadline: z.string().datetime().optional().nullable(),
+	quantity: z.coerce.number().int().min(0),
+	priority: z.coerce.number().int().min(1).max(10),
+	deadline: DeadlineSchema.optional(),
 	status: OTStatusSchema.optional(),
 });
 

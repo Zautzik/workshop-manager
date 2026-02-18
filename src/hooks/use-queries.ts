@@ -181,13 +181,18 @@ export function useWorkerStats(departmentFilter?: string) {
   return useQuery({
     queryKey: queryKeys.workerStats(departmentFilter),
     queryFn: async () => {
-      let query = supabase.from('worker_stats').select('*');
+      const params = new URLSearchParams();
       if (departmentFilter && departmentFilter !== 'all') {
-        query = query.eq('department', departmentFilter);
+        params.set('department', departmentFilter);
       }
-      const { data, error } = await query.order('efficiency_score', { ascending: false });
-      if (error) throw error;
-      return data ?? [];
+
+      const response = await fetch(`/api/worker-stats?${params.toString()}`);
+      if (!response.ok) {
+        const errorBody = await response.json().catch(() => ({}));
+        throw new Error(errorBody?.error ?? 'Failed to fetch worker stats');
+      }
+
+      return response.json();
     },
   });
 }
