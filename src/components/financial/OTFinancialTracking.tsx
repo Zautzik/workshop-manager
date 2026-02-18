@@ -148,7 +148,7 @@ export const OTFinancialTracking = () => {
           </CardContent>
         </Card>
 
-        <Card className={`border-${totalProfit >= 0 ? 'green' : 'red'}-500/20`}>
+        <Card className={totalProfit >= 0 ? 'border-green-500/20' : 'border-red-500/20'}>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">Total Profit</CardTitle>
           </CardHeader>
