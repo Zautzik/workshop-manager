@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Calendar, Clock, AlertCircle, CheckCircle, Wrench, FileText, ArrowLeft, BarChart3 } from 'lucide-react';
+import { useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { useMaintenanceStats, useMaintenanceWorkOrders } from '@/hooks/use-queries';
@@ -26,13 +27,15 @@ export default function MaintenanceDashboard() {
   const { data: stats, isLoading, isError } = useMaintenanceStats();
   const safeStats: WorkOrderStats = stats || { pending: 0, in_progress: 0, completed: 0, total: 0 };
 
-  if (isError) {
-    toast({
-      title: 'Error',
-      description: 'Failed to fetch statistics',
-      variant: 'destructive',
-    });
-  }
+  useEffect(() => {
+    if (isError) {
+      toast({
+        title: 'Error',
+        description: 'Failed to fetch statistics',
+        variant: 'destructive',
+      });
+    }
+  }, [isError, toast]);
 
   if (isLoading) {
     return (
