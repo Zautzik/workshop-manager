@@ -3,6 +3,22 @@ import { z } from 'zod';
 import { requireAuth, isAuthError } from '@/lib/api-middleware';
 import { supabaseAdmin } from '@/integrations/supabase/server';
 
+const OTStatusSchema = z.enum([
+	'pre_press',
+	'visto_bueno',
+	'paper_purchase',
+	'paper_received',
+	'in_storage',
+	'guillotine_first_cut',
+	'offset_printing',
+	'die_cutting',
+	'guillotine_final_cut',
+	'workshop_revision',
+	'ready_for_delivery',
+	'in_delivery',
+	'completed',
+]);
+
 const CreateOTSchema = z.object({
 	ot_number: z.string().min(1).max(100),
 	client_name: z.string().min(1).max(255),
@@ -10,7 +26,7 @@ const CreateOTSchema = z.object({
 	quantity: z.number().int().min(0),
 	priority: z.number().int().min(1).max(10),
 	deadline: z.string().datetime().optional().nullable(),
-	status: z.string().optional(),
+	status: OTStatusSchema.optional(),
 });
 
 export async function GET(_req: NextRequest) {
