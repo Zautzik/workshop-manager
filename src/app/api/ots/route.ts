@@ -91,7 +91,6 @@ export async function POST(req: NextRequest) {
 					priority: parsed.data.priority,
 					deadline: parsed.data.deadline || null,
 					status: parsed.data.status || 'pre_press',
-					created_by: auth.id,
 				},
 			])
 			.select('*')
