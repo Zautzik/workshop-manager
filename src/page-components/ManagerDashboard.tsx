@@ -12,7 +12,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import CostReport from '@/components/manager/CostReport';
 import TraceabilityReport from '@/components/manager/TraceabilityReport';
 import WorkerStatsReport from '@/components/manager/WorkerStatsReport';
-import gonsaLogo from '@/assets/gonsa-logo.jpg';
 
 const ManagerDashboard = () => {
   const { user, role, signOut } = useAuth();
