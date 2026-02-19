@@ -1,7 +1,8 @@
 'use client';
 
-import React, { createContext, useContext, ReactNode } from 'react';
+import React, { createContext, useContext, useEffect, ReactNode } from 'react';
 import { useSession, signIn as nextAuthSignIn, signOut as nextAuthSignOut } from 'next-auth/react';
+import { supabase } from '@/integrations/supabase/client';
 import type { AppRole } from '@/types/app-role';
 
 interface User {
@@ -25,6 +26,21 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 	const { data: session, status } = useSession();
 	const loading = status === 'loading';
 
+	// Keep the client-side Supabase session in sync with the NextAuth session.
+	// If the user has a NextAuth session but Supabase shows no user, the
+	// Supabase auth listener or localStorage restore will handle it.
+	// On signOut we explicitly clear both.
+	useEffect(() => {
+		if (status === 'unauthenticated') {
+			// NextAuth session gone → make sure Supabase is also signed out
+			supabase.auth.getSession().then(({ data }) => {
+				if (data.session) {
+					supabase.auth.signOut();
+				}
+			});
+		}
+	}, [status]);
+
 	const user: User | null = session?.user
 		? {
 				id: session.user.id ?? '',
@@ -36,6 +52,18 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 	const role: AppRole | null = (session?.user?.role as AppRole) ?? null;
 
 	const signIn = async (email: string, password: string) => {
+		// 1. Sign into Supabase Auth first so the client-side Supabase
+		//    client has a valid JWT and auth.uid() works for RLS policies.
+		const { error: supabaseError } = await supabase.auth.signInWithPassword({
+			email,
+			password,
+		});
+
+		if (supabaseError) {
+			return { error: new Error(supabaseError.message) };
+		}
+
+		// 2. Sign into NextAuth for server-side session / role info.
 		const result = await nextAuthSignIn('credentials', {
 			email,
 			password,
@@ -43,6 +71,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 		});
 
 		if (result?.error) {
+			// NextAuth failed — clean up the Supabase session
+			await supabase.auth.signOut();
 			return { error: new Error(result.error) };
 		}
 
@@ -50,7 +80,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 	};
 
 	const signOut = async () => {
-		await nextAuthSignOut({ redirect: false });
+		await Promise.all([
+			supabase.auth.signOut(),
+			nextAuthSignOut({ redirect: false }),
+		]);
 	};
 
 	return (
