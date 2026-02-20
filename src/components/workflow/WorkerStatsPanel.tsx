@@ -37,31 +37,31 @@ export function WorkerStatsPanel({
     <div className="space-y-4">
       {/* Selected Worker Detail */}
       {selectedWorker ? (
-        <Card className="bg-gradient-to-br from-blue-600/30 to-purple-600/30 border-2 border-blue-400/40 backdrop-blur-sm p-6">
+        <Card className="bg-card border-2 border-border p-6">
           {/* Worker Header */}
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-4">
-              <div className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white text-2xl font-bold shadow-lg">
+              <div className="w-16 h-16 rounded-full bg-primary/20 flex items-center justify-center text-primary text-2xl font-bold">
                 {selectedWorker.name.charAt(0)}
               </div>
               <div>
-                <h3 className="text-2xl font-bold text-white">{selectedWorker.name}</h3>
-                <p className="text-blue-200">{selectedWorker.department}</p>
+                <h3 className="text-2xl font-bold text-foreground">{selectedWorker.name}</h3>
+                <p className="text-muted-foreground">{selectedWorker.department}</p>
               </div>
             </div>
             <div className="text-right">
-              <div className="text-4xl font-bold text-yellow-400">
+              <div className="text-4xl font-bold text-primary">
                 {selectedWorker.overall_rating}
               </div>
-              <p className="text-xs text-blue-200">OVERALL</p>
+              <p className="text-xs text-muted-foreground">OVERALL</p>
             </div>
           </div>
 
           {/* Performance Stats */}
           <div className="space-y-3 mb-4">
-            <div className="bg-white/10 rounded p-3">
+            <div className="bg-muted/40 rounded p-3 border border-border">
               <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2 text-white">
+                <div className="flex items-center gap-2 text-foreground">
                   <Zap className="w-4 h-4" />
                   <span className="text-sm font-medium">Sheets/Hour</span>
                 </div>
@@ -75,9 +75,9 @@ export function WorkerStatsPanel({
               />
             </div>
 
-            <div className="bg-white/10 rounded p-3">
+            <div className="bg-muted/40 rounded p-3 border border-border">
               <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2 text-white">
+                <div className="flex items-center gap-2 text-foreground">
                   <Users className="w-4 h-4" />
                   <span className="text-sm font-medium">Teamwork</span>
                 </div>
@@ -91,9 +91,9 @@ export function WorkerStatsPanel({
               />
             </div>
 
-            <div className="bg-white/10 rounded p-3">
+            <div className="bg-muted/40 rounded p-3 border border-border">
               <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2 text-white">
+                <div className="flex items-center gap-2 text-foreground">
                   <Award className="w-4 h-4" />
                   <span className="text-sm font-medium">Quality</span>
                 </div>
@@ -107,9 +107,9 @@ export function WorkerStatsPanel({
               />
             </div>
 
-            <div className="bg-white/10 rounded p-3">
+            <div className="bg-muted/40 rounded p-3 border border-border">
               <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2 text-white">
+                <div className="flex items-center gap-2 text-foreground">
                   <TrendingUp className="w-4 h-4" />
                   <span className="text-sm font-medium">Speed</span>
                 </div>
@@ -123,9 +123,9 @@ export function WorkerStatsPanel({
               />
             </div>
 
-            <div className="bg-white/10 rounded p-3">
+            <div className="bg-muted/40 rounded p-3 border border-border">
               <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2 text-white">
+                <div className="flex items-center gap-2 text-foreground">
                   <Clock className="w-4 h-4" />
                   <span className="text-sm font-medium">Attendance</span>
                 </div>
@@ -146,49 +146,51 @@ export function WorkerStatsPanel({
               variant="outline" 
               className={`justify-center ${
                 selectedWorker.overtime_availability 
-                  ? "bg-green-500/20 border-green-500 text-green-300" 
-                  : "bg-red-500/20 border-red-500 text-red-300"
+                  ? "bg-primary/15 border-primary/40 text-foreground" 
+                  : "bg-muted border-border text-muted-foreground"
               }`}
             >
               {selectedWorker.overtime_availability ? "OT Available" : "No OT"}
             </Badge>
-            <Badge variant="outline" className="justify-center bg-blue-500/20 border-blue-500 text-blue-300">
+            <Badge variant="outline" className="justify-center bg-muted border-border text-foreground">
               {selectedWorker.lateness_minutes || 0} min late
             </Badge>
           </div>
         </Card>
       ) : (
-        <Card className="bg-white/10 border-white/20 backdrop-blur-sm p-6 text-center">
-          <Star className="w-12 h-12 mx-auto mb-2 text-blue-400 opacity-50" />
-          <p className="text-white">Select a worker to view stats</p>
+        <Card className="bg-card border-border p-6 text-center">
+          <Star className="w-12 h-12 mx-auto mb-2 text-primary/70" />
+          <p className="text-foreground">Select a worker to view stats</p>
         </Card>
       )}
 
       {/* All Workers List */}
-      <Card className="bg-white/10 border-white/20 backdrop-blur-sm p-4">
-        <h3 className="text-lg font-bold text-white mb-3">All Workers</h3>
+      <Card className="bg-card border-border p-4">
+        <h3 className="text-lg font-bold text-foreground mb-3">All Workers</h3>
         <ScrollArea className="h-[400px] pr-4">
           <div className="space-y-2">
             {workers.map((worker) => (
               <div
                 key={worker.id}
                 onClick={() => onWorkerSelect(worker)}
-                className={`bg-white/10 rounded p-3 hover:bg-white/20 transition-colors cursor-pointer ${
-                  selectedWorker?.id === worker.id ? "ring-2 ring-blue-400" : ""
+                className={`rounded border p-3 transition-colors cursor-pointer ${
+                  selectedWorker?.id === worker.id
+                    ? "border-primary bg-primary/10"
+                    : "border-border bg-muted/30 hover:bg-muted"
                 }`}
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white font-bold">
+                    <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold">
                       {worker.name.charAt(0)}
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-white">{worker.name}</p>
-                      <p className="text-xs text-blue-200">{worker.department}</p>
+                      <p className="text-sm font-medium text-foreground">{worker.name}</p>
+                      <p className="text-xs text-muted-foreground">{worker.department}</p>
                     </div>
                   </div>
                   <div className="text-right">
-                    <div className="text-xl font-bold text-yellow-400">
+                    <div className="text-xl font-bold text-primary">
                       {worker.overall_rating || 75}
                     </div>
                     <div className="flex gap-1">

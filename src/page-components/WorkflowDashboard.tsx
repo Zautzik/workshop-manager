@@ -14,7 +14,7 @@ import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { Users, Factory, Clock, BarChart3, ClipboardList, ArrowLeft } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
-import { useWorkerAssignments, useWorkersByRating, useWorkstations, useShifts } from "@/hooks/use-queries";
+import { useWorkerAssignments, useWorkerMonthlyOvertime, useWorkersByRating, useWorkstations, useShifts } from "@/hooks/use-queries";
 import { DndContext, DragEndEvent, DragOverlay } from "@dnd-kit/core";
 import { useTranslation } from "react-i18next";
 
@@ -25,9 +25,9 @@ export default function WorkflowDashboard() {
   const { data: workstations = [] } = useWorkstations();
   const { data: shifts = [] } = useShifts();
   const { data: assignments = [], refetch: refetchAssignments } = useWorkerAssignments();
+  const { data: monthlyOvertimeByWorker = {} } = useWorkerMonthlyOvertime();
   const [selectedShiftId, setSelectedShiftId] = useState<string | null>(null);
   const [activeId, setActiveId] = useState<string | null>(null);
-  const [activeOtBg, setActiveOtBg] = useState<string>("hsl(220, 20%, 10%)");
   const { toast } = useToast();
   const { role } = useAuth();
   const router = useRouter();
@@ -51,11 +51,6 @@ export default function WorkflowDashboard() {
   const handleWorkerSelect = (worker: any) => {
     setSelectedWorker(worker);
   };
-
-  useEffect(() => {
-    const storedActive = localStorage.getItem("workflowActiveOtBg");
-    if (storedActive) setActiveOtBg(storedActive);
-  }, []);
 
   const handleDragStart = (event: any) => {
     setActiveId(event.active.id);
@@ -85,7 +80,8 @@ export default function WorkflowDashboard() {
       return;
     }
 
-    const currentAssignments = assignments.filter(a => a.workstation_id === workstation.id);
+    const shiftAssignments = assignments.filter(a => a.shift_id === selectedShiftId);
+    const currentAssignments = shiftAssignments.filter(a => a.workstation_id === workstation.id);
     if (currentAssignments.length >= workstation.max_workers) {
       toast({
         title: "Workstation at capacity",
@@ -95,11 +91,47 @@ export default function WorkflowDashboard() {
       return;
     }
 
+    const workerAssignmentsToday = assignments.filter(a => a.worker_id === worker.id);
+    const workerAssignmentInSelectedShift = workerAssignmentsToday.find(
+      a => a.shift_id === selectedShiftId
+    );
+
+    const hasAssignmentInOtherShift = workerAssignmentsToday.some(
+      a => a.shift_id !== selectedShiftId
+    );
+
+    if (!assignmentId && workerAssignmentInSelectedShift) {
+      toast({
+        title: "Worker already assigned in this shift",
+        description: `${worker.name} is already assigned in the selected shift.`,
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const isOvertimeAssignment = hasAssignmentInOtherShift;
+    if (isOvertimeAssignment && !worker.overtime_availability) {
+      toast({
+        title: "Overtime not available",
+        description: `${worker.name} is already assigned in another shift and is not marked as overtime available.`,
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const assignmentRole = isOvertimeAssignment ? "overtime_operator_50" : "operator";
+
     try {
       if (assignmentId) {
+        const draggedAssignment = assignments.find(a => a.id === assignmentId);
+
         const { error } = await supabase
           .from("worker_assignments")
-          .update({ workstation_id: workstation.id, ot_id: selectedOT?.id || null })
+          .update({
+            workstation_id: workstation.id,
+            ot_id: selectedOT?.id || null,
+            role: draggedAssignment?.role || assignmentRole,
+          })
           .eq("id", assignmentId);
         if (error) throw error;
       } else {
@@ -110,15 +142,17 @@ export default function WorkflowDashboard() {
             workstation_id: workstation.id,
             shift_id: selectedShiftId,
             date: new Date().toISOString().split("T")[0],
-            role: "operator",
+            role: assignmentRole,
             ot_id: selectedOT?.id || null
           });
         if (error) throw error;
       }
 
       toast({
-        title: "Worker assigned successfully",
-        description: `${worker.name} assigned to ${workstation.name}`
+        title: isOvertimeAssignment ? "Overtime assignment saved" : "Worker assigned successfully",
+        description: isOvertimeAssignment
+          ? `${worker.name} assigned to ${workstation.name} with overtime (+50% salary).`
+          : `${worker.name} assigned to ${workstation.name}`
       });
 
       refetchAssignments();
@@ -171,8 +205,7 @@ export default function WorkflowDashboard() {
         {/* Selected OT Banner */}
         {selectedOT && (
           <Card 
-            className="border-accent/40 backdrop-blur-sm p-4 mb-6"
-            style={{ backgroundColor: activeOtBg }}
+            className="bg-card border-accent/40 backdrop-blur-sm p-4 mb-6"
           >
             <div className="flex items-center justify-between">
               <div>
@@ -245,31 +278,13 @@ export default function WorkflowDashboard() {
               </div>
             </Card>
 
-            {/* Layout Color Settings */}
-            <Card className="bg-card/50 border-border backdrop-blur-sm p-4 mb-4">
-              <h3 className="text-lg font-bold text-foreground mb-2">Layout Colors</h3>
-              <div className="flex flex-wrap gap-4 text-foreground text-sm">
-                <label className="flex items-center gap-2">
-                  <span>Active OT Banner</span>
-                  <input
-                    type="color"
-                    value={activeOtBg}
-                    onChange={(e) => {
-                      setActiveOtBg(e.target.value);
-                      localStorage.setItem("workflowActiveOtBg", e.target.value);
-                    }}
-                    className="h-8 w-10 rounded border border-border bg-transparent p-0"
-                  />
-                </label>
-              </div>
-            </Card>
-
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
               <div className="lg:col-span-3">
                 <WorkstationLayout
                   workstations={workstations}
                   assignments={assignments}
                   workers={workers}
+                  monthlyOvertimeByWorker={monthlyOvertimeByWorker}
                   selectedShift={selectedShiftId || ""}
                   selectedOT={selectedOT}
                   onWorkerSelect={handleWorkerSelect}

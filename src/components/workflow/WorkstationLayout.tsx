@@ -1,28 +1,26 @@
 'use client';
+import { useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
-	Plus,
 	Users,
 	Printer,
 	Scissors,
 	Wrench,
 	Layers,
-	Info,
 	GripVertical,
 	Hand,
 } from 'lucide-react';
 import { useDroppable } from '@dnd-kit/core';
 import { useDraggable } from '@dnd-kit/core';
-import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
 interface WorkstationLayoutProps {
 	workstations: any[];
 	assignments: any[];
 	workers: any[];
+	monthlyOvertimeByWorker: Record<string, { hours: number; shifts: number }>;
 	selectedShift: string;
 	selectedOT: any;
 	onWorkerSelect: (worker: any) => void;
@@ -32,14 +30,18 @@ interface WorkstationLayoutProps {
 function DraggableWorker({
 	worker,
 	assignmentId,
+	isOvertime = false,
+	monthlyOvertime,
 }: {
 	worker: any;
 	assignmentId?: string;
+	isOvertime?: boolean;
+	monthlyOvertime?: { hours: number; shifts: number };
 }) {
 	const { attributes, listeners, setNodeRef, transform, isDragging } =
 		useDraggable({
 			id: assignmentId || `worker-${worker.id}`,
-			data: { worker, assignmentId },
+			data: { worker, assignmentId, isOvertime },
 		});
 
 	const style = transform
@@ -55,29 +57,43 @@ function DraggableWorker({
 			style={style}
 			{...listeners}
 			{...attributes}
-			className='relative bg-gradient-to-r from-blue-500/40 to-purple-500/40 border-2 border-primary/60 rounded-lg p-3 hover:from-blue-500/50 hover:to-purple-500/50 hover:border-primary hover:scale-105 transition-all cursor-grab active:cursor-grabbing shadow-xl hover:shadow-primary/30'
+			className={`relative rounded-lg border-2 p-3 text-foreground shadow-sm transition-all cursor-grab active:cursor-grabbing ${
+				isOvertime
+					? 'border-amber-500/60 bg-amber-500/10 hover:bg-amber-500/20'
+					: 'border-border bg-card hover:border-primary/60 hover:bg-accent/40'
+			}`}
 		>
 			{!assignmentId && (
-				<div className='absolute -top-2 -right-2 bg-primary rounded-full p-1'>
+				<div className='absolute -top-2 -right-2 rounded-full border border-primary/50 bg-primary p-1'>
 					<Hand className='w-4 h-4 text-primary-foreground' />
 				</div>
 			)}
+			{isOvertime && (
+				<Badge className='absolute -top-2 left-2 bg-amber-500 text-black border-amber-600 text-[10px] h-5 px-2'>
+					OT +50%
+				</Badge>
+			)}
 			<div className='flex items-center justify-between'>
 				<div className='flex items-center gap-2'>
-					<GripVertical className='w-5 h-5 text-primary/80' />
-					<div className='w-10 h-10 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white text-sm font-bold shadow-md ring-2 ring-primary/40'>
+					<GripVertical className='w-5 h-5 text-muted-foreground' />
+					<div className='w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center text-primary text-sm font-bold'>
 						{worker.name.charAt(0)}
 					</div>
 					<div>
-						<p className='text-sm font-bold text-white'>{worker.name}</p>
-						<p className='text-xs text-blue-200'>{worker.department}</p>
+						<p className='text-sm font-bold text-foreground'>{worker.name}</p>
+						<p className='text-xs text-muted-foreground'>
+							{worker.department || 'Unassigned department'}
+						</p>
+						<p className='text-[11px] text-muted-foreground'>
+							Monthly OT: {(monthlyOvertime?.hours || 0).toFixed(1)}h ({monthlyOvertime?.shifts || 0} shifts)
+						</p>
 					</div>
 				</div>
 				<div className='text-right'>
-					<div className='text-xl font-bold text-accent'>
+					<div className='text-xl font-bold text-primary'>
 						{worker.overall_rating}
 					</div>
-					<p className='text-xs text-blue-200'>OVR</p>
+					<p className='text-xs text-muted-foreground'>OVR</p>
 				</div>
 			</div>
 		</div>
@@ -93,6 +109,8 @@ function DroppableWorkstation({
 	getWorkstationColor,
 	onWorkerSelect,
 	selectedOT,
+	monthlyOvertimeByWorker,
+	showOnlyOvertime,
 }: any) {
 	const { setNodeRef, isOver } = useDroppable({
 		id: station.id,
@@ -106,16 +124,16 @@ function DroppableWorkstation({
 				station.type
 			)} border-3 p-4 transition-all duration-300 ${
 				isOver
-					? 'ring-4 ring-primary scale-105 bg-primary/10 border-primary shadow-2xl shadow-primary/40'
-					: 'hover:scale-102 hover:shadow-lg'
+					? 'ring-2 ring-primary border-primary shadow-lg'
+					: 'hover:border-primary/40 hover:shadow-md'
 			}`}
 		>
 			<div className='flex items-center justify-between mb-3'>
 				<div className='flex items-center gap-2'>
 					{getWorkstationIcon(station.type)}
 					<div>
-						<h3 className='font-bold text-white text-lg'>{station.name}</h3>
-						<p className='text-xs text-blue-200 capitalize'>
+						<h3 className='font-bold text-foreground text-lg'>{station.name}</h3>
+						<p className='text-xs text-muted-foreground capitalize'>
 							{station.type.replace('_', ' ')}
 						</p>
 					</div>
@@ -124,25 +142,25 @@ function DroppableWorkstation({
 					variant='outline'
 					className={`${
 						station.status === 'active'
-							? 'bg-green-500/30 border-green-500'
-							: 'bg-gray-500/30 border-gray-500'
-					} text-white`}
+							? 'bg-primary/15 border-primary/40 text-foreground'
+							: 'bg-muted border-border text-muted-foreground'
+					}`}
 				>
 					{station.status}
 				</Badge>
 			</div>
 
 			<div className='mb-3'>
-				<div className='flex items-center justify-between text-xs text-white mb-1'>
+				<div className='flex items-center justify-between text-xs text-foreground mb-1'>
 					<span>Capacity</span>
 					<span className='font-bold'>
 						{occupancy}/{capacity}
 					</span>
 				</div>
-				<div className='h-3 bg-gray-700 rounded-full overflow-hidden'>
+				<div className='h-3 bg-muted rounded-full overflow-hidden'>
 					<div
 						className={`h-full ${
-							occupancy >= capacity ? 'bg-red-500' : 'bg-green-500'
+							occupancy >= capacity ? 'bg-destructive' : 'bg-primary'
 						} transition-all`}
 						style={{ width: `${(occupancy / capacity) * 100}%` }}
 					/>
@@ -151,7 +169,7 @@ function DroppableWorkstation({
 
 			<div
 				className={`space-y-2 mb-3 min-h-[140px] rounded-lg border-3 border-dashed p-3 transition-all duration-300 ${
-					isOver ? 'border-primary bg-primary/10' : 'border-white/30 bg-white/5'
+					isOver ? 'border-primary bg-primary/10' : 'border-border bg-muted/30'
 				}`}
 			>
 				{assignedWorkers.length > 0 ? (
@@ -160,12 +178,14 @@ function DroppableWorkstation({
 							key={assignment.id}
 							worker={assignment.worker}
 							assignmentId={assignment.id}
+							isOvertime={String(assignment.role || '').includes('overtime')}
+							monthlyOvertime={monthlyOvertimeByWorker?.[assignment.worker?.id]}
 						/>
 					))
 				) : (
 					<div
 						className={`text-center py-8 transition-all ${
-							isOver ? 'text-primary' : 'text-blue-200'
+							isOver ? 'text-primary' : 'text-muted-foreground'
 						}`}
 					>
 						<Users
@@ -173,15 +193,23 @@ function DroppableWorkstation({
 								isOver ? 'opacity-100 scale-110' : 'opacity-50'
 							}`}
 						/>
-						<p className={`text-sm font-bold ${isOver ? 'text-primary' : ''}`}>
-							{isOver ? '📌 Release to assign!' : 'Drop workers here'}
+						<p
+							className={`text-sm font-bold ${
+								isOver ? 'text-primary' : 'text-muted-foreground'
+							}`}
+						>
+							{isOver
+								? '📌 Release to assign!'
+								: showOnlyOvertime
+									? 'No OT workers assigned in this station'
+									: 'Drop workers here'}
 						</p>
 					</div>
 				)}
 			</div>
 
 			{selectedOT && (
-				<Badge className='bg-purple-500/30 text-purple-200 w-full justify-center mb-2'>
+				<Badge className='bg-primary/15 text-foreground border-primary/30 w-full justify-center mb-2'>
 					{selectedOT.ot_number}
 				</Badge>
 			)}
@@ -197,12 +225,14 @@ export function WorkstationLayout({
 	workstations,
 	assignments,
 	workers,
+	monthlyOvertimeByWorker,
 	selectedShift,
 	selectedOT,
 	onWorkerSelect,
 	onAssignmentChange,
 }: WorkstationLayoutProps) {
 	const { toast } = useToast();
+	const [showOnlyOvertime, setShowOnlyOvertime] = useState(false);
 
 	const getWorkstationIcon = (type: string) => {
 		switch (type) {
@@ -222,25 +252,106 @@ export function WorkstationLayout({
 	const getWorkstationColor = (type: string) => {
 		switch (type) {
 			case 'offset_printer':
-				return 'bg-purple-500/20 border-purple-500/40';
+				return 'bg-card border-primary/40';
 			case 'guillotine':
-				return 'bg-orange-500/20 border-orange-500/40';
+				return 'bg-card border-accent/40';
 			case 'die_cutter':
-				return 'bg-pink-500/20 border-pink-500/40';
+				return 'bg-card border-secondary';
 			case 'workshop':
-				return 'bg-green-500/20 border-green-500/40';
+				return 'bg-card border-border';
 			default:
-				return 'bg-blue-500/20 border-blue-500/40';
+				return 'bg-card border-border';
 		}
 	};
 
 	const getAssignedWorkers = (workstationId: string) => {
-		return assignments.filter(a => a.workstation_id === workstationId);
+		const workersInStation = assignments.filter(
+			a => a.workstation_id === workstationId && a.shift_id === selectedShift
+		);
+
+		if (showOnlyOvertime) {
+			return workersInStation.filter(a =>
+				String(a.role || '').includes('overtime')
+			);
+		}
+
+		return workersInStation;
 	};
 
-	const unassignedWorkers = workers.filter(
-		worker => !assignments.some(a => a.worker_id === worker.id)
+	const currentShiftAssignments = assignments.filter(
+		a => a.shift_id === selectedShift
 	);
+
+	const currentShiftOvertimeAssignments = currentShiftAssignments.filter(a =>
+		String(a.role || '').includes('overtime')
+	);
+
+	const currentShiftOvertimeWorkerCount = new Set(
+		currentShiftOvertimeAssignments.map(a => a.worker_id)
+	).size;
+
+	const currentShiftWorkerIds = new Set(currentShiftAssignments.map(a => a.worker_id));
+	const otherShiftWorkerIds = new Set(
+		assignments.filter(a => a.shift_id !== selectedShift).map(a => a.worker_id)
+	);
+
+	const unassignedWorkers = workers.filter(worker => {
+		if (currentShiftWorkerIds.has(worker.id)) return false;
+		if (!otherShiftWorkerIds.has(worker.id)) return true;
+		return Boolean(worker.overtime_availability);
+	});
+
+	const normalizeValue = (value: string | null | undefined) =>
+		(value || '').toLowerCase().replace(/\s+/g, '_');
+
+	const getWorkerMachineType = (worker: any) => {
+		const department = normalizeValue(worker?.department);
+
+		if (department.includes('guillotine') || department.includes('cut')) {
+			return 'guillotine';
+		}
+
+		if (department.includes('die')) {
+			return 'die_cutter';
+		}
+
+		if (
+			department.includes('press') ||
+			department.includes('printer') ||
+			department.includes('offset') ||
+			department.includes('pre_press')
+		) {
+			return 'offset_printer';
+		}
+
+		if (department.includes('workshop') || department.includes('manual')) {
+			return 'workshop';
+		}
+
+		return null;
+	};
+
+	const getAvailableWorkersForType = (type: string) => {
+		const availableByType = unassignedWorkers.filter(
+			worker => getWorkerMachineType(worker) === type
+		);
+
+		if (showOnlyOvertime) {
+			return availableByType.filter(worker => isOvertimeWorker(worker));
+		}
+
+		return availableByType;
+	};
+
+	const isOvertimeWorker = (worker: any) => otherShiftWorkerIds.has(worker.id);
+
+	const uncategorizedAvailableWorkers = unassignedWorkers.filter(
+		worker => !getWorkerMachineType(worker)
+	);
+
+	const visibleUncategorizedWorkers = showOnlyOvertime
+		? uncategorizedAvailableWorkers.filter(worker => isOvertimeWorker(worker))
+		: uncategorizedAvailableWorkers;
 
 	// Group workstations by type
 	const groupedWorkstations = workstations.reduce((acc: any, station: any) => {
@@ -297,6 +408,22 @@ export function WorkstationLayout({
 					>
 						Live View
 					</Badge>
+					<button
+						type='button'
+						onClick={() => setShowOnlyOvertime(prev => !prev)}
+						className={`rounded-full border px-3 py-1 text-sm font-medium transition-colors ${
+							showOnlyOvertime
+								? 'bg-amber-500 text-black border-amber-600'
+								: 'bg-amber-500/20 text-amber-700 border-amber-500/40 hover:bg-amber-500/30'
+						}`}
+					>
+						OT workers this shift: {currentShiftOvertimeWorkerCount}
+					</button>
+					{showOnlyOvertime && (
+						<Badge className='bg-primary/15 text-foreground border-primary/30 text-sm'>
+							Showing only overtime workers
+						</Badge>
+					)}
 				</div>
 
 				{Object.entries(groupedWorkstations).map(
@@ -316,54 +443,88 @@ export function WorkstationLayout({
 								</Badge>
 							</div>
 
-							<div className='grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4'>
-								{(stations as any[]).map(station => {
-									const assignedWorkers = getAssignedWorkers(station.id);
-									const occupancy = assignedWorkers.length;
-									const capacity = station.max_workers;
+							<div className='grid grid-cols-1 xl:grid-cols-4 gap-4'>
+								<div className='xl:col-span-3 grid grid-cols-1 lg:grid-cols-2 gap-4'>
+									{(stations as any[]).map(station => {
+										const assignedWorkers = getAssignedWorkers(station.id);
+										const occupancy = assignedWorkers.length;
+										const capacity = station.max_workers;
 
-									return (
-										<DroppableWorkstation
-											key={station.id}
-											station={station}
-											assignedWorkers={assignedWorkers}
-											occupancy={occupancy}
-											capacity={capacity}
-											getWorkstationIcon={getWorkstationIcon}
-											getWorkstationColor={getWorkstationColor}
-											onWorkerSelect={onWorkerSelect}
-											selectedOT={selectedOT}
-										/>
-									);
-								})}
+										return (
+											<DroppableWorkstation
+												key={station.id}
+												station={station}
+												assignedWorkers={assignedWorkers}
+												occupancy={occupancy}
+												capacity={capacity}
+												getWorkstationIcon={getWorkstationIcon}
+												getWorkstationColor={getWorkstationColor}
+												onWorkerSelect={onWorkerSelect}
+												selectedOT={selectedOT}
+												monthlyOvertimeByWorker={monthlyOvertimeByWorker}
+												showOnlyOvertime={showOnlyOvertime}
+											/>
+										);
+									})}
+								</div>
+
+								<Card className='border-border bg-card p-4'>
+									<div className='mb-3'>
+										<h4 className='text-sm font-semibold text-foreground'>
+											Available {getTypeLabel(type)} Workers
+										</h4>
+										<p className='text-xs text-muted-foreground'>
+											Drag a worker to assign to a station in this section.
+										</p>
+									</div>
+									<div className='space-y-2 max-h-[420px] overflow-y-auto pr-1'>
+										{getAvailableWorkersForType(type).length > 0 ? (
+											getAvailableWorkersForType(type).map(worker => (
+												<DraggableWorker
+													key={worker.id}
+													worker={worker}
+													isOvertime={isOvertimeWorker(worker)}
+													monthlyOvertime={monthlyOvertimeByWorker?.[worker.id]}
+												/>
+											))
+										) : (
+											<p className='text-sm text-muted-foreground border border-dashed border-border rounded-md p-3'>
+												No available workers in this department.
+											</p>
+										)}
+									</div>
+								</Card>
 							</div>
 						</Card>
 					)
 				)}
 			</div>
 
-			{/* Unassigned Workers Pool - MOVED TO BOTTOM */}
-			{unassignedWorkers.length > 0 && (
-				<Card className='bg-card/80 border-2 border-primary/40 backdrop-blur-sm p-6 shadow-xl'>
+			{/* Workers without department-machine mapping */}
+			{visibleUncategorizedWorkers.length > 0 && (
+				<Card className='bg-card border-border p-6'>
 					<div className='flex items-center gap-3 mb-4'>
-						<div className='bg-primary/20 rounded-full p-2 border-2 border-primary'>
-							<Hand className='w-6 h-6 text-primary' />
-						</div>
+						<Hand className='w-5 h-5 text-primary' />
 						<div>
-							<h3 className='text-2xl font-bold text-primary'>
-								👥 Available Workers
+							<h3 className='text-lg font-bold text-foreground'>
+								Other Available Workers
 							</h3>
 							<p className='text-sm text-muted-foreground'>
-								Click and hold any card, then drag to a workstation above
+								These workers have no direct machine-department match.
 							</p>
 						</div>
-						<Badge className='bg-primary/20 text-primary border-primary ml-auto text-lg px-3 py-1'>
-							{unassignedWorkers.length} Ready
+						<Badge className='ml-auto bg-primary/15 text-foreground border-primary/30'>
+							{visibleUncategorizedWorkers.length}
 						</Badge>
 					</div>
-					<div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4'>
-						{unassignedWorkers.map(worker => (
-							<DraggableWorker key={worker.id} worker={worker} />
+					<div className='grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3'>
+						{visibleUncategorizedWorkers.map(worker => (
+							<DraggableWorker
+								key={worker.id}
+								worker={worker}
+								isOvertime={isOvertimeWorker(worker)}
+								monthlyOvertime={monthlyOvertimeByWorker?.[worker.id]}
+							/>
 						))}
 					</div>
 				</Card>

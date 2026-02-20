@@ -307,6 +307,70 @@ export function useWorkerAssignments(date?: string) {
   });
 }
 
+export function useWorkerMonthlyOvertime(referenceDate?: string) {
+  const dateValue = referenceDate || new Date().toISOString().split('T')[0];
+  const ref = new Date(dateValue);
+  const monthStart = new Date(ref.getFullYear(), ref.getMonth(), 1)
+    .toISOString()
+    .split('T')[0];
+  const monthEnd = new Date(ref.getFullYear(), ref.getMonth() + 1, 0)
+    .toISOString()
+    .split('T')[0];
+
+  return useQuery({
+    queryKey: ['assignments', 'monthlyOvertime', monthStart, monthEnd],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('worker_assignments')
+        .select('worker_id, date, role, shift:shifts(start_time, end_time)')
+        .gte('date', monthStart)
+        .lte('date', monthEnd)
+        .ilike('role', '%overtime%');
+
+      if (error) throw error;
+
+      const toMinutes = (timeValue?: string | null) => {
+        if (!timeValue) return 0;
+        const [hours, minutes] = timeValue.split(':').map(Number);
+        return (Number.isNaN(hours) ? 0 : hours) * 60 + (Number.isNaN(minutes) ? 0 : minutes);
+      };
+
+      const getShiftHours = (shift: any) => {
+        const startMinutes = toMinutes(shift?.start_time);
+        const endMinutes = toMinutes(shift?.end_time);
+        let durationMinutes = endMinutes - startMinutes;
+        if (durationMinutes <= 0) durationMinutes += 24 * 60;
+        return durationMinutes / 60;
+      };
+
+      const totals: Record<string, { hours: number; shifts: number }> = {};
+      const processedShiftKeys = new Set<string>();
+
+      (data ?? []).forEach((assignment: any) => {
+        const shiftStart = assignment.shift?.start_time || '';
+        const shiftEnd = assignment.shift?.end_time || '';
+        const shiftKey = `${assignment.worker_id}-${assignment.date}-${shiftStart}-${shiftEnd}`;
+
+        if (processedShiftKeys.has(shiftKey)) {
+          return;
+        }
+        processedShiftKeys.add(shiftKey);
+
+        const workerId = assignment.worker_id;
+        if (!totals[workerId]) {
+          totals[workerId] = { hours: 0, shifts: 0 };
+        }
+
+        totals[workerId].hours += getShiftHours(assignment.shift);
+        totals[workerId].shifts += 1;
+      });
+
+      return totals;
+    },
+    staleTime: 60_000,
+  });
+}
+
 export function useBatchesAvailable() {
   return useQuery<any[]>({
     queryKey: queryKeys.batchesAvailable,
