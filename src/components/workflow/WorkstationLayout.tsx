@@ -252,15 +252,55 @@ export function WorkstationLayout({
 	const getWorkstationColor = (type: string) => {
 		switch (type) {
 			case 'offset_printer':
-				return 'bg-card border-primary/40';
+				return 'bg-violet-500/10 border-violet-500/40';
 			case 'guillotine':
-				return 'bg-card border-accent/40';
+				return 'bg-orange-500/10 border-orange-500/40';
 			case 'die_cutter':
-				return 'bg-card border-secondary';
+				return 'bg-rose-500/10 border-rose-500/40';
 			case 'workshop':
-				return 'bg-card border-border';
+				return 'bg-emerald-500/10 border-emerald-500/40';
 			default:
 				return 'bg-card border-border';
+		}
+	};
+
+	const getDepartmentTheme = (type: string) => {
+		switch (type) {
+			case 'offset_printer':
+				return {
+					sectionCard: 'bg-violet-500/10 border-violet-500/40',
+					title: 'text-violet-700 dark:text-violet-300',
+					countBadge: 'bg-violet-500/20 text-violet-700 dark:text-violet-200 border-violet-500/40',
+					poolCard: 'border-violet-500/40 bg-card',
+				};
+			case 'guillotine':
+				return {
+					sectionCard: 'bg-orange-500/10 border-orange-500/40',
+					title: 'text-orange-700 dark:text-orange-300',
+					countBadge: 'bg-orange-500/20 text-orange-700 dark:text-orange-200 border-orange-500/40',
+					poolCard: 'border-orange-500/40 bg-card',
+				};
+			case 'die_cutter':
+				return {
+					sectionCard: 'bg-rose-500/10 border-rose-500/40',
+					title: 'text-rose-700 dark:text-rose-300',
+					countBadge: 'bg-rose-500/20 text-rose-700 dark:text-rose-200 border-rose-500/40',
+					poolCard: 'border-rose-500/40 bg-card',
+				};
+			case 'workshop':
+				return {
+					sectionCard: 'bg-emerald-500/10 border-emerald-500/40',
+					title: 'text-emerald-700 dark:text-emerald-300',
+					countBadge: 'bg-emerald-500/20 text-emerald-700 dark:text-emerald-200 border-emerald-500/40',
+					poolCard: 'border-emerald-500/40 bg-card',
+				};
+			default:
+				return {
+					sectionCard: 'bg-card/50 border-border',
+					title: 'text-foreground',
+					countBadge: 'bg-primary/20 text-primary border-primary/40',
+					poolCard: 'border-border bg-card',
+				};
 		}
 	};
 
@@ -427,17 +467,20 @@ export function WorkstationLayout({
 				</div>
 
 				{Object.entries(groupedWorkstations).map(
-					([type, stations]: [string, any]) => (
+					([type, stations]: [string, any]) => {
+						const theme = getDepartmentTheme(type);
+
+						return (
 						<Card
 							key={type}
-							className='bg-card/50 border-border backdrop-blur-sm p-6'
+							className={`${theme.sectionCard} backdrop-blur-sm p-6`}
 						>
 							<div className='flex items-center gap-3 mb-4'>
 								{getWorkstationIcon(type)}
-								<h3 className='text-xl font-bold text-foreground'>
+								<h3 className={`text-xl font-bold ${theme.title}`}>
 									{getTypeLabel(type)}
 								</h3>
-								<Badge className='bg-primary/20 text-primary border-primary/40'>
+								<Badge className={theme.countBadge}>
 									{(stations as any[]).length}{' '}
 									{(stations as any[]).length === 1 ? 'Station' : 'Stations'}
 								</Badge>
@@ -468,7 +511,7 @@ export function WorkstationLayout({
 									})}
 								</div>
 
-								<Card className='border-border bg-card p-4'>
+								<Card className={`${theme.poolCard} p-4`}>
 									<div className='mb-3'>
 										<h4 className='text-sm font-semibold text-foreground'>
 											Available {getTypeLabel(type)} Workers
@@ -496,7 +539,8 @@ export function WorkstationLayout({
 								</Card>
 							</div>
 						</Card>
-					)
+						);
+					}
 				)}
 			</div>
 

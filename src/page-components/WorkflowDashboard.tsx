@@ -11,7 +11,7 @@ import { WorkerStatsPanel } from "@/components/workflow/WorkerStatsPanel";
 import { ShiftManagement } from "@/components/workflow/ShiftManagement";
 import { OTManagement } from "@/components/workflow/OTManagement";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
-import { Users, Factory, Clock, BarChart3, ClipboardList, ArrowLeft } from "lucide-react";
+import { Users, Factory, Clock, BarChart3, ClipboardList, ArrowLeft, ChevronLeft, ChevronRight, CalendarDays } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { useWorkerAssignments, useWorkerMonthlyOvertime, useWorkersByRating, useWorkstations, useShifts } from "@/hooks/use-queries";
@@ -19,13 +19,38 @@ import { DndContext, DragEndEvent, DragOverlay } from "@dnd-kit/core";
 import { useTranslation } from "react-i18next";
 
 export default function WorkflowDashboard() {
+  const getDateIso = (date: Date) => {
+    const offset = date.getTimezoneOffset() * 60 * 1000;
+    return new Date(date.getTime() - offset).toISOString().split("T")[0];
+  };
+
+  const getWeekStart = (date: Date) => {
+    const value = new Date(date);
+    const day = value.getDay();
+    const diff = day === 0 ? -6 : 1 - day;
+    value.setDate(value.getDate() + diff);
+    value.setHours(0, 0, 0, 0);
+    return value;
+  };
+
+  const buildWeekDates = (start: Date) => {
+    return Array.from({ length: 7 }, (_, index) => {
+      const date = new Date(start);
+      date.setDate(start.getDate() + index);
+      return date;
+    });
+  };
+
+  const today = new Date();
   const [selectedWorker, setSelectedWorker] = useState<any>(null);
   const [selectedOT, setSelectedOT] = useState<any>(null);
+  const [selectedDate, setSelectedDate] = useState<string>(getDateIso(today));
+  const [weekStartDate, setWeekStartDate] = useState<Date>(getWeekStart(today));
   const { data: workers = [] } = useWorkersByRating();
   const { data: workstations = [] } = useWorkstations();
   const { data: shifts = [] } = useShifts();
-  const { data: assignments = [], refetch: refetchAssignments } = useWorkerAssignments();
-  const { data: monthlyOvertimeByWorker = {} } = useWorkerMonthlyOvertime();
+  const { data: assignments = [], refetch: refetchAssignments } = useWorkerAssignments(selectedDate);
+  const { data: monthlyOvertimeByWorker = {} } = useWorkerMonthlyOvertime(selectedDate);
   const [selectedShiftId, setSelectedShiftId] = useState<string | null>(null);
   const [activeId, setActiveId] = useState<string | null>(null);
   const { toast } = useToast();
@@ -51,6 +76,26 @@ export default function WorkflowDashboard() {
   const handleWorkerSelect = (worker: any) => {
     setSelectedWorker(worker);
   };
+
+  const weekDates = buildWeekDates(weekStartDate);
+
+  const goToPreviousWeek = () => {
+    const previous = new Date(weekStartDate);
+    previous.setDate(previous.getDate() - 7);
+    setWeekStartDate(previous);
+  };
+
+  const goToNextWeek = () => {
+    const next = new Date(weekStartDate);
+    next.setDate(next.getDate() + 7);
+    setWeekStartDate(next);
+  };
+
+  const formatWeekday = (date: Date) =>
+    date.toLocaleDateString(undefined, { weekday: "short" });
+
+  const formatDayLabel = (date: Date) =>
+    date.toLocaleDateString(undefined, { day: "2-digit", month: "2-digit" });
 
   const handleDragStart = (event: any) => {
     setActiveId(event.active.id);
@@ -141,7 +186,7 @@ export default function WorkflowDashboard() {
             worker_id: worker.id,
             workstation_id: workstation.id,
             shift_id: selectedShiftId,
-            date: new Date().toISOString().split("T")[0],
+            date: selectedDate,
             role: assignmentRole,
             ot_id: selectedOT?.id || null
           });
@@ -275,6 +320,61 @@ export default function WorkflowDashboard() {
                     ))}
                   </div>
                 )}
+              </div>
+            </Card>
+
+            <Card className="bg-card/80 border-border backdrop-blur-sm p-4 mb-4">
+              <div className="flex flex-col gap-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <CalendarDays className="w-5 h-5 text-foreground" />
+                    <h3 className="text-lg font-bold text-foreground">Weekly Schedule</h3>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={goToPreviousWeek}
+                      className="border-border bg-card/50 hover:bg-card h-8 w-8"
+                    >
+                      <ChevronLeft className="w-4 h-4" />
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={goToNextWeek}
+                      className="border-border bg-card/50 hover:bg-card h-8 w-8"
+                    >
+                      <ChevronRight className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2">
+                  {weekDates.map((date) => {
+                    const dateIso = getDateIso(date);
+                    const isSelected = dateIso === selectedDate;
+                    const isToday = dateIso === getDateIso(new Date());
+
+                    return (
+                      <Button
+                        key={dateIso}
+                        onClick={() => setSelectedDate(dateIso)}
+                        variant={isSelected ? "default" : "outline"}
+                        className={isSelected
+                          ? "h-auto py-2 bg-primary hover:bg-primary/90 text-primary-foreground"
+                          : "h-auto py-2 border-border bg-card/50 hover:bg-card"
+                        }
+                      >
+                        <div className="flex flex-col leading-tight">
+                          <span className="text-xs opacity-80">{formatWeekday(date)}</span>
+                          <span className="text-sm font-semibold">{formatDayLabel(date)}</span>
+                          {isToday && <span className="text-[10px]">Today</span>}
+                        </div>
+                      </Button>
+                    );
+                  })}
+                </div>
               </div>
             </Card>
 
