@@ -115,6 +115,37 @@ export default function WorkflowDashboard() {
     const worker = workerData.worker;
     const assignmentId = workerData.assignmentId;
     const workstation = workstationData.workstation;
+    const dropAction = workstationData.action;
+
+    if (dropAction === "unassign") {
+      if (!assignmentId) {
+        return;
+      }
+
+      try {
+        const { error } = await supabase
+          .from("worker_assignments")
+          .delete()
+          .eq("id", assignmentId);
+
+        if (error) throw error;
+
+        toast({
+          title: "Worker unassigned",
+          description: `${worker.name} was removed from this shift assignment.`
+        });
+
+        refetchAssignments();
+      } catch (error: any) {
+        toast({
+          title: "Error unassigning worker",
+          description: error.message,
+          variant: "destructive"
+        });
+      }
+
+      return;
+    }
 
     if (!selectedShiftId) {
       toast({

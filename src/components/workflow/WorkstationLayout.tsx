@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -96,6 +96,36 @@ function DraggableWorker({
 					<p className='text-xs text-muted-foreground'>OVR</p>
 				</div>
 			</div>
+		</div>
+	);
+}
+
+function DroppableAvailablePool({
+	id,
+	children,
+	className,
+	type,
+}: {
+	id: string;
+	children: ReactNode;
+	className?: string;
+	type: string;
+}) {
+	const { setNodeRef, isOver } = useDroppable({
+		id,
+		data: { action: 'unassign', type },
+	});
+
+	return (
+		<div
+			ref={setNodeRef}
+			className={`${className || ''} rounded-lg border-2 border-dashed transition-all ${
+				isOver
+					? 'border-primary bg-primary/10 ring-2 ring-primary/40'
+					: 'border-border'
+			}`}
+		>
+			{children}
 		</div>
 	);
 }
@@ -517,25 +547,31 @@ export function WorkstationLayout({
 											Available {getTypeLabel(type)} Workers
 										</h4>
 										<p className='text-xs text-muted-foreground'>
-											Drag a worker to assign to a station in this section.
+											Drag to station to assign, or drag assigned workers back here to unassign.
 										</p>
 									</div>
-									<div className='space-y-2 max-h-[420px] overflow-y-auto pr-1'>
-										{getAvailableWorkersForType(type).length > 0 ? (
-											getAvailableWorkersForType(type).map(worker => (
-												<DraggableWorker
-													key={worker.id}
-													worker={worker}
-													isOvertime={isOvertimeWorker(worker)}
-													monthlyOvertime={monthlyOvertimeByWorker?.[worker.id]}
-												/>
-											))
-										) : (
-											<p className='text-sm text-muted-foreground border border-dashed border-border rounded-md p-3'>
-												No available workers in this department.
-											</p>
-										)}
-									</div>
+									<DroppableAvailablePool
+										id={`available-${type}`}
+										type={type}
+										className='p-2'
+									>
+										<div className='space-y-2 max-h-[420px] overflow-y-auto pr-1'>
+											{getAvailableWorkersForType(type).length > 0 ? (
+												getAvailableWorkersForType(type).map(worker => (
+													<DraggableWorker
+														key={worker.id}
+														worker={worker}
+														isOvertime={isOvertimeWorker(worker)}
+														monthlyOvertime={monthlyOvertimeByWorker?.[worker.id]}
+													/>
+												))
+											) : (
+												<p className='text-sm text-muted-foreground border border-dashed border-border rounded-md p-3'>
+													No available workers in this department.
+												</p>
+											)}
+										</div>
+									</DroppableAvailablePool>
 								</Card>
 							</div>
 						</Card>
@@ -561,16 +597,18 @@ export function WorkstationLayout({
 							{visibleUncategorizedWorkers.length}
 						</Badge>
 					</div>
-					<div className='grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3'>
-						{visibleUncategorizedWorkers.map(worker => (
-							<DraggableWorker
-								key={worker.id}
-								worker={worker}
-								isOvertime={isOvertimeWorker(worker)}
-								monthlyOvertime={monthlyOvertimeByWorker?.[worker.id]}
-							/>
-						))}
-					</div>
+					<DroppableAvailablePool id='available-other' type='other' className='p-3'>
+						<div className='grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3'>
+							{visibleUncategorizedWorkers.map(worker => (
+								<DraggableWorker
+									key={worker.id}
+									worker={worker}
+									isOvertime={isOvertimeWorker(worker)}
+									monthlyOvertime={monthlyOvertimeByWorker?.[worker.id]}
+								/>
+							))}
+						</div>
+					</DroppableAvailablePool>
 				</Card>
 			)}
 		</div>
