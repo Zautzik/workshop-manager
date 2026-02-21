@@ -49,6 +49,11 @@ Then → [`MAINTENANCE_CHECKLIST_GUIDE.md`](MAINTENANCE_CHECKLIST_GUIDE.md)
 | **CHECKLIST_INTEGRATION_GUIDE.md** | Developer guide | Developers | 20 min |
 | **CHECKLIST_DELIVERY_SUMMARY.md** | What was built | Managers | 10 min |
 | **src/components/maintenance/README.md** | Component API docs | Developers | 25 min |
+| **HR_MIGRATION_GUIDE.md** | HR domain migration steps | Developers/DBAs | 40 min |
+| **HR_BACKFILL_GUIDE.md** | Data migration with integrity checks | DBAs | 30 min |
+| **HR_DOMAIN_MIGRATION_AUDIT.md** | HR schema audit & design | Architects | 45 min |
+| **EFFECTIVE_DATE_PATTERNS.md** | Effective-date pattern reference | Developers | 25 min |
+| **EFFECTIVE_DATE_VISUALIZATION.md** | Visual guide to effective dates | Everyone | 20 min |
 | **This file** | Documentation index | Everyone | 5 min |
 
 ---
@@ -59,6 +64,14 @@ Then → [`MAINTENANCE_CHECKLIST_GUIDE.md`](MAINTENANCE_CHECKLIST_GUIDE.md)
 - [Quick Start Guide](CHECKLIST_QUICK_START.md) - 5-minute setup
 - [Visual Demo](CHECKLIST_VISUAL_DEMO.md) - See the interface
 - [Integration Guide](CHECKLIST_INTEGRATION_GUIDE.md) - Setup for developers
+
+### HR & Workforce Management
+- [Effective-Date Visualization](EFFECTIVE_DATE_VISUALIZATION.md) - Visual timeline guide (start here!)
+- [HR Backfill Guide](HR_BACKFILL_GUIDE.md) - Step-by-step data migration with integrity checks
+- [HR Migration Guide](HR_MIGRATION_GUIDE.md) - Apply HR domain migrations
+- [HR Domain Audit](HR_DOMAIN_MIGRATION_AUDIT.md) - Architecture & design decisions
+- [Effective-Date Patterns](EFFECTIVE_DATE_PATTERNS.md) - SQL query patterns & examples
+- [Migration Files](supabase/migrations/) - SQL migration scripts
 
 ### Using the Editor
 - [Complete User Guide](MAINTENANCE_CHECKLIST_GUIDE.md) - All features explained
@@ -98,6 +111,16 @@ Then → [`MAINTENANCE_CHECKLIST_GUIDE.md`](MAINTENANCE_CHECKLIST_GUIDE.md)
 ### For Managers (30 minutes)
 1. Read: [Delivery Summary](CHECKLIST_DELIVERY_SUMMARY.md) (10 min)
 2. Read: [Complete Guide](MAINTENANCE_CHECKLIST_GUIDE.md) - Sections on workflows (10 min)
+
+### For Database Administrators / HR System Implementers (90 minutes)
+1. Read: [Effective-Date Visualization](EFFECTIVE_DATE_VISUALIZATION.md) (20 min) - Understand the concept visually
+2. Read: [HR Domain Audit](HR_DOMAIN_MIGRATION_AUDIT.md) (45 min) - Understand schema design
+3. Read: [HR Backfill Guide](HR_BACKFILL_GUIDE.md) (30 min) - Data migration procedures
+4. Read: [HR Migration Guide](HR_MIGRATION_GUIDE.md) (40 min) - Apply all migrations
+5. Read: [Effective-Date Patterns](EFFECTIVE_DATE_PATTERNS.md) (25 min) - Learn query patterns
+6. Review: [Migration Files](supabase/migrations/202602211430*.sql) (20 min) - Inspect SQL
+7. Execute: Run pre-migration check → backfill → post-verification (30 min)
+8. Test: Verify data integrity checks and effective-date queries (20 min)
 3. Review: [Real Examples](CHECKLIST_EXAMPLES.md) - See templates (10 min)
 
 ---
