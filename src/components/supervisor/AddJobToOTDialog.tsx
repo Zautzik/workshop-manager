@@ -69,7 +69,7 @@ const AddJobToOTDialog = ({ open, onOpenChange, otId, onJobAdded }: AddJobToOTDi
       .insert({
         description,
         assigned_machine_id: machineId || null,
-        assigned_worker_id: workerId || null,
+        assigned_employee_id: workerId || null,
         batch_id: batchId || null,
         ot_id: otId,
         cost,

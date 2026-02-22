@@ -167,7 +167,9 @@ export default function WorkflowDashboard() {
       return;
     }
 
-    const workerAssignmentsToday = assignments.filter(a => a.worker_id === worker.id);
+    const workerAssignmentsToday = assignments.filter(
+      a => a.employee_id === worker.id || a.worker_id === worker.id
+    );
     const workerAssignmentInSelectedShift = workerAssignmentsToday.find(
       a => a.shift_id === selectedShiftId
     );
@@ -214,7 +216,7 @@ export default function WorkflowDashboard() {
         const { error } = await supabase
           .from("worker_assignments")
           .insert({
-            worker_id: worker.id,
+            employee_id: worker.id,
             workstation_id: workstation.id,
             shift_id: selectedShiftId,
             date: selectedDate,

@@ -6,7 +6,7 @@ import { supabaseAdmin } from '@/integrations/supabase/server';
 const CreateWorkerSchema = z.object({
 	name: z.string().min(1).max(255),
 	department: z.string().min(1).max(100),
-	status: z.enum(['active', 'inactive']).optional(),
+	status: z.enum(['active', 'inactive', 'on_leave', 'terminated']).optional(),
 });
 
 export async function GET(_req: NextRequest) {
@@ -15,16 +15,20 @@ export async function GET(_req: NextRequest) {
 
 	try {
 		const { data, error } = await supabaseAdmin
-			.from('workers')
-			.select('*')
-			.order('name', { ascending: true });
+			.from('employees')
+			.select('id, full_name, department, status')
+			.order('full_name', { ascending: true });
 
 		if (error) {
 			console.error('Error fetching workers:', error);
 			return NextResponse.json({ error: 'Failed to fetch workers' }, { status: 500 });
 		}
 
-		return NextResponse.json(data ?? []);
+		const mapped = (data ?? []).map((employee) => ({
+			...employee,
+			name: employee.full_name,
+		}));
+		return NextResponse.json(mapped);
 	} catch (error) {
 		console.error('Error fetching workers:', error);
 		return NextResponse.json({ error: 'Failed to fetch workers' }, { status: 500 });
@@ -47,9 +51,16 @@ export async function POST(req: NextRequest) {
 		}
 
 		const { data, error } = await supabaseAdmin
-			.from('workers')
-			.insert([parsed.data])
-			.select('*')
+			.from('employees')
+			.insert([
+				{
+					full_name: parsed.data.name,
+					department: parsed.data.department,
+					status: parsed.data.status ?? 'active',
+					hire_date: new Date().toISOString().split('T')[0],
+				},
+			])
+			.select('id, full_name, department, status')
 			.single();
 
 		if (error) {
@@ -57,7 +68,13 @@ export async function POST(req: NextRequest) {
 			return NextResponse.json({ error: 'Failed to create worker' }, { status: 500 });
 		}
 
-		return NextResponse.json(data, { status: 201 });
+		return NextResponse.json(
+			{
+				...data,
+				name: data.full_name,
+			},
+			{ status: 201 }
+		);
 	} catch (error) {
 		console.error('Error creating worker:', error);
 		return NextResponse.json({ error: 'Failed to create worker' }, { status: 500 });

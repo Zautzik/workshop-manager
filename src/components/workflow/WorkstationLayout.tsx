@@ -357,12 +357,16 @@ export function WorkstationLayout({
 	);
 
 	const currentShiftOvertimeWorkerCount = new Set(
-		currentShiftOvertimeAssignments.map(a => a.worker_id)
+		currentShiftOvertimeAssignments.map(a => a.employee_id ?? a.worker_id)
 	).size;
 
-	const currentShiftWorkerIds = new Set(currentShiftAssignments.map(a => a.worker_id));
+	const currentShiftWorkerIds = new Set(
+		currentShiftAssignments.map(a => a.employee_id ?? a.worker_id)
+	);
 	const otherShiftWorkerIds = new Set(
-		assignments.filter(a => a.shift_id !== selectedShift).map(a => a.worker_id)
+		assignments
+			.filter(a => a.shift_id !== selectedShift)
+			.map(a => a.employee_id ?? a.worker_id)
 	);
 
 	const unassignedWorkers = workers.filter(worker => {

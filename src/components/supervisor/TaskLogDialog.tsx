@@ -50,7 +50,7 @@ const TaskLogDialog = ({ open, onOpenChange, workerId, jobId, otId, onSuccess }:
     const { error } = await supabase
       .from('task_logs' as any)
       .insert({
-        worker_id: workerId,
+        employee_id: workerId,
         job_id: jobId,
         ot_id: otId,
         ...formData,

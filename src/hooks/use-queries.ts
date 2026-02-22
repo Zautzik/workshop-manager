@@ -66,7 +66,7 @@ export function useAdminStats() {
     queryFn: async () => {
       const [usersData, workersData, machinesData, jobsData] = await Promise.all([
         supabase.from('user_roles').select('id', { count: 'exact', head: true }),
-        supabase.from('workers').select('id', { count: 'exact', head: true }),
+        supabase.from('employees').select('id', { count: 'exact', head: true }),
         supabase.from('machines').select('id', { count: 'exact', head: true }),
         supabase.from('jobs').select('id', { count: 'exact', head: true }),
       ]);
@@ -156,9 +156,17 @@ export function useWorkers() {
   return useQuery({
     queryKey: queryKeys.workers(),
     queryFn: async () => {
-      const { data, error } = await supabase.from('workers').select('*').order('name');
+      const { data, error } = await supabase
+        .from('employees')
+        .select(
+          'id, full_name, department, sheets_per_hour, teamwork_rating, overtime_availability, attendance_score, lateness_minutes, quality_score, speed_score, overall_rating'
+        )
+        .order('full_name');
       if (error) throw error;
-      return data ?? [];
+      return (data ?? []).map((employee: any) => ({
+        ...employee,
+        name: employee.full_name,
+      }));
     },
   });
 }
@@ -168,11 +176,16 @@ export function useWorkersByRating() {
     queryKey: queryKeys.workersByRating,
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('workers')
-        .select('*')
+        .from('employees')
+        .select(
+          'id, full_name, department, sheets_per_hour, teamwork_rating, overtime_availability, attendance_score, lateness_minutes, quality_score, speed_score, overall_rating'
+        )
         .order('overall_rating', { ascending: false });
       if (error) throw error;
-      return data ?? [];
+      return (data ?? []).map((employee: any) => ({
+        ...employee,
+        name: employee.full_name,
+      }));
     },
   });
 }
@@ -203,12 +216,12 @@ export function useWorkerName(workerId?: string | null, enabled = true) {
     queryFn: async () => {
       if (!workerId) return null;
       const { data, error } = await supabase
-        .from('workers')
-        .select('name')
+        .from('employees')
+        .select('full_name')
         .eq('id', workerId)
         .maybeSingle();
       if (error) throw error;
-      return data?.name ?? null;
+      return data?.full_name ?? null;
     },
     enabled: Boolean(workerId) && enabled,
   });
@@ -299,10 +312,19 @@ export function useWorkerAssignments(date?: string) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('worker_assignments')
-        .select('*, worker:workers(*), workstation:workstations(*), shift:shifts(*)')
+        .select('*, employee:employees(*), workstation:workstations(*), shift:shifts(*)')
         .eq('date', dateValue);
       if (error) throw error;
-      return data ?? [];
+      return (data ?? []).map((assignment: any) => ({
+        ...assignment,
+        worker: assignment.employee
+          ? {
+              ...assignment.employee,
+              name: assignment.employee.full_name,
+            }
+          : null,
+        worker_id: assignment.employee?.id ?? assignment.worker_id,
+      }));
     },
   });
 }
@@ -322,7 +344,7 @@ export function useWorkerMonthlyOvertime(referenceDate?: string) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('worker_assignments')
-        .select('worker_id, date, role, shift:shifts(start_time, end_time)')
+        .select('employee_id, date, role, shift:shifts(start_time, end_time)')
         .gte('date', monthStart)
         .lte('date', monthEnd)
         .ilike('role', '%overtime%');
@@ -349,14 +371,14 @@ export function useWorkerMonthlyOvertime(referenceDate?: string) {
       (data ?? []).forEach((assignment: any) => {
         const shiftStart = assignment.shift?.start_time || '';
         const shiftEnd = assignment.shift?.end_time || '';
-        const shiftKey = `${assignment.worker_id}-${assignment.date}-${shiftStart}-${shiftEnd}`;
+        const shiftKey = `${assignment.employee_id}-${assignment.date}-${shiftStart}-${shiftEnd}`;
 
         if (processedShiftKeys.has(shiftKey)) {
           return;
         }
         processedShiftKeys.add(shiftKey);
 
-        const workerId = assignment.worker_id;
+        const workerId = assignment.employee_id;
         if (!totals[workerId]) {
           totals[workerId] = { hours: 0, shifts: 0 };
         }

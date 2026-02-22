@@ -6,7 +6,7 @@ import { supabaseAdmin } from '@/integrations/supabase/server';
 const UpdateWorkerSchema = z.object({
 	name: z.string().min(1).max(255).optional(),
 	department: z.string().min(1).max(100).optional(),
-	status: z.enum(['active', 'inactive']).optional(),
+	status: z.enum(['active', 'inactive', 'on_leave', 'terminated']).optional(),
 });
 
 export async function PATCH(
@@ -33,13 +33,14 @@ export async function PATCH(
 		}
 
 		const { data, error } = await supabaseAdmin
-			.from('workers')
+			.from('employees')
 			.update({
-				...parsed.data,
-				updated_at: new Date().toISOString(),
+				...(parsed.data.name ? { full_name: parsed.data.name } : {}),
+				...(parsed.data.department ? { department: parsed.data.department } : {}),
+				...(parsed.data.status ? { status: parsed.data.status } : {}),
 			})
 			.eq('id', id)
-			.select('*')
+			.select('id, full_name, department, status')
 			.single();
 
 		if (error) {
@@ -47,7 +48,10 @@ export async function PATCH(
 			return NextResponse.json({ error: 'Failed to update worker' }, { status: 500 });
 		}
 
-		return NextResponse.json(data);
+		return NextResponse.json({
+			...data,
+			name: data.full_name,
+		});
 	} catch (error) {
 		console.error('Error updating worker:', error);
 		return NextResponse.json({ error: 'Failed to update worker' }, { status: 500 });
@@ -68,8 +72,8 @@ export async function DELETE(
 		}
 
 		const { error } = await supabaseAdmin
-			.from('workers')
-			.delete()
+			.from('employees')
+			.update({ status: 'inactive' })
 			.eq('id', id);
 
 		if (error) {
