@@ -954,6 +954,17 @@ const HrManagerDashboard = () => {
     router.push('/');
   };
 
+  const handleBackToDashboard = () => {
+    const dashboardRoutes: Record<string, string> = {
+      supervisor: '/supervisor',
+      manager: '/manager',
+      admin: '/admin',
+      maintenance: '/maintenance',
+      financial: '/financial',
+    };
+    router.push(dashboardRoutes[role || 'manager'] || '/');
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-primary/5 to-background">
       <header className="border-b border-primary/20 shadow-lg sticky top-0 z-50 backdrop-blur-sm bg-card/95">
@@ -967,11 +978,11 @@ const HrManagerDashboard = () => {
           </div>
           <div className="flex gap-2">
             <Button
-              onClick={() => router.push('/workflow')}
+              onClick={handleBackToDashboard}
               variant="outline"
               className="border-primary/30 text-primary hover:bg-primary/10"
             >
-              {t('workflow')}
+              {t('common.backToDashboard')}
             </Button>
             <Button
               onClick={handleLogout}
