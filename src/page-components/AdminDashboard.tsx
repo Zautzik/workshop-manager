@@ -77,6 +77,15 @@ const AdminDashboard = () => {
           </div>
           <nav aria-label="Main navigation" className="flex gap-2">
             <Button
+              onClick={() => router.push('/hr')}
+              variant="outline"
+              className="border-primary/30 text-primary hover:bg-primary/10"
+              aria-label="Navigate to Human Resources"
+            >
+              <Users className="mr-2 h-4 w-4" aria-hidden="true" />
+              Human Resources
+            </Button>
+            <Button
               onClick={() => router.push('/financial')}
               variant="outline"
               className="border-green-500/30 text-green-500 hover:bg-green-500/10"

@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useMachines, useJobs } from '@/hooks/use-queries';
-import { LogOut, TrendingUp, CheckCircle, Clock, Package, DollarSign } from 'lucide-react';
+import { LogOut, TrendingUp, CheckCircle, Clock, Package, DollarSign, Users } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import CostReport from '@/components/manager/CostReport';
 import TraceabilityReport from '@/components/manager/TraceabilityReport';
@@ -53,6 +53,14 @@ const ManagerDashboard = () => {
             </div>
           </div>
           <div className="flex gap-2">
+            <Button
+              onClick={() => router.push('/hr')}
+              variant="outline"
+              className="border-primary/30 text-primary hover:bg-primary/10"
+            >
+              <Users className="mr-2 h-4 w-4" />
+              Human Resources
+            </Button>
             <Button
               onClick={() => router.push('/financial')}
               variant="outline"
