@@ -17,9 +17,10 @@ import { cookies } from 'next/headers';
  */
 export async function GET(
 	request: NextRequest,
-	{ params }: { params: { id: string } }
+	{ params }: { params: Promise<{ id: string }> }
 ) {
 	try {
+		const { id } = await params;
 		const cookieStore = await cookies();
 		const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
 
@@ -35,7 +36,7 @@ export async function GET(
 				leave_requests(*)
 			`
 			)
-			.eq('id', params.id)
+			.eq('id', id)
 			.single();
 
 		if (error) {
@@ -61,9 +62,10 @@ export async function GET(
  */
 export async function PUT(
 	request: NextRequest,
-	{ params }: { params: { id: string } }
+	{ params }: { params: Promise<{ id: string }> }
 ) {
 	try {
+		const { id } = await params;
 		const cookieStore = await cookies();
 		const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
 
@@ -75,7 +77,7 @@ export async function PUT(
 		const { data: employee, error } = await supabase
 			.from('employees')
 			.update(updates)
-			.eq('id', params.id)
+			.eq('id', id)
 			.select()
 			.single();
 
@@ -96,16 +98,17 @@ export async function PUT(
  */
 export async function DELETE(
 	request: NextRequest,
-	{ params }: { params: { id: string } }
+	{ params }: { params: Promise<{ id: string }> }
 ) {
 	try {
+		const { id } = await params;
 		const cookieStore = await cookies();
 		const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
 
 		const { data: employee, error } = await supabase
 			.from('employees')
 			.update({ status: 'archived' })
-			.eq('id', params.id)
+			.eq('id', id)
 			.select()
 			.single();
 
