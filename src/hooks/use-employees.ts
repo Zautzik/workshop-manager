@@ -311,6 +311,7 @@ export function useCreateLeaveRequest() {
 			leave_type: string;
 			start_date: string;
 			end_date: string;
+			hours_requested?: number;
 			reason?: string;
 		}) => {
 			const { data: result, error } = await supabase
@@ -321,6 +322,7 @@ export function useCreateLeaveRequest() {
 						leave_type: data.leave_type,
 						start_date: data.start_date,
 						end_date: data.end_date,
+						hours_requested: data.hours_requested ?? 0,
 						reason: data.reason,
 						status: 'pending',
 					},
