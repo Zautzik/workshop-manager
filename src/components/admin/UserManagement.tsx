@@ -35,7 +35,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 /*  Types                                                              */
 /* ------------------------------------------------------------------ */
 
-type AppRole = 'admin' | 'manager' | 'supervisor' | 'technician';
+type AppRole = 'admin' | 'manager' | 'supervisor' | 'hr_manager' | 'technician';
 
 interface UserRow {
   id: string;

@@ -495,7 +495,7 @@ export function WorkstationLayout({
 	const getWorkerCostInfo = (worker: any, overtime: boolean) => {
 		const rate = compensationByWorker?.[worker?.id];
 		const hourlyRate = Number(rate?.hourly_rate ?? 0);
-		if (!hourlyRate) return null;
+		if (!hourlyRate) return undefined;
 
 		const minRate = costModel?.minimum_hourly_rate;
 		const maxRate = costModel?.maximum_hourly_rate;
