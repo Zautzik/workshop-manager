@@ -52,12 +52,33 @@ const HrManagerDashboard = () => {
   const router = useRouter();
   const queryClient = useQueryClient();
   const { toast } = useToast();
-  const canManageHR = role === 'admin' || role === 'manager';
+  const canManageHR = role === 'admin' || role === 'hr_manager';
+  const canViewHR = role === 'admin' || role === 'hr_manager' || role === 'supervisor';
   const {
     data: employees = [],
     isLoading: employeesLoading,
     error: employeesError,
   } = useEmployees();
+
+  if (!canViewHR) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-background to-muted p-6">
+        <Card className="max-w-2xl mx-auto">
+          <CardHeader>
+            <CardTitle>HR Access Restricted</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground mb-4">
+              This section is available to Admin, HR Manager, or restricted Supervisor view only.
+            </p>
+            <Button variant="outline" onClick={() => router.push('/')}>
+              Back
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);

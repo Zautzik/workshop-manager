@@ -50,6 +50,7 @@ const Login = () => {
     if (didLogin && user) {
       // Redirect based on role, default to /manager if no role assigned
       if (role === 'admin') router.push('/admin');
+      else if (role === 'hr_manager') router.push('/hr');
       else if (role === 'supervisor') router.push('/supervisor');
       else if (role === 'technician') router.push('/maintenance');
       else router.push('/manager');
@@ -93,6 +94,7 @@ const Login = () => {
             <Button
               onClick={() => {
                 if (role === 'admin') router.push('/admin');
+                else if (role === 'hr_manager') router.push('/hr');
                 else if (role === 'supervisor') router.push('/supervisor');
                 else if (role === 'technician') router.push('/maintenance');
                 else router.push('/manager');

@@ -15,12 +15,18 @@ import {
 import { useDroppable } from '@dnd-kit/core';
 import { useDraggable } from '@dnd-kit/core';
 import { useToast } from '@/hooks/use-toast';
+import { getWorkerPrimaryStationType, getWorkerQualificationScore } from '@/lib/workstation-skills';
 
 interface WorkstationLayoutProps {
 	workstations: any[];
 	assignments: any[];
 	workers: any[];
+	workerIndicatorsById?: Record<string, any>;
 	monthlyOvertimeByWorker: Record<string, { hours: number; shifts: number }>;
+	compensationByWorker: Record<string, any>;
+	shiftHours: number;
+	costModel: any;
+	shiftContext: { isWeekend: boolean; isNightShift: boolean };
 	selectedShift: string;
 	selectedOT: any;
 	onWorkerSelect: (worker: any) => void;
@@ -32,11 +38,30 @@ function DraggableWorker({
 	assignmentId,
 	isOvertime = false,
 	monthlyOvertime,
+	costInfo,
+	planningScore,
+	explainability,
+	indicators,
+	stationType,
 }: {
 	worker: any;
 	assignmentId?: string;
 	isOvertime?: boolean;
 	monthlyOvertime?: { hours: number; shifts: number };
+	costInfo?: { hourlyRate?: number; currencyCode?: string; estimatedCost?: number };
+	planningScore?: number | null;
+	explainability?: string[];
+	stationType?: string | null;
+	indicators?: {
+		leaveStatus?: string;
+		leaveTone?: 'ok' | 'warn' | 'alert';
+		incentiveStatus?: string;
+		incentiveTone?: 'ok' | 'warn' | 'alert';
+		certificationAlert?: string;
+		certificationTone?: 'ok' | 'warn' | 'alert';
+		legalHourConflict?: boolean;
+		contractRestrictionConflict?: boolean;
+	};
 }) {
 	const { attributes, listeners, setNodeRef, transform, isDragging } =
 		useDraggable({
@@ -50,6 +75,18 @@ function DraggableWorker({
 				opacity: isDragging ? 0.5 : 1,
 		  }
 		: undefined;
+
+	const getToneClass = (tone?: 'ok' | 'warn' | 'alert') => {
+		if (tone === 'alert') return 'text-destructive';
+		if (tone === 'warn') return 'text-amber-600';
+		return 'text-emerald-600';
+	};
+
+	const skillScore = Number(getWorkerQualificationScore(worker, stationType || undefined) ?? 0);
+	const missingSkillConflict = Boolean(stationType) && skillScore <= 0;
+	const leaveConflict = indicators?.leaveTone === 'alert';
+	const legalHourConflict = Boolean(indicators?.legalHourConflict);
+	const contractRestrictionConflict = Boolean(indicators?.contractRestrictionConflict && isOvertime);
 
 	return (
 		<div
@@ -73,6 +110,20 @@ function DraggableWorker({
 					OT +50%
 				</Badge>
 			)}
+			<div className='mb-2 flex flex-wrap gap-1'>
+				{leaveConflict ? (
+					<Badge variant='destructive' className='text-[10px] h-5'>Leave conflict</Badge>
+				) : null}
+				{legalHourConflict ? (
+					<Badge variant='destructive' className='text-[10px] h-5'>Legal hour conflict</Badge>
+				) : null}
+				{missingSkillConflict ? (
+					<Badge variant='destructive' className='text-[10px] h-5'>Missing skill</Badge>
+				) : null}
+				{contractRestrictionConflict ? (
+					<Badge variant='destructive' className='text-[10px] h-5'>Contract restriction</Badge>
+				) : null}
+			</div>
 			<div className='flex items-center justify-between'>
 				<div className='flex items-center gap-2'>
 					<GripVertical className='w-5 h-5 text-muted-foreground' />
@@ -87,6 +138,30 @@ function DraggableWorker({
 						<p className='text-[11px] text-muted-foreground'>
 							Monthly OT: {(monthlyOvertime?.hours || 0).toFixed(1)}h ({monthlyOvertime?.shifts || 0} shifts)
 						</p>
+						{costInfo?.hourlyRate ? (
+							<p className='text-[11px] text-muted-foreground'>
+								Hourly salary: {costInfo.currencyCode || 'USD'} {costInfo.hourlyRate.toFixed(2)}/hr
+								{typeof costInfo.estimatedCost === 'number'
+									? ` | Est: ${costInfo.currencyCode || 'USD'} ${costInfo.estimatedCost.toFixed(2)}`
+									: ''}
+							</p>
+						) : null}
+						<p className={`text-[11px] ${getToneClass(indicators?.leaveTone)}`}>
+							Leave: {indicators?.leaveStatus || 'Available'}
+						</p>
+						<p className={`text-[11px] ${getToneClass(indicators?.incentiveTone)}`}>
+							Incentive: {indicators?.incentiveStatus || 'Review'}
+						</p>
+						{indicators?.certificationAlert ? (
+							<p className={`text-[11px] ${getToneClass(indicators?.certificationTone)}`}>
+								Cert: {indicators.certificationAlert}
+							</p>
+						) : null}
+						{typeof planningScore === 'number' ? (
+							<p className='text-[11px] text-muted-foreground'>
+								Plan score: {planningScore.toFixed(1)}
+							</p>
+						) : null}
 					</div>
 				</div>
 				<div className='text-right'>
@@ -96,6 +171,16 @@ function DraggableWorker({
 					<p className='text-xs text-muted-foreground'>OVR</p>
 				</div>
 			</div>
+			{explainability && explainability.length > 0 ? (
+				<div className='mt-3 rounded-md border border-border bg-muted/30 p-2 text-[11px] text-muted-foreground'>
+					<p className='font-semibold text-foreground/80'>Why selected</p>
+					<ul className='mt-1 space-y-0.5'>
+						{explainability.map((item, index) => (
+							<li key={`${worker.id}-reason-${index}`}>{item}</li>
+						))}
+					</ul>
+				</div>
+			) : null}
 		</div>
 	);
 }
@@ -140,7 +225,11 @@ function DroppableWorkstation({
 	onWorkerSelect,
 	selectedOT,
 	monthlyOvertimeByWorker,
+	workerIndicatorsById,
 	showOnlyOvertime,
+	getWorkerCostInfo,
+	getPlanningScore,
+	getSelectionExplanation,
 }: any) {
 	const { setNodeRef, isOver } = useDroppable({
 		id: station.id,
@@ -210,6 +299,20 @@ function DroppableWorkstation({
 							assignmentId={assignment.id}
 							isOvertime={String(assignment.role || '').includes('overtime')}
 							monthlyOvertime={monthlyOvertimeByWorker?.[assignment.worker?.id]}
+							costInfo={getWorkerCostInfo(
+								assignment.worker,
+								String(assignment.role || '').includes('overtime')
+							)}
+							planningScore={getPlanningScore(
+								assignment.worker,
+								station.type
+							)}
+							explainability={getSelectionExplanation(
+								assignment.worker,
+								station.type
+							)}
+							indicators={workerIndicatorsById?.[assignment.worker?.id]}
+							stationType={station.type}
 						/>
 					))
 				) : (
@@ -255,7 +358,12 @@ export function WorkstationLayout({
 	workstations,
 	assignments,
 	workers,
+	workerIndicatorsById,
 	monthlyOvertimeByWorker,
+	compensationByWorker,
+	shiftHours,
+	costModel,
+	shiftContext,
 	selectedShift,
 	selectedOT,
 	onWorkerSelect,
@@ -375,52 +483,192 @@ export function WorkstationLayout({
 		return Boolean(worker.overtime_availability);
 	});
 
-	const normalizeValue = (value: string | null | undefined) =>
-		(value || '').toLowerCase().replace(/\s+/g, '_');
+	const stationTypes = Array.from(
+		new Set(workstations.map(station => station.type))
+	);
 
-	const getWorkerMachineType = (worker: any) => {
-		const department = normalizeValue(worker?.department);
+	const getWorkerPrimaryType = (worker: any) =>
+		getWorkerPrimaryStationType(worker, stationTypes);
 
-		if (department.includes('guillotine') || department.includes('cut')) {
-			return 'guillotine';
+	const isOvertimeWorker = (worker: any) => otherShiftWorkerIds.has(worker.id);
+
+	const getWorkerCostInfo = (worker: any, overtime: boolean) => {
+		const rate = compensationByWorker?.[worker?.id];
+		const hourlyRate = Number(rate?.hourly_rate ?? 0);
+		if (!hourlyRate) return null;
+
+		const minRate = costModel?.minimum_hourly_rate;
+		const maxRate = costModel?.maximum_hourly_rate;
+		let adjustedRate = hourlyRate;
+		if (Number.isFinite(Number(minRate))) {
+			adjustedRate = Math.max(adjustedRate, Number(minRate));
+		}
+		if (Number.isFinite(Number(maxRate))) {
+			adjustedRate = Math.min(adjustedRate, Number(maxRate));
 		}
 
-		if (department.includes('die')) {
-			return 'die_cutter';
-		}
+		const overtimeMultiplier = Number(
+			costModel?.overtime_multiplier_50 ?? rate?.overtime_multiplier_50 ?? 1.5
+		);
+		const nightMultiplier = Number(
+			costModel?.night_shift_multiplier ?? rate?.night_shift_multiplier ?? 1
+		);
+		const weekendMultiplier = Number(
+			costModel?.weekend_multiplier ?? rate?.weekend_multiplier ?? 1
+		);
 
-		if (
-			department.includes('press') ||
-			department.includes('printer') ||
-			department.includes('offset') ||
-			department.includes('pre_press')
-		) {
-			return 'offset_printer';
-		}
+		let multiplier = 1;
+		if (overtime) multiplier *= overtimeMultiplier;
+		if (shiftContext?.isNightShift) multiplier *= nightMultiplier;
+		if (shiftContext?.isWeekend) multiplier *= weekendMultiplier;
 
-		if (department.includes('workshop') || department.includes('manual')) {
-			return 'workshop';
-		}
+		let estimatedCost = shiftHours
+			? adjustedRate * shiftHours * multiplier
+			: undefined;
 
-		return null;
+		const roundingIncrement = Number(costModel?.rounding_increment ?? 0.01);
+		if (estimatedCost !== undefined && Number.isFinite(roundingIncrement) && roundingIncrement > 0) {
+			estimatedCost = Math.round(estimatedCost / roundingIncrement) * roundingIncrement;
+		}
+		return {
+			hourlyRate: adjustedRate,
+			currencyCode: rate?.currency_code,
+			estimatedCost,
+		};
+	};
+
+	const planningWeights = {
+		skill: 0.4,
+		availability: 0.2,
+		cost: 0.3,
+		overtimeRisk: 0.1,
+	};
+
+	const getPlanningScore = (worker: any, type?: string | null) => {
+		const overtime = isOvertimeWorker(worker);
+		const costInfo = getWorkerCostInfo(worker, overtime);
+		const skillScore = Number(getWorkerQualificationScore(worker, type) ?? 0);
+		const rating = Number(worker?.overall_rating ?? 0);
+
+		const availabilityScore = overtime
+			? worker?.overtime_availability
+				? 0.6
+				: 0.3
+			: 1;
+		const overtimeRiskScore = overtime ? 0.2 : 1;
+
+		const costNormBase = Number(costInfo?.estimatedCost ?? Number.MAX_SAFE_INTEGER);
+		const costScore = Number.isFinite(costNormBase)
+			? 1 / Math.max(1, costNormBase)
+			: 0;
+
+		const weighted =
+			planningWeights.skill * (skillScore / 5) +
+			planningWeights.availability * availabilityScore +
+			planningWeights.cost * costScore * 100 +
+			planningWeights.overtimeRisk * overtimeRiskScore +
+			(0.05 * (rating / 100));
+
+		return Math.max(0, Math.min(100, weighted * 100));
+	};
+
+	const getSelectionExplanation = (worker: any, type?: string | null) => {
+		const overtime = isOvertimeWorker(worker);
+		const skillScore = Number(getWorkerQualificationScore(worker, type) ?? 0);
+		const rating = Number(worker?.overall_rating ?? 0);
+		const costInfo = getWorkerCostInfo(worker, overtime);
+		const score = getPlanningScore(worker, type);
+
+		return [
+			`Skill fit: ${skillScore}/5 for ${type || 'station type'}`,
+			overtime
+				? worker?.overtime_availability
+					? 'Availability: assigned in another shift, OT allowed'
+					: 'Availability: assigned in another shift, OT risk elevated'
+				: 'Availability: free in this shift',
+			costInfo?.hourlyRate
+				? `Cost estimate: ${costInfo.currencyCode || 'USD'} ${(costInfo.estimatedCost || 0).toFixed(2)} (rate ${costInfo.hourlyRate.toFixed(2)}/hr)`
+				: 'Cost estimate: no active compensation rate for selected date',
+			`Performance rating: ${rating.toFixed(0)}/100`,
+			`Planning score: ${score.toFixed(1)} (skill + availability + cost + overtime risk)`,
+		];
 	};
 
 	const getAvailableWorkersForType = (type: string) => {
 		const availableByType = unassignedWorkers.filter(
-			worker => getWorkerMachineType(worker) === type
+			worker => getWorkerPrimaryType(worker) === type
 		);
 
-		if (showOnlyOvertime) {
-			return availableByType.filter(worker => isOvertimeWorker(worker));
-		}
+		const filtered = showOnlyOvertime
+			? availableByType.filter(worker => isOvertimeWorker(worker))
+			: availableByType;
 
-		return availableByType;
+		const entries = filtered.map(worker => {
+			const overtime = isOvertimeWorker(worker);
+			const costInfo = getWorkerCostInfo(worker, overtime);
+			const skillScore = getWorkerQualificationScore(worker, type) ?? 0;
+			return {
+				worker,
+				cost: costInfo?.estimatedCost,
+				rating: Number(worker?.overall_rating ?? 0),
+				skill: Number(skillScore),
+			};
+		});
+
+		const costValues = entries
+			.map(entry => entry.cost)
+			.filter(value => Number.isFinite(value)) as number[];
+		const ratingValues = entries.map(entry => entry.rating);
+		const skillValues = entries.map(entry => entry.skill);
+
+		const costMin = costValues.length ? Math.min(...costValues) : 0;
+		const costMax = costValues.length ? Math.max(...costValues) : 0;
+		const ratingMin = ratingValues.length ? Math.min(...ratingValues) : 0;
+		const ratingMax = ratingValues.length ? Math.max(...ratingValues) : 0;
+		const skillMin = skillValues.length ? Math.min(...skillValues) : 0;
+		const skillMax = skillValues.length ? Math.max(...skillValues) : 0;
+
+		const normalize = (value: number, min: number, max: number) =>
+			max === min ? 0 : (value - min) / (max - min);
+
+		const costWeight = Number(costModel?.cost_weight ?? 1);
+		const ratingWeight = Number(costModel?.rating_weight ?? 0);
+		const skillWeight = Number(costModel?.skill_weight ?? 0);
+		const totalWeight = costWeight + ratingWeight + skillWeight;
+		const preferLowerCost = Boolean(costModel?.prefer_lower_cost ?? true);
+
+		return entries
+			.map(entry => {
+				const costNorm = Number.isFinite(entry.cost)
+					? normalize(entry.cost as number, costMin, costMax)
+					: 1;
+				const costScore = preferLowerCost ? 1 - costNorm : costNorm;
+				const ratingScore = normalize(entry.rating, ratingMin, ratingMax);
+				const skillScore = normalize(entry.skill, skillMin, skillMax);
+
+				const weightedScore = totalWeight > 0
+					? costWeight * costScore + ratingWeight * ratingScore + skillWeight * skillScore
+					: -1;
+
+				return {
+					...entry,
+					score: weightedScore,
+				};
+			})
+			.sort((a, b) => {
+				if (totalWeight > 0 && a.score !== b.score) {
+					return b.score - a.score;
+				}
+				const aCost = Number.isFinite(a.cost) ? (a.cost as number) : Number.POSITIVE_INFINITY;
+				const bCost = Number.isFinite(b.cost) ? (b.cost as number) : Number.POSITIVE_INFINITY;
+				if (aCost !== bCost) return aCost - bCost;
+				return (a.worker?.name || '').localeCompare(b.worker?.name || '');
+			})
+			.map(entry => entry.worker);
 	};
 
-	const isOvertimeWorker = (worker: any) => otherShiftWorkerIds.has(worker.id);
-
 	const uncategorizedAvailableWorkers = unassignedWorkers.filter(
-		worker => !getWorkerMachineType(worker)
+		worker => !getWorkerPrimaryType(worker)
 	);
 
 	const visibleUncategorizedWorkers = showOnlyOvertime
@@ -499,6 +747,13 @@ export function WorkstationLayout({
 						</Badge>
 					)}
 				</div>
+				<div className='flex flex-wrap gap-2'>
+					<Badge variant='outline' className='text-[11px]'>Conflict badges:</Badge>
+					<Badge variant='destructive' className='text-[11px]'>Leave conflict</Badge>
+					<Badge variant='destructive' className='text-[11px]'>Legal hour conflict</Badge>
+					<Badge variant='destructive' className='text-[11px]'>Missing skill</Badge>
+					<Badge variant='destructive' className='text-[11px]'>Contract restriction</Badge>
+				</div>
 
 				{Object.entries(groupedWorkstations).map(
 					([type, stations]: [string, any]) => {
@@ -539,7 +794,11 @@ export function WorkstationLayout({
 												onWorkerSelect={onWorkerSelect}
 												selectedOT={selectedOT}
 												monthlyOvertimeByWorker={monthlyOvertimeByWorker}
+												workerIndicatorsById={workerIndicatorsById}
 												showOnlyOvertime={showOnlyOvertime}
+												getWorkerCostInfo={getWorkerCostInfo}
+												getPlanningScore={getPlanningScore}
+												getSelectionExplanation={getSelectionExplanation}
 											/>
 										);
 									})}
@@ -567,6 +826,11 @@ export function WorkstationLayout({
 														worker={worker}
 														isOvertime={isOvertimeWorker(worker)}
 														monthlyOvertime={monthlyOvertimeByWorker?.[worker.id]}
+														costInfo={getWorkerCostInfo(worker, isOvertimeWorker(worker))}
+														planningScore={getPlanningScore(worker, type)}
+														explainability={getSelectionExplanation(worker, type)}
+														indicators={workerIndicatorsById?.[worker?.id]}
+														stationType={type}
 													/>
 												))
 											) : (
@@ -609,6 +873,11 @@ export function WorkstationLayout({
 									worker={worker}
 									isOvertime={isOvertimeWorker(worker)}
 									monthlyOvertime={monthlyOvertimeByWorker?.[worker.id]}
+									costInfo={getWorkerCostInfo(worker, isOvertimeWorker(worker))}
+									planningScore={getPlanningScore(worker, getWorkerPrimaryType(worker))}
+									explainability={getSelectionExplanation(worker, getWorkerPrimaryType(worker))}
+									indicators={workerIndicatorsById?.[worker?.id]}
+									stationType={getWorkerPrimaryType(worker)}
 								/>
 							))}
 						</div>

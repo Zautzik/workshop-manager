@@ -9,7 +9,7 @@ const CreateUserSchema = z.object({
 	email: z.string().email().max(255),
 	password: z.string().min(6).max(128),
 	name: z.string().min(1).max(255).optional(),
-	role: z.enum(['supervisor', 'manager', 'admin', 'technician']),
+	role: z.enum(['supervisor', 'manager', 'hr_manager', 'admin', 'technician']),
 	department: z.string().max(100).optional().nullable(),
 	manager_domain: z.string().max(100).optional().nullable(),
 });
@@ -170,7 +170,7 @@ export async function DELETE(request: NextRequest) {
 
 const UpdateUserSchema = z.object({
 	id: z.string().uuid(),
-	role: z.enum(['supervisor', 'manager', 'admin', 'technician']).optional(),
+	role: z.enum(['supervisor', 'manager', 'hr_manager', 'admin', 'technician']).optional(),
 	department: z.string().max(100).optional().nullable(),
 	manager_domain: z.string().max(100).optional().nullable(),
 });

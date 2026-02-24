@@ -360,6 +360,15 @@ const UserManagement = ({ onUpdate }: UserManagementProps) => {
                       </div>
                     </div>
                   </SelectItem>
+                  <SelectItem value="hr_manager">
+                    <div className="flex items-center gap-2">
+                      <div className="w-3 h-3 rounded-full bg-cyan-500" />
+                      <div>
+                        <div className="font-medium">HR Manager</div>
+                        <div className="text-xs text-muted-foreground">Manages contracts, leave, incentives and HR docs</div>
+                      </div>
+                    </div>
+                  </SelectItem>
                   <SelectItem value="technician">
                     <div className="flex items-center gap-2">
                       <div className="w-3 h-3 rounded-full bg-orange-500" />
@@ -382,7 +391,7 @@ const UserManagement = ({ onUpdate }: UserManagementProps) => {
               </Select>
             </div>
 
-            {(formData.role === 'supervisor' || formData.role === 'manager' || formData.role === 'technician') && (
+            {(formData.role === 'supervisor' || formData.role === 'manager' || formData.role === 'hr_manager' || formData.role === 'technician') && (
               <div className="space-y-2">
                 <Label htmlFor="department">{t('department')}</Label>
                 <Select value={formData.department} onValueChange={(value) => setFormData({ ...formData, department: value })}>

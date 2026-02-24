@@ -37,6 +37,13 @@ export const queryKeys = {
   shifts: ['shifts'] as const,
   workstations: ['workstations'] as const,
   assignments: (date?: string) => ['assignments', { date }] as const,
+  compensationRates: (date?: string) => ['compensationRates', { date }] as const,
+  schedulingCostModel: ['schedulingCostModel'] as const,
+  workflowLeaveStatuses: (date?: string) => ['workflowLeaveStatuses', { date }] as const,
+  workflowIncentives: (monthKey?: string) => ['workflowIncentives', { monthKey }] as const,
+  workflowCertAlerts: (date?: string) => ['workflowCertAlerts', { date }] as const,
+  workflowContracts: (date?: string) => ['workflowContracts', { date }] as const,
+  workflowWeeklyHours: (weekStart?: string, weekEnd?: string) => ['workflowWeeklyHours', { weekStart, weekEnd }] as const,
   batchesAvailable: ['batches', 'available'] as const,
   checklists: ['maintenance', 'checklists'] as const,
   workOrders: ['maintenance', 'workOrders'] as const,
@@ -47,6 +54,11 @@ export const queryKeys = {
   machineCosts: ['machineCosts'] as const,
   equipmentInvestments: ['equipmentInvestments'] as const,
   otFinancials: ['otFinancials'] as const,
+  monthlyPayroll: (year: number, month: number) => ['monthlyPayroll', { year, month }] as const,
+  employeeCostTimeline: (employeeId: string, startDate: string, endDate: string, granularity: string) => 
+    ['employeeCostTimeline', { employeeId, startDate, endDate, granularity }] as const,
+  orderLaborMargin: (otId?: string, startDate?: string, endDate?: string) => 
+    ['orderLaborMargin', { otId, startDate, endDate }] as const,
 };
 
 /* ------------------------------------------------------------------ */
@@ -178,7 +190,7 @@ export function useWorkersByRating() {
       const { data, error } = await supabase
         .from('employees')
         .select(
-          'id, full_name, department, sheets_per_hour, teamwork_rating, overtime_availability, attendance_score, lateness_minutes, quality_score, speed_score, overall_rating'
+          'id, full_name, department, sheets_per_hour, teamwork_rating, overtime_availability, attendance_score, lateness_minutes, quality_score, speed_score, overall_rating, employee_skills(proficiency_level, certified, skill:skills(code, name, category))'
         )
         .order('overall_rating', { ascending: false });
       if (error) throw error;
@@ -305,6 +317,41 @@ export function useWorkstations() {
   });
 }
 
+export function useCompensationRatesForDate(date?: string) {
+  const dateValue = date || new Date().toISOString().split('T')[0];
+  return useQuery({
+    queryKey: queryKeys.compensationRates(dateValue),
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('compensation_rates')
+        .select(
+          'employee_id, hourly_rate, currency_code, overtime_multiplier_50, overtime_multiplier_100, night_shift_multiplier, weekend_multiplier, effective_from, effective_to'
+        )
+        .lte('effective_from', dateValue)
+        .or(`effective_to.is.null,effective_to.gte.${dateValue}`);
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+}
+
+export function useSchedulingCostModel() {
+  return useQuery({
+    queryKey: queryKeys.schedulingCostModel,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('scheduling_cost_models')
+        .select('*')
+        .eq('is_active', true)
+        .order('updated_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (error) throw error;
+      return data ?? null;
+    },
+  });
+}
+
 export function useWorkerAssignments(date?: string) {
   const dateValue = date || new Date().toISOString().split('T')[0];
   return useQuery({
@@ -385,6 +432,137 @@ export function useWorkerMonthlyOvertime(referenceDate?: string) {
 
         totals[workerId].hours += getShiftHours(assignment.shift);
         totals[workerId].shifts += 1;
+      });
+
+      return totals;
+    },
+    staleTime: 60_000,
+  });
+}
+
+export function useWorkflowLeaveStatuses(referenceDate?: string) {
+  const dateValue = referenceDate || new Date().toISOString().split('T')[0];
+  return useQuery({
+    queryKey: queryKeys.workflowLeaveStatuses(dateValue),
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('leave_requests')
+        .select('employee_id, leave_type, status, start_date, end_date')
+        .lte('start_date', dateValue)
+        .gte('end_date', dateValue)
+        .in('status', ['approved', 'pending']);
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+}
+
+export function useWorkflowIncentiveStatuses(referenceDate?: string) {
+  const dateValue = referenceDate || new Date().toISOString().split('T')[0];
+  const ref = new Date(dateValue);
+  const monthStart = new Date(ref.getFullYear(), ref.getMonth(), 1)
+    .toISOString()
+    .split('T')[0];
+  const monthEnd = new Date(ref.getFullYear(), ref.getMonth() + 1, 0)
+    .toISOString()
+    .split('T')[0];
+
+  return useQuery({
+    queryKey: queryKeys.workflowIncentives(`${monthStart}:${monthEnd}`),
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('employee_incentives')
+        .select('employee_id, status, awarded_date, amount')
+        .gte('awarded_date', monthStart)
+        .lte('awarded_date', monthEnd);
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+}
+
+export function useWorkflowCertificationAlerts(referenceDate?: string) {
+  const dateValue = referenceDate || new Date().toISOString().split('T')[0];
+  const cutoff = new Date(dateValue);
+  cutoff.setDate(cutoff.getDate() + 30);
+  const cutoffDate = cutoff.toISOString().split('T')[0];
+
+  return useQuery({
+    queryKey: queryKeys.workflowCertAlerts(dateValue),
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('hr_documents')
+        .select('employee_id, title, status, expires_on, doc_type')
+        .eq('doc_type', 'certification')
+        .not('expires_on', 'is', null)
+        .lte('expires_on', cutoffDate)
+        .neq('status', 'archived');
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+}
+
+export function useWorkflowContracts(referenceDate?: string) {
+  const dateValue = referenceDate || new Date().toISOString().split('T')[0];
+  return useQuery({
+    queryKey: queryKeys.workflowContracts(dateValue),
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('employment_contracts')
+        .select('*')
+        .or(`contract_end_date.is.null,contract_end_date.gte.${dateValue}`)
+        .lte('contract_start_date', dateValue)
+        .order('contract_start_date', { ascending: false });
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+}
+
+export function useWorkflowWeeklyHours(referenceDate?: string) {
+  const dateValue = referenceDate || new Date().toISOString().split('T')[0];
+  const refDate = new Date(dateValue);
+  const day = refDate.getDay();
+  const diffToMonday = day === 0 ? -6 : 1 - day;
+  const weekStartDate = new Date(refDate);
+  weekStartDate.setDate(refDate.getDate() + diffToMonday);
+  weekStartDate.setHours(0, 0, 0, 0);
+  const weekEndDate = new Date(weekStartDate);
+  weekEndDate.setDate(weekStartDate.getDate() + 6);
+
+  const weekStart = weekStartDate.toISOString().split('T')[0];
+  const weekEnd = weekEndDate.toISOString().split('T')[0];
+
+  return useQuery({
+    queryKey: queryKeys.workflowWeeklyHours(weekStart, weekEnd),
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('worker_assignments')
+        .select('employee_id, shift:shifts(start_time, end_time)')
+        .gte('date', weekStart)
+        .lte('date', weekEnd);
+      if (error) throw error;
+
+      const toMinutes = (timeValue?: string | null) => {
+        if (!timeValue) return 0;
+        const [hours, minutes] = timeValue.split(':').map(Number);
+        return (Number.isNaN(hours) ? 0 : hours) * 60 + (Number.isNaN(minutes) ? 0 : minutes);
+      };
+
+      const getShiftHours = (shift: any) => {
+        const startMinutes = toMinutes(shift?.start_time);
+        const endMinutes = toMinutes(shift?.end_time);
+        let durationMinutes = endMinutes - startMinutes;
+        if (durationMinutes <= 0) durationMinutes += 24 * 60;
+        return durationMinutes / 60;
+      };
+
+      const totals: Record<string, number> = {};
+      (data ?? []).forEach((assignment: any) => {
+        const workerId = assignment.employee_id;
+        if (!workerId) return;
+        totals[workerId] = (totals[workerId] || 0) + getShiftHours(assignment.shift);
       });
 
       return totals;
@@ -562,6 +740,103 @@ export function useOTFinancials() {
         .from('ot_financials')
         .select('*, ot:ots(ot_number, client_name)')
         .order('created_at', { ascending: false });
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+}
+
+export function useMonthlyPayroll(year: number, month: number) {
+  return useQuery({
+    queryKey: queryKeys.monthlyPayroll(year, month),
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('calculate_monthly_payroll', {
+        p_year: year,
+        p_month: month,
+        p_employee_id: null,
+      });
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+}
+
+export interface EmployeeCostTimelineRow {
+  period_start: string;
+  period_end: string;
+  employee_id: string;
+  employee_name: string;
+  base_hours: number;
+  ot50_hours: number;
+  ot100_hours: number;
+  night_hours: number;
+  weekend_hours: number;
+  base_pay: number;
+  ot50_pay: number;
+  ot100_pay: number;
+  night_differential: number;
+  weekend_differential: number;
+  overtime_premium: number;
+  incentive_pay: number;
+  total_labor_cost: number;
+}
+
+export function useEmployeeCostTimeline(
+  employeeId: string,
+  startDate: string,
+  endDate: string,
+  granularity: 'week' | 'month' = 'month'
+) {
+  return useQuery<EmployeeCostTimelineRow[]>({
+    queryKey: queryKeys.employeeCostTimeline(employeeId, startDate, endDate, granularity),
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('get_employee_cost_timeline', {
+        p_employee_id: employeeId,
+        p_start_date: startDate,
+        p_end_date: endDate,
+        p_granularity: granularity,
+      });
+      if (error) throw error;
+      return data ?? [];
+    },
+    enabled: !!employeeId && !!startDate && !!endDate,
+  });
+}
+
+export interface OrderLaborMarginRow {
+  ot_id: string;
+  ot_number: string;
+  client_name: string;
+  order_date: string;
+  completion_date: string | null;
+  revenue: number;
+  base_labor_cost: number;
+  overtime_premium: number;
+  night_differential: number;
+  weekend_differential: number;
+  total_labor_cost: number;
+  incentive_cost: number;
+  total_cost: number;
+  gross_margin: number;
+  margin_percentage: number;
+  labor_hours: number;
+  overtime_hours: number;
+  cost_per_hour: number;
+}
+
+export function useOrderLaborMargin(
+  otId?: string,
+  startDate?: string,
+  endDate?: string
+) {
+  return useQuery<OrderLaborMarginRow[]>({
+    queryKey: queryKeys.orderLaborMargin(otId, startDate, endDate),
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('get_order_labor_margin', {
+        p_ot_id: otId || null,
+        p_start_date: startDate || null,
+        p_end_date: endDate || null,
+      });
       if (error) throw error;
       return data ?? [];
     },

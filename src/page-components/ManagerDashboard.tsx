@@ -54,14 +54,6 @@ const ManagerDashboard = () => {
           </div>
           <div className="flex gap-2">
             <Button
-              onClick={() => router.push('/hr')}
-              variant="outline"
-              className="border-primary/30 text-primary hover:bg-primary/10"
-            >
-              <Users className="mr-2 h-4 w-4" />
-              Human Resources
-            </Button>
-            <Button
               onClick={() => router.push('/financial')}
               variant="outline"
               className="border-primary/30 text-primary hover:bg-primary/10"

@@ -11,6 +11,59 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
 import { cookies } from 'next/headers';
+import { hasRole, isAuthError, requireAuth } from '@/lib/api-middleware';
+
+const PERSONAL_EMPLOYEE_FIELDS = [
+	'email',
+	'phone',
+	'emergency_contact_name',
+	'emergency_contact_phone',
+	'notes',
+	'termination_date',
+] as const;
+
+const COMPENSATION_FIELDS = [
+	'hourly_rate',
+	'overtime_multiplier_50',
+	'overtime_multiplier_100',
+	'night_shift_multiplier',
+	'weekend_multiplier',
+	'currency_code',
+	'effective_from',
+	'effective_to',
+	'incentive_eligibility',
+] as const;
+
+function hasAnyField(payload: Record<string, unknown>, fields: readonly string[]): boolean {
+	return fields.some((field) => field in payload);
+}
+
+async function logHrComplianceAccess(
+	supabase: ReturnType<typeof createRouteHandlerClient>,
+	params: {
+		tableName: string;
+		accessType: 'SELECT' | 'VIEW_SENSITIVE' | 'EXPORT' | 'DOWNLOAD';
+		purpose: string;
+		requestPath: string;
+		requestMethod: string;
+		metadata?: Record<string, unknown>;
+	}
+) {
+	const { error } = await supabase.rpc('log_hr_compliance_access', {
+		p_table_name: params.tableName,
+		p_record_id: null,
+		p_employee_id: null,
+		p_access_type: params.accessType,
+		p_purpose: params.purpose,
+		p_request_path: params.requestPath,
+		p_request_method: params.requestMethod,
+		p_metadata: params.metadata ?? {},
+	});
+
+	if (error) {
+		console.warn('HR compliance access logging failed:', error.message);
+	}
+}
 
 /**
  * GET /api/employees
@@ -24,6 +77,10 @@ import { cookies } from 'next/headers';
  */
 export async function GET(request: NextRequest) {
 	try {
+		const auth = await requireAuth();
+		if (isAuthError(auth)) return auth;
+
+		const canAccessCompensation = hasRole(auth.role, ['admin', 'hr_manager']);
 		const supabase = createRouteHandlerClient({ cookies: async () => cookies() });
 
 		// Get query parameters
@@ -37,7 +94,8 @@ export async function GET(request: NextRequest) {
 		let query = supabase
 			.from('employees')
 			.select(
-				`
+				canAccessCompensation
+					? `
 				id,
 				full_name,
 				employee_number,
@@ -61,6 +119,23 @@ export async function GET(request: NextRequest) {
 					effective_from,
 					effective_to
 				)
+			`
+					: `
+				id,
+				full_name,
+				employee_number,
+				department,
+				status,
+				hire_date,
+				worker_legacy_id,
+				employment_contracts(
+					id,
+					contract_type,
+					hours_per_week,
+					overtime_allowed,
+					start_date,
+					end_date
+				)
 			`,
 				{ count: 'exact' }
 			)
@@ -78,6 +153,23 @@ export async function GET(request: NextRequest) {
 		if (error) {
 			return NextResponse.json({ error: error.message }, { status: 500 });
 		}
+
+		await logHrComplianceAccess(supabase, {
+			tableName: 'employees',
+			accessType: canAccessCompensation ? 'VIEW_SENSITIVE' : 'SELECT',
+			purpose: canAccessCompensation
+				? 'Employee list with compensation context'
+				: 'Employee list without compensation fields',
+			requestPath: '/api/employees',
+			requestMethod: 'GET',
+			metadata: {
+				department,
+				status,
+				limit,
+				offset,
+				result_count: Array.isArray(data) ? data.length : 0,
+			},
+		});
 
 		return NextResponse.json({
 			success: true,
@@ -115,9 +207,27 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
 	try {
+		const auth = await requireAuth(['supervisor', 'admin', 'hr_manager']);
+		if (isAuthError(auth)) return auth;
+
+		const canManageSensitive = hasRole(auth.role, ['admin', 'hr_manager']);
 		const supabase = createRouteHandlerClient({ cookies: async () => cookies() });
 
 		const body = await request.json();
+
+		if (hasAnyField(body, COMPENSATION_FIELDS) && !canManageSensitive) {
+			return NextResponse.json(
+				{ error: 'Forbidden — compensation fields require admin or hr_manager' },
+				{ status: 403 }
+			);
+		}
+
+		if (hasAnyField(body, PERSONAL_EMPLOYEE_FIELDS) && !canManageSensitive) {
+			return NextResponse.json(
+				{ error: 'Forbidden — personal employee fields require admin or hr_manager' },
+				{ status: 403 }
+			);
+		}
 
 		// Validate required fields
 		const { full_name, department, hire_date, employee_number } = body;
@@ -138,6 +248,16 @@ export async function POST(request: NextRequest) {
 					department,
 					hire_date,
 					employee_number: employee_number || `EMP-${Date.now()}`,
+					...(canManageSensitive
+						? {
+							email: body.email,
+							phone: body.phone,
+							emergency_contact_name: body.emergency_contact_name,
+							emergency_contact_phone: body.emergency_contact_phone,
+							notes: body.notes,
+							termination_date: body.termination_date,
+						}
+						: {}),
 					status: 'active',
 				},
 			])
@@ -168,7 +288,7 @@ export async function POST(request: NextRequest) {
 		}
 
 		// Create default compensation rate if provided
-		if (body.hourly_rate) {
+		if (body.hourly_rate && canManageSensitive) {
 			const { error: compensationError } = await supabase
 				.from('compensation_rates')
 				.insert([
@@ -176,8 +296,13 @@ export async function POST(request: NextRequest) {
 						employee_id: employee.id,
 						hourly_rate: body.hourly_rate,
 						overtime_multiplier_50: body.overtime_multiplier_50 || 1.5,
+						overtime_multiplier_100: body.overtime_multiplier_100 || 2.0,
+						night_shift_multiplier: body.night_shift_multiplier || 1.0,
+						weekend_multiplier: body.weekend_multiplier || 1.0,
 						currency_code: body.currency_code || 'USD',
+						incentive_eligibility: body.incentive_eligibility ?? true,
 						effective_from: hire_date,
+						effective_to: body.effective_to || null,
 					},
 				]);
 
