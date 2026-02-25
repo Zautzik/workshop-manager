@@ -511,11 +511,34 @@ export function useWorkflowContracts(referenceDate?: string) {
       const { data, error } = await supabase
         .from('employment_contracts')
         .select('*')
-        .or(`contract_end_date.is.null,contract_end_date.gte.${dateValue}`)
-        .lte('contract_start_date', dateValue)
-        .order('contract_start_date', { ascending: false });
+        .order('id', { ascending: false });
       if (error) throw error;
-      return data ?? [];
+
+      const normalized = (data ?? []).map((contract: any) => {
+        const start = contract.contract_start_date ?? contract.start_date ?? null;
+        const end = contract.contract_end_date ?? contract.end_date ?? null;
+        return {
+          ...contract,
+          contract_start_date: start,
+          contract_end_date: end,
+        };
+      });
+
+      return normalized
+        .filter((contract: any) => {
+          const start = contract.contract_start_date;
+          const end = contract.contract_end_date;
+
+          const startsBeforeOrOnDate = !start || String(start) <= dateValue;
+          const endsAfterOrOnDate = !end || String(end) >= dateValue;
+
+          return startsBeforeOrOnDate && endsAfterOrOnDate;
+        })
+        .sort((a: any, b: any) => {
+          const aStart = String(a.contract_start_date || '');
+          const bStart = String(b.contract_start_date || '');
+          return bStart.localeCompare(aStart);
+        });
     },
   });
 }
