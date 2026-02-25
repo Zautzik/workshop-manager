@@ -15,7 +15,7 @@ export function OrderLaborMarginAnalysis() {
   const { data: ots, isLoading: otsLoading } = useOTs();
 
   // State
-  const [selectedOtId, setSelectedOtId] = useState<string>('');
+  const [selectedOtId, setSelectedOtId] = useState<string>('all');
   const [rangeMonths, setRangeMonths] = useState<number>(6);
 
   // Calculate date range
@@ -24,7 +24,7 @@ export function OrderLaborMarginAnalysis() {
 
   // Fetch margin data
   const { data: margins, isLoading: marginsLoading } = useOrderLaborMargin(
-    selectedOtId || undefined,
+    selectedOtId === 'all' ? undefined : selectedOtId,
     format(startDate, 'yyyy-MM-dd'),
     format(endDate, 'yyyy-MM-dd')
   );
@@ -92,7 +92,7 @@ export function OrderLaborMarginAnalysis() {
                   <SelectValue placeholder={otsLoading ? 'Loading...' : 'All orders'} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All Orders</SelectItem>
+                  <SelectItem value="all">All Orders</SelectItem>
                   {ots?.map((ot) => (
                     <SelectItem key={ot.id} value={ot.id}>
                       {ot.ot_number} - {ot.client_name}
