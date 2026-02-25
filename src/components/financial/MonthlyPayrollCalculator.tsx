@@ -14,8 +14,19 @@ const getCurrentMonthValue = () => {
 export function MonthlyPayrollCalculator() {
   const [monthValue, setMonthValue] = useState<string>(getCurrentMonthValue());
 
-  const selectedYear = Number(monthValue.split('-')[0]);
-  const selectedMonth = Number(monthValue.split('-')[1]);
+  const [yearPart, monthPart] = monthValue.split('-');
+  const parsedYear = Number(yearPart);
+  const parsedMonth = Number(monthPart);
+  const now = new Date();
+
+  const selectedYear =
+    Number.isInteger(parsedYear) && parsedYear >= 1900 && parsedYear <= 9999
+      ? parsedYear
+      : now.getFullYear();
+  const selectedMonth =
+    Number.isInteger(parsedMonth) && parsedMonth >= 1 && parsedMonth <= 12
+      ? parsedMonth
+      : now.getMonth() + 1;
 
   const { data: rows = [], isLoading, error } = useMonthlyPayroll(selectedYear, selectedMonth);
 
@@ -59,7 +70,9 @@ export function MonthlyPayrollCalculator() {
             <Input
               type='month'
               value={monthValue}
-              onChange={(event) => setMonthValue(event.target.value)}
+              onChange={(event) =>
+                setMonthValue(event.target.value || getCurrentMonthValue())
+              }
               className='mt-1'
             />
           </div>

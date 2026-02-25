@@ -70,7 +70,7 @@ export default function MaintenanceDashboard() {
               className="border-primary/30"
             >
               <ArrowLeft className="mr-2 h-4 w-4" />
-              Back to Admin
+              Back to Dashboard
             </Button>
           </div>
         </div>

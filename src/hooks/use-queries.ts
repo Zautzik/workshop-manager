@@ -770,17 +770,38 @@ export function useOTFinancials() {
 }
 
 export function useMonthlyPayroll(year: number, month: number) {
+  const safeYear = Number.isFinite(year) ? Math.trunc(year) : NaN;
+  const safeMonth = Number.isFinite(month) ? Math.trunc(month) : NaN;
+  const hasValidParams =
+    Number.isInteger(safeYear) &&
+    safeYear >= 1900 &&
+    safeYear <= 9999 &&
+    Number.isInteger(safeMonth) &&
+    safeMonth >= 1 &&
+    safeMonth <= 12;
+
   return useQuery({
-    queryKey: queryKeys.monthlyPayroll(year, month),
+    queryKey: queryKeys.monthlyPayroll(safeYear, safeMonth),
     queryFn: async () => {
-      const { data, error } = await supabase.rpc('calculate_monthly_payroll', {
-        p_year: year,
-        p_month: month,
-        p_employee_id: null,
-      });
-      if (error) throw error;
-      return data ?? [];
+      if (!hasValidParams) return [];
+
+      const requestVariants = [
+        { p_year: safeYear, p_month: safeMonth, p_employee_id: null },
+        { p_year: safeYear, p_month: safeMonth },
+      ];
+
+      let lastError: any = null;
+      for (const payload of requestVariants) {
+        const { data, error } = await supabase.rpc('calculate_monthly_payroll', payload as any);
+        if (!error) {
+          return data ?? [];
+        }
+        lastError = error;
+      }
+
+      throw lastError;
     },
+    enabled: hasValidParams,
   });
 }
 
