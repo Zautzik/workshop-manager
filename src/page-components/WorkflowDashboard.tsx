@@ -66,6 +66,7 @@ export default function WorkflowDashboard() {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [costModelError, setCostModelError] = useState<string | null>(null);
   const [savingCostModel, setSavingCostModel] = useState(false);
+  const [isCostModelExpanded, setIsCostModelExpanded] = useState(false);
   const [bulkActionLoading, setBulkActionLoading] = useState<'auto-fill' | 'replace-conflicts' | 'redistribute-ot' | null>(null);
   const [publishLoading, setPublishLoading] = useState(false);
   const [publishedWeeks, setPublishedWeeks] = useState<Record<string, string>>({});
@@ -99,6 +100,7 @@ export default function WorkflowDashboard() {
   };
 
   const [costModelForm, setCostModelForm] = useState(defaultCostModel);
+  const COST_MODEL_EXPANDED_STORAGE_KEY = 'workflow_cost_model_expanded';
 
   useEffect(() => {
     if (!costModel) return;
@@ -149,6 +151,24 @@ export default function WorkflowDashboard() {
       // ignore local storage errors
     }
   }, []);
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(COST_MODEL_EXPANDED_STORAGE_KEY);
+      if (!raw) return;
+      setIsCostModelExpanded(raw === 'true');
+    } catch {
+      // ignore local storage errors
+    }
+  }, [COST_MODEL_EXPANDED_STORAGE_KEY]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(COST_MODEL_EXPANDED_STORAGE_KEY, String(isCostModelExpanded));
+    } catch {
+      // ignore local storage errors
+    }
+  }, [isCostModelExpanded, COST_MODEL_EXPANDED_STORAGE_KEY]);
 
   const weekDates = buildWeekDates(weekStartDate);
   const weekStartIso = getDateIso(weekStartDate);
@@ -418,6 +438,32 @@ export default function WorkflowDashboard() {
     setActiveId(event.active.id);
   };
 
+  const handleUnassignWorker = async (assignmentId?: string, workerName?: string) => {
+    if (!assignmentId) return;
+
+    try {
+      const { error } = await supabase
+        .from("worker_assignments")
+        .delete()
+        .eq("id", assignmentId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Worker unassigned",
+        description: `${workerName || "Worker"} was removed from this shift assignment.`
+      });
+
+      refetchAssignments();
+    } catch (error: any) {
+      toast({
+        title: "Error unassigning worker",
+        description: error.message,
+        variant: "destructive"
+      });
+    }
+  };
+
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
     setActiveId(null);
@@ -435,32 +481,7 @@ export default function WorkflowDashboard() {
     const dropAction = workstationData.action;
 
     if (dropAction === "unassign") {
-      if (!assignmentId) {
-        return;
-      }
-
-      try {
-        const { error } = await supabase
-          .from("worker_assignments")
-          .delete()
-          .eq("id", assignmentId);
-
-        if (error) throw error;
-
-        toast({
-          title: "Worker unassigned",
-          description: `${worker.name} was removed from this shift assignment.`
-        });
-
-        refetchAssignments();
-      } catch (error: any) {
-        toast({
-          title: "Error unassigning worker",
-          description: error.message,
-          variant: "destructive"
-        });
-      }
-
+      await handleUnassignWorker(assignmentId, worker?.name);
       return;
     }
 
@@ -1039,173 +1060,6 @@ export default function WorkflowDashboard() {
           </TabsContent>
 
           <TabsContent value="layout" className="mt-4">
-            {canManageCostModel && (
-              <Card className="bg-card/80 border-border backdrop-blur-sm p-4 mb-4">
-                <div className="flex items-center justify-between mb-4">
-                  <div>
-                    <h3 className="text-lg font-bold text-foreground">Cost Model</h3>
-                    <p className="text-sm text-muted-foreground">
-                      Customize how cost, rating, and skill weights rank assignments.
-                    </p>
-                  </div>
-                  <Button
-                    onClick={handleSaveCostModel}
-                    disabled={savingCostModel}
-                    className="bg-primary hover:bg-primary/90"
-                  >
-                    {savingCostModel ? 'Saving...' : 'Save Cost Model'}
-                  </Button>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div>
-                    <Label htmlFor="cost-model-name">Model Name</Label>
-                    <Input
-                      id="cost-model-name"
-                      value={costModelForm.name}
-                      onChange={(event) =>
-                        setCostModelForm((prev) => ({ ...prev, name: event.target.value }))
-                      }
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="cost-weight">Cost Weight</Label>
-                    <Input
-                      id="cost-weight"
-                      type="number"
-                      step="0.1"
-                      value={costModelForm.cost_weight}
-                      onChange={(event) =>
-                        setCostModelForm((prev) => ({ ...prev, cost_weight: event.target.value }))
-                      }
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="rating-weight">Rating Weight</Label>
-                    <Input
-                      id="rating-weight"
-                      type="number"
-                      step="0.1"
-                      value={costModelForm.rating_weight}
-                      onChange={(event) =>
-                        setCostModelForm((prev) => ({ ...prev, rating_weight: event.target.value }))
-                      }
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="skill-weight">Skill Weight</Label>
-                    <Input
-                      id="skill-weight"
-                      type="number"
-                      step="0.1"
-                      value={costModelForm.skill_weight}
-                      onChange={(event) =>
-                        setCostModelForm((prev) => ({ ...prev, skill_weight: event.target.value }))
-                      }
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="ot-multiplier">OT 50% Multiplier</Label>
-                    <Input
-                      id="ot-multiplier"
-                      type="number"
-                      step="0.01"
-                      value={costModelForm.overtime_multiplier_50}
-                      onChange={(event) =>
-                        setCostModelForm((prev) => ({ ...prev, overtime_multiplier_50: event.target.value }))
-                      }
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="ot-multiplier-100">OT 100% Multiplier</Label>
-                    <Input
-                      id="ot-multiplier-100"
-                      type="number"
-                      step="0.01"
-                      value={costModelForm.overtime_multiplier_100}
-                      onChange={(event) =>
-                        setCostModelForm((prev) => ({ ...prev, overtime_multiplier_100: event.target.value }))
-                      }
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="night-multiplier">Night Shift Multiplier</Label>
-                    <Input
-                      id="night-multiplier"
-                      type="number"
-                      step="0.01"
-                      value={costModelForm.night_shift_multiplier}
-                      onChange={(event) =>
-                        setCostModelForm((prev) => ({ ...prev, night_shift_multiplier: event.target.value }))
-                      }
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="weekend-multiplier">Weekend Multiplier</Label>
-                    <Input
-                      id="weekend-multiplier"
-                      type="number"
-                      step="0.01"
-                      value={costModelForm.weekend_multiplier}
-                      onChange={(event) =>
-                        setCostModelForm((prev) => ({ ...prev, weekend_multiplier: event.target.value }))
-                      }
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="min-rate">Minimum Hourly Rate</Label>
-                    <Input
-                      id="min-rate"
-                      type="number"
-                      step="0.01"
-                      value={costModelForm.minimum_hourly_rate}
-                      onChange={(event) =>
-                        setCostModelForm((prev) => ({ ...prev, minimum_hourly_rate: event.target.value }))
-                      }
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="max-rate">Maximum Hourly Rate</Label>
-                    <Input
-                      id="max-rate"
-                      type="number"
-                      step="0.01"
-                      value={costModelForm.maximum_hourly_rate}
-                      onChange={(event) =>
-                        setCostModelForm((prev) => ({ ...prev, maximum_hourly_rate: event.target.value }))
-                      }
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="rounding">Rounding Increment</Label>
-                    <Input
-                      id="rounding"
-                      type="number"
-                      step="0.01"
-                      value={costModelForm.rounding_increment}
-                      onChange={(event) =>
-                        setCostModelForm((prev) => ({ ...prev, rounding_increment: event.target.value }))
-                      }
-                    />
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between mt-4">
-                  <div className="flex items-center gap-2">
-                    <Switch
-                      checked={costModelForm.prefer_lower_cost}
-                      onCheckedChange={(checked) =>
-                        setCostModelForm((prev) => ({ ...prev, prefer_lower_cost: checked }))
-                      }
-                    />
-                    <Label>Prefer lower cost</Label>
-                  </div>
-                  {costModelError && (
-                    <p className="text-sm text-destructive">{costModelError}</p>
-                  )}
-                </div>
-              </Card>
-            )}
 
             {/* Shift Selection */}
             <Card className="bg-card/80 border-border backdrop-blur-sm p-4 mb-4">
@@ -1387,6 +1241,7 @@ export default function WorkflowDashboard() {
                   selectedShift={selectedShiftId || ""}
                   selectedOT={selectedOT}
                   onWorkerSelect={handleWorkerSelect}
+                  onUnassignWorker={handleUnassignWorker}
                   onAssignmentChange={refetchAssignments}
                 />
               </div>
@@ -1398,6 +1253,189 @@ export default function WorkflowDashboard() {
                 />
               </div>
             </div>
+
+            {canManageCostModel && (
+              <Card className="bg-card/80 border-border backdrop-blur-sm p-4 mt-6">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <h3 className="text-lg font-bold text-foreground">Cost Model</h3>
+                    <p className="text-sm text-muted-foreground">
+                      Customize how cost, rating, and skill weights rank assignments.
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setIsCostModelExpanded((prev) => !prev)}
+                    className="border-border bg-card/50 hover:bg-card"
+                  >
+                    {isCostModelExpanded ? 'Collapse' : 'Expand'}
+                  </Button>
+                </div>
+
+                {isCostModelExpanded && (
+                  <div className="mt-4 max-h-[50vh] overflow-y-auto pr-1">
+                    <div className="flex items-center justify-end mb-4">
+                      <Button
+                        onClick={handleSaveCostModel}
+                        disabled={savingCostModel}
+                        className="bg-primary hover:bg-primary/90"
+                      >
+                        {savingCostModel ? 'Saving...' : 'Save Cost Model'}
+                      </Button>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div>
+                        <Label htmlFor="cost-model-name">Model Name</Label>
+                        <Input
+                          id="cost-model-name"
+                          value={costModelForm.name}
+                          onChange={(event) =>
+                            setCostModelForm((prev) => ({ ...prev, name: event.target.value }))
+                          }
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="cost-weight">Cost Weight</Label>
+                        <Input
+                          id="cost-weight"
+                          type="number"
+                          step="0.1"
+                          value={costModelForm.cost_weight}
+                          onChange={(event) =>
+                            setCostModelForm((prev) => ({ ...prev, cost_weight: event.target.value }))
+                          }
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="rating-weight">Rating Weight</Label>
+                        <Input
+                          id="rating-weight"
+                          type="number"
+                          step="0.1"
+                          value={costModelForm.rating_weight}
+                          onChange={(event) =>
+                            setCostModelForm((prev) => ({ ...prev, rating_weight: event.target.value }))
+                          }
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="skill-weight">Skill Weight</Label>
+                        <Input
+                          id="skill-weight"
+                          type="number"
+                          step="0.1"
+                          value={costModelForm.skill_weight}
+                          onChange={(event) =>
+                            setCostModelForm((prev) => ({ ...prev, skill_weight: event.target.value }))
+                          }
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="ot-multiplier">OT 50% Multiplier</Label>
+                        <Input
+                          id="ot-multiplier"
+                          type="number"
+                          step="0.01"
+                          value={costModelForm.overtime_multiplier_50}
+                          onChange={(event) =>
+                            setCostModelForm((prev) => ({ ...prev, overtime_multiplier_50: event.target.value }))
+                          }
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="ot-multiplier-100">OT 100% Multiplier</Label>
+                        <Input
+                          id="ot-multiplier-100"
+                          type="number"
+                          step="0.01"
+                          value={costModelForm.overtime_multiplier_100}
+                          onChange={(event) =>
+                            setCostModelForm((prev) => ({ ...prev, overtime_multiplier_100: event.target.value }))
+                          }
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="night-multiplier">Night Shift Multiplier</Label>
+                        <Input
+                          id="night-multiplier"
+                          type="number"
+                          step="0.01"
+                          value={costModelForm.night_shift_multiplier}
+                          onChange={(event) =>
+                            setCostModelForm((prev) => ({ ...prev, night_shift_multiplier: event.target.value }))
+                          }
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="weekend-multiplier">Weekend Multiplier</Label>
+                        <Input
+                          id="weekend-multiplier"
+                          type="number"
+                          step="0.01"
+                          value={costModelForm.weekend_multiplier}
+                          onChange={(event) =>
+                            setCostModelForm((prev) => ({ ...prev, weekend_multiplier: event.target.value }))
+                          }
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="min-rate">Minimum Hourly Rate</Label>
+                        <Input
+                          id="min-rate"
+                          type="number"
+                          step="0.01"
+                          value={costModelForm.minimum_hourly_rate}
+                          onChange={(event) =>
+                            setCostModelForm((prev) => ({ ...prev, minimum_hourly_rate: event.target.value }))
+                          }
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="max-rate">Maximum Hourly Rate</Label>
+                        <Input
+                          id="max-rate"
+                          type="number"
+                          step="0.01"
+                          value={costModelForm.maximum_hourly_rate}
+                          onChange={(event) =>
+                            setCostModelForm((prev) => ({ ...prev, maximum_hourly_rate: event.target.value }))
+                          }
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="rounding">Rounding Increment</Label>
+                        <Input
+                          id="rounding"
+                          type="number"
+                          step="0.01"
+                          value={costModelForm.rounding_increment}
+                          onChange={(event) =>
+                            setCostModelForm((prev) => ({ ...prev, rounding_increment: event.target.value }))
+                          }
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between mt-4">
+                      <div className="flex items-center gap-2">
+                        <Switch
+                          checked={costModelForm.prefer_lower_cost}
+                          onCheckedChange={(checked) =>
+                            setCostModelForm((prev) => ({ ...prev, prefer_lower_cost: checked }))
+                          }
+                        />
+                        <Label>Prefer lower cost</Label>
+                      </div>
+                      {costModelError && (
+                        <p className="text-sm text-destructive">{costModelError}</p>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </Card>
+            )}
           </TabsContent>
 
           <TabsContent value="shifts" className="mt-4">

@@ -11,6 +11,7 @@ import {
 	Layers,
 	GripVertical,
 	Hand,
+	X,
 } from 'lucide-react';
 import { useDroppable } from '@dnd-kit/core';
 import { useDraggable } from '@dnd-kit/core';
@@ -30,6 +31,7 @@ interface WorkstationLayoutProps {
 	selectedShift: string;
 	selectedOT: any;
 	onWorkerSelect: (worker: any) => void;
+	onUnassignWorker: (assignmentId?: string, workerName?: string) => void;
 	onAssignmentChange: () => void;
 }
 
@@ -43,6 +45,7 @@ function DraggableWorker({
 	explainability,
 	indicators,
 	stationType,
+	onUnassignWorker,
 }: {
 	worker: any;
 	assignmentId?: string;
@@ -52,6 +55,7 @@ function DraggableWorker({
 	planningScore?: number | null;
 	explainability?: string[];
 	stationType?: string | null;
+	onUnassignWorker?: (assignmentId?: string, workerName?: string) => void;
 	indicators?: {
 		leaveStatus?: string;
 		leaveTone?: 'ok' | 'warn' | 'alert';
@@ -100,6 +104,20 @@ function DraggableWorker({
 					: 'border-border bg-card hover:border-primary/60 hover:bg-accent/40'
 			}`}
 		>
+			{assignmentId && onUnassignWorker && (
+				<button
+					type='button'
+					onPointerDown={event => event.stopPropagation()}
+					onClick={event => {
+						event.stopPropagation();
+						onUnassignWorker(assignmentId, worker?.name);
+					}}
+					className='absolute top-2 right-2 rounded-full border border-border bg-card/80 p-1 text-muted-foreground hover:text-destructive hover:border-destructive/40 transition-colors'
+					aria-label={`Remove ${worker?.name || 'worker'} from station`}
+				>
+					<X className='w-4 h-4' />
+				</button>
+			)}
 			{!assignmentId && (
 				<div className='absolute -top-2 -right-2 rounded-full border border-primary/50 bg-primary p-1'>
 					<Hand className='w-4 h-4 text-primary-foreground' />
@@ -189,26 +207,15 @@ function DroppableAvailablePool({
 	id,
 	children,
 	className,
-	type,
 }: {
 	id: string;
 	children: ReactNode;
 	className?: string;
-	type: string;
 }) {
-	const { setNodeRef, isOver } = useDroppable({
-		id,
-		data: { action: 'unassign', type },
-	});
-
 	return (
 		<div
-			ref={setNodeRef}
-			className={`${className || ''} rounded-lg border-2 border-dashed transition-all ${
-				isOver
-					? 'border-primary bg-primary/10 ring-2 ring-primary/40'
-					: 'border-border'
-			}`}
+			id={id}
+			className={`${className || ''} rounded-lg border-2 border-dashed border-border transition-all`}
 		>
 			{children}
 		</div>
@@ -230,6 +237,7 @@ function DroppableWorkstation({
 	getWorkerCostInfo,
 	getPlanningScore,
 	getSelectionExplanation,
+	onUnassignWorker,
 }: any) {
 	const { setNodeRef, isOver } = useDroppable({
 		id: station.id,
@@ -313,6 +321,7 @@ function DroppableWorkstation({
 							)}
 							indicators={workerIndicatorsById?.[assignment.worker?.id]}
 							stationType={station.type}
+							onUnassignWorker={onUnassignWorker}
 						/>
 					))
 				) : (
@@ -367,6 +376,7 @@ export function WorkstationLayout({
 	selectedShift,
 	selectedOT,
 	onWorkerSelect,
+	onUnassignWorker,
 	onAssignmentChange,
 }: WorkstationLayoutProps) {
 	const { toast } = useToast();
@@ -775,8 +785,8 @@ export function WorkstationLayout({
 								</Badge>
 							</div>
 
-							<div className='grid grid-cols-1 xl:grid-cols-4 gap-4'>
-								<div className='xl:col-span-3 grid grid-cols-1 lg:grid-cols-2 gap-4'>
+							<div className='grid grid-cols-1 lg:grid-cols-4 gap-4'>
+								<div className='lg:col-span-3 grid grid-cols-1 lg:grid-cols-2 gap-4'>
 									{(stations as any[]).map(station => {
 										const assignedWorkers = getAssignedWorkers(station.id);
 										const occupancy = assignedWorkers.length;
@@ -799,23 +809,23 @@ export function WorkstationLayout({
 												getWorkerCostInfo={getWorkerCostInfo}
 												getPlanningScore={getPlanningScore}
 												getSelectionExplanation={getSelectionExplanation}
+												onUnassignWorker={onUnassignWorker}
 											/>
 										);
 									})}
 								</div>
 
-								<Card className={`${theme.poolCard} p-4`}>
+								<Card className={`${theme.poolCard} p-4 lg:sticky lg:top-4 self-start`}>
 									<div className='mb-3'>
 										<h4 className='text-sm font-semibold text-foreground'>
 											Available {getTypeLabel(type)} Workers
 										</h4>
 										<p className='text-xs text-muted-foreground'>
-											Drag to station to assign, or drag assigned workers back here to unassign.
+											Drag to a station to assign. Use the X on assigned cards to unassign.
 										</p>
 									</div>
 									<DroppableAvailablePool
 										id={`available-${type}`}
-										type={type}
 										className='p-2'
 									>
 										<div className='space-y-2 max-h-[420px] overflow-y-auto pr-1'>
@@ -865,7 +875,7 @@ export function WorkstationLayout({
 							{visibleUncategorizedWorkers.length}
 						</Badge>
 					</div>
-					<DroppableAvailablePool id='available-other' type='other' className='p-3'>
+					<DroppableAvailablePool id='available-other' className='p-3'>
 						<div className='grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3'>
 							{visibleUncategorizedWorkers.map(worker => (
 								<DraggableWorker
