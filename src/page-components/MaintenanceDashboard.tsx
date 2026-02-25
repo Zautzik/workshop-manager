@@ -37,6 +37,18 @@ export default function MaintenanceDashboard() {
     }
   }, [isError, toast]);
 
+  const handleBackToDashboard = () => {
+    const dashboardRoutes: Record<string, string> = {
+      supervisor: '/supervisor',
+      manager: '/manager',
+      admin: '/admin',
+      maintenance: '/maintenance',
+      financial: '/financial',
+    };
+
+    router.push(dashboardRoutes[role || 'admin'] || '/admin');
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-screen bg-background">
@@ -65,7 +77,7 @@ export default function MaintenanceDashboard() {
           </div>
           <div className="flex items-center gap-2">
             <Button
-              onClick={() => router.push('/admin')}
+              onClick={handleBackToDashboard}
               variant="outline"
               className="border-primary/30"
             >
