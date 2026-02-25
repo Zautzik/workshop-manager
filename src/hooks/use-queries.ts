@@ -785,21 +785,200 @@ export function useMonthlyPayroll(year: number, month: number) {
     queryFn: async () => {
       if (!hasValidParams) return [];
 
-      const requestVariants = [
-        { p_year: safeYear, p_month: safeMonth, p_employee_id: null },
-        { p_year: safeYear, p_month: safeMonth },
-      ];
+      const monthStart = `${safeYear}-${String(safeMonth).padStart(2, '0')}-01`;
+      const monthEnd = new Date(safeYear, safeMonth, 0).toISOString().split('T')[0];
 
-      let lastError: any = null;
-      for (const payload of requestVariants) {
-        const { data, error } = await supabase.rpc('calculate_monthly_payroll', payload as any);
-        if (!error) {
-          return data ?? [];
+      const [employeesRes, assignmentsRes, compensationRes, incentivesRes] = await Promise.all([
+        supabase.from('employees').select('id, full_name, worker_legacy_id'),
+        supabase
+          .from('worker_assignments')
+          .select('employee_id, worker_id, date, role, shift:shifts(start_time, end_time)')
+          .gte('date', monthStart)
+          .lte('date', monthEnd),
+        supabase
+          .from('compensation_rates')
+          .select(
+            'employee_id, hourly_rate, overtime_multiplier_50, overtime_multiplier_100, night_shift_multiplier, weekend_multiplier, currency_code, effective_from, effective_to'
+          ),
+        supabase
+          .from('employee_incentives')
+          .select('employee_id, amount, currency_code, status, awarded_date')
+          .gte('awarded_date', monthStart)
+          .lte('awarded_date', monthEnd)
+          .in('status', ['approved', 'paid']),
+      ]);
+
+      if (employeesRes.error) throw employeesRes.error;
+      if (assignmentsRes.error) throw assignmentsRes.error;
+      if (compensationRes.error) throw compensationRes.error;
+      if (incentivesRes.error) throw incentivesRes.error;
+
+      const employees = employeesRes.data ?? [];
+      const assignments = assignmentsRes.data ?? [];
+      const compensationRates = compensationRes.data ?? [];
+      const incentives = incentivesRes.data ?? [];
+
+      const employeeById = new Map<string, any>();
+      const employeeByLegacyId = new Map<string, any>();
+      employees.forEach((employee: any) => {
+        if (employee?.id) employeeById.set(employee.id, employee);
+        if (employee?.worker_legacy_id) {
+          employeeByLegacyId.set(employee.worker_legacy_id, employee);
         }
-        lastError = error;
-      }
+      });
 
-      throw lastError;
+      const ratesByEmployee = new Map<string, any[]>();
+      compensationRates.forEach((rate: any) => {
+        const employeeId = rate?.employee_id;
+        if (!employeeId) return;
+        const existing = ratesByEmployee.get(employeeId) || [];
+        existing.push(rate);
+        ratesByEmployee.set(employeeId, existing);
+      });
+
+      ratesByEmployee.forEach((rates) => {
+        rates.sort((a, b) => String(b?.effective_from || '').localeCompare(String(a?.effective_from || '')));
+      });
+
+      const findRateForDate = (employeeId: string, assignmentDate: string) => {
+        const rates = ratesByEmployee.get(employeeId) || [];
+        return rates.find((rate: any) => {
+          const from = String(rate?.effective_from || '0000-01-01');
+          const to = rate?.effective_to ? String(rate.effective_to) : null;
+          return from <= assignmentDate && (!to || to >= assignmentDate);
+        });
+      };
+
+      const toMinutes = (timeValue?: string | null) => {
+        if (!timeValue) return 0;
+        const [hours, minutes] = String(timeValue).split(':').map(Number);
+        return (Number.isNaN(hours) ? 0 : hours) * 60 + (Number.isNaN(minutes) ? 0 : minutes);
+      };
+
+      const getShiftHours = (shift: any) => {
+        const startMinutes = toMinutes(shift?.start_time);
+        const endMinutes = toMinutes(shift?.end_time);
+        let durationMinutes = endMinutes - startMinutes;
+        if (durationMinutes <= 0) durationMinutes += 24 * 60;
+        return durationMinutes / 60;
+      };
+
+      const isNightShift = (shift: any) => {
+        const startMinutes = toMinutes(shift?.start_time);
+        const endMinutes = toMinutes(shift?.end_time);
+        const nightStart = 20 * 60;
+        const nightEnd = 6 * 60;
+        return (
+          startMinutes >= nightStart ||
+          startMinutes < nightEnd ||
+          endMinutes >= nightStart ||
+          endMinutes < nightEnd
+        );
+      };
+
+      const rowsByEmployee = new Map<string, any>();
+
+      assignments.forEach((assignment: any) => {
+        const employee = assignment?.employee_id
+          ? employeeById.get(assignment.employee_id)
+          : assignment?.worker_id
+            ? employeeByLegacyId.get(assignment.worker_id)
+            : null;
+        const employeeId = employee?.id;
+        if (!employeeId || !assignment?.date) return;
+
+        const activeRate = findRateForDate(employeeId, String(assignment.date));
+        if (!activeRate) return;
+
+        const hours = getShiftHours(assignment.shift);
+        const overtime = String(assignment?.role || '').toLowerCase().includes('overtime');
+        const ot100 = String(assignment?.role || '').includes('100');
+        const weekend = [0, 6].includes(new Date(String(assignment.date)).getDay());
+        const night = isNightShift(assignment.shift);
+
+        const hourlyRate = Number(activeRate?.hourly_rate || 0);
+        const ot50Multiplier = Number(activeRate?.overtime_multiplier_50 || 1.5);
+        const ot100Multiplier = Number(activeRate?.overtime_multiplier_100 || 2);
+        const nightMultiplier = Number(activeRate?.night_shift_multiplier || 1);
+        const weekendMultiplier = Number(activeRate?.weekend_multiplier || 1);
+        const currencyCode = activeRate?.currency_code || 'USD';
+
+        const regularHours = overtime ? 0 : hours;
+        const overtimeHours = overtime ? hours : 0;
+        const basePay = regularHours * hourlyRate;
+        const overtimePay = overtime
+          ? overtimeHours * hourlyRate * (ot100 ? ot100Multiplier : ot50Multiplier)
+          : 0;
+        const nightDifferential = night ? hours * hourlyRate * Math.max(0, nightMultiplier - 1) : 0;
+        const weekendDifferential = weekend ? hours * hourlyRate * Math.max(0, weekendMultiplier - 1) : 0;
+
+        const existing = rowsByEmployee.get(employeeId) || {
+          employee_id: employeeId,
+          employee_name: employee?.full_name || 'Unknown employee',
+          regular_hours: 0,
+          overtime_hours: 0,
+          base_pay: 0,
+          overtime_pay: 0,
+          night_differential: 0,
+          weekend_differential: 0,
+          incentives: 0,
+          gross_pay: 0,
+          currency_code: currencyCode,
+          assignments_count: 0,
+        };
+
+        existing.regular_hours += regularHours;
+        existing.overtime_hours += overtimeHours;
+        existing.base_pay += basePay;
+        existing.overtime_pay += overtimePay;
+        existing.night_differential += nightDifferential;
+        existing.weekend_differential += weekendDifferential;
+        existing.assignments_count += 1;
+        existing.currency_code = existing.currency_code || currencyCode;
+        rowsByEmployee.set(employeeId, existing);
+      });
+
+      incentives.forEach((incentive: any) => {
+        const employeeId = incentive?.employee_id;
+        if (!employeeId) return;
+        const employee = employeeById.get(employeeId);
+        const existing = rowsByEmployee.get(employeeId) || {
+          employee_id: employeeId,
+          employee_name: employee?.full_name || 'Unknown employee',
+          regular_hours: 0,
+          overtime_hours: 0,
+          base_pay: 0,
+          overtime_pay: 0,
+          night_differential: 0,
+          weekend_differential: 0,
+          incentives: 0,
+          gross_pay: 0,
+          currency_code: incentive?.currency_code || 'USD',
+          assignments_count: 0,
+        };
+        existing.incentives += Number(incentive?.amount || 0);
+        if (!existing.currency_code) {
+          existing.currency_code = incentive?.currency_code || 'USD';
+        }
+        rowsByEmployee.set(employeeId, existing);
+      });
+
+      const fallbackRows = Array.from(rowsByEmployee.values()).map((row: any) => {
+        const gross =
+          Number(row.base_pay || 0) +
+          Number(row.overtime_pay || 0) +
+          Number(row.night_differential || 0) +
+          Number(row.weekend_differential || 0) +
+          Number(row.incentives || 0);
+        return {
+          ...row,
+          gross_pay: gross,
+        };
+      });
+
+      return fallbackRows.sort((a: any, b: any) =>
+        String(a.employee_name || '').localeCompare(String(b.employee_name || ''))
+      );
     },
     enabled: hasValidParams,
   });
