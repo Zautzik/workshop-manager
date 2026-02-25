@@ -1060,29 +1060,65 @@ export function useOrderLaborMargin(
     queryFn: async () => {
       let otsQuery = supabase
         .from('ots')
-        .select('id, ot_number, client_name, order_date, completion_date, revenue');
+        .select('id, ot_number, client_name, created_at, completed_at');
 
       if (otId) {
         otsQuery = otsQuery.eq('id', otId);
       }
 
-      if (hasValidStartDate && startDate) {
-        otsQuery = otsQuery.gte('order_date', startDate);
-      }
-
       const { data: rawOts, error: otsError } = await otsQuery;
       if (otsError) throw otsError;
 
-      const filteredOts = (rawOts ?? []).filter((ot: any) => {
-        if (!hasValidEndDate || !endDate) return true;
+      const normalizedOts = (rawOts ?? []).map((ot: any) => {
+        const orderDate = ot?.order_date
+          ? String(ot.order_date)
+          : ot?.created_at
+            ? String(ot.created_at).slice(0, 10)
+            : null;
+        const completionDate = ot?.completion_date
+          ? String(ot.completion_date)
+          : ot?.completed_at
+            ? String(ot.completed_at).slice(0, 10)
+            : null;
+        return {
+          ...ot,
+          order_date: orderDate,
+          completion_date: completionDate,
+        };
+      });
+
+      const filteredOts = normalizedOts.filter((ot: any) => {
+        const orderDate = ot?.order_date ? String(ot.order_date) : null;
         const completionDate = ot?.completion_date ? String(ot.completion_date) : null;
-        const orderDate = ot?.order_date ? String(ot.order_date) : '';
-        return (completionDate ? completionDate <= endDate : orderDate <= endDate);
+
+        if (hasValidStartDate && startDate && orderDate && orderDate < startDate) {
+          return false;
+        }
+
+        if (hasValidEndDate && endDate) {
+          if (completionDate) {
+            if (completionDate > endDate) return false;
+          } else if (orderDate && orderDate > endDate) {
+            return false;
+          }
+        }
+
+        return true;
       });
 
       if (filteredOts.length === 0) return [];
 
       const otIds = filteredOts.map((ot: any) => ot.id).filter(Boolean);
+
+      const { data: otFinancials } = await supabase
+        .from('ot_financials')
+        .select('ot_id, revenue')
+        .in('ot_id', otIds);
+      const revenueByOt = new Map<string, number>();
+      (otFinancials ?? []).forEach((row: any) => {
+        if (!row?.ot_id) return;
+        revenueByOt.set(row.ot_id, Number(row?.revenue || 0));
+      });
 
       let assignmentsQuery = supabase
         .from('worker_assignments')
@@ -1263,7 +1299,7 @@ export function useOrderLaborMargin(
             overtime_hours: 0,
           };
 
-          const revenue = Number(ot?.revenue || 0);
+          const revenue = revenueByOt.has(ot.id) ? Number(revenueByOt.get(ot.id) || 0) : Number(ot?.revenue || 0);
           const totalCost = costs.total_labor_cost + costs.incentive_cost;
           const grossMargin = revenue - totalCost;
           const marginPercentage = revenue > 0 ? (grossMargin / revenue) * 100 : 0;
