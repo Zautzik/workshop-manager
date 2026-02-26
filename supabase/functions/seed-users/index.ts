@@ -66,11 +66,35 @@ Deno.serve(async (req) => {
         })
     }
 
+    // Create admin user
+    const { data: admin, error: adminError } = await supabase.auth.admin.createUser({
+      email: 'admin@printpress.com',
+      password: 'pass',
+      email_confirm: true,
+    })
+
+    if (adminError && !adminError.message.includes('already registered')) {
+      throw adminError
+    }
+
+    if (admin.user) {
+      // Add admin role
+      await supabase
+        .from('user_roles')
+        .upsert({
+          user_id: admin.user.id,
+          role: 'admin'
+        }, {
+          onConflict: 'user_id,role'
+        })
+    }
+
     return new Response(
       JSON.stringify({
         success: true,
         message: 'Users seeded successfully',
         users: {
+          admin: 'admin@printpress.com / pass',
           supervisor: 'supervisor1@printpress.com / pass',
           manager: 'manager1@printpress.com / pass'
         }

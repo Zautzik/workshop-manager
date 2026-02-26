@@ -45,6 +45,8 @@ import {
   useCompensationHistory,
   useLeaveRequests,
 } from '@/hooks/use-employees';
+import SkillTreeManager from '@/components/hr/SkillTreeManager';
+import WorkerSkillsProficiency from '@/components/hr/WorkerSkillsProficiency';
 
 const HrManagerDashboard = () => {
   const { user, signOut, role } = useAuth();
@@ -1222,55 +1224,21 @@ const HrManagerDashboard = () => {
             </Card>
           </TabsContent>
 
-          <TabsContent value="skills">
-            <Card className="border-primary/20">
-              <CardHeader>
-                <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                  <CardTitle>Skills</CardTitle>
-                  {canManageHR && (
-                    <Button
-                      onClick={() => {
-                        setActionError(null);
-                        setSkillDialogOpen(true);
-                      }}
-                      variant="outline"
-                    >
-                      <Plus className="mr-2 h-4 w-4" />
-                      Assign Skill
-                    </Button>
-                  )}
-                </div>
-              </CardHeader>
-              <CardContent>
-                {skillsLoading && (
-                  <p className="text-sm text-muted-foreground">Loading skills catalog...</p>
-                )}
-                {skillsError && (
-                  <p className="text-sm text-destructive">Failed to load skills.</p>
-                )}
-                {!skillsLoading && !skillsError && (
-                  <div className="space-y-2">
-                    {skills.map((skill: any) => (
-                      <div
-                        key={skill.id}
-                        className="flex items-center justify-between rounded-lg border border-primary/10 bg-muted/40 px-4 py-3"
-                      >
-                        <div>
-                          <p className="font-medium">{skill.name}</p>
-                          <p className="text-xs text-muted-foreground">{skill.category || 'General'}</p>
-                        </div>
-                        <span className="text-xs text-muted-foreground">
-                          {skill.is_active ? 'Active' : 'Inactive'}
-                        </span>
-                      </div>
-                    ))}
-                    {skills.length === 0 && (
-                      <p className="text-sm text-muted-foreground">No skills found.</p>
-                    )}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+          <TabsContent value="skills" className="space-y-4">
+            <Tabs defaultValue="tree" className="w-full">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="tree">Skill Tech Tree</TabsTrigger>
+                <TabsTrigger value="proficiency">Worker Proficiency</TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="tree">
+                <SkillTreeManager />
+              </TabsContent>
+
+              <TabsContent value="proficiency">
+                <WorkerSkillsProficiency />
+              </TabsContent>
+            </Tabs>
           </TabsContent>
 
           <TabsContent value="leave">
