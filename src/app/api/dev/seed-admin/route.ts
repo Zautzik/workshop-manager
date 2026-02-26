@@ -34,7 +34,7 @@ export async function POST() {
     const { data: user, error: createError } = await supabase.auth.admin.createUser({
       email: 'admin@printpress.com',
       password: 'pass',
-      email_confirmed: true,
+      email_confirm: true,
     });
 
     if (createError) {
