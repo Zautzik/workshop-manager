@@ -117,13 +117,15 @@ ALTER TABLE public.skill_proficiency_levels ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.machine_skill_requirements ENABLE ROW LEVEL SECURITY;
 
 -- Skills: Readable by all authenticated users
-CREATE POLICY IF NOT EXISTS "skills_select_authenticated"
+DROP POLICY IF EXISTS "skills_select_authenticated" ON public.skills;
+CREATE POLICY "skills_select_authenticated"
 ON public.skills
 FOR SELECT
 USING (auth.role() = 'authenticated');
 
 -- Skills: Writable by HR managers
-CREATE POLICY IF NOT EXISTS "skills_manage_hr"
+DROP POLICY IF EXISTS "skills_manage_hr" ON public.skills;
+CREATE POLICY "skills_manage_hr"
 ON public.skills
 FOR ALL
 USING (
@@ -140,39 +142,45 @@ USING (
 WITH CHECK (true);
 
 -- Skill dependencies: Readable by authenticated
-CREATE POLICY IF NOT EXISTS "skill_dependencies_select"
+DROP POLICY IF EXISTS "skill_dependencies_select" ON public.skill_dependencies;
+CREATE POLICY "skill_dependencies_select"
 ON public.skill_dependencies
 FOR SELECT
 USING (auth.role() = 'authenticated');
 
 -- Skill dependencies: Writable by HR
-CREATE POLICY IF NOT EXISTS "skill_dependencies_manage_hr"
+DROP POLICY IF EXISTS "skill_dependencies_manage_hr" ON public.skill_dependencies;
+CREATE POLICY "skill_dependencies_manage_hr"
 ON public.skill_dependencies
 FOR ALL
 USING (auth.role() = 'authenticated')
 WITH CHECK (auth.role() = 'authenticated');
 
 -- Proficiency levels: Readable by all
-CREATE POLICY IF NOT EXISTS "proficiency_levels_select"
+DROP POLICY IF EXISTS "proficiency_levels_select" ON public.skill_proficiency_levels;
+CREATE POLICY "proficiency_levels_select"
 ON public.skill_proficiency_levels
 FOR SELECT
 USING (auth.role() = 'authenticated');
 
 -- Proficiency levels: Writable by HR
-CREATE POLICY IF NOT EXISTS "proficiency_levels_manage_hr"
+DROP POLICY IF EXISTS "proficiency_levels_manage_hr" ON public.skill_proficiency_levels;
+CREATE POLICY "proficiency_levels_manage_hr"
 ON public.skill_proficiency_levels
 FOR ALL
 USING (auth.role() = 'authenticated')
 WITH CHECK (auth.role() = 'authenticated');
 
 -- Machine requirements: Readable by all
-CREATE POLICY IF NOT EXISTS "machine_skill_requirements_select"
+DROP POLICY IF EXISTS "machine_skill_requirements_select" ON public.machine_skill_requirements;
+CREATE POLICY "machine_skill_requirements_select"
 ON public.machine_skill_requirements
 FOR SELECT
 USING (auth.role() = 'authenticated');
 
 -- Machine requirements: Writable by production manager/HR
-CREATE POLICY IF NOT EXISTS "machine_skill_requirements_manage"
+DROP POLICY IF EXISTS "machine_skill_requirements_manage" ON public.machine_skill_requirements;
+CREATE POLICY "machine_skill_requirements_manage"
 ON public.machine_skill_requirements
 FOR ALL
 USING (auth.role() = 'authenticated')
@@ -276,5 +284,5 @@ GRANT SELECT ON public.skills TO authenticated;
 GRANT SELECT ON public.skill_dependencies TO authenticated;
 GRANT SELECT ON public.skill_proficiency_levels TO authenticated;
 GRANT SELECT ON public.machine_skill_requirements TO authenticated;
-GRANT EXECUTE ON FUNCTION get_worker_machine_qualification TO authenticated;
-GRANT EXECUTE ON FUNCTION get_skill_tree_hierarchy TO authenticated;
+GRANT EXECUTE ON FUNCTION get_worker_machine_qualification(UUID, UUID) TO authenticated;
+GRANT EXECUTE ON FUNCTION get_skill_tree_hierarchy(UUID) TO authenticated;
