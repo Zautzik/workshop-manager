@@ -1,6 +1,6 @@
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
-import { cookies } from 'next/headers';
 import { NextRequest, NextResponse } from 'next/server';
+import { supabaseAdmin } from '@/integrations/supabase/server';
+import { requireAuth, isAuthError } from '@/lib/api-middleware';
 
 /**
  * GET /api/skills/worker-qualifications
@@ -8,8 +8,11 @@ import { NextRequest, NextResponse } from 'next/server';
  * Query params: employee_id, machine_id (optional)
  */
 export async function GET(request: NextRequest) {
+  const auth = await requireAuth();
+  if (isAuthError(auth)) return auth;
+
   try {
-    const supabase = createRouteHandlerClient({ cookies });
+    const supabase = supabaseAdmin;
     const searchParams = request.nextUrl.searchParams;
     const employeeId = searchParams.get('employee_id');
     const machineId = searchParams.get('machine_id');

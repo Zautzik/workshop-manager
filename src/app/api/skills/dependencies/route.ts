@@ -1,6 +1,6 @@
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
-import { cookies } from 'next/headers';
 import { NextRequest, NextResponse } from 'next/server';
+import { supabaseAdmin } from '@/integrations/supabase/server';
+import { requireAuth, isAuthError } from '@/lib/api-middleware';
 
 /**
  * GET /api/skills/dependencies
@@ -8,8 +8,11 @@ import { NextRequest, NextResponse } from 'next/server';
  * Query params: skill_id
  */
 export async function GET(request: NextRequest) {
+  const auth = await requireAuth();
+  if (isAuthError(auth)) return auth;
+
   try {
-    const supabase = createRouteHandlerClient({ cookies });
+    const supabase = supabaseAdmin;
     const searchParams = request.nextUrl.searchParams;
     const skillId = searchParams.get('skill_id');
 
@@ -40,8 +43,11 @@ export async function GET(request: NextRequest) {
  * Create a new skill dependency
  */
 export async function POST(request: NextRequest) {
+  const auth = await requireAuth();
+  if (isAuthError(auth)) return auth;
+
   try {
-    const supabase = createRouteHandlerClient({ cookies });
+    const supabase = supabaseAdmin;
     const body = await request.json();
 
     const {

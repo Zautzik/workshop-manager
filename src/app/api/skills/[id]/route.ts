@@ -1,6 +1,6 @@
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
-import { cookies } from 'next/headers';
 import { NextRequest, NextResponse } from 'next/server';
+import { supabaseAdmin } from '@/integrations/supabase/server';
+import { requireAuth, isAuthError } from '@/lib/api-middleware';
 
 /**
  * GET /api/skills/[id]
@@ -10,8 +10,11 @@ export async function GET(
   request: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
+  const auth = await requireAuth();
+  if (isAuthError(auth)) return auth;
+
   try {
-    const supabase = createRouteHandlerClient({ cookies });
+    const supabase = supabaseAdmin;
     const { id } = await context.params;
 
     const { data: skill, error } = await supabase
@@ -87,8 +90,11 @@ export async function PUT(
   request: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
+  const auth = await requireAuth();
+  if (isAuthError(auth)) return auth;
+
   try {
-    const supabase = createRouteHandlerClient({ cookies });
+    const supabase = supabaseAdmin;
     const { id } = await context.params;
     const body = await request.json();
 
@@ -147,8 +153,11 @@ export async function DELETE(
   request: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
+  const auth = await requireAuth();
+  if (isAuthError(auth)) return auth;
+
   try {
-    const supabase = createRouteHandlerClient({ cookies });
+    const supabase = supabaseAdmin;
     const { id } = await context.params;
 
     // Check if skill has children

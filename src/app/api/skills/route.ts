@@ -1,6 +1,6 @@
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
-import { cookies } from 'next/headers';
 import { NextRequest, NextResponse } from 'next/server';
+import { supabaseAdmin } from '@/integrations/supabase/server';
+import { requireAuth, isAuthError } from '@/lib/api-middleware';
 
 /**
  * GET /api/skills
@@ -8,8 +8,11 @@ import { NextRequest, NextResponse } from 'next/server';
  * Query params: category, type, include_hierarchy
  */
 export async function GET(request: NextRequest) {
+  const auth = await requireAuth();
+  if (isAuthError(auth)) return auth;
+
   try {
-    const supabase = createRouteHandlerClient({ cookies });
+    const supabase = supabaseAdmin;
     const searchParams = request.nextUrl.searchParams;
 
     const category = searchParams.get('category');
@@ -76,8 +79,11 @@ export async function GET(request: NextRequest) {
  * Create a new skill
  */
 export async function POST(request: NextRequest) {
+  const auth = await requireAuth();
+  if (isAuthError(auth)) return auth;
+
   try {
-    const supabase = createRouteHandlerClient({ cookies });
+    const supabase = supabaseAdmin;
     const body = await request.json();
 
     const {

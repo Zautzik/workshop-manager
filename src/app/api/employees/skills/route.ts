@@ -1,14 +1,17 @@
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
-import { cookies } from 'next/headers';
 import { NextRequest, NextResponse } from 'next/server';
+import { supabaseAdmin } from '@/integrations/supabase/server';
+import { requireAuth, isAuthError } from '@/lib/api-middleware';
 
 /**
  * POST /api/employees/skills
  * Assign a skill to an employee
  */
 export async function POST(request: NextRequest) {
+  const auth = await requireAuth();
+  if (isAuthError(auth)) return auth;
+
   try {
-    const supabase = createRouteHandlerClient({ cookies });
+    const supabase = supabaseAdmin;
     const body = await request.json();
 
     const {
@@ -56,8 +59,11 @@ export async function POST(request: NextRequest) {
  * Update employee skill
  */
 export async function PUT(request: NextRequest) {
+  const auth = await requireAuth();
+  if (isAuthError(auth)) return auth;
+
   try {
-    const supabase = createRouteHandlerClient({ cookies });
+    const supabase = supabaseAdmin;
     const body = await request.json();
     const url = new URL(request.url);
     const skillId = url.pathname.split('/').pop();
@@ -97,8 +103,11 @@ export async function PUT(request: NextRequest) {
  * Remove skill from employee
  */
 export async function DELETE(request: NextRequest) {
+  const auth = await requireAuth();
+  if (isAuthError(auth)) return auth;
+
   try {
-    const supabase = createRouteHandlerClient({ cookies });
+    const supabase = supabaseAdmin;
     const url = new URL(request.url);
     const skillId = url.pathname.split('/').pop();
 
