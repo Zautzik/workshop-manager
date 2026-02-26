@@ -402,12 +402,17 @@ const SkillTreeManager = () => {
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
               </div>
-              <Select value={filterType || ''} onValueChange={(value) => setFilterType(value || undefined)}>
+              <Select
+                value={filterType ?? 'all'}
+                onValueChange={(value) =>
+                  setFilterType(value === 'all' ? undefined : value)
+                }
+              >
                 <SelectTrigger className="w-full md:w-[200px]">
                   <SelectValue placeholder="Filter by type" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All Types</SelectItem>
+                  <SelectItem value="all">All Types</SelectItem>
                   {SKILL_TREE_TYPES.map((type) => (
                     <SelectItem key={type.value} value={type.value}>
                       {type.label}
@@ -592,11 +597,11 @@ const SkillTreeManager = () => {
             <div>
               <Label htmlFor="parent_skill_id">Parent Skill (Optional)</Label>
               <Select
-                value={formData.parent_skill_id || ''}
+                value={formData.parent_skill_id ?? 'none'}
                 onValueChange={(value) =>
                   setFormData({
                     ...formData,
-                    parent_skill_id: value || null,
+                    parent_skill_id: value === 'none' ? null : value,
                   })
                 }
               >
@@ -604,7 +609,7 @@ const SkillTreeManager = () => {
                   <SelectValue placeholder="Select parent skill" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">None (Root Level)</SelectItem>
+                  <SelectItem value="none">None (Root Level)</SelectItem>
                   {allSkills
                     .filter((s: any) => s.id !== selectedSkill?.id)
                     .map((skill: any) => (

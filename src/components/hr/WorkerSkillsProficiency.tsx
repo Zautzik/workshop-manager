@@ -400,12 +400,17 @@ const WorkerSkillsProficiency = () => {
 
             {/* Machines Tab */}
             <TabsContent value="machines" className="space-y-4">
-              <Select value={machineFilterId || ''} onValueChange={(v) => setMachineFilterId(v || undefined)}>
+              <Select
+                value={machineFilterId ?? 'all'}
+                onValueChange={(v) =>
+                  setMachineFilterId(v === 'all' ? undefined : v)
+                }
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="Filter machines" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All Machines</SelectItem>
+                  <SelectItem value="all">All Machines</SelectItem>
                   {machines.map((machine: any) => (
                     <SelectItem key={machine.id} value={machine.id}>
                       {machine.name}
