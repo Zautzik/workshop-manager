@@ -8,11 +8,11 @@ import { NextRequest, NextResponse } from 'next/server';
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
     const supabase = createRouteHandlerClient({ cookies });
-    const { id } = params;
+    const { id } = await context.params;
 
     const { data: skill, error } = await supabase
       .from('skills')
@@ -85,11 +85,11 @@ export async function GET(
  */
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
     const supabase = createRouteHandlerClient({ cookies });
-    const { id } = params;
+    const { id } = await context.params;
     const body = await request.json();
 
     const {
@@ -145,11 +145,11 @@ export async function PUT(
  */
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
     const supabase = createRouteHandlerClient({ cookies });
-    const { id } = params;
+    const { id } = await context.params;
 
     // Check if skill has children
     const { data: children } = await supabase

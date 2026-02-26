@@ -8,11 +8,11 @@ import { NextRequest, NextResponse } from 'next/server';
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
     const supabase = createRouteHandlerClient({ cookies });
-    const { id } = params;
+    const { id } = await context.params;
 
     const { data: skills, error } = await supabase
       .from('employee_skills')
