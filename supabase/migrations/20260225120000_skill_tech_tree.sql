@@ -247,7 +247,7 @@ RETURNS TABLE (
   parent_id UUID,
   tree_type public.skill_tree_type
 ) AS $$
-WITH RECURSIVE skill_tree AS (
+WITH RECURSIVE skill_tree(skill_id, name, category, level, parent_id, tree_type) AS (
   SELECT
     s.id,
     s.name,
