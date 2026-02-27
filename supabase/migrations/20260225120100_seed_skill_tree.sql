@@ -6,11 +6,11 @@
 -- ============================================================================
 INSERT INTO public.skills (code, name, description, category, skill_tree_type, display_order, is_active)
 VALUES
-  ('SAFETY_AWARENESS', 'Safety Awareness', 'Understanding of workplace safety principles and hazard identification', 'Foundational', 'foundational', 1, true),
-  ('MACHINERY_BASICS', 'Machinery Basics', 'Basic understanding of how printing/manufacturing equipment works', 'Foundational', 'foundational', 2, true),
-  ('MEASUREMENT_READING', 'Measurement & Reading', 'Reading and interpreting measurements, specifications, and technical drawings', 'Foundational', 'foundational', 3, true),
-  ('HAND_TOOLS', 'Basic Hand Tools', 'Proper use of basic hand tools and equipment', 'Foundational', 'foundational', 4, true),
-  ('QUALITY_CONTROL', 'Quality Control Basics', 'Understanding quality standards and inspection procedures', 'Foundational', 'foundational', 5, true)
+  ('SAFETY_AWARENESS', 'Safety Awareness', 'Understanding of workplace safety principles and hazard identification', 'Foundational', 'foundational'::public.skill_tree_type, 1, true),
+  ('MACHINERY_BASICS', 'Machinery Basics', 'Basic understanding of how printing/manufacturing equipment works', 'Foundational', 'foundational'::public.skill_tree_type, 2, true),
+  ('MEASUREMENT_READING', 'Measurement & Reading', 'Reading and interpreting measurements, specifications, and technical drawings', 'Foundational', 'foundational'::public.skill_tree_type, 3, true),
+  ('HAND_TOOLS', 'Basic Hand Tools', 'Proper use of basic hand tools and equipment', 'Foundational', 'foundational'::public.skill_tree_type, 4, true),
+  ('QUALITY_CONTROL', 'Quality Control Basics', 'Understanding quality standards and inspection procedures', 'Foundational', 'foundational'::public.skill_tree_type, 5, true)
 ON CONFLICT (code) DO NOTHING;
 
 -- ============================================================================
@@ -22,7 +22,7 @@ SELECT
   'Offset Press - Basic Operation',
   'Basic operation of offset printing presses, including startup, shutdown, and basic controls',
   'Offset Printing',
-  'technical',
+  'technical'::public.skill_tree_type,
   id,
   10,
   true,
@@ -36,7 +36,7 @@ SELECT
   'Offset Press - Advanced Operation',
   'Advanced offset press operation including calibration, color adjustment, and troubleshooting',
   'Offset Printing',
-  'technical',
+  'technical'::public.skill_tree_type,
   id,
   11,
   true,
@@ -50,7 +50,7 @@ SELECT
   'Pre-Press Setup',
   'Preparation of plates, inks, and paper for offset printing; color separation and proofing',
   'Offset Printing',
-  'technical',
+  'technical'::public.skill_tree_type,
   id,
   12,
   true,
@@ -64,7 +64,7 @@ SELECT
   'TRX Control & Motorization',
   'Understanding and controlling motorized offset press systems',
   'Offset Printing',
-  'technical',
+  'technical'::public.skill_tree_type,
   id,
   13,
   true,
@@ -82,7 +82,7 @@ SELECT
   'Guillotine Cutter - Basic',
   'Basic operation of guillotine cutting machines; safety procedures and straight cuts',
   'Cutting & Binding',
-  'technical',
+  'technical'::public.skill_tree_type,
   id,
   20,
   true,
@@ -96,7 +96,7 @@ SELECT
   'Guillotine Cutter - Advanced',
   'Advanced guillotine operation, precision cutting, batch processing, and maintenance',
   'Cutting & Binding',
-  'technical',
+  'technical'::public.skill_tree_type,
   id,
   21,
   true,
@@ -110,7 +110,7 @@ SELECT
   'Die Cutting',
   'Operating die cutting machines for custom shapes; die setup and material handling',
   'Cutting & Binding',
-  'technical',
+  'technical'::public.skill_tree_type,
   id,
   22,
   true,
@@ -124,7 +124,7 @@ SELECT
   'Binding & Assembly',
   'Binding, stitching, and assembly of printed materials; collation and sorting',
   'Cutting & Binding',
-  'technical',
+  'technical'::public.skill_tree_type,
   id,
   23,
   true,
@@ -142,7 +142,7 @@ SELECT
   'Lamination',
   'Operating lamination equipment for protective coating; heat and pressure control',
   'Finishing',
-  'technical',
+  'technical'::public.skill_tree_type,
   id,
   30,
   true,
@@ -156,7 +156,7 @@ SELECT
   'Embossing & Debossing',
   'Embossing and debossing operations for decorative effects; die setup and operation',
   'Finishing',
-  'technical',
+  'technical'::public.skill_tree_type,
   id,
   31,
   true,
@@ -170,7 +170,7 @@ SELECT
   'Finishing Quality Control',
   'Quality inspection of finished products; color matching and surface inspection',
   'Finishing',
-  'technical',
+  'technical'::public.skill_tree_type,
   id,
   32,
   true,
@@ -184,11 +184,11 @@ AND NOT EXISTS (SELECT 1 FROM public.skills WHERE code = 'FINISHING_QUALITY');
 -- ============================================================================
 INSERT INTO public.skills (code, name, description, category, skill_tree_type, display_order, is_active)
 VALUES
-  ('WORKFLOW_PLANNING', 'Workflow Planning', 'Planning and sequencing of production tasks; material flow optimization', 'Operations', 'operational', 40, true),
-  ('MATERIAL_HANDLING', 'Material Handling', 'Safe and efficient handling, storage, and movement of materials and supplies', 'Operations', 'operational', 41, true),
-  ('PRODUCTION_SCHEDULING', 'Production Scheduling', 'Managing production schedules and meeting deadlines; job tracking', 'Operations', 'operational', 42, true),
-  ('EQUIPMENT_MAINTENANCE', 'Equipment Maintenance', 'Preventive maintenance and basic troubleshooting of printing equipment', 'Operations', 'operational', 43, true),
-  ('MANUAL_WORKSHOP', 'Manual Workshop Skills', 'General workshop operations; hand work and basic fabrication', 'Operations', 'operational', 44, true)
+  ('WORKFLOW_PLANNING', 'Workflow Planning', 'Planning and sequencing of production tasks; material flow optimization', 'Operations', 'operational'::public.skill_tree_type, 40, true),
+  ('MATERIAL_HANDLING', 'Material Handling', 'Safe and efficient handling, storage, and movement of materials and supplies', 'Operations', 'operational'::public.skill_tree_type, 41, true),
+  ('PRODUCTION_SCHEDULING', 'Production Scheduling', 'Managing production schedules and meeting deadlines; job tracking', 'Operations', 'operational'::public.skill_tree_type, 42, true),
+  ('EQUIPMENT_MAINTENANCE', 'Equipment Maintenance', 'Preventive maintenance and basic troubleshooting of printing equipment', 'Operations', 'operational'::public.skill_tree_type, 43, true),
+  ('MANUAL_WORKSHOP', 'Manual Workshop Skills', 'General workshop operations; hand work and basic fabrication', 'Operations', 'operational'::public.skill_tree_type, 44, true)
 ON CONFLICT (code) DO NOTHING;
 
 -- ============================================================================
@@ -196,10 +196,10 @@ ON CONFLICT (code) DO NOTHING;
 -- ============================================================================
 INSERT INTO public.skills (code, name, description, category, skill_tree_type, display_order, is_active)
 VALUES
-  ('TEAM_LEADERSHIP', 'Team Leadership', 'Leading production teams; delegation and performance management', 'Supervisory', 'supervisory', 50, true),
-  ('SHIFT_MANAGEMENT', 'Shift Management', 'Managing shift operations and team coordination', 'Supervisory', 'supervisory', 51, true),
-  ('QUALITY_ASSURANCE', 'Quality Assurance Management', 'Overseeing quality processes and compliance standards', 'Supervisory', 'supervisory', 52, true),
-  ('COST_CONTROL', 'Cost & Waste Control', 'Monitoring production costs, reducing waste, and optimizing efficiency', 'Supervisory', 'supervisory', 53, true)
+  ('TEAM_LEADERSHIP', 'Team Leadership', 'Leading production teams; delegation and performance management', 'Supervisory', 'supervisory'::public.skill_tree_type, 50, true),
+  ('SHIFT_MANAGEMENT', 'Shift Management', 'Managing shift operations and team coordination', 'Supervisory', 'supervisory'::public.skill_tree_type, 51, true),
+  ('QUALITY_ASSURANCE', 'Quality Assurance Management', 'Overseeing quality processes and compliance standards', 'Supervisory', 'supervisory'::public.skill_tree_type, 52, true),
+  ('COST_CONTROL', 'Cost & Waste Control', 'Monitoring production costs, reducing waste, and optimizing efficiency', 'Supervisory', 'supervisory'::public.skill_tree_type, 53, true)
 ON CONFLICT (code) DO NOTHING;
 
 -- ============================================================================
@@ -207,11 +207,11 @@ ON CONFLICT (code) DO NOTHING;
 -- ============================================================================
 INSERT INTO public.skills (code, name, description, category, skill_tree_type, display_order, is_active)
 VALUES
-  ('DIGITAL_FILE_PREP', 'Digital File Preparation', 'Preparing digital files for print; file optimization and format conversion', 'Specialized', 'specialized', 60, true),
-  ('COLOR_MANAGEMENT', 'Color Management', 'Advanced color theory and management; color matching systems', 'Specialized', 'specialized', 61, true),
-  ('LARGE_FORMAT_PRINTING', 'Large Format Printing', 'Operating large format printing equipment and handling oversized materials', 'Specialized', 'specialized', 62, true),
-  ('VARIABLE_DATA_PRINTING', 'Variable Data Printing', 'Operating variable data printing systems for personalized production', 'Specialized', 'specialized', 63, true),
-  ('DESIGN_CONSULTATION', 'Design Consultation', 'Advising customers on design, materials, and production feasibility', 'Specialized', 'specialized', 64, true)
+  ('DIGITAL_FILE_PREP', 'Digital File Preparation', 'Preparing digital files for print; file optimization and format conversion', 'Specialized', 'specialized'::public.skill_tree_type, 60, true),
+  ('COLOR_MANAGEMENT', 'Color Management', 'Advanced color theory and management; color matching systems', 'Specialized', 'specialized'::public.skill_tree_type, 61, true),
+  ('LARGE_FORMAT_PRINTING', 'Large Format Printing', 'Operating large format printing equipment and handling oversized materials', 'Specialized', 'specialized'::public.skill_tree_type, 62, true),
+  ('VARIABLE_DATA_PRINTING', 'Variable Data Printing', 'Operating variable data printing systems for personalized production', 'Specialized', 'specialized'::public.skill_tree_type, 63, true),
+  ('DESIGN_CONSULTATION', 'Design Consultation', 'Advising customers on design, materials, and production feasibility', 'Specialized', 'specialized'::public.skill_tree_type, 64, true)
 ON CONFLICT (code) DO NOTHING;
 
 -- ============================================================================
