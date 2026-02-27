@@ -157,12 +157,14 @@ const HrManagerDashboard = () => {
   const { data: skills = [], isLoading: skillsLoading, error: skillsError } = useQuery({
     queryKey: [...hrQueryKeys.skills(), 'list'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('skills')
-        .select('id, name, category, is_active')
-        .order('name', { ascending: true });
-      if (error) throw error;
-      return data || [];
+      const response = await fetch('/api/skills');
+      const payload = await response.json();
+
+      if (!response.ok) {
+        throw new Error(payload?.error || 'Failed to load skills');
+      }
+
+      return Array.isArray(payload) ? payload : [];
     },
     staleTime: 10 * 60 * 1000,
   });
@@ -1951,14 +1953,29 @@ const HrManagerDashboard = () => {
                   className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                   value={skillForm.skill_id}
                   onChange={(event) => setSkillForm({ ...skillForm, skill_id: event.target.value })}
+                  disabled={skillsLoading || Boolean(skillsError) || skills.length === 0}
                 >
-                  <option value="">Select skill</option>
+                  <option value="">
+                    {skillsLoading
+                      ? 'Loading skills...'
+                      : skillsError
+                        ? 'Unable to load skills'
+                        : skills.length === 0
+                          ? 'No skills available'
+                          : 'Select skill'}
+                  </option>
                   {skills.map((skill: any) => (
                     <option key={skill.id} value={skill.id}>
                       {skill.name}
                     </option>
                   ))}
                 </select>
+                {skillsError && (
+                  <p className="text-sm text-destructive">Could not load skills. Please refresh and try again.</p>
+                )}
+                {!skillsLoading && !skillsError && skills.length === 0 && (
+                  <p className="text-sm text-muted-foreground">No skills found in the database. Seed skills first, then reopen this dialog.</p>
+                )}
               </div>
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <div className="space-y-2">
@@ -1992,7 +2009,9 @@ const HrManagerDashboard = () => {
               <Button variant="outline" onClick={() => setSkillDialogOpen(false)}>
                 Cancel
               </Button>
-              <Button onClick={handleSkillAssign}>Assign</Button>
+              <Button onClick={handleSkillAssign} disabled={skillsLoading || Boolean(skillsError) || skills.length === 0}>
+                Assign
+              </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>

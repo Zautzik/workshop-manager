@@ -30,7 +30,29 @@ export async function GET(request: NextRequest) {
       query = query.eq('skill_tree_type', type);
     }
 
-    const { data: skills, error } = await query.order('display_order', { ascending: true });
+    let { data: skills, error } = await query.order('display_order', { ascending: true });
+
+    if (error) {
+      const fallbackSelect = supabase
+        .from('skills')
+        .select('id, code, name, description, category, is_active');
+
+      if (category) {
+        fallbackSelect.eq('category', category);
+      }
+
+      const fallbackResult = await fallbackSelect.order('name', { ascending: true });
+      skills = (fallbackResult.data || []).map((skill) => ({
+        ...skill,
+        skill_tree_type: null,
+        parent_skill_id: null,
+        display_order: null,
+        is_certification_required: false,
+        certification_validity_months: null,
+        icon_name: null,
+      }));
+      error = fallbackResult.error;
+    }
 
     if (error) throw error;
 
