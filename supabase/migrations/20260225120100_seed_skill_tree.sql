@@ -29,7 +29,7 @@ SELECT
   false,
   NULL
 FROM public.skills WHERE code = 'SAFETY_AWARENESS'
-WHERE NOT EXISTS (SELECT 1 FROM public.skills WHERE code = 'OFFSET_PRESS_BASIC')
+AND NOT EXISTS (SELECT 1 FROM public.skills WHERE code = 'OFFSET_PRESS_BASIC')
 UNION ALL
 SELECT
   'OFFSET_PRESS_ADVANCED',
@@ -43,7 +43,7 @@ SELECT
   true,
   12
 FROM public.skills WHERE code = 'OFFSET_PRESS_BASIC'
-WHERE NOT EXISTS (SELECT 1 FROM public.skills WHERE code = 'OFFSET_PRESS_ADVANCED')
+AND NOT EXISTS (SELECT 1 FROM public.skills WHERE code = 'OFFSET_PRESS_ADVANCED')
 UNION ALL
 SELECT
   'PRE_PRESS_SETUP',
@@ -57,7 +57,7 @@ SELECT
   true,
   12
 FROM public.skills WHERE code = 'MEASUREMENT_READING'
-WHERE NOT EXISTS (SELECT 1 FROM public.skills WHERE code = 'PRE_PRESS_SETUP')
+AND NOT EXISTS (SELECT 1 FROM public.skills WHERE code = 'PRE_PRESS_SETUP')
 UNION ALL
 SELECT
   'OFFSET_TRX_CONTROL',
@@ -71,7 +71,7 @@ SELECT
   false,
   NULL
 FROM public.skills WHERE code = 'OFFSET_PRESS_BASIC'
-WHERE NOT EXISTS (SELECT 1 FROM public.skills WHERE code = 'OFFSET_TRX_CONTROL');
+AND NOT EXISTS (SELECT 1 FROM public.skills WHERE code = 'OFFSET_TRX_CONTROL');
 
 -- ============================================================================
 -- CUTTING & BINDING SKILLS (Technical)
@@ -89,7 +89,7 @@ SELECT
   false,
   NULL
 FROM public.skills WHERE code = 'SAFETY_AWARENESS'
-WHERE NOT EXISTS (SELECT 1 FROM public.skills WHERE code = 'GUILLOTINE_BASIC')
+AND NOT EXISTS (SELECT 1 FROM public.skills WHERE code = 'GUILLOTINE_BASIC')
 UNION ALL
 SELECT
   'GUILLOTINE_ADVANCED',
@@ -103,7 +103,7 @@ SELECT
   true,
   12
 FROM public.skills WHERE code = 'GUILLOTINE_BASIC'
-WHERE NOT EXISTS (SELECT 1 FROM public.skills WHERE code = 'GUILLOTINE_ADVANCED')
+AND NOT EXISTS (SELECT 1 FROM public.skills WHERE code = 'GUILLOTINE_ADVANCED')
 UNION ALL
 SELECT
   'DIE_CUTTING',
@@ -117,7 +117,7 @@ SELECT
   true,
   12
 FROM public.skills WHERE code = 'GUILLOTINE_BASIC'
-WHERE NOT EXISTS (SELECT 1 FROM public.skills WHERE code = 'DIE_CUTTING')
+AND NOT EXISTS (SELECT 1 FROM public.skills WHERE code = 'DIE_CUTTING')
 UNION ALL
 SELECT
   'BINDING_ASSEMBLY',
@@ -131,7 +131,7 @@ SELECT
   false,
   NULL
 FROM public.skills WHERE code = 'QUALITY_CONTROL'
-WHERE NOT EXISTS (SELECT 1 FROM public.skills WHERE code = 'BINDING_ASSEMBLY');
+AND NOT EXISTS (SELECT 1 FROM public.skills WHERE code = 'BINDING_ASSEMBLY');
 
 -- ============================================================================
 -- FINISHING SKILLS (Technical)
@@ -149,7 +149,7 @@ SELECT
   false,
   NULL
 FROM public.skills WHERE code = 'MACHINERY_BASICS'
-WHERE NOT EXISTS (SELECT 1 FROM public.skills WHERE code = 'LAMINATION')
+AND NOT EXISTS (SELECT 1 FROM public.skills WHERE code = 'LAMINATION')
 UNION ALL
 SELECT
   'EMBOSSING',
@@ -163,7 +163,7 @@ SELECT
   false,
   NULL
 FROM public.skills WHERE code = 'MACHINERY_BASICS'
-WHERE NOT EXISTS (SELECT 1 FROM public.skills WHERE code = 'EMBOSSING')
+AND NOT EXISTS (SELECT 1 FROM public.skills WHERE code = 'EMBOSSING')
 UNION ALL
 SELECT
   'FINISHING_QUALITY',
@@ -177,7 +177,7 @@ SELECT
   false,
   NULL
 FROM public.skills WHERE code = 'QUALITY_CONTROL'
-WHERE NOT EXISTS (SELECT 1 FROM public.skills WHERE code = 'FINISHING_QUALITY');
+AND NOT EXISTS (SELECT 1 FROM public.skills WHERE code = 'FINISHING_QUALITY');
 
 -- ============================================================================
 -- WORKFLOW & OPERATIONAL SKILLS
@@ -302,7 +302,7 @@ SELECT
   0,
   false
 FROM public.skills WHERE code = 'OFFSET_PRESS_BASIC'
-WHERE NOT EXISTS (SELECT 1 FROM public.skill_proficiency_levels WHERE skill_id = (SELECT id FROM public.skills WHERE code = 'OFFSET_PRESS_BASIC') AND level = 1);
+AND NOT EXISTS (SELECT 1 FROM public.skill_proficiency_levels WHERE skill_id = (SELECT id FROM public.skills WHERE code = 'OFFSET_PRESS_BASIC') AND level = 1);
 
 INSERT INTO public.skill_proficiency_levels (skill_id, level, title, description, min_hours_required, can_certify)
 SELECT 
@@ -313,7 +313,7 @@ SELECT
   40,
   false
 FROM public.skills WHERE code = 'OFFSET_PRESS_BASIC'
-WHERE NOT EXISTS (SELECT 1 FROM public.skill_proficiency_levels WHERE skill_id = (SELECT id FROM public.skills WHERE code = 'OFFSET_PRESS_BASIC') AND level = 2);
+AND NOT EXISTS (SELECT 1 FROM public.skill_proficiency_levels WHERE skill_id = (SELECT id FROM public.skills WHERE code = 'OFFSET_PRESS_BASIC') AND level = 2);
 
 INSERT INTO public.skill_proficiency_levels (skill_id, level, title, description, min_hours_required, can_certify)
 SELECT 
@@ -324,7 +324,7 @@ SELECT
   80,
   true
 FROM public.skills WHERE code = 'OFFSET_PRESS_BASIC'
-WHERE NOT EXISTS (SELECT 1 FROM public.skill_proficiency_levels WHERE skill_id = (SELECT id FROM public.skills WHERE code = 'OFFSET_PRESS_BASIC') AND level = 3);
+AND NOT EXISTS (SELECT 1 FROM public.skill_proficiency_levels WHERE skill_id = (SELECT id FROM public.skills WHERE code = 'OFFSET_PRESS_BASIC') AND level = 3);
 
 INSERT INTO public.skill_proficiency_levels (skill_id, level, title, description, min_hours_required, can_certify)
 SELECT 
@@ -335,7 +335,7 @@ SELECT
   160,
   true
 FROM public.skills WHERE code = 'OFFSET_PRESS_BASIC'
-WHERE NOT EXISTS (SELECT 1 FROM public.skill_proficiency_levels WHERE skill_id = (SELECT id FROM public.skills WHERE code = 'OFFSET_PRESS_BASIC') AND level = 4);
+AND NOT EXISTS (SELECT 1 FROM public.skill_proficiency_levels WHERE skill_id = (SELECT id FROM public.skills WHERE code = 'OFFSET_PRESS_BASIC') AND level = 4);
 
 INSERT INTO public.skill_proficiency_levels (skill_id, level, title, description, min_hours_required, can_certify)
 SELECT 
@@ -346,7 +346,7 @@ SELECT
   320,
   true
 FROM public.skills WHERE code = 'OFFSET_PRESS_BASIC'
-WHERE NOT EXISTS (SELECT 1 FROM public.skill_proficiency_levels WHERE skill_id = (SELECT id FROM public.skills WHERE code = 'OFFSET_PRESS_BASIC') AND level = 5);
+AND NOT EXISTS (SELECT 1 FROM public.skill_proficiency_levels WHERE skill_id = (SELECT id FROM public.skills WHERE code = 'OFFSET_PRESS_BASIC') AND level = 5);
 
 -- Safety Awareness proficiency levels
 INSERT INTO public.skill_proficiency_levels (skill_id, level, title, description, min_hours_required, can_certify)
@@ -358,7 +358,7 @@ SELECT
   0,
   false
 FROM public.skills WHERE code = 'SAFETY_AWARENESS'
-WHERE NOT EXISTS (SELECT 1 FROM public.skill_proficiency_levels WHERE skill_id = (SELECT id FROM public.skills WHERE code = 'SAFETY_AWARENESS') AND level = 1);
+AND NOT EXISTS (SELECT 1 FROM public.skill_proficiency_levels WHERE skill_id = (SELECT id FROM public.skills WHERE code = 'SAFETY_AWARENESS') AND level = 1);
 
 INSERT INTO public.skill_proficiency_levels (skill_id, level, title, description, min_hours_required, can_certify)
 SELECT 
@@ -369,7 +369,7 @@ SELECT
   8,
   true
 FROM public.skills WHERE code = 'SAFETY_AWARENESS'
-WHERE NOT EXISTS (SELECT 1 FROM public.skill_proficiency_levels WHERE skill_id = (SELECT id FROM public.skills WHERE code = 'SAFETY_AWARENESS') AND level = 2);
+AND NOT EXISTS (SELECT 1 FROM public.skill_proficiency_levels WHERE skill_id = (SELECT id FROM public.skills WHERE code = 'SAFETY_AWARENESS') AND level = 2);
 
 INSERT INTO public.skill_proficiency_levels (skill_id, level, title, description, min_hours_required, can_certify)
 SELECT 
@@ -380,7 +380,7 @@ SELECT
   16,
   true
 FROM public.skills WHERE code = 'SAFETY_AWARENESS'
-WHERE NOT EXISTS (SELECT 1 FROM public.skill_proficiency_levels WHERE skill_id = (SELECT id FROM public.skills WHERE code = 'SAFETY_AWARENESS') AND level = 3);
+AND NOT EXISTS (SELECT 1 FROM public.skill_proficiency_levels WHERE skill_id = (SELECT id FROM public.skills WHERE code = 'SAFETY_AWARENESS') AND level = 3);
 
 INSERT INTO public.skill_proficiency_levels (skill_id, level, title, description, min_hours_required, can_certify)
 SELECT 
@@ -391,7 +391,7 @@ SELECT
   24,
   true
 FROM public.skills WHERE code = 'SAFETY_AWARENESS'
-WHERE NOT EXISTS (SELECT 1 FROM public.skill_proficiency_levels WHERE skill_id = (SELECT id FROM public.skills WHERE code = 'SAFETY_AWARENESS') AND level = 4);
+AND NOT EXISTS (SELECT 1 FROM public.skill_proficiency_levels WHERE skill_id = (SELECT id FROM public.skills WHERE code = 'SAFETY_AWARENESS') AND level = 4);
 
 INSERT INTO public.skill_proficiency_levels (skill_id, level, title, description, min_hours_required, can_certify)
 SELECT 
@@ -402,7 +402,7 @@ SELECT
   40,
   true
 FROM public.skills WHERE code = 'SAFETY_AWARENESS'
-WHERE NOT EXISTS (SELECT 1 FROM public.skill_proficiency_levels WHERE skill_id = (SELECT id FROM public.skills WHERE code = 'SAFETY_AWARENESS') AND level = 5);
+AND NOT EXISTS (SELECT 1 FROM public.skill_proficiency_levels WHERE skill_id = (SELECT id FROM public.skills WHERE code = 'SAFETY_AWARENESS') AND level = 5);
 
 -- ============================================================================
 -- Setup default proficiency levels for all new skills
