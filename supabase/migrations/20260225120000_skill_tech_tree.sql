@@ -134,7 +134,7 @@ USING (
     SELECT 1 FROM public.employees e
     WHERE e.user_id = auth.uid()
     AND e.id IN (
-      SELECT employee_id FROM public.employees 
+      SELECT id FROM public.employees 
       WHERE user_id = auth.uid()
     )
   )
