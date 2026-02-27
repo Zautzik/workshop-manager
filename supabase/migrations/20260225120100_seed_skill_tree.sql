@@ -147,7 +147,7 @@ SELECT
   30,
   true,
   false,
-  NULL
+  NULL::integer
 FROM public.skills WHERE code = 'MACHINERY_BASICS'
 AND NOT EXISTS (SELECT 1 FROM public.skills WHERE code = 'LAMINATION')
 UNION ALL
@@ -161,7 +161,7 @@ SELECT
   31,
   true,
   false,
-  NULL
+  NULL::integer
 FROM public.skills WHERE code = 'MACHINERY_BASICS'
 AND NOT EXISTS (SELECT 1 FROM public.skills WHERE code = 'EMBOSSING')
 UNION ALL
@@ -175,7 +175,7 @@ SELECT
   32,
   true,
   false,
-  NULL
+  NULL::integer
 FROM public.skills WHERE code = 'QUALITY_CONTROL'
 AND NOT EXISTS (SELECT 1 FROM public.skills WHERE code = 'FINISHING_QUALITY');
 
