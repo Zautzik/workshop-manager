@@ -1,6 +1,23 @@
 -- Seeding Initial Skills Tech Tree for Workshop
 -- Focus on printing/manufacturing/machining operations
 
+-- Ensure shared updated_at trigger function is safe on tables without updated_at
+CREATE OR REPLACE FUNCTION public.update_updated_at_column()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  BEGIN
+    NEW.updated_at = now();
+  EXCEPTION
+    WHEN undefined_column THEN
+      NULL;
+  END;
+
+  RETURN NEW;
+END;
+$$;
+
 -- ============================================================================
 -- FOUNDATIONAL SKILLS (These are prerequisites for other skills)
 -- ============================================================================
