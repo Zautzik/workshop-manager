@@ -213,17 +213,22 @@ BEGIN
   SELECT
     (COUNT(CASE WHEN ep.proficiency_level >= rs.min_proficiency THEN 1 END) = COUNT(rs.skill_id))::BOOLEAN as can_operate,
     (COUNT(CASE WHEN ep.proficiency_level >= rs.min_proficiency THEN 1 END)::DECIMAL / NULLIF(COUNT(rs.skill_id), 0))::DECIMAL as proficiency_score,
-    JSONB_BUILD_ARRAY(
-      SELECT JSONB_BUILD_OBJECT(
-        'skill_id', rs.skill_id,
-        'skill_name', s.name,
-        'required_level', rs.min_proficiency,
-        'current_level', COALESCE(ep.proficiency_level, 0)
-      )
-      FROM required_skills rs
-      LEFT JOIN public.skills s ON s.id = rs.skill_id
-      LEFT JOIN employee_proficiencies ep ON ep.skill_id = rs.skill_id
-      WHERE ep.proficiency_level IS NULL OR ep.proficiency_level < rs.min_proficiency
+    COALESCE(
+      (
+        SELECT jsonb_agg(
+          JSONB_BUILD_OBJECT(
+            'skill_id', rs2.skill_id,
+            'skill_name', s2.name,
+            'required_level', rs2.min_proficiency,
+            'current_level', COALESCE(ep2.proficiency_level, 0)
+          )
+        )
+        FROM required_skills rs2
+        LEFT JOIN public.skills s2 ON s2.id = rs2.skill_id
+        LEFT JOIN employee_proficiencies ep2 ON ep2.skill_id = rs2.skill_id
+        WHERE ep2.proficiency_level IS NULL OR ep2.proficiency_level < rs2.min_proficiency
+      ),
+      '[]'::jsonb
     ) as missing_skills
   FROM required_skills rs
   LEFT JOIN employee_proficiencies ep ON ep.skill_id = rs.skill_id;
