@@ -13,6 +13,7 @@ import {
   LogOut,
   Plus,
   Pencil,
+  Trash2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -948,6 +949,51 @@ const HrManagerDashboard = () => {
     });
   };
 
+  const handleEmployeeDelete = async (employee: any) => {
+    if (!employee?.id) return;
+
+    const confirmed = window.confirm(
+      `Delete employee profile for ${employee.full_name}? This action cannot be undone.`
+    );
+
+    if (!confirmed) return;
+
+    setActionError(null);
+    const listKey = hrQueryKeys.employees();
+    const previous = (queryClient.getQueryData(listKey) as any[]) || [];
+
+    queryClient.setQueryData(listKey, (current: any[] = []) =>
+      current.filter((item) => item.id !== employee.id),
+    );
+
+    const { error } = await supabase
+      .from('employees')
+      .delete()
+      .eq('id', employee.id);
+
+    if (error) {
+      queryClient.setQueryData(listKey, previous);
+      setActionError(error.message);
+      toast({
+        variant: 'destructive',
+        title: 'Employee not deleted',
+        description: error.message,
+      });
+      return;
+    }
+
+    if (selectedEmployeeId === employee.id) {
+      setSelectedEmployeeId(null);
+      setSheetOpen(false);
+    }
+
+    queryClient.invalidateQueries({ queryKey: listKey });
+    toast({
+      title: 'Employee deleted',
+      description: `${employee.full_name} profile has been removed.`,
+    });
+  };
+
   const handleRunAccrual = async () => {
     setActionError(null);
     setAccrualLoading(true);
@@ -1137,13 +1183,23 @@ const HrManagerDashboard = () => {
                               View
                             </Button>
                             {canManageHR && (
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={() => openEmployeeEditor(employee)}
-                              >
-                                <Pencil className="h-4 w-4" />
-                              </Button>
+                              <>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => openEmployeeEditor(employee)}
+                                >
+                                  <Pencil className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => handleEmployeeDelete(employee)}
+                                  className="text-destructive hover:text-destructive"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </>
                             )}
                           </div>
                         </div>
@@ -1496,10 +1552,21 @@ const HrManagerDashboard = () => {
                       <div className="flex items-center justify-between">
                         <CardTitle className="text-base">Profile</CardTitle>
                         {canManageHR && selectedEmployee && (
-                          <Button size="sm" variant="outline" onClick={() => openEmployeeEditor(selectedEmployee)}>
-                            <Pencil className="mr-2 h-4 w-4" />
-                            Edit
-                          </Button>
+                          <div className="flex items-center gap-2">
+                            <Button size="sm" variant="outline" onClick={() => openEmployeeEditor(selectedEmployee)}>
+                              <Pencil className="mr-2 h-4 w-4" />
+                              Edit
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleEmployeeDelete(selectedEmployee)}
+                              className="text-destructive hover:text-destructive"
+                            >
+                              <Trash2 className="mr-2 h-4 w-4" />
+                              Delete
+                            </Button>
+                          </div>
                         )}
                       </div>
                     </CardHeader>
