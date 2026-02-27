@@ -221,71 +221,86 @@ ON CONFLICT (code) DO NOTHING;
 -- Offset Press Advanced requires Offset Press Basic
 INSERT INTO public.skill_dependencies (skill_id, required_skill_id, min_proficiency_required, is_hard_requirement, description)
 SELECT 
-  (SELECT id FROM public.skills WHERE code = 'OFFSET_PRESS_ADVANCED'),
-  (SELECT id FROM public.skills WHERE code = 'OFFSET_PRESS_BASIC'),
+  s.id,
+  r.id,
   2,
   true,
   'Must have basic offset press operation knowledge before advanced training'
-WHERE NOT EXISTS (
+FROM public.skills s
+JOIN public.skills r ON r.code = 'OFFSET_PRESS_BASIC'
+WHERE s.code = 'OFFSET_PRESS_ADVANCED'
+AND NOT EXISTS (
   SELECT 1 FROM public.skill_dependencies sd
-  WHERE sd.skill_id = (SELECT id FROM public.skills WHERE code = 'OFFSET_PRESS_ADVANCED')
-  AND sd.required_skill_id = (SELECT id FROM public.skills WHERE code = 'OFFSET_PRESS_BASIC')
+  WHERE sd.skill_id = s.id
+  AND sd.required_skill_id = r.id
 );
 
 -- Pre-Press Setup requires Measurement & Measurement & Reading
 INSERT INTO public.skill_dependencies (skill_id, required_skill_id, min_proficiency_required, is_hard_requirement, description)
 SELECT 
-  (SELECT id FROM public.skills WHERE code = 'PRE_PRESS_SETUP'),
-  (SELECT id FROM public.skills WHERE code = 'MEASUREMENT_READING'),
+  s.id,
+  r.id,
   2,
   true,
   'Must be able to read and interpret specifications'
-WHERE NOT EXISTS (
+FROM public.skills s
+JOIN public.skills r ON r.code = 'MEASUREMENT_READING'
+WHERE s.code = 'PRE_PRESS_SETUP'
+AND NOT EXISTS (
   SELECT 1 FROM public.skill_dependencies sd
-  WHERE sd.skill_id = (SELECT id FROM public.skills WHERE code = 'PRE_PRESS_SETUP')
-  AND sd.required_skill_id = (SELECT id FROM public.skills WHERE code = 'MEASUREMENT_READING')
+  WHERE sd.skill_id = s.id
+  AND sd.required_skill_id = r.id
 );
 
 -- Guillotine Advanced requires Guillotine Basic
 INSERT INTO public.skill_dependencies (skill_id, required_skill_id, min_proficiency_required, is_hard_requirement, description)
 SELECT 
-  (SELECT id FROM public.skills WHERE code = 'GUILLOTINE_ADVANCED'),
-  (SELECT id FROM public.skills WHERE code = 'GUILLOTINE_BASIC'),
+  s.id,
+  r.id,
   2,
   true,
   'Basic guillotine operation must be mastered first'
-WHERE NOT EXISTS (
+FROM public.skills s
+JOIN public.skills r ON r.code = 'GUILLOTINE_BASIC'
+WHERE s.code = 'GUILLOTINE_ADVANCED'
+AND NOT EXISTS (
   SELECT 1 FROM public.skill_dependencies sd
-  WHERE sd.skill_id = (SELECT id FROM public.skills WHERE code = 'GUILLOTINE_ADVANCED')
-  AND sd.required_skill_id = (SELECT id FROM public.skills WHERE code = 'GUILLOTINE_BASIC')
+  WHERE sd.skill_id = s.id
+  AND sd.required_skill_id = r.id
 );
 
 -- Die Cutting requires Guillotine Basic knowledge
 INSERT INTO public.skill_dependencies (skill_id, required_skill_id, min_proficiency_required, is_hard_requirement, description)
 SELECT 
-  (SELECT id FROM public.skills WHERE code = 'DIE_CUTTING'),
-  (SELECT id FROM public.skills WHERE code = 'GUILLOTINE_BASIC'),
+  s.id,
+  r.id,
   1,
   false,
   'Knowledge of basic cutting procedures is helpful but not strictly required'
-WHERE NOT EXISTS (
+FROM public.skills s
+JOIN public.skills r ON r.code = 'GUILLOTINE_BASIC'
+WHERE s.code = 'DIE_CUTTING'
+AND NOT EXISTS (
   SELECT 1 FROM public.skill_dependencies sd
-  WHERE sd.skill_id = (SELECT id FROM public.skills WHERE code = 'DIE_CUTTING')
-  AND sd.required_skill_id = (SELECT id FROM public.skills WHERE code = 'GUILLOTINE_BASIC')
+  WHERE sd.skill_id = s.id
+  AND sd.required_skill_id = r.id
 );
 
 -- Team Leadership requires years of operational experience
 INSERT INTO public.skill_dependencies (skill_id, required_skill_id, min_proficiency_required, is_hard_requirement, description)
 SELECT 
-  (SELECT id FROM public.skills WHERE code = 'TEAM_LEADERSHIP'),
-  (SELECT id FROM public.skills WHERE code = 'WORKFLOW_PLANNING'),
+  s.id,
+  r.id,
   3,
   true,
   'Must understand workflow planning before managing teams'
-WHERE NOT EXISTS (
+FROM public.skills s
+JOIN public.skills r ON r.code = 'WORKFLOW_PLANNING'
+WHERE s.code = 'TEAM_LEADERSHIP'
+AND NOT EXISTS (
   SELECT 1 FROM public.skill_dependencies sd
-  WHERE sd.skill_id = (SELECT id FROM public.skills WHERE code = 'TEAM_LEADERSHIP')
-  AND sd.required_skill_id = (SELECT id FROM public.skills WHERE code = 'WORKFLOW_PLANNING')
+  WHERE sd.skill_id = s.id
+  AND sd.required_skill_id = r.id
 );
 
 -- ============================================================================
