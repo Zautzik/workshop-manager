@@ -48,6 +48,7 @@ import {
 } from '@/hooks/use-employees';
 import SkillTreeManager from '@/components/hr/SkillTreeManager';
 import WorkerSkillsProficiency from '@/components/hr/WorkerSkillsProficiency';
+import CraftSkillTree from '@/components/hr/CraftSkillTree';
 
 const HrManagerDashboard = () => {
   const { user, signOut, role } = useAuth();
@@ -1283,11 +1284,16 @@ const HrManagerDashboard = () => {
           </TabsContent>
 
           <TabsContent value="skills" className="space-y-4">
-            <Tabs defaultValue="tree" className="w-full">
-              <TabsList className="grid w-full grid-cols-2">
+            <Tabs defaultValue="craft-paths" className="w-full">
+              <TabsList className="grid w-full grid-cols-3">
+                <TabsTrigger value="craft-paths">Craft Skill Paths</TabsTrigger>
                 <TabsTrigger value="tree">Skill Tech Tree</TabsTrigger>
                 <TabsTrigger value="proficiency">Worker Proficiency</TabsTrigger>
               </TabsList>
+
+              <TabsContent value="craft-paths">
+                <CraftSkillTree />
+              </TabsContent>
 
               <TabsContent value="tree">
                 <SkillTreeManager />
