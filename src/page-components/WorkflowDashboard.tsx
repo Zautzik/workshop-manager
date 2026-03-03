@@ -14,7 +14,7 @@ import { WorkerStatsPanel } from "@/components/workflow/WorkerStatsPanel";
 import { ShiftManagement } from "@/components/workflow/ShiftManagement";
 import { OTManagement } from "@/components/workflow/OTManagement";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
-import { Users, Factory, Clock, BarChart3, ClipboardList, ArrowLeft, ChevronLeft, ChevronRight, CalendarDays, WandSparkles, Replace, Shuffle, UploadCloud, ShieldAlert, CheckCircle2 } from "lucide-react";
+import { Users, Factory, Clock, BarChart3, ClipboardList, ArrowLeft, ChevronLeft, ChevronRight, CalendarDays, WandSparkles, Replace, Shuffle, UploadCloud, ShieldAlert, CheckCircle2, Copy, RotateCcw } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCompensationRatesForDate, useSchedulingCostModel, useWorkerAssignments, useWorkerMonthlyOvertime, useWorkflowCertificationAlerts, useWorkflowContracts, useWorkflowIncentiveStatuses, useWorkflowLeaveStatuses, useWorkflowWeeklyHours, useWorkersByRating, useWorkstations, useShifts } from "@/hooks/use-queries";
@@ -68,6 +68,7 @@ export default function WorkflowDashboard() {
   const [savingCostModel, setSavingCostModel] = useState(false);
   const [isCostModelExpanded, setIsCostModelExpanded] = useState(false);
   const [bulkActionLoading, setBulkActionLoading] = useState<'auto-fill' | 'replace-conflicts' | 'redistribute-ot' | null>(null);
+  const [quickSetupLoading, setQuickSetupLoading] = useState<'copy-day' | 'repeat-last-week' | null>(null);
   const [publishLoading, setPublishLoading] = useState(false);
   const [publishedWeeks, setPublishedWeeks] = useState<Record<string, string>>({});
   const [lastWeekValidation, setLastWeekValidation] = useState<{
@@ -193,6 +194,102 @@ export default function WorkflowDashboard() {
     const next = new Date(weekStartDate);
     next.setDate(next.getDate() + 7);
     setWeekStartDate(next);
+  };
+
+  const applyShiftRosterFromDate = async (sourceDate: string, setupLabel: string) => {
+    if (!selectedShiftId) {
+      toast({
+        title: 'Select a shift first',
+        description: 'Choose a shift before applying a quick roster setup.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (sourceDate === selectedDate) {
+      toast({
+        title: 'Source and target are the same day',
+        description: 'Pick another day to copy roster setup from.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    try {
+      const { data: sourceAssignments, error: sourceError } = await supabase
+        .from('worker_assignments')
+        .select('employee_id, worker_id, workstation_id, role, ot_id')
+        .eq('date', sourceDate)
+        .eq('shift_id', selectedShiftId);
+
+      if (sourceError) throw sourceError;
+
+      if (!sourceAssignments || sourceAssignments.length === 0) {
+        toast({
+          title: 'No source roster found',
+          description: `No assignments exist for ${setupLabel}.`,
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      const { error: deleteError } = await supabase
+        .from('worker_assignments')
+        .delete()
+        .eq('date', selectedDate)
+        .eq('shift_id', selectedShiftId);
+
+      if (deleteError) throw deleteError;
+
+      const payload = sourceAssignments.map((assignment: any) => ({
+        employee_id: assignment.employee_id,
+        worker_id: assignment.worker_id,
+        workstation_id: assignment.workstation_id,
+        shift_id: selectedShiftId,
+        date: selectedDate,
+        role: assignment.role,
+        ot_id: selectedOT?.id || assignment.ot_id || null,
+      }));
+
+      const { error: insertError } = await supabase
+        .from('worker_assignments')
+        .insert(payload);
+
+      if (insertError) throw insertError;
+
+      refetchAssignments();
+      toast({
+        title: 'Quick roster setup applied',
+        description: `Copied ${payload.length} assignments from ${setupLabel}.`,
+      });
+    } catch (error: any) {
+      toast({
+        title: 'Failed to apply quick setup',
+        description: error.message || 'Unexpected error while copying roster setup.',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleCopyFromWeekDay = async (sourceDate: string) => {
+    setQuickSetupLoading('copy-day');
+    try {
+      await applyShiftRosterFromDate(sourceDate, sourceDate);
+    } finally {
+      setQuickSetupLoading(null);
+    }
+  };
+
+  const handleRepeatLastWeekSetup = async () => {
+    setQuickSetupLoading('repeat-last-week');
+    try {
+      const date = new Date(selectedDate);
+      date.setDate(date.getDate() - 7);
+      const sourceDate = getDateIso(date);
+      await applyShiftRosterFromDate(sourceDate, `${sourceDate} (last week)`);
+    } finally {
+      setQuickSetupLoading(null);
+    }
   };
 
   const shiftHours = useMemo(() => {
@@ -1144,6 +1241,40 @@ export default function WorkflowDashboard() {
                       </Button>
                     );
                   })}
+                </div>
+
+                <div className="rounded-md border border-border p-3 bg-card/40">
+                  <div className="flex flex-wrap items-center gap-2 mb-2">
+                    <p className="text-xs font-medium text-foreground">Quick roster setups</p>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleRepeatLastWeekSetup}
+                      disabled={!selectedShiftId || quickSetupLoading !== null}
+                      className="h-7 border-border bg-card/50 hover:bg-card"
+                    >
+                      <RotateCcw className="w-3 h-3 mr-1" />
+                      {quickSetupLoading === 'repeat-last-week' ? 'Applying...' : 'Repeat last week'}
+                    </Button>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {weekDates
+                      .map((date) => getDateIso(date))
+                      .filter((dateIso) => dateIso !== selectedDate)
+                      .map((dateIso) => (
+                        <Button
+                          key={`copy-${dateIso}`}
+                          variant="outline"
+                          size="sm"
+                          disabled={!selectedShiftId || quickSetupLoading !== null}
+                          onClick={() => handleCopyFromWeekDay(dateIso)}
+                          className="h-7 border-border bg-card/50 hover:bg-card"
+                        >
+                          <Copy className="w-3 h-3 mr-1" />
+                          Copy {dateIso}
+                        </Button>
+                      ))}
+                  </div>
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2 text-xs">
