@@ -50,6 +50,10 @@ export const queryKeys = {
   workOrdersByStatus: (statuses?: string[]) => ['maintenance', 'workOrders', { statuses }] as const,
   maintenanceTaskCompletions: (orderId?: string | null) => ['maintenance', 'taskCompletions', { orderId }] as const,
   inventory: ['inventory'] as const,
+  inventoryItems: ['inventory', 'items'] as const,
+  inventoryLots: (itemId?: string | null) => ['inventory', 'lots', { itemId }] as const,
+  inventoryTransactions: ['inventory', 'transactions'] as const,
+  inventoryLowStockAlerts: ['inventory', 'lowStockAlerts'] as const,
   purchases: ['purchases'] as const,
   machineCosts: ['machineCosts'] as const,
   equipmentInvestments: ['equipmentInvestments'] as const,
@@ -700,7 +704,72 @@ export function useInventory() {
   return useQuery<any[]>({
     queryKey: queryKeys.inventory,
     queryFn: async () => {
-      const { data, error } = await supabase.from('inventory' as any).select('*').order('item_name');
+      const { data, error } = await supabase
+        .from('inventory_items_stock_v' as any)
+        .select('*')
+        .order('name');
+      if (error) throw error;
+      return (data ?? []) as any[];
+    },
+  });
+}
+
+export function useInventoryItems() {
+  return useQuery<any[]>({
+    queryKey: queryKeys.inventoryItems,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('inventory_items_stock_v' as any)
+        .select('*')
+        .order('name');
+      if (error) throw error;
+      return (data ?? []) as any[];
+    },
+  });
+}
+
+export function useInventoryLots(itemId?: string | null) {
+  return useQuery<any[]>({
+    queryKey: queryKeys.inventoryLots(itemId),
+    queryFn: async () => {
+      let query = supabase
+        .from('inventory_lots' as any)
+        .select('*, inventory_items(name, sku, category, unit)')
+        .order('received_date', { ascending: false });
+
+      if (itemId) {
+        query = query.eq('item_id', itemId);
+      }
+
+      const { data, error } = await query;
+      if (error) throw error;
+      return (data ?? []) as any[];
+    },
+  });
+}
+
+export function useInventoryTransactions() {
+  return useQuery<any[]>({
+    queryKey: queryKeys.inventoryTransactions,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('inventory_stock_transactions_v' as any)
+        .select('*')
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      return (data ?? []) as any[];
+    },
+  });
+}
+
+export function useInventoryLowStockAlerts() {
+  return useQuery<any[]>({
+    queryKey: queryKeys.inventoryLowStockAlerts,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('inventory_low_stock_alerts_v' as any)
+        .select('*')
+        .order('shortage', { ascending: false });
       if (error) throw error;
       return (data ?? []) as any[];
     },
