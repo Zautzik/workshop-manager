@@ -97,9 +97,12 @@ const InventoryManagement = () => {
   const [showTxDialog, setShowTxDialog] = useState(false);
   const [editingItem, setEditingItem] = useState<any>(null);
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
+  const [scanSearch, setScanSearch] = useState('');
 
   const [itemForm, setItemForm] = useState({
     sku: '',
+    barcode_value: '',
+    qr_value: '',
     name: '',
     category: 'tool',
     unit: 'unit',
@@ -139,9 +142,21 @@ const InventoryManagement = () => {
   });
 
   const filteredItems = useMemo(() => {
-    if (categoryFilter === 'all') return items;
-    return items.filter((item: any) => item.category === categoryFilter);
-  }, [items, categoryFilter]);
+    const byCategory = categoryFilter === 'all'
+      ? items
+      : items.filter((item: any) => item.category === categoryFilter);
+
+    const query = scanSearch.trim().toLowerCase();
+    if (!query) return byCategory;
+
+    return byCategory.filter((item: any) => {
+      const sku = String(item.sku || '').toLowerCase();
+      const name = String(item.name || '').toLowerCase();
+      const barcode = String(item.barcode_value || '').toLowerCase();
+      const qr = String(item.qr_value || '').toLowerCase();
+      return sku.includes(query) || name.includes(query) || barcode.includes(query) || qr.includes(query);
+    });
+  }, [items, categoryFilter, scanSearch]);
 
   const totalStockValue = useMemo(() => {
     return items.reduce((sum: number, item: any) => {
@@ -180,6 +195,8 @@ const InventoryManagement = () => {
   const resetItemForm = () => {
     setItemForm({
       sku: '',
+      barcode_value: '',
+      qr_value: '',
       name: '',
       category: 'tool',
       unit: 'unit',
@@ -231,6 +248,8 @@ const InventoryManagement = () => {
     const payload = {
       ...itemForm,
       sku: itemForm.sku.trim(),
+      barcode_value: itemForm.barcode_value.trim() || null,
+      qr_value: itemForm.qr_value.trim() || null,
       name: itemForm.name.trim(),
     };
 
@@ -309,6 +328,8 @@ const InventoryManagement = () => {
     setEditingItem(item);
     setItemForm({
       sku: item.sku,
+      barcode_value: item.barcode_value || '',
+      qr_value: item.qr_value || '',
       name: item.name,
       category: item.category,
       unit: item.unit,
@@ -432,17 +453,25 @@ const InventoryManagement = () => {
 
             <TabsContent value="items" className="space-y-4">
               <div className="flex flex-wrap gap-2 justify-between items-center">
-                <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                  <SelectTrigger className="w-64">
-                    <SelectValue placeholder="Filter by category" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All categories</SelectItem>
-                    {CATEGORY_OPTIONS.map((category) => (
-                      <SelectItem key={category.value} value={category.value}>{category.label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <div className="flex flex-wrap gap-2 items-center">
+                  <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                    <SelectTrigger className="w-56">
+                      <SelectValue placeholder="Filter by category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All categories</SelectItem>
+                      {CATEGORY_OPTIONS.map((category) => (
+                        <SelectItem key={category.value} value={category.value}>{category.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Input
+                    value={scanSearch}
+                    onChange={(e) => setScanSearch(e.target.value)}
+                    className="w-80"
+                    placeholder="Scan/Search SKU, barcode or QR"
+                  />
+                </div>
 
                 <Button onClick={() => setShowItemDialog(true)} className="bg-primary hover:bg-primary/90">
                   <Plus className="mr-2 h-4 w-4" />
@@ -454,6 +483,8 @@ const InventoryManagement = () => {
                 <TableHeader>
                   <TableRow>
                     <TableHead>SKU</TableHead>
+                    <TableHead>Barcode</TableHead>
+                    <TableHead>QR</TableHead>
                     <TableHead>Name</TableHead>
                     <TableHead>Category</TableHead>
                     <TableHead>Stock</TableHead>
@@ -466,6 +497,8 @@ const InventoryManagement = () => {
                   {filteredItems.map((item: any) => (
                     <TableRow key={item.id}>
                       <TableCell>{item.sku}</TableCell>
+                      <TableCell>{item.barcode_value || '-'}</TableCell>
+                      <TableCell>{item.qr_value || '-'}</TableCell>
                       <TableCell>{item.name}</TableCell>
                       <TableCell>{getCategoryLabel(item.category)}</TableCell>
                       <TableCell>{Number(item.current_stock || 0).toFixed(3)} {item.unit}</TableCell>
@@ -632,6 +665,17 @@ const InventoryManagement = () => {
               <div className="space-y-2">
                 <Label>Name</Label>
                 <Input value={itemForm.name} onChange={(e) => setItemForm({ ...itemForm, name: e.target.value })} />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label>Barcode</Label>
+                <Input value={itemForm.barcode_value} onChange={(e) => setItemForm({ ...itemForm, barcode_value: e.target.value })} placeholder="Barcode value" />
+              </div>
+              <div className="space-y-2">
+                <Label>QR Code</Label>
+                <Input value={itemForm.qr_value} onChange={(e) => setItemForm({ ...itemForm, qr_value: e.target.value })} placeholder="QR value" />
               </div>
             </div>
 

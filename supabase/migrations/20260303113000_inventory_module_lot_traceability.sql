@@ -26,6 +26,8 @@ END $$;
 CREATE TABLE IF NOT EXISTS public.inventory_items (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   sku TEXT NOT NULL UNIQUE,
+  barcode_value TEXT UNIQUE,
+  qr_value TEXT UNIQUE,
   name TEXT NOT NULL,
   category public.inventory_item_category NOT NULL,
   unit TEXT NOT NULL DEFAULT 'unit',
@@ -37,6 +39,10 @@ CREATE TABLE IF NOT EXISTS public.inventory_items (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+ALTER TABLE public.inventory_items
+  ADD COLUMN IF NOT EXISTS barcode_value TEXT,
+  ADD COLUMN IF NOT EXISTS qr_value TEXT;
 
 CREATE TABLE IF NOT EXISTS public.inventory_lots (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -69,6 +75,8 @@ CREATE TABLE IF NOT EXISTS public.inventory_stock_transactions (
 
 CREATE INDEX IF NOT EXISTS idx_inventory_items_category ON public.inventory_items(category);
 CREATE INDEX IF NOT EXISTS idx_inventory_items_is_active ON public.inventory_items(is_active);
+CREATE INDEX IF NOT EXISTS idx_inventory_items_barcode ON public.inventory_items(barcode_value);
+CREATE INDEX IF NOT EXISTS idx_inventory_items_qr ON public.inventory_items(qr_value);
 CREATE INDEX IF NOT EXISTS idx_inventory_lots_item_id ON public.inventory_lots(item_id);
 CREATE INDEX IF NOT EXISTS idx_inventory_lots_cert_expiry ON public.inventory_lots(certification_expires_on);
 CREATE INDEX IF NOT EXISTS idx_inventory_tx_item_id ON public.inventory_stock_transactions(item_id);
@@ -138,10 +146,15 @@ BEFORE INSERT ON public.inventory_stock_transactions
 FOR EACH ROW
 EXECUTE FUNCTION public.sync_inventory_lot_quantities();
 
+DROP VIEW IF EXISTS public.inventory_low_stock_alerts_v;
+DROP VIEW IF EXISTS public.inventory_items_stock_v;
+
 CREATE OR REPLACE VIEW public.inventory_items_stock_v AS
 SELECT
   i.id,
   i.sku,
+  i.barcode_value,
+  i.qr_value,
   i.name,
   i.category,
   i.unit,
