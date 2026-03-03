@@ -9,7 +9,7 @@ import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { useOTs } from "@/hooks/use-queries";
 import { Plus, ArrowRight, Edit2, Info, Package, Clock, User } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { CreateOTDialog } from "./CreateOTDialog";
+import { CreateOTWizard } from "./CreateOTWizard";
 import { EditOTDialog } from "./EditOTDialog";
 import { useTranslation } from "react-i18next";
 
@@ -21,12 +21,13 @@ const STATUS_FLOW = [
   { key: 'pre_press', label: 'Pre-Press', labelEs: 'Pre-Prensa', color: 'bg-violet-500', description: 'Design & Modeling' },
   { key: 'visto_bueno', label: 'Approval', labelEs: 'Visto Bueno', color: 'bg-amber-500', description: 'Customer Confirmation' },
   { key: 'paper_purchase', label: 'Paper Purchase', labelEs: 'Compra Papel', color: 'bg-slate-500', description: 'Ordering materials' },
-  { key: 'paper_received', label: 'Paper Received', labelEs: 'Papel Recibido', color: 'bg-blue-500', description: 'Materials arrived' },
   { key: 'in_storage', label: 'In Storage', labelEs: 'En Bodega', color: 'bg-cyan-500', description: 'Ready for production' },
   { key: 'guillotine_first_cut', label: 'First Cut', labelEs: 'Primer Corte', color: 'bg-orange-500', description: 'Guillotine initial cut' },
   { key: 'offset_printing', label: 'Printing', labelEs: 'Impresión', color: 'bg-purple-500', description: 'Offset printing' },
   { key: 'die_cutting', label: 'Die Cutting', labelEs: 'Troquelado', color: 'bg-pink-500', description: 'Die cutting process' },
   { key: 'guillotine_final_cut', label: 'Final Cut', labelEs: 'Corte Final', color: 'bg-red-500', description: 'Final guillotine cut' },
+  { key: 'workshop', label: 'Workshop', labelEs: 'Taller', color: 'bg-indigo-500', description: 'Internal workshop processing', optional: true },
+  { key: 'outsourced', label: 'Outsourced', labelEs: 'Tercerizado', color: 'bg-yellow-500', description: 'External processing', optional: true },
   { key: 'workshop_revision', label: 'Revision', labelEs: 'Revisión', color: 'bg-emerald-500', description: 'Quality check & packaging' },
   { key: 'ready_for_delivery', label: 'Ready', labelEs: 'Listo', color: 'bg-green-500', description: 'Ready for delivery' },
   { key: 'in_delivery', label: 'In Delivery', labelEs: 'En Entrega', color: 'bg-teal-500', description: 'Out for delivery' },
@@ -78,12 +79,29 @@ export function OTManagement({ onOTSelect }: OTManagementProps) {
     return STATUS_FLOW.find(s => s.key === status) || STATUS_FLOW[0];
   };
 
-  const getNextStatus = (currentStatus: string) => {
+  const getNextStatuses = (currentStatus: string) => {
     const currentIndex = STATUS_FLOW.findIndex(s => s.key === currentStatus);
-    if (currentIndex < STATUS_FLOW.length - 1) {
-      return STATUS_FLOW[currentIndex + 1];
+    if (currentIndex >= STATUS_FLOW.length - 1) return [];
+
+    // From guillotine_final_cut: offer Workshop, Outsourced, or skip to Revision
+    if (currentStatus === 'guillotine_final_cut') {
+      return STATUS_FLOW.filter(s => 
+        s.key === 'workshop' || s.key === 'outsourced' || s.key === 'workshop_revision'
+      );
     }
-    return null;
+
+    // From workshop or outsourced: go to Revision
+    if (currentStatus === 'workshop' || currentStatus === 'outsourced') {
+      return STATUS_FLOW.filter(s => s.key === 'workshop_revision');
+    }
+
+    // Default: next step in flow (skip optional steps)
+    const next = STATUS_FLOW[currentIndex + 1];
+    if (next && (next.key === 'workshop' || next.key === 'outsourced')) {
+      return STATUS_FLOW.filter(s => s.key === 'workshop_revision');
+    }
+
+    return next ? [next] : [];
   };
 
   const handleEditOT = (ot: any, e: React.MouseEvent) => {
@@ -170,7 +188,7 @@ export function OTManagement({ onOTSelect }: OTManagementProps) {
                     </div>
                   ) : (
                     statusOTs.map((ot) => {
-                      const nextStatus = getNextStatus(ot.status);
+                      const nextStatuses = getNextStatuses(ot.status);
                       
                       return (
                         <Card 
@@ -218,20 +236,43 @@ export function OTManagement({ onOTSelect }: OTManagementProps) {
                             {isSpanish ? 'Prioridad' : 'Priority'} {ot.priority}
                           </Badge>
 
-                          {/* Advance Button */}
-                          {nextStatus && (
+                          {/* Advance Button(s) */}
+                          {nextStatuses.length === 1 && (
                             <Button
                               size="sm"
                               variant="outline"
                               className="w-full h-7 text-xs border-primary/40 text-primary hover:bg-primary hover:text-primary-foreground"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                updateOTStatus(ot.id, nextStatus.key);
+                                updateOTStatus(ot.id, nextStatuses[0].key);
                               }}
                             >
                               <ArrowRight className="w-3 h-3 mr-1" />
-                              {isSpanish ? nextStatus.labelEs : nextStatus.label}
+                              {isSpanish ? nextStatuses[0].labelEs : nextStatuses[0].label}
                             </Button>
+                          )}
+                          {nextStatuses.length > 1 && (
+                            <div className="space-y-1">
+                              {nextStatuses.map((ns) => (
+                                <Button
+                                  key={ns.key}
+                                  size="sm"
+                                  variant="outline"
+                                  className={`w-full h-7 text-xs ${
+                                    ns.optional
+                                      ? 'border-muted-foreground/40 text-muted-foreground hover:bg-muted hover:text-foreground'
+                                      : 'border-primary/40 text-primary hover:bg-primary hover:text-primary-foreground'
+                                  }`}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    updateOTStatus(ot.id, ns.key);
+                                  }}
+                                >
+                                  <ArrowRight className="w-3 h-3 mr-1" />
+                                  {isSpanish ? ns.labelEs : ns.label}
+                                </Button>
+                              ))}
+                            </div>
                           )}
                         </Card>
                       );
@@ -245,11 +286,18 @@ export function OTManagement({ onOTSelect }: OTManagementProps) {
         <ScrollBar orientation="horizontal" />
       </ScrollArea>
 
-      <CreateOTDialog
-        open={showCreateDialog}
-        onOpenChange={setShowCreateDialog}
-        onSuccess={refetchOTs}
-      />
+      {/* Full-page wizard for new OT */}
+      {showCreateDialog && (
+        <div className="fixed inset-0 z-50 bg-background overflow-y-auto">
+          <CreateOTWizard
+            onClose={() => setShowCreateDialog(false)}
+            onSuccess={() => {
+              refetchOTs();
+              setShowCreateDialog(false);
+            }}
+          />
+        </div>
+      )}
 
       {editingOT && (
         <EditOTDialog
