@@ -354,9 +354,6 @@ export default function WorkflowDashboard() {
         (maxWeeklyHours > 0 && weeklyHours > maxWeeklyHours) ||
         (overtimeCap > 0 && weeklyOvertime > overtimeCap);
 
-      const contractRestrictionConflict =
-        contract?.overtime_allowed === false;
-
       result[employeeId] = {
         leaveStatus,
         leaveTone,
@@ -365,7 +362,6 @@ export default function WorkflowDashboard() {
         certificationAlert,
         certificationTone,
         legalHourConflict,
-        contractRestrictionConflict,
       };
     });
 
@@ -612,7 +608,7 @@ export default function WorkflowDashboard() {
 
   const getWorkerConflictFlags = (workerId?: string | null, station?: any, isOvertime = false) => {
     if (!workerId) {
-      return { leaveConflict: true, legalConflict: true, missingSkill: false, contractRestriction: false };
+      return { leaveConflict: true, legalConflict: true, missingSkill: false };
     }
     const indicators = workerIndicatorsById?.[workerId] || {};
     const worker = workers.find((entry: any) => entry.id === workerId);
@@ -620,14 +616,13 @@ export default function WorkflowDashboard() {
     const leaveConflict = indicators.leaveTone === 'alert';
     const legalConflict = Boolean(indicators.legalHourConflict);
     const missingSkill = station ? !isWorkerQualifiedForStation(worker, station) : false;
-    const contractRestriction = Boolean(isOvertime && indicators.contractRestrictionConflict);
 
-    return { leaveConflict, legalConflict, missingSkill, contractRestriction };
+    return { leaveConflict, legalConflict, missingSkill };
   };
 
   const isWorkerEligibleForStation = (worker: any, station: any, isOvertime: boolean) => {
     const conflicts = getWorkerConflictFlags(worker?.id, station, isOvertime);
-    if (conflicts.leaveConflict || conflicts.legalConflict || conflicts.missingSkill || conflicts.contractRestriction) {
+    if (conflicts.leaveConflict || conflicts.legalConflict || conflicts.missingSkill) {
       return false;
     }
     if (isOvertime && !worker?.overtime_availability) {
@@ -717,7 +712,7 @@ export default function WorkflowDashboard() {
         const workerId = assignment.employee_id || assignment.worker_id;
         const isOvertime = String(assignment.role || '').includes('overtime');
         const conflicts = getWorkerConflictFlags(workerId, assignment.workstation, isOvertime);
-        return conflicts.leaveConflict || conflicts.legalConflict || conflicts.missingSkill || conflicts.contractRestriction;
+        return conflicts.leaveConflict || conflicts.legalConflict || conflicts.missingSkill;
       });
 
       for (const assignment of conflictedAssignments) {

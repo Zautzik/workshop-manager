@@ -9,7 +9,6 @@ import {
 	Scissors,
 	Wrench,
 	Layers,
-	GripVertical,
 	Hand,
 	X,
 } from 'lucide-react';
@@ -39,12 +38,6 @@ function DraggableWorker({
 	worker,
 	assignmentId,
 	isOvertime = false,
-	monthlyOvertime,
-	costInfo,
-	planningScore,
-	explainability,
-	indicators,
-	stationType,
 	onUnassignWorker,
 }: {
 	worker: any;
@@ -64,7 +57,6 @@ function DraggableWorker({
 		certificationAlert?: string;
 		certificationTone?: 'ok' | 'warn' | 'alert';
 		legalHourConflict?: boolean;
-		contractRestrictionConflict?: boolean;
 	};
 }) {
 	const { attributes, listeners, setNodeRef, transform, isDragging } =
@@ -80,28 +72,16 @@ function DraggableWorker({
 		  }
 		: undefined;
 
-	const getToneClass = (tone?: 'ok' | 'warn' | 'alert') => {
-		if (tone === 'alert') return 'text-destructive';
-		if (tone === 'warn') return 'text-amber-600';
-		return 'text-emerald-600';
-	};
-
-	const skillScore = Number(getWorkerQualificationScore(worker, stationType || undefined) ?? 0);
-	const missingSkillConflict = Boolean(stationType) && skillScore <= 0;
-	const leaveConflict = indicators?.leaveTone === 'alert';
-	const legalHourConflict = Boolean(indicators?.legalHourConflict);
-	const contractRestrictionConflict = Boolean(indicators?.contractRestrictionConflict && isOvertime);
-
 	return (
 		<div
 			ref={setNodeRef}
 			style={style}
 			{...listeners}
 			{...attributes}
-			className={`relative rounded-lg border-2 p-3 text-foreground shadow-sm transition-all cursor-grab active:cursor-grabbing ${
+			className={`relative flex items-center gap-2 rounded-md border px-3 py-2 text-foreground shadow-sm transition-all cursor-grab active:cursor-grabbing ${
 				isOvertime
-					? 'border-amber-500/60 bg-amber-500/10 hover:bg-amber-500/20'
-					: 'border-border bg-card hover:border-primary/60 hover:bg-accent/40'
+					? 'border-amber-500/60 bg-amber-500/10 hover:bg-amber-500/15'
+					: 'border-border bg-card hover:border-primary/40 hover:bg-accent/20'
 			}`}
 		>
 			{assignmentId && onUnassignWorker && (
@@ -112,93 +92,23 @@ function DraggableWorker({
 						event.stopPropagation();
 						onUnassignWorker(assignmentId, worker?.name);
 					}}
-					className='absolute top-2 right-2 rounded-full border border-border bg-card/80 p-1 text-muted-foreground hover:text-destructive hover:border-destructive/40 transition-colors'
+					className='absolute top-1 right-1 rounded-full p-0.5 text-muted-foreground hover:text-destructive transition-colors'
 					aria-label={`Remove ${worker?.name || 'worker'} from station`}
 				>
-					<X className='w-4 h-4' />
+					<X className='w-3 h-3' />
 				</button>
 			)}
-			{!assignmentId && (
-				<div className='absolute -top-2 -right-2 rounded-full border border-primary/50 bg-primary p-1'>
-					<Hand className='w-4 h-4 text-primary-foreground' />
-				</div>
-			)}
+			<div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${
+				isOvertime
+					? 'bg-amber-500/30 text-amber-700 dark:text-amber-300'
+					: 'bg-primary/20 text-primary'
+			}`}>
+				{worker.name.charAt(0)}
+			</div>
+			<span className='text-sm font-medium truncate'>{worker.name}</span>
 			{isOvertime && (
-				<Badge className='absolute -top-2 left-2 bg-amber-500 text-black border-amber-600 text-[10px] h-5 px-2'>
-					OT +50%
-				</Badge>
+				<span className='ml-auto text-[10px] font-semibold text-amber-600 dark:text-amber-400 shrink-0'>OT</span>
 			)}
-			<div className='mb-2 flex flex-wrap gap-1'>
-				{leaveConflict ? (
-					<Badge variant='destructive' className='text-[10px] h-5'>Leave conflict</Badge>
-				) : null}
-				{legalHourConflict ? (
-					<Badge variant='destructive' className='text-[10px] h-5'>Legal hour conflict</Badge>
-				) : null}
-				{missingSkillConflict ? (
-					<Badge variant='destructive' className='text-[10px] h-5'>Missing skill</Badge>
-				) : null}
-				{contractRestrictionConflict ? (
-					<Badge variant='destructive' className='text-[10px] h-5'>Contract restriction</Badge>
-				) : null}
-			</div>
-			<div className='flex items-center justify-between'>
-				<div className='flex items-center gap-2'>
-					<GripVertical className='w-5 h-5 text-muted-foreground' />
-					<div className='w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center text-primary text-sm font-bold'>
-						{worker.name.charAt(0)}
-					</div>
-					<div>
-						<p className='text-sm font-bold text-foreground'>{worker.name}</p>
-						<p className='text-xs text-muted-foreground'>
-							{worker.department || 'Unassigned department'}
-						</p>
-						<p className='text-[11px] text-muted-foreground'>
-							Monthly OT: {(monthlyOvertime?.hours || 0).toFixed(1)}h ({monthlyOvertime?.shifts || 0} shifts)
-						</p>
-						{costInfo?.hourlyRate ? (
-							<p className='text-[11px] text-muted-foreground'>
-								Hourly salary: {costInfo.currencyCode || 'USD'} {costInfo.hourlyRate.toFixed(2)}/hr
-								{typeof costInfo.estimatedCost === 'number'
-									? ` | Est: ${costInfo.currencyCode || 'USD'} ${costInfo.estimatedCost.toFixed(2)}`
-									: ''}
-							</p>
-						) : null}
-						<p className={`text-[11px] ${getToneClass(indicators?.leaveTone)}`}>
-							Leave: {indicators?.leaveStatus || 'Available'}
-						</p>
-						<p className={`text-[11px] ${getToneClass(indicators?.incentiveTone)}`}>
-							Incentive: {indicators?.incentiveStatus || 'Review'}
-						</p>
-						{indicators?.certificationAlert ? (
-							<p className={`text-[11px] ${getToneClass(indicators?.certificationTone)}`}>
-								Cert: {indicators.certificationAlert}
-							</p>
-						) : null}
-						{typeof planningScore === 'number' ? (
-							<p className='text-[11px] text-muted-foreground'>
-								Plan score: {planningScore.toFixed(1)}
-							</p>
-						) : null}
-					</div>
-				</div>
-				<div className='text-right'>
-					<div className='text-xl font-bold text-primary'>
-						{worker.overall_rating}
-					</div>
-					<p className='text-xs text-muted-foreground'>OVR</p>
-				</div>
-			</div>
-			{explainability && explainability.length > 0 ? (
-				<div className='mt-3 rounded-md border border-border bg-muted/30 p-2 text-[11px] text-muted-foreground'>
-					<p className='font-semibold text-foreground/80'>Why selected</p>
-					<ul className='mt-1 space-y-0.5'>
-						{explainability.map((item, index) => (
-							<li key={`${worker.id}-reason-${index}`}>{item}</li>
-						))}
-					</ul>
-				</div>
-			) : null}
 		</div>
 	);
 }
@@ -749,20 +659,8 @@ export function WorkstationLayout({
 								: 'bg-amber-500/20 text-amber-700 border-amber-500/40 hover:bg-amber-500/30'
 						}`}
 					>
-						OT workers this shift: {currentShiftOvertimeWorkerCount}
+						OT workers: {currentShiftOvertimeWorkerCount}
 					</button>
-					{showOnlyOvertime && (
-						<Badge className='bg-primary/15 text-foreground border-primary/30 text-sm'>
-							Showing only overtime workers
-						</Badge>
-					)}
-				</div>
-				<div className='flex flex-wrap gap-2'>
-					<Badge variant='outline' className='text-[11px]'>Conflict badges:</Badge>
-					<Badge variant='destructive' className='text-[11px]'>Leave conflict</Badge>
-					<Badge variant='destructive' className='text-[11px]'>Legal hour conflict</Badge>
-					<Badge variant='destructive' className='text-[11px]'>Missing skill</Badge>
-					<Badge variant='destructive' className='text-[11px]'>Contract restriction</Badge>
 				</div>
 
 				{Object.entries(groupedWorkstations).map(

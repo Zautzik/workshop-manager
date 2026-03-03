@@ -1,9 +1,5 @@
 'use client';
 import { Card } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Progress } from '@/components/ui/progress';
-import { Button } from '@/components/ui/button';
-import { Star, Clock, TrendingUp } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 
 interface WorkerCardProps {
@@ -22,108 +18,48 @@ interface WorkerCardProps {
   showActions?: boolean;
 }
 
-const WorkerCard = ({ worker, onSelect, onLogTask, selected, showActions = true }: WorkerCardProps) => {
+const WorkerCard = ({ worker, onSelect, selected }: WorkerCardProps) => {
   const { t } = useLanguage();
   
-  const rating = Math.round(worker.avg_rating || 50);
   const efficiency = Math.round(worker.efficiency_score || 50);
   const avgTime = Math.round(worker.avg_time_minutes || 0);
-  const totalTasks = worker.total_tasks || 0;
   
-  const getRatingColor = (score: number) => {
-    if (score >= 80) return 'text-green-500';
-    if (score >= 60) return 'text-yellow-500';
-    return 'text-red-500';
-  };
+  // Discrete overtime / efficiency warning via border color
+  const isOvertimeWarning = avgTime > 480; // more than 8h avg
+  const isLowEfficiency = efficiency < 60;
+
+  const borderColor = isOvertimeWarning
+    ? 'border-amber-500'
+    : isLowEfficiency
+      ? 'border-red-400/60'
+      : selected
+        ? 'border-supervisor'
+        : 'border-border';
+
+  const bgHighlight = isOvertimeWarning
+    ? 'bg-amber-500/5'
+    : isLowEfficiency
+      ? 'bg-red-500/5'
+      : '';
 
   return (
     <Card 
-      className={`p-4 hover:shadow-lg transition-all cursor-pointer bg-gradient-to-br from-card via-card to-supervisor/5 border-2 ${
-        selected ? 'border-supervisor shadow-supervisor/20' : 'border-border hover:border-supervisor/50'
-      }`}
+      className={`flex items-center gap-3 px-3 py-2 cursor-pointer transition-all hover:shadow-md border ${borderColor} ${bgHighlight}`}
       onClick={() => onSelect?.(worker.id)}
     >
-      {/* Header */}
-      <div className="flex items-start justify-between mb-3">
-        <div className="flex-1">
-          <h3 className="font-bold text-lg truncate">{worker.name}</h3>
-          <Badge variant="outline" className="mt-1">
-            {t(worker.department)}
-          </Badge>
-        </div>
-        <div className="flex items-center gap-1">
-          {[...Array(5)].map((_, i) => (
-            <Star
-              key={i}
-              className={`h-3 w-3 ${
-                i < Math.floor(rating / 20) ? 'fill-yellow-400 text-yellow-400' : 'text-muted'
-              }`}
-            />
-          ))}
-        </div>
+      <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold shrink-0 ${
+        isOvertimeWarning
+          ? 'bg-amber-500/20 text-amber-700 dark:text-amber-300'
+          : 'bg-primary/20 text-primary'
+      }`}>
+        {worker.name.charAt(0)}
       </div>
-
-      {/* Stats */}
-      <div className="space-y-3">
-        {/* Efficiency */}
-        <div>
-          <div className="flex items-center justify-between text-xs mb-1">
-            <span className="flex items-center gap-1">
-              <TrendingUp className="h-3 w-3" />
-              {t('efficiencyScore')}
-            </span>
-            <span className={`font-bold ${getRatingColor(efficiency)}`}>
-              {efficiency}%
-            </span>
-          </div>
-          <Progress value={efficiency} className="h-2" />
-        </div>
-
-        {/* Rating */}
-        <div>
-          <div className="flex items-center justify-between text-xs mb-1">
-            <span className="flex items-center gap-1">
-              <Star className="h-3 w-3" />
-              {t('rating')}
-            </span>
-            <span className={`font-bold ${getRatingColor(rating)}`}>
-              {rating}/100
-            </span>
-          </div>
-          <Progress value={rating} className="h-2" />
-        </div>
-
-        {/* Avg Time */}
-        <div className="flex items-center justify-between text-xs">
-          <span className="flex items-center gap-1 text-muted-foreground">
-            <Clock className="h-3 w-3" />
-            {t('avgTime')}
-          </span>
-          <span className="font-medium">{avgTime} min</span>
-        </div>
-
-        {/* Total Tasks */}
-        <div className="flex items-center justify-between text-xs">
-          <span className="text-muted-foreground">{t('totalTasks')}</span>
-          <span className="font-medium">{totalTasks}</span>
-        </div>
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-medium truncate">{worker.name}</p>
+        <p className="text-xs text-muted-foreground">{t(worker.department)}</p>
       </div>
-
-      {/* Actions */}
-      {showActions && (
-        <div className="mt-4 pt-3 border-t">
-          <Button
-            size="sm"
-            variant="outline"
-            className="w-full"
-            onClick={(e) => {
-              e.stopPropagation();
-              onLogTask?.(worker.id);
-            }}
-          >
-            {t('logTask')}
-          </Button>
-        </div>
+      {isOvertimeWarning && (
+        <span className="text-[10px] font-semibold text-amber-600 dark:text-amber-400 shrink-0">OT</span>
       )}
     </Card>
   );
