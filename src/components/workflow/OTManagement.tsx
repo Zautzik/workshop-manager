@@ -7,9 +7,10 @@ import { Input } from "@/components/ui/input";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { useOTs } from "@/hooks/use-queries";
-import { Plus, ArrowRight, Edit2, Info, Package, Clock, User } from "lucide-react";
+import { Plus, ArrowRight, Edit2, Info, Package, Clock, User, DollarSign } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { UnifiedOTWizard } from "./UnifiedOTWizard";
+import { EditBudgetWizard } from "./EditBudgetWizard";
 import { EditOTDialog } from "./EditOTDialog";
 import { useTranslation } from "react-i18next";
 
@@ -39,6 +40,7 @@ export function OTManagement({ onOTSelect }: OTManagementProps) {
   const [createFlow, setCreateFlow] = useState<'none' | 'wizard'>('none');
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [editingOT, setEditingOT] = useState<any>(null);
+  const [budgetEditOT, setBudgetEditOT] = useState<any>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const { toast } = useToast();
   const { t, i18n } = useTranslation();
@@ -236,6 +238,22 @@ export function OTManagement({ onOTSelect }: OTManagementProps) {
                             {isSpanish ? 'Prioridad' : 'Priority'} {ot.priority}
                           </Badge>
 
+                          {/* Edit Budget button (only pre_press & visto_bueno) */}
+                          {(ot.status === 'pre_press' || ot.status === 'visto_bueno') && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="w-full h-7 text-xs mb-1 border-amber-500/40 text-amber-400 hover:bg-amber-500 hover:text-white"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setBudgetEditOT(ot);
+                              }}
+                            >
+                              <DollarSign className="w-3 h-3 mr-1" />
+                              {isSpanish ? 'Modificar Presupuesto' : 'Edit Budget'}
+                            </Button>
+                          )}
+
                           {/* Advance Button(s) */}
                           {nextStatuses.length === 1 && (
                             <Button
@@ -294,6 +312,20 @@ export function OTManagement({ onOTSelect }: OTManagementProps) {
             onSuccess={() => {
               refetchOTs();
               setCreateFlow('none');
+            }}
+          />
+        </div>
+      )}
+
+      {/* Budget edit wizard (full-screen) */}
+      {budgetEditOT && (
+        <div className="fixed inset-0 z-50 bg-background overflow-y-auto">
+          <EditBudgetWizard
+            ot={budgetEditOT}
+            onClose={() => setBudgetEditOT(null)}
+            onSuccess={() => {
+              refetchOTs();
+              setBudgetEditOT(null);
             }}
           />
         </div>
