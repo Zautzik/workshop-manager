@@ -13,8 +13,9 @@ import { WorkstationLayout } from "@/components/workflow/WorkstationLayout";
 import { WorkerStatsPanel } from "@/components/workflow/WorkerStatsPanel";
 import { ShiftManagement } from "@/components/workflow/ShiftManagement";
 import { OTManagement } from "@/components/workflow/OTManagement";
+import OTRetrievalSystem from "@/components/workflow/OTRetrievalSystem";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
-import { Users, Factory, Clock, BarChart3, ClipboardList, ArrowLeft, ChevronLeft, ChevronRight, CalendarDays, WandSparkles, Replace, Shuffle, UploadCloud, ShieldAlert, CheckCircle2, Copy, RotateCcw } from "lucide-react";
+import { Users, Factory, Clock, BarChart3, ClipboardList, ArrowLeft, ChevronLeft, ChevronRight, CalendarDays, WandSparkles, Replace, Shuffle, UploadCloud, ShieldAlert, CheckCircle2, Copy, RotateCcw, Printer } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCompensationRatesForDate, useSchedulingCostModel, useWorkerAssignments, useWorkerMonthlyOvertime, useWorkflowCertificationAlerts, useWorkflowContracts, useWorkflowIncentiveStatuses, useWorkflowLeaveStatuses, useWorkflowWeeklyHours, useWorkersByRating, useWorkstations, useShifts } from "@/hooks/use-queries";
@@ -1145,6 +1146,10 @@ export default function WorkflowDashboard() {
               <BarChart3 className="w-4 h-4 mr-2" />
               {t('workflow.statistics')}
             </TabsTrigger>
+            <TabsTrigger value="production" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+              <Printer className="w-4 h-4 mr-2" />
+              OT Producción
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="ots" className="mt-4">
@@ -1573,6 +1578,10 @@ export default function WorkflowDashboard() {
               <h3 className="text-xl font-bold text-foreground mb-4">Performance Overview</h3>
               <p className="text-muted-foreground">Detailed statistics coming soon...</p>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="production" className="mt-4">
+            <OTRetrievalSystem />
           </TabsContent>
         </Tabs>
 
