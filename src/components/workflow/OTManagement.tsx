@@ -9,9 +9,7 @@ import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { useOTs } from "@/hooks/use-queries";
 import { Plus, ArrowRight, Edit2, Info, Package, Clock, User } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { CreateOTWizard } from "./CreateOTWizard";
-import { OTCreationChoice } from "./OTCreationChoice";
-import { ProductionOTInlineFlow } from "./ProductionOTInlineFlow";
+import { UnifiedOTWizard } from "./UnifiedOTWizard";
 import { EditOTDialog } from "./EditOTDialog";
 import { useTranslation } from "react-i18next";
 
@@ -38,7 +36,7 @@ const STATUS_FLOW = [
 
 export function OTManagement({ onOTSelect }: OTManagementProps) {
   const { data: ots = [], refetch: refetchOTs } = useOTs();
-  const [createFlow, setCreateFlow] = useState<'none' | 'choice' | 'quote' | 'production'>('none');
+  const [createFlow, setCreateFlow] = useState<'none' | 'wizard'>('none');
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [editingOT, setEditingOT] = useState<any>(null);
   const [searchTerm, setSearchTerm] = useState("");
@@ -148,7 +146,7 @@ export function OTManagement({ onOTSelect }: OTManagementProps) {
             className="bg-input border-border placeholder:text-muted-foreground w-64"
           />
           <Button
-            onClick={() => setCreateFlow('choice')}
+            onClick={() => setCreateFlow('wizard')}
             className="bg-primary hover:bg-primary/90"
           >
             <Plus className="w-4 h-4 mr-2" />
@@ -288,32 +286,10 @@ export function OTManagement({ onOTSelect }: OTManagementProps) {
         <ScrollBar orientation="horizontal" />
       </ScrollArea>
 
-      {/* Creation flow: choice → quote wizard OR production form */}
-      {createFlow === 'choice' && (
+      {/* Unified creation wizard */}
+      {createFlow === 'wizard' && (
         <div className="fixed inset-0 z-50 bg-background overflow-y-auto">
-          <OTCreationChoice
-            onSelectQuote={() => setCreateFlow('quote')}
-            onSelectProduction={() => setCreateFlow('production')}
-            onCancel={() => setCreateFlow('none')}
-          />
-        </div>
-      )}
-
-      {createFlow === 'quote' && (
-        <div className="fixed inset-0 z-50 bg-background overflow-y-auto">
-          <CreateOTWizard
-            onClose={() => setCreateFlow('none')}
-            onSuccess={() => {
-              refetchOTs();
-              setCreateFlow('none');
-            }}
-          />
-        </div>
-      )}
-
-      {createFlow === 'production' && (
-        <div className="fixed inset-0 z-50 bg-background overflow-y-auto">
-          <ProductionOTInlineFlow
+          <UnifiedOTWizard
             onClose={() => setCreateFlow('none')}
             onSuccess={() => {
               refetchOTs();
