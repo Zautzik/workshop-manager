@@ -13,6 +13,7 @@ import { MonthlyPayrollCalculator } from '@/components/financial/MonthlyPayrollC
 import { EmployeeCostTimeline } from '@/components/financial/EmployeeCostTimeline';
 import { OrderLaborMarginAnalysis } from '@/components/financial/OrderLaborMarginAnalysis';
 import { CostCenterManager } from '@/components/financial/CostCenterManager';
+import { OTCostAnalysisReport } from '@/components/financial/OTCostAnalysisReport';
 
 const FinancialReport = () => {
   const router = useRouter();
@@ -47,8 +48,9 @@ const FinancialReport = () => {
 
       {/* Tabs */}
       <Tabs defaultValue="ot-financials" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-7">
+        <TabsList className="grid w-full grid-cols-8">
           <TabsTrigger value="ot-financials">OT Financials</TabsTrigger>
+          <TabsTrigger value="cost-analysis">Análisis de Costos</TabsTrigger>
           <TabsTrigger value="cost-center">Centro de Costos</TabsTrigger>
           <TabsTrigger value="machine-costs">Machine Cost Analysis</TabsTrigger>
           <TabsTrigger value="investments">Equipment Investments</TabsTrigger>
@@ -59,6 +61,10 @@ const FinancialReport = () => {
 
         <TabsContent value="ot-financials">
           <OTFinancialTracking />
+        </TabsContent>
+
+        <TabsContent value="cost-analysis">
+          <OTCostAnalysisReport />
         </TabsContent>
 
         <TabsContent value="cost-center">

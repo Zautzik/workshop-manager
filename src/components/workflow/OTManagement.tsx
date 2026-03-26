@@ -12,6 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { UnifiedOTWizard } from "./UnifiedOTWizard";
 import { EditBudgetWizard } from "./EditBudgetWizard";
 import { EditOTDialog } from "./EditOTDialog";
+import { RealCostEntryDialog } from "./RealCostEntryDialog";
 import { useTranslation } from "react-i18next";
 
 interface OTManagementProps {
@@ -42,6 +43,8 @@ export function OTManagement({ onOTSelect }: OTManagementProps) {
   const [editingOT, setEditingOT] = useState<any>(null);
   const [budgetEditOT, setBudgetEditOT] = useState<any>(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const [costEntryOT, setCostEntryOT] = useState<any>(null);
+  const [costEntryTarget, setCostEntryTarget] = useState<{ key: string; label: string } | null>(null);
   const { toast } = useToast();
   const { t, i18n } = useTranslation();
 
@@ -110,6 +113,21 @@ export function OTManagement({ onOTSelect }: OTManagementProps) {
     e.stopPropagation();
     setEditingOT(ot);
     setShowEditDialog(true);
+  };
+
+  /** Open the real-cost dialog before advancing an OT */
+  const requestAdvance = (ot: any, targetStatusKey: string, targetStatusLabel: string) => {
+    setCostEntryOT(ot);
+    setCostEntryTarget({ key: targetStatusKey, label: targetStatusLabel });
+  };
+
+  /** Actually advance (called from the dialog after costs are saved or skipped) */
+  const confirmAdvance = () => {
+    if (costEntryOT && costEntryTarget) {
+      updateOTStatus(costEntryOT.id, costEntryTarget.key);
+    }
+    setCostEntryOT(null);
+    setCostEntryTarget(null);
   };
 
   const activeOTsCount = filteredOTs.filter(ot => ot.status !== 'completed').length;
@@ -262,7 +280,7 @@ export function OTManagement({ onOTSelect }: OTManagementProps) {
                               className="w-full h-7 text-xs border-primary/40 text-primary hover:bg-primary hover:text-primary-foreground"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                updateOTStatus(ot.id, nextStatuses[0].key);
+                                requestAdvance(ot, nextStatuses[0].key, isSpanish ? nextStatuses[0].labelEs : nextStatuses[0].label);
                               }}
                             >
                               <ArrowRight className="w-3 h-3 mr-1" />
@@ -283,7 +301,7 @@ export function OTManagement({ onOTSelect }: OTManagementProps) {
                                   }`}
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    updateOTStatus(ot.id, ns.key);
+                                    requestAdvance(ot, ns.key, isSpanish ? ns.labelEs : ns.label);
                                   }}
                                 >
                                   <ArrowRight className="w-3 h-3 mr-1" />
@@ -337,6 +355,23 @@ export function OTManagement({ onOTSelect }: OTManagementProps) {
           open={showEditDialog}
           onOpenChange={setShowEditDialog}
           onSuccess={refetchOTs}
+        />
+      )}
+
+      {/* Real Cost Entry Dialog (before advancing) */}
+      {costEntryOT && costEntryTarget && (
+        <RealCostEntryDialog
+          open={!!costEntryOT}
+          onOpenChange={(open) => {
+            if (!open) {
+              setCostEntryOT(null);
+              setCostEntryTarget(null);
+            }
+          }}
+          ot={costEntryOT}
+          targetStatus={costEntryTarget.key}
+          targetStatusLabel={costEntryTarget.label}
+          onConfirm={confirmAdvance}
         />
       )}
     </div>
