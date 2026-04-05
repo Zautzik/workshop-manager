@@ -151,7 +151,7 @@ export function OTStepCalculations({ form }: Props) {
             </div>
             <div className="space-y-2">
               {history.map((h) => {
-                const unitPriceFmt = `$${h.unit_price?.toLocaleString('es-CL', { maximumFractionDigits: 1 }) ?? '0'}`;
+                const unitPriceFmt = `$${Math.round(h.unit_price ?? 0).toLocaleString('es-CL')}`;
                 return (
                   <div
                     key={h.id}

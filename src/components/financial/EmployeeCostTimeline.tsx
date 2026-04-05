@@ -43,9 +43,9 @@ export function EmployeeCostTimeline() {
   );
 
   const formatCurrency = (value: number) =>
-    new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value);
+    `$${Math.round(value).toLocaleString('es-CL')}`;
 
-  const formatHours = (value: number) => `${value.toFixed(1)}h`;
+  const formatHours = (value: number) => `${Math.round(value)}h`;
 
   const formatPeriod = (start: string, end: string) => {
     if (granularity === 'week') {
@@ -144,7 +144,7 @@ export function EmployeeCostTimeline() {
             <CardContent>
               <div className="text-2xl font-bold">{formatHours(summary.totalOTHours)}</div>
               <p className="text-xs text-muted-foreground">
-                {((summary.totalOTHours / summary.totalHours) * 100).toFixed(1)}% of total
+                {Math.round((summary.totalOTHours / summary.totalHours) * 100)}% del total
               </p>
             </CardContent>
           </Card>
@@ -157,7 +157,7 @@ export function EmployeeCostTimeline() {
             <CardContent>
               <div className="text-2xl font-bold">{formatCurrency(summary.totalOTPremium)}</div>
               <p className="text-xs text-muted-foreground">
-                {((summary.totalOTPremium / summary.totalCost) * 100).toFixed(1)}% of cost
+                {Math.round((summary.totalOTPremium / summary.totalCost) * 100)}% del costo
               </p>
             </CardContent>
           </Card>

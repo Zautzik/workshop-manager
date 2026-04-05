@@ -136,7 +136,7 @@ export function UnifiedStepOperations({ form, updateForm }: Props) {
   const saveOp = () => {
     if (!editingOp || !editingOp.name?.trim()) return;
     const total = Number(
-      ((editingOp.quantity || 0) * (editingOp.unit_cost || 0)).toFixed(2)
+      Math.round((editingOp.quantity || 0) * (editingOp.unit_cost || 0))
     );
     const fullOp: OTOperation = {
       id: editingOp.id || crypto.randomUUID(),

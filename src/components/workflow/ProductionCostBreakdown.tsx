@@ -106,7 +106,7 @@ export default function ProductionCostBreakdown({
                 >
                   <span className="flex-1 truncate">{line.description}</span>
                   <span className="w-16 text-right tabular-nums">
-                    {line.quantity % 1 === 0 ? line.quantity : line.quantity.toFixed(2)}
+                    {Math.round(line.quantity).toLocaleString('es-CL')}
                   </span>
                   <span className="w-12 text-center text-[10px]">{line.unit}</span>
                   <span className="w-20 text-right tabular-nums">× {fmtCLP(line.unit_cost)}</span>
@@ -157,7 +157,7 @@ export default function ProductionCostBreakdown({
                   />
                 </div>
                 <span className="w-10 text-right tabular-nums font-medium">
-                  {pct.toFixed(1)}%
+                  {Math.round(pct)}%
                 </span>
               </div>
             );

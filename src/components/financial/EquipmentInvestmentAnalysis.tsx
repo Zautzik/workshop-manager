@@ -157,7 +157,7 @@ export const EquipmentInvestmentAnalysis = () => {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-blue-500">${totalProposed.toFixed(2)}</div>
+            <div className="text-3xl font-bold text-blue-500">${Math.round(totalProposed).toLocaleString('es-CL')}</div>
           </CardContent>
         </Card>
 
@@ -169,7 +169,7 @@ export const EquipmentInvestmentAnalysis = () => {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-green-500">${totalApproved.toFixed(2)}</div>
+            <div className="text-3xl font-bold text-green-500">${Math.round(totalApproved).toLocaleString('es-CL')}</div>
           </CardContent>
         </Card>
 
@@ -181,7 +181,7 @@ export const EquipmentInvestmentAnalysis = () => {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-primary">${estimatedAnnualSavings.toFixed(2)}</div>
+            <div className="text-3xl font-bold text-primary">${Math.round(estimatedAnnualSavings).toLocaleString('es-CL')}</div>
           </CardContent>
         </Card>
       </div>
@@ -310,10 +310,10 @@ export const EquipmentInvestmentAnalysis = () => {
                     <td className="py-2 px-4 font-semibold">{investment.equipment_name}</td>
                     <td className="py-2 px-4">{investment.machines?.name || 'New Equipment'}</td>
                     <td className="py-2 px-4 text-right font-semibold text-destructive">
-                      ${investment.purchase_cost.toFixed(2)}
+                      ${Math.round(investment.purchase_cost).toLocaleString('es-CL')}
                     </td>
                     <td className="py-2 px-4 text-right font-semibold text-green-500">
-                      ${(investment.estimated_annual_savings ?? 0).toFixed(2)}
+                      ${Math.round(investment.estimated_annual_savings ?? 0).toLocaleString('es-CL')}
                     </td>
                     <td className="py-2 px-4 text-right">
                       {investment.payback_period_months ? (

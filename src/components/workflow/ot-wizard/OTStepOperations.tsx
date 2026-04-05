@@ -88,7 +88,7 @@ export function OTStepOperations({ form, updateForm, recalcPricing }: Props) {
   const updateOperationQuantity = (id: string, quantity: number) => {
     const ops = form.operations.map((op) => {
       if (op.id !== id) return op;
-      return { ...op, quantity, total_cost: Number((quantity * op.unit_cost).toFixed(2)) };
+      return { ...op, quantity, total_cost: Math.round(quantity * op.unit_cost) };
     });
     updateForm({ operations: ops });
     setTimeout(recalcPricing, 0);
@@ -103,7 +103,7 @@ export function OTStepOperations({ form, updateForm, recalcPricing }: Props) {
       unit: newOp.unit || 'unit',
       quantity: newOp.quantity || 1,
       unit_cost: newOp.unit_cost || 0,
-      total_cost: Number(((newOp.quantity || 1) * (newOp.unit_cost || 0)).toFixed(2)),
+      total_cost: Math.round((newOp.quantity || 1) * (newOp.unit_cost || 0)),
       sort_order: form.operations.length,
     };
     updateForm({ operations: [...form.operations, op] });
@@ -118,7 +118,7 @@ export function OTStepOperations({ form, updateForm, recalcPricing }: Props) {
       if (op.id !== editingOp.id) return op;
       return {
         ...editingOp,
-        total_cost: Number((editingOp.quantity * editingOp.unit_cost).toFixed(2)),
+        total_cost: Math.round(editingOp.quantity * editingOp.unit_cost),
       };
     });
     updateForm({ operations: ops });

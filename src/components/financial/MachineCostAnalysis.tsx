@@ -297,14 +297,14 @@ export const MachineCostAnalysis = () => {
                       <td className="py-2 px-4">{cost.machines?.name}</td>
                       <td className="py-2 px-4">{new Date(cost.month).toLocaleDateString('en-US', { year: 'numeric', month: 'short' })}</td>
                       <td className="py-2 px-4 text-right font-semibold text-destructive">
-                        ${(cost.total_operating_cost ?? 0).toFixed(2)}
+                        ${Math.round(cost.total_operating_cost ?? 0).toLocaleString('es-CL')}
                       </td>
                       <td className="py-2 px-4 text-right font-semibold text-accent">
-                        ${(cost.outsourcing_cost ?? 0).toFixed(2)}
+                        ${Math.round(cost.outsourcing_cost ?? 0).toLocaleString('es-CL')}
                       </td>
                       <td className={`py-2 px-4 text-right font-bold ${shouldOutsource ? 'text-green-500' : 'text-red-500'}`}>
                         {shouldOutsource ? <TrendingUp className="inline h-4 w-4 mr-1" /> : <TrendingDown className="inline h-4 w-4 mr-1" />}
-                        ${Math.abs(difference).toFixed(2)}
+                        ${Math.round(Math.abs(difference)).toLocaleString('es-CL')}
                       </td>
                       <td className="py-2 px-4 text-center">
                         {shouldOutsource ? (

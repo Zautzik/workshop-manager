@@ -18,7 +18,7 @@ export function generateQuotePDF(
     `$${val.toLocaleString('es-CL', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 
   const fmtUnit = (val: number) =>
-    `$${val.toLocaleString('es-CL', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
+    `$${Math.round(val).toLocaleString('es-CL')}`;
 
   const productTypeLabel = PRODUCT_TYPES.find((p) => p.value === form.product_type)?.label || form.product_type || '-';
   const substrateLabel = SUBSTRATE_TYPES.find((s) => s.value === form.substrate_type)?.label || form.substrate_type || '-';

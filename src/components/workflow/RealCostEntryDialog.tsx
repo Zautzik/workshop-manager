@@ -370,7 +370,7 @@ export function RealCostEntryDialog({
                       <span className="text-xs font-medium">${total.toLocaleString()}</span>
                       {estTotal > 0 && (
                         <span className={`text-[10px] ${devColor(dev)}`}>
-                          {dev > 0 ? '+' : ''}{dev.toFixed(1)}%
+                          {dev > 0 ? '+' : ''}{Math.round(dev)}%
                         </span>
                       )}
                     </div>
@@ -411,7 +411,7 @@ export function RealCostEntryDialog({
             </p>
             {estGrandTotal > 0 && (
               <p className={`text-xs font-medium ${devColor(overallDev)}`}>
-                Desviación: {overallDev > 0 ? '+' : ''}{overallDev.toFixed(1)}%
+                Desviación: {overallDev > 0 ? '+' : ''}{Math.round(overallDev)}%
               </p>
             )}
           </div>

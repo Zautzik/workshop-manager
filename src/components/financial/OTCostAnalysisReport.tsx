@@ -358,7 +358,7 @@ export function OTCostAnalysisReport() {
                       }`}
                     >
                       {analysis.summary.overall_deviation_pct !== null
-                        ? `${analysis.summary.overall_deviation_pct > 0 ? '+' : ''}${analysis.summary.overall_deviation_pct.toFixed(1)}%`
+                        ? `${analysis.summary.overall_deviation_pct > 0 ? '+' : ''}${Math.round(analysis.summary.overall_deviation_pct)}%`
                         : '—'}
                     </p>
                   </CardContent>
@@ -433,7 +433,7 @@ export function OTCostAnalysisReport() {
                           <span className={`flex items-center justify-end gap-1 text-sm ${devColor(item.deviation_pct)}`}>
                             {devIcon(item.deviation_pct)}
                             {item.deviation_pct !== null
-                              ? `${item.deviation_pct > 0 ? '+' : ''}${item.deviation_pct.toFixed(1)}%`
+                              ? `${item.deviation_pct > 0 ? '+' : ''}${Math.round(item.deviation_pct)}%`
                               : '—'}
                           </span>
                         </TableCell>
@@ -454,7 +454,7 @@ export function OTCostAnalysisReport() {
                       <TableCell className="text-right">
                         <span className={devColor(analysis.summary.overall_deviation_pct)}>
                           {analysis.summary.overall_deviation_pct !== null
-                            ? `${analysis.summary.overall_deviation_pct > 0 ? '+' : ''}${analysis.summary.overall_deviation_pct.toFixed(1)}%`
+                            ? `${analysis.summary.overall_deviation_pct > 0 ? '+' : ''}${Math.round(analysis.summary.overall_deviation_pct)}%`
                             : '—'}
                         </span>
                       </TableCell>

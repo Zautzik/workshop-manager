@@ -475,7 +475,7 @@ export function EditBudgetWizard({ ot, onClose, onSuccess }: Props) {
               <strong>Precio modificado:</strong>{' '}
               ${originalPrice.toLocaleString()} → ${form.pricing.total_price.toLocaleString()}{' '}
               <span className={priceDiff > 0 ? 'text-red-400' : 'text-green-400'}>
-                ({priceDiff > 0 ? '+' : ''}{priceDiffPct.toFixed(1)}%)
+                ({priceDiff > 0 ? '+' : ''}{Math.round(priceDiffPct)}%)
               </span>
             </span>
           </div>

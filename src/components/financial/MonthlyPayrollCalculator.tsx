@@ -90,34 +90,34 @@ export function MonthlyPayrollCalculator() {
                   <CardTitle className='text-sm text-muted-foreground'>Regular Hours</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className='text-2xl font-semibold'>{totals.regularHours.toFixed(2)}</p>
+                  <p className='text-2xl font-semibold'>{Math.round(totals.regularHours).toLocaleString('es-CL')}</p>
                 </CardContent>
               </Card>
 
               <Card>
                 <CardHeader className='pb-2'>
-                  <CardTitle className='text-sm text-muted-foreground'>Overtime Hours</CardTitle>
+                  <CardTitle className='text-sm text-muted-foreground'>Horas Extra</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className='text-2xl font-semibold'>{totals.overtimeHours.toFixed(2)}</p>
+                  <p className='text-2xl font-semibold'>{Math.round(totals.overtimeHours).toLocaleString('es-CL')}</p>
                 </CardContent>
               </Card>
 
               <Card>
                 <CardHeader className='pb-2'>
-                  <CardTitle className='text-sm text-muted-foreground'>Incentives</CardTitle>
+                  <CardTitle className='text-sm text-muted-foreground'>Incentivos</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className='text-2xl font-semibold'>{currency} {totals.incentives.toFixed(2)}</p>
+                  <p className='text-2xl font-semibold'>{currency} {Math.round(totals.incentives).toLocaleString('es-CL')}</p>
                 </CardContent>
               </Card>
 
               <Card>
                 <CardHeader className='pb-2'>
-                  <CardTitle className='text-sm text-muted-foreground'>Gross Payroll</CardTitle>
+                  <CardTitle className='text-sm text-muted-foreground'>Nómina Bruta</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className='text-2xl font-semibold'>{currency} {totals.grossPay.toFixed(2)}</p>
+                  <p className='text-2xl font-semibold'>{currency} {Math.round(totals.grossPay).toLocaleString('es-CL')}</p>
                 </CardContent>
               </Card>
             </div>
@@ -149,14 +149,14 @@ export function MonthlyPayrollCalculator() {
                 {(rows as any[]).map((row: any) => (
                   <tr key={row.employee_id} className='border-b hover:bg-muted/40'>
                     <td className='py-2 px-3'>{row.employee_name}</td>
-                    <td className='py-2 px-3 text-right'>{Number(row.regular_hours || 0).toFixed(2)}</td>
-                    <td className='py-2 px-3 text-right'>{Number(row.overtime_hours || 0).toFixed(2)}</td>
-                    <td className='py-2 px-3 text-right'>{currency} {Number(row.base_pay || 0).toFixed(2)}</td>
-                    <td className='py-2 px-3 text-right'>{currency} {Number(row.overtime_pay || 0).toFixed(2)}</td>
-                    <td className='py-2 px-3 text-right'>{currency} {Number(row.night_differential || 0).toFixed(2)}</td>
-                    <td className='py-2 px-3 text-right'>{currency} {Number(row.weekend_differential || 0).toFixed(2)}</td>
-                    <td className='py-2 px-3 text-right'>{currency} {Number(row.incentives || 0).toFixed(2)}</td>
-                    <td className='py-2 px-3 text-right font-semibold'>{currency} {Number(row.gross_pay || 0).toFixed(2)}</td>
+                    <td className='py-2 px-3 text-right'>{Math.round(Number(row.regular_hours || 0))}</td>
+                    <td className='py-2 px-3 text-right'>{Math.round(Number(row.overtime_hours || 0))}</td>
+                    <td className='py-2 px-3 text-right'>{currency} {Math.round(Number(row.base_pay || 0)).toLocaleString('es-CL')}</td>
+                    <td className='py-2 px-3 text-right'>{currency} {Math.round(Number(row.overtime_pay || 0)).toLocaleString('es-CL')}</td>
+                    <td className='py-2 px-3 text-right'>{currency} {Math.round(Number(row.night_differential || 0)).toLocaleString('es-CL')}</td>
+                    <td className='py-2 px-3 text-right'>{currency} {Math.round(Number(row.weekend_differential || 0)).toLocaleString('es-CL')}</td>
+                    <td className='py-2 px-3 text-right'>{currency} {Math.round(Number(row.incentives || 0)).toLocaleString('es-CL')}</td>
+                    <td className='py-2 px-3 text-right font-semibold'>{currency} {Math.round(Number(row.gross_pay || 0)).toLocaleString('es-CL')}</td>
                   </tr>
                 ))}
                 {(rows as any[]).length === 0 && !isLoading && (

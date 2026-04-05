@@ -159,7 +159,7 @@ export function generateDefaultOperations(
       unit: 'kg',
       quantity: calcs.calc_substrate_kg,
       unit_cost: DEFAULT_COSTS.substrate_per_kg,
-      total_cost: Number((calcs.calc_substrate_kg * DEFAULT_COSTS.substrate_per_kg).toFixed(2)),
+      total_cost: Math.round(calcs.calc_substrate_kg * DEFAULT_COSTS.substrate_per_kg),
       sort_order: order++,
     });
   }
@@ -173,7 +173,7 @@ export function generateDefaultOperations(
       unit: 'kg',
       quantity: calcs.calc_ink_kg,
       unit_cost: DEFAULT_COSTS.ink_per_kg,
-      total_cost: Number((calcs.calc_ink_kg * DEFAULT_COSTS.ink_per_kg).toFixed(2)),
+      total_cost: Math.round(calcs.calc_ink_kg * DEFAULT_COSTS.ink_per_kg),
       sort_order: order++,
     });
   }
@@ -187,7 +187,7 @@ export function generateDefaultOperations(
       unit: 'und',
       quantity: calcs.calc_plates,
       unit_cost: DEFAULT_COSTS.plate_per_unit,
-      total_cost: Number((calcs.calc_plates * DEFAULT_COSTS.plate_per_unit).toFixed(2)),
+      total_cost: Math.round(calcs.calc_plates * DEFAULT_COSTS.plate_per_unit),
       sort_order: order++,
     });
   }
@@ -201,7 +201,7 @@ export function generateDefaultOperations(
       unit: 'clicks',
       quantity: calcs.calc_sheets,
       unit_cost: DEFAULT_COSTS.digital_print_per_click,
-      total_cost: Number((calcs.calc_sheets * DEFAULT_COSTS.digital_print_per_click).toFixed(2)),
+      total_cost: Math.round(calcs.calc_sheets * DEFAULT_COSTS.digital_print_per_click),
       sort_order: order++,
     });
   }
@@ -232,8 +232,8 @@ export function generateDefaultOperations(
     unit: 'hours',
     quantity: Math.max(calcs.calc_finish_hours, 1),
     unit_cost: DEFAULT_COSTS.cut_per_hour,
-    total_cost: Number(
-      (Math.max(calcs.calc_finish_hours, 1) * DEFAULT_COSTS.cut_per_hour).toFixed(2)
+    total_cost: Math.round(
+      Math.max(calcs.calc_finish_hours, 1) * DEFAULT_COSTS.cut_per_hour
     ),
     sort_order: order++,
   });
@@ -248,7 +248,7 @@ export function generateDefaultOperations(
         unit: 'hours',
         quantity: hours,
         unit_cost: DEFAULT_COSTS[fm.costKey],
-        total_cost: Number((hours * DEFAULT_COSTS[fm.costKey]).toFixed(2)),
+        total_cost: Math.round(hours * DEFAULT_COSTS[fm.costKey]),
         sort_order: order++,
       });
     }
@@ -267,16 +267,16 @@ export function computeOTPricing(
   commissionPct: number = 1
 ): OTPricing {
   const subtotal = operations.reduce((sum, op) => sum + op.total_cost, 0);
-  const marginAmount = Number((subtotal * marginPct / 100).toFixed(2));
+  const marginAmount = Math.round(subtotal * marginPct / 100);
   const afterMargin = subtotal + marginAmount;
-  const incrementAmount = Number((afterMargin * incrementPct / 100).toFixed(2));
+  const incrementAmount = Math.round(afterMargin * incrementPct / 100);
   const afterIncrement = afterMargin + incrementAmount;
-  const commissionAmount = Number((afterIncrement * commissionPct / 100).toFixed(2));
-  const totalPrice = Number((afterIncrement + commissionAmount).toFixed(2));
-  const unitPrice = quantity > 0 ? Number((totalPrice / quantity).toFixed(4)) : 0;
+  const commissionAmount = Math.round(afterIncrement * commissionPct / 100);
+  const totalPrice = afterIncrement + commissionAmount;
+  const unitPrice = quantity > 0 ? Math.round(totalPrice / quantity) : 0;
 
   return {
-    subtotal: Number(subtotal.toFixed(2)),
+    subtotal: Math.round(subtotal),
     margin_pct: marginPct,
     margin_amount: marginAmount,
     increment_pct: incrementPct,
@@ -390,8 +390,8 @@ export function computeMultiQuantityQuotes(
     const incAmt = afterMargin * incrementPct / 100;
     const afterInc = afterMargin + incAmt;
     const commAmt = afterInc * commissionPct / 100;
-    const total = Number((afterInc + commAmt).toFixed(2));
-    const unit = qty > 0 ? Number((total / qty).toFixed(4)) : 0;
+    const total = Math.round(afterInc + commAmt);
+    const unit = qty > 0 ? Math.round(total / qty) : 0;
 
     return { quantity: qty, total_price: total, unit_price: unit };
   });

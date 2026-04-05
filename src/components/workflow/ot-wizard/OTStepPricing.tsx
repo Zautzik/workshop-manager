@@ -71,7 +71,7 @@ export function OTStepPricing({ form, updateForm }: Props) {
     `$${val.toLocaleString('es-CL', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 
   const fmtUnit = (val: number) =>
-    `$${val.toLocaleString('es-CL', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
+    `$${Math.round(val).toLocaleString('es-CL')}`;
 
   /* ─── Cost distribution for pie chart ───────────────────── */
   const costBuckets = useMemo(() => {

@@ -56,11 +56,11 @@ export function OrderLaborMarginAnalysis() {
     : 0;
 
   const formatCurrency = (value: number) =>
-    new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value);
+    `$${Math.round(value).toLocaleString('es-CL')}`;
 
-  const formatPercentage = (value: number) => `${value.toFixed(1)}%`;
+  const formatPercentage = (value: number) => `${Math.round(value)}%`;
 
-  const formatHours = (value: number) => `${value.toFixed(1)}h`;
+  const formatHours = (value: number) => `${Math.round(value)}h`;
 
   const getMarginStatus = (percentage: number) => {
     if (percentage >= 30) return { label: 'Excellent', color: 'bg-green-500', icon: CheckCircle };
