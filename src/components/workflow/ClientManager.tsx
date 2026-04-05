@@ -18,6 +18,7 @@ import {
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogFooter,
@@ -358,6 +359,9 @@ export function ClientManager() {
               <Building2 className="h-5 w-5 text-primary" />
               {editingId ? 'Editar Cliente' : 'Nuevo Cliente'}
             </DialogTitle>
+            <DialogDescription>
+              {editingId ? 'Modifica los datos del cliente.' : 'Completa los datos para registrar un nuevo cliente.'}
+            </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4">

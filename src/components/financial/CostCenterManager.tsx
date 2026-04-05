@@ -18,6 +18,7 @@ import {
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -236,6 +237,9 @@ export function CostCenterManager() {
           <DialogContent>
             <DialogHeader>
               <DialogTitle>{editingItem ? 'Editar' : 'Agregar'} Centro de Costo</DialogTitle>
+              <DialogDescription>
+                {editingItem ? 'Modifica los datos del centro de costo.' : 'Define un nuevo centro de costo para el taller.'}
+              </DialogDescription>
             </DialogHeader>
             <CostItemForm
               initial={editingItem}

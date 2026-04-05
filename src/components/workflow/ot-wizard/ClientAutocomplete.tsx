@@ -14,6 +14,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
@@ -192,6 +193,9 @@ export function ClientAutocomplete({ clientName, clientId, onSelect, onNameChang
               <Building2 className="h-5 w-5" />
               Nuevo Cliente
             </DialogTitle>
+            <DialogDescription>
+              Completa los datos para registrar un nuevo cliente.
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div>
