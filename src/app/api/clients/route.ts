@@ -3,16 +3,28 @@ import { z } from 'zod';
 import { requireAuth, isAuthError } from '@/lib/api-middleware';
 import { supabaseAdmin } from '@/integrations/supabase/server';
 
+// Helper: transform empty strings to null so optional fields don't fail validation
+const optStr = (max: number) =>
+	z.preprocess(
+		(v) => (typeof v === 'string' && v.trim() === '' ? null : v),
+		z.string().max(max).nullable().optional()
+	);
+const optEmail = () =>
+	z.preprocess(
+		(v) => (typeof v === 'string' && v.trim() === '' ? null : v),
+		z.string().email().max(255).nullable().optional()
+	);
+
 const CreateClientSchema = z.object({
 	name: z.string().min(1).max(255),
-	rut: z.string().max(50).optional().nullable(),
-	contact_name: z.string().max(255).optional().nullable(),
-	phone: z.string().max(50).optional().nullable(),
-	email: z.string().email().max(255).optional().nullable(),
-	address: z.string().max(500).optional().nullable(),
-	city: z.string().max(100).optional().nullable(),
-	payment_terms: z.string().max(100).optional().nullable(),
-	notes: z.string().max(2000).optional().nullable(),
+	rut: optStr(50),
+	contact_name: optStr(255),
+	phone: optStr(50),
+	email: optEmail(),
+	address: optStr(500),
+	city: optStr(100),
+	payment_terms: optStr(100),
+	notes: optStr(2000),
 });
 
 export async function GET(req: NextRequest) {
@@ -58,6 +70,7 @@ export async function POST(req: NextRequest) {
 		const parsed = CreateClientSchema.safeParse(body);
 
 		if (!parsed.success) {
+			console.error('Validation error:', JSON.stringify(parsed.error.flatten().fieldErrors));
 			return NextResponse.json(
 				{ error: 'Invalid input', details: parsed.error.flatten().fieldErrors },
 				{ status: 400 }
