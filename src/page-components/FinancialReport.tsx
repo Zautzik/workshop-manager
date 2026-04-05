@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, DollarSign, BarChart3, Wrench, Users, FileText } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { OTFinancialTracking } from '@/components/financial/OTFinancialTracking';
@@ -30,65 +30,87 @@ const FinancialReport = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background to-muted p-6">
+    <div className="min-h-screen bg-gradient-to-br from-background to-muted p-4 md:p-6">
       {/* Header */}
       <div className="mb-6 flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <img src="/gonsa-logo.jpg" alt="Gonsa Logo" className="h-12 w-12 rounded-lg object-cover" />
+        <div className="flex items-center gap-3">
+          <Button onClick={handleBack} variant="ghost" size="icon" className="shrink-0">
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
           <div>
-            <h1 className="text-3xl font-bold text-foreground">Financial Report</h1>
-            <p className="text-muted-foreground">Comprehensive financial analysis and cost tracking</p>
+            <h1 className="text-2xl font-bold text-foreground">Finanzas</h1>
+            <p className="text-sm text-muted-foreground">Análisis financiero y control de costos</p>
           </div>
         </div>
-        <Button onClick={handleBack} variant="outline">
-          <ArrowLeft className="mr-2 h-4 w-4" />
-          Back to Dashboard
-        </Button>
       </div>
 
-      {/* Tabs */}
-      <Tabs defaultValue="ot-financials" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-8">
-          <TabsTrigger value="ot-financials">OT Financials</TabsTrigger>
-          <TabsTrigger value="cost-analysis">Análisis de Costos</TabsTrigger>
-          <TabsTrigger value="cost-center">Centro de Costos</TabsTrigger>
-          <TabsTrigger value="machine-costs">Machine Cost Analysis</TabsTrigger>
-          <TabsTrigger value="investments">Equipment Investments</TabsTrigger>
-          <TabsTrigger value="payroll">Monthly Payroll</TabsTrigger>
-          <TabsTrigger value="cost-timeline">Employee Cost Timeline</TabsTrigger>
-          <TabsTrigger value="labor-margin">Order Labor Margin</TabsTrigger>
+      {/* Tabs — grouped into logical sections */}
+      <Tabs defaultValue="analisis-costos" className="space-y-6">
+        <TabsList className="flex flex-wrap h-auto gap-1 bg-card/80 border border-border p-1 rounded-lg">
+          {/* OT-related */}
+          <TabsTrigger value="analisis-costos" className="text-xs gap-1.5">
+            <BarChart3 className="h-3.5 w-3.5" />
+            Análisis de Costos
+          </TabsTrigger>
+          <TabsTrigger value="seguimiento-ot" className="text-xs gap-1.5">
+            <FileText className="h-3.5 w-3.5" />
+            Seguimiento OT
+          </TabsTrigger>
+          <TabsTrigger value="centro-costos" className="text-xs gap-1.5">
+            <DollarSign className="h-3.5 w-3.5" />
+            Centro de Costos
+          </TabsTrigger>
+          <TabsTrigger value="margen-laboral" className="text-xs gap-1.5">
+            Margen por OT
+          </TabsTrigger>
+          {/* Equipment */}
+          <TabsTrigger value="costos-maquina" className="text-xs gap-1.5">
+            <Wrench className="h-3.5 w-3.5" />
+            Costos Máquina
+          </TabsTrigger>
+          <TabsTrigger value="inversiones" className="text-xs gap-1.5">
+            Inversiones
+          </TabsTrigger>
+          {/* Payroll */}
+          <TabsTrigger value="nomina" className="text-xs gap-1.5">
+            <Users className="h-3.5 w-3.5" />
+            Nómina Mensual
+          </TabsTrigger>
+          <TabsTrigger value="costo-empleado" className="text-xs gap-1.5">
+            Costo Empleado
+          </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="ot-financials">
-          <OTFinancialTracking />
-        </TabsContent>
-
-        <TabsContent value="cost-analysis">
+        <TabsContent value="analisis-costos">
           <OTCostAnalysisReport />
         </TabsContent>
 
-        <TabsContent value="cost-center">
+        <TabsContent value="seguimiento-ot">
+          <OTFinancialTracking />
+        </TabsContent>
+
+        <TabsContent value="centro-costos">
           <CostCenterManager />
         </TabsContent>
 
-        <TabsContent value="machine-costs">
+        <TabsContent value="margen-laboral">
+          <OrderLaborMarginAnalysis />
+        </TabsContent>
+
+        <TabsContent value="costos-maquina">
           <MachineCostAnalysis />
         </TabsContent>
 
-        <TabsContent value="investments">
+        <TabsContent value="inversiones">
           <EquipmentInvestmentAnalysis />
         </TabsContent>
 
-        <TabsContent value="payroll">
+        <TabsContent value="nomina">
           <MonthlyPayrollCalculator />
         </TabsContent>
 
-        <TabsContent value="cost-timeline">
+        <TabsContent value="costo-empleado">
           <EmployeeCostTimeline />
-        </TabsContent>
-
-        <TabsContent value="labor-margin">
-          <OrderLaborMarginAnalysis />
         </TabsContent>
       </Tabs>
     </div>

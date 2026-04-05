@@ -14,8 +14,9 @@ import { WorkerStatsPanel } from "@/components/workflow/WorkerStatsPanel";
 import { ShiftManagement } from "@/components/workflow/ShiftManagement";
 import { OTManagement } from "@/components/workflow/OTManagement";
 import OTRetrievalSystem from "@/components/workflow/OTRetrievalSystem";
+import { ClientManager } from "@/components/workflow/ClientManager";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
-import { Users, Factory, Clock, BarChart3, ClipboardList, ArrowLeft, ChevronLeft, ChevronRight, CalendarDays, WandSparkles, Replace, Shuffle, UploadCloud, ShieldAlert, CheckCircle2, Copy, RotateCcw, Printer } from "lucide-react";
+import { Users, Factory, Clock, ClipboardList, ArrowLeft, ChevronLeft, ChevronRight, CalendarDays, WandSparkles, Replace, Shuffle, UploadCloud, ShieldAlert, CheckCircle2, Copy, RotateCcw, Printer } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCompensationRatesForDate, useSchedulingCostModel, useWorkerAssignments, useWorkerMonthlyOvertime, useWorkflowCertificationAlerts, useWorkflowContracts, useWorkflowIncentiveStatuses, useWorkflowLeaveStatuses, useWorkflowWeeklyHours, useWorkersByRating, useWorkstations, useShifts } from "@/hooks/use-queries";
@@ -1073,36 +1074,23 @@ export default function WorkflowDashboard() {
       <div className="min-h-screen bg-gradient-to-br from-background via-primary/10 to-background p-6">
         {/* Header */}
         <div className="mb-6 flex items-center justify-between">
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
             <Button
               onClick={handleBackToDashboard}
-              variant="outline"
-              size="sm"
-              className="border-border bg-card/50 hover:bg-card"
+              variant="ghost"
+              size="icon"
+              className="shrink-0"
             >
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Back to Dashboard
+              <ArrowLeft className="w-5 h-5" />
             </Button>
             <div>
-              <h1 className="text-3xl font-bold text-foreground mb-2">{t('workflow.title')}</h1>
-              <p className="text-muted-foreground">Dynamic Workflow & Performance Tracking</p>
+              <h1 className="text-2xl font-bold text-foreground">{t('workflow.title')}</h1>
+              <p className="text-sm text-muted-foreground">
+                {workers.length} operarios · {workstations.length} estaciones
+              </p>
             </div>
           </div>
-          <div className="flex gap-2 items-center">
-            <LanguageSwitcher />
-            <Card className="bg-card/80 border-border backdrop-blur-sm p-4">
-              <div className="flex items-center gap-2 text-foreground">
-                <Users className="w-5 h-5" />
-                <span className="text-sm">{workers.length} Workers</span>
-              </div>
-            </Card>
-            <Card className="bg-card/80 border-border backdrop-blur-sm p-4">
-              <div className="flex items-center gap-2 text-foreground">
-                <Factory className="w-5 h-5" />
-                <span className="text-sm">{workstations.length} Stations</span>
-              </div>
-            </Card>
-          </div>
+          <LanguageSwitcher />
         </div>
 
         {/* Selected OT Banner */}
@@ -1112,8 +1100,8 @@ export default function WorkflowDashboard() {
           >
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="text-lg font-bold text-foreground">Active OT: {selectedOT.ot_number}</h3>
-                <p className="text-sm text-muted-foreground">{selectedOT.client_name} - {selectedOT.quantity} units</p>
+                <h3 className="text-lg font-bold text-foreground">OT Activa: {selectedOT.ot_number}</h3>
+                <p className="text-sm text-muted-foreground">{selectedOT.client_name} — {selectedOT.quantity} unidades</p>
               </div>
               <Button 
                 variant="outline" 
@@ -1121,7 +1109,7 @@ export default function WorkflowDashboard() {
                 onClick={() => setSelectedOT(null)}
                 className="border-border bg-card/50 hover:bg-card"
               >
-                Clear Selection
+                Limpiar
               </Button>
             </div>
           </Card>
@@ -1130,30 +1118,34 @@ export default function WorkflowDashboard() {
         {/* Main Content */}
         <Tabs defaultValue="ots" className="w-full">
           <TabsList className="bg-card/80 border-border backdrop-blur-sm">
-            <TabsTrigger value="ots" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-              <ClipboardList className="w-4 h-4 mr-2" />
-              {t('workflow.workOrders')}
+            <TabsTrigger value="ots" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground gap-1.5">
+              <ClipboardList className="w-4 h-4" />
+              Órdenes
             </TabsTrigger>
-            <TabsTrigger value="layout" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-              <Factory className="w-4 h-4 mr-2" />
-              {t('workflow.layout')}
+            <TabsTrigger value="clients" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground gap-1.5">
+              <Users className="w-4 h-4" />
+              Clientes
             </TabsTrigger>
-            <TabsTrigger value="shifts" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-              <Clock className="w-4 h-4 mr-2" />
-              {t('workflow.shifts')}
+            <TabsTrigger value="layout" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground gap-1.5">
+              <Factory className="w-4 h-4" />
+              Planta
             </TabsTrigger>
-            <TabsTrigger value="stats" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-              <BarChart3 className="w-4 h-4 mr-2" />
-              {t('workflow.statistics')}
+            <TabsTrigger value="shifts" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground gap-1.5">
+              <Clock className="w-4 h-4" />
+              Turnos
             </TabsTrigger>
-            <TabsTrigger value="production" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-              <Printer className="w-4 h-4 mr-2" />
-              OT Producción
+            <TabsTrigger value="production" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground gap-1.5">
+              <Printer className="w-4 h-4" />
+              Archivo OT
             </TabsTrigger>
           </TabsList>
 
           <TabsContent value="ots" className="mt-4">
             <OTManagement onOTSelect={setSelectedOT} />
+          </TabsContent>
+
+          <TabsContent value="clients" className="mt-4">
+            <ClientManager />
           </TabsContent>
 
           <TabsContent value="layout" className="mt-4">
@@ -1163,10 +1155,10 @@ export default function WorkflowDashboard() {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Clock className="w-5 h-5 text-foreground" />
-                  <h3 className="text-lg font-bold text-foreground">Select Shift</h3>
+                  <h3 className="text-lg font-bold text-foreground">Seleccionar Turno</h3>
                 </div>
                 {shifts.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">No shifts configured yet.</p>
+                  <p className="text-sm text-muted-foreground">No hay turnos configurados.</p>
                 ) : (
                   <div className="flex gap-2 flex-wrap justify-end">
                     {shifts.map((shift) => (
@@ -1191,7 +1183,7 @@ export default function WorkflowDashboard() {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <CalendarDays className="w-5 h-5 text-foreground" />
-                    <h3 className="text-lg font-bold text-foreground">Weekly Schedule</h3>
+                    <h3 className="text-lg font-bold text-foreground">Agenda Semanal</h3>
                   </div>
                   <div className="flex items-center gap-2">
                     <Button
@@ -1571,13 +1563,6 @@ export default function WorkflowDashboard() {
 
           <TabsContent value="shifts" className="mt-4">
             <ShiftManagement onShiftChange={() => refetchAssignments()} />
-          </TabsContent>
-
-          <TabsContent value="stats" className="mt-4">
-            <Card className="bg-card/80 border-border backdrop-blur-sm p-6">
-              <h3 className="text-xl font-bold text-foreground mb-4">Performance Overview</h3>
-              <p className="text-muted-foreground">Detailed statistics coming soon...</p>
-            </Card>
           </TabsContent>
 
           <TabsContent value="production" className="mt-4">

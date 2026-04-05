@@ -13,7 +13,6 @@ import { UnifiedOTWizard } from "./UnifiedOTWizard";
 import { EditBudgetWizard } from "./EditBudgetWizard";
 import { EditOTDialog } from "./EditOTDialog";
 import { RealCostEntryDialog } from "./RealCostEntryDialog";
-import { useTranslation } from "react-i18next";
 
 interface OTManagementProps {
   onOTSelect: (ot: any) => void;
@@ -46,7 +45,6 @@ export function OTManagement({ onOTSelect }: OTManagementProps) {
   const [costEntryOT, setCostEntryOT] = useState<any>(null);
   const [costEntryTarget, setCostEntryTarget] = useState<{ key: string; label: string } | null>(null);
   const { toast } = useToast();
-  const { t, i18n } = useTranslation();
 
   const updateOTStatus = async (otId: string, newStatus: string) => {
     const response = await fetch(`/api/ots/${otId}`, {
@@ -58,14 +56,14 @@ export function OTManagement({ onOTSelect }: OTManagementProps) {
     if (!response.ok) {
       const errorBody = await response.json().catch(() => null);
       toast({
-        title: "Error updating OT status",
+        title: "Error al actualizar estado",
         description: errorBody?.error || 'Request failed',
         variant: "destructive",
       });
       return;
     }
     
-    toast({ title: "OT advanced to next station" });
+    toast({ title: "OT avanzada a la siguiente estación" });
     refetchOTs();
   };
 
@@ -131,7 +129,6 @@ export function OTManagement({ onOTSelect }: OTManagementProps) {
   };
 
   const activeOTsCount = filteredOTs.filter(ot => ot.status !== 'completed').length;
-  const isSpanish = i18n.language === 'es';
 
   const getPriorityColor = (priority: number) => {
     if (priority >= 8) return 'bg-red-500/20 text-red-400 border-red-500/40';
@@ -142,35 +139,32 @@ export function OTManagement({ onOTSelect }: OTManagementProps) {
   return (
     <div className="space-y-4">
       {/* Instructions */}
-      <Alert className="bg-card/80 border-2 border-border backdrop-blur-sm">
+      <Alert className="bg-card/60 border border-border">
         <Info className="h-4 w-4 text-primary" />
-        <AlertDescription className="text-foreground">
-          <strong className="text-primary">{isSpanish ? 'Flujo de trabajo:' : 'Workflow:'}</strong>{' '}
-          {isSpanish 
-            ? 'Las OTs avanzan de izquierda a derecha. Ordenadas por prioridad en cada estación. Haga clic en "Avanzar" para mover al siguiente paso.'
-            : 'OTs advance left to right. Sorted by priority in each station. Click "Advance" to move to next step.'}
+        <AlertDescription className="text-sm text-muted-foreground">
+          Las OTs avanzan de izquierda a derecha por estación. Use <strong className="text-foreground">Avanzar</strong> para mover al siguiente paso.
         </AlertDescription>
       </Alert>
 
       {/* Header */}
-      <div className="flex items-center justify-between flex-wrap gap-4">
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h2 className="text-2xl font-bold text-foreground">{t('ot.title')}</h2>
-          <p className="text-muted-foreground">{activeOTsCount} {isSpanish ? 'órdenes activas' : 'active orders'}</p>
+          <h2 className="text-xl font-bold text-foreground">Órdenes de Trabajo</h2>
+          <p className="text-sm text-muted-foreground">{activeOTsCount} activas</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           <Input
-            placeholder={t('ot.searchPlaceholder')}
+            placeholder="Buscar OT o cliente..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="bg-input border-border placeholder:text-muted-foreground w-64"
+            className="bg-input border-border placeholder:text-muted-foreground w-56"
           />
           <Button
             onClick={() => setCreateFlow('wizard')}
             className="bg-primary hover:bg-primary/90"
           >
-            <Plus className="w-4 h-4 mr-2" />
-            {t('ot.new')}
+            <Plus className="w-4 h-4 mr-1" />
+            Nueva OT
           </Button>
         </div>
       </div>
@@ -191,7 +185,7 @@ export function OTManagement({ onOTSelect }: OTManagementProps) {
                 <div className={`${status.color} rounded-t-lg p-3`}>
                   <div className="flex items-center justify-between">
                     <h3 className="font-bold text-white text-sm">
-                      {isSpanish ? status.labelEs : status.label}
+                      {status.labelEs}
                     </h3>
                     <Badge variant="secondary" className="bg-white/20 text-white border-0">
                       {statusOTs.length}
@@ -203,8 +197,8 @@ export function OTManagement({ onOTSelect }: OTManagementProps) {
                 {/* Column Content */}
                 <div className="bg-muted/30 border border-t-0 border-border rounded-b-lg min-h-[400px] p-2 space-y-2">
                   {statusOTs.length === 0 ? (
-                    <div className="flex items-center justify-center h-32 text-muted-foreground text-sm">
-                      {isSpanish ? 'Sin órdenes' : 'No orders'}
+                    <div className="flex items-center justify-center h-32 text-muted-foreground text-xs">
+                      Sin órdenes
                     </div>
                   ) : (
                     statusOTs.map((ot) => {
@@ -253,7 +247,7 @@ export function OTManagement({ onOTSelect }: OTManagementProps) {
                           
                           {/* Priority Badge */}
                           <Badge className={`${getPriorityColor(ot.priority)} text-xs mb-2`}>
-                            {isSpanish ? 'Prioridad' : 'Priority'} {ot.priority}
+                            P{ot.priority}
                           </Badge>
 
                           {/* Edit Budget button (only pre_press & visto_bueno) */}
@@ -268,7 +262,7 @@ export function OTManagement({ onOTSelect }: OTManagementProps) {
                               }}
                             >
                               <DollarSign className="w-3 h-3 mr-1" />
-                              {isSpanish ? 'Modificar Presupuesto' : 'Edit Budget'}
+                              Modificar Presupuesto
                             </Button>
                           )}
 
@@ -280,11 +274,11 @@ export function OTManagement({ onOTSelect }: OTManagementProps) {
                               className="w-full h-7 text-xs border-primary/40 text-primary hover:bg-primary hover:text-primary-foreground"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                requestAdvance(ot, nextStatuses[0].key, isSpanish ? nextStatuses[0].labelEs : nextStatuses[0].label);
+                                requestAdvance(ot, nextStatuses[0].key, nextStatuses[0].labelEs);
                               }}
                             >
                               <ArrowRight className="w-3 h-3 mr-1" />
-                              {isSpanish ? nextStatuses[0].labelEs : nextStatuses[0].label}
+                              {nextStatuses[0].labelEs}
                             </Button>
                           )}
                           {nextStatuses.length > 1 && (
@@ -301,11 +295,11 @@ export function OTManagement({ onOTSelect }: OTManagementProps) {
                                   }`}
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    requestAdvance(ot, ns.key, isSpanish ? ns.labelEs : ns.label);
+                                    requestAdvance(ot, ns.key, ns.labelEs);
                                   }}
                                 >
                                   <ArrowRight className="w-3 h-3 mr-1" />
-                                  {isSpanish ? ns.labelEs : ns.label}
+                                  {ns.labelEs}
                                 </Button>
                               ))}
                             </div>

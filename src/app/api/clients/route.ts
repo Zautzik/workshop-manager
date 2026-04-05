@@ -50,7 +50,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-	const auth = await requireAuth(['supervisor', 'admin']);
+	const auth = await requireAuth(['supervisor', 'admin', 'manager']);
 	if (isAuthError(auth)) return auth;
 
 	try {
