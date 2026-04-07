@@ -48,12 +48,8 @@ const Login = () => {
 
   useEffect(() => {
     if (didLogin && user) {
-      // Redirect based on role, default to /manager if no role assigned
-      if (role === 'admin') router.push('/admin');
-      else if (role === 'hr_manager') router.push('/hr');
-      else if (role === 'supervisor') router.push('/supervisor');
-      else if (role === 'technician') router.push('/maintenance');
-      else router.push('/manager');
+      // All roles go to the unified home dashboard
+      router.push('/admin');
     }
   }, [didLogin, user, role, router]);
 
@@ -93,11 +89,7 @@ const Login = () => {
           <div className="flex flex-col gap-2">
             <Button
               onClick={() => {
-                if (role === 'admin') router.push('/admin');
-                else if (role === 'hr_manager') router.push('/hr');
-                else if (role === 'supervisor') router.push('/supervisor');
-                else if (role === 'technician') router.push('/maintenance');
-                else router.push('/manager');
+                router.push('/admin');
               }}
             >
               Continue to Dashboard

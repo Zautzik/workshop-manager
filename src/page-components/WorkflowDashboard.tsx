@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect, useMemo } from "react";
-import { useRouter } from 'next/navigation';
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -15,8 +14,7 @@ import { ShiftManagement } from "@/components/workflow/ShiftManagement";
 import { OTManagement } from "@/components/workflow/OTManagement";
 import OTRetrievalSystem from "@/components/workflow/OTRetrievalSystem";
 import { ClientManager } from "@/components/workflow/ClientManager";
-import { LanguageSwitcher } from "@/components/LanguageSwitcher";
-import { Users, Factory, Clock, ClipboardList, ArrowLeft, ChevronLeft, ChevronRight, CalendarDays, WandSparkles, Replace, Shuffle, UploadCloud, ShieldAlert, CheckCircle2, Copy, RotateCcw, Printer } from "lucide-react";
+import { Users, Factory, Clock, ClipboardList, ChevronLeft, ChevronRight, CalendarDays, WandSparkles, Replace, Shuffle, UploadCloud, ShieldAlert, CheckCircle2, Copy, RotateCcw, Printer } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCompensationRatesForDate, useSchedulingCostModel, useWorkerAssignments, useWorkerMonthlyOvertime, useWorkflowCertificationAlerts, useWorkflowContracts, useWorkflowIncentiveStatuses, useWorkflowLeaveStatuses, useWorkflowWeeklyHours, useWorkersByRating, useWorkstations, useShifts } from "@/hooks/use-queries";
@@ -82,7 +80,6 @@ export default function WorkflowDashboard() {
   } | null>(null);
   const { toast } = useToast();
   const { role } = useAuth();
-  const router = useRouter();
   const { t } = useTranslation();
 
   const canManageCostModel = role === 'admin';
@@ -122,15 +119,6 @@ export default function WorkflowDashboard() {
       prefer_lower_cost: Boolean(costModel.prefer_lower_cost ?? true),
     });
   }, [costModel]);
-
-  const handleBackToDashboard = () => {
-    const dashboardRoutes: Record<string, string> = {
-      supervisor: '/supervisor',
-      manager: '/manager',
-      admin: '/admin'
-    };
-    router.push(dashboardRoutes[role || 'supervisor']);
-  };
 
   useEffect(() => {
     if (!selectedShiftId && shifts.length > 0) {
@@ -1071,26 +1059,15 @@ export default function WorkflowDashboard() {
 
   return (
     <DndContext onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-      <div className="min-h-screen bg-gradient-to-br from-background via-primary/10 to-background p-6">
+      <div className="p-6 space-y-6">
         {/* Header */}
-        <div className="mb-6 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Button
-              onClick={handleBackToDashboard}
-              variant="ghost"
-              size="icon"
-              className="shrink-0"
-            >
-              <ArrowLeft className="w-5 h-5" />
-            </Button>
-            <div>
-              <h1 className="text-2xl font-bold text-foreground">{t('workflow.title')}</h1>
-              <p className="text-sm text-muted-foreground">
-                {workers.length} operarios · {workstations.length} estaciones
-              </p>
-            </div>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-foreground">{t('workflow.title')}</h1>
+            <p className="text-sm text-muted-foreground">
+              {workers.length} operarios · {workstations.length} estaciones
+            </p>
           </div>
-          <LanguageSwitcher />
         </div>
 
         {/* Selected OT Banner */}

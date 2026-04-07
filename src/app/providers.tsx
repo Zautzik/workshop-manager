@@ -28,6 +28,7 @@ import { SessionProvider } from 'next-auth/react';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { LanguageProvider } from '@/contexts/LanguageContext';
 import { ThemeProvider } from '@/contexts/ThemeContext';
+import AppShell from '@/components/AppShell';
 import { ReactNode, useState } from 'react';
 
 /**
@@ -46,7 +47,7 @@ export function Providers({ children }: { children: ReactNode }) {
 							<TooltipProvider>
 								<Toaster />
 								<Sonner />
-								{children}
+								<AppShell>{children}</AppShell>
 							</TooltipProvider>
 						</AuthProvider>
 					</LanguageProvider>

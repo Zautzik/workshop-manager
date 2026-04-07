@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
@@ -10,7 +10,6 @@ import {
   CalendarDays,
   Gift,
   ShieldCheck,
-  LogOut,
   Plus,
   Pencil,
   Trash2,
@@ -51,7 +50,7 @@ import WorkerSkillsProficiency from '@/components/hr/WorkerSkillsProficiency';
 import CraftSkillTree from '@/components/hr/CraftSkillTree';
 
 const HrManagerDashboard = () => {
-  const { user, signOut, role } = useAuth();
+  const { role } = useAuth();
   const { t } = useLanguage();
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -66,17 +65,17 @@ const HrManagerDashboard = () => {
 
   if (!canViewHR) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-background to-muted p-6">
+      <div className="p-6 md:p-8">
         <Card className="max-w-2xl mx-auto">
           <CardHeader>
-            <CardTitle>HR Access Restricted</CardTitle>
+            <CardTitle>Acceso Restringido</CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-sm text-muted-foreground mb-4">
-              This section is available to Admin, HR Manager, or restricted Supervisor view only.
+              Esta sección está disponible solo para Admin, HR Manager o Supervisor.
             </p>
-            <Button variant="outline" onClick={() => router.push('/')}>
-              Back
+            <Button variant="outline" onClick={() => router.push('/admin')}>
+              Volver
             </Button>
           </CardContent>
         </Card>
@@ -1015,70 +1014,12 @@ const HrManagerDashboard = () => {
     });
   };
 
-  useEffect(() => {
-    if (!user) {
-      router.push('/login');
-    }
-  }, [user, router]);
-
-  const handleLogout = async () => {
-    await signOut();
-    router.push('/');
-  };
-
-  const handleBackToDashboard = () => {
-    const dashboardRoutes: Record<string, string> = {
-      supervisor: '/supervisor',
-      manager: '/manager',
-      admin: '/admin',
-      maintenance: '/maintenance',
-      financial: '/financial',
-    };
-    router.push(dashboardRoutes[role || 'manager'] || '/');
-  };
-
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-primary/5 to-background">
-      <header className="border-b border-primary/20 shadow-lg sticky top-0 z-50 backdrop-blur-sm bg-card/95">
-        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <img src="/gonsa-logo.jpg" alt="Gonsa" className="h-12" />
-            <div>
-              <h1 className="text-2xl font-bold text-primary">HR Manager</h1>
-              <p className="text-xs text-muted-foreground">People Ops and Compliance</p>
-            </div>
-          </div>
-          <div className="flex gap-2">
-            <Button
-              onClick={handleBackToDashboard}
-              variant="outline"
-              className="border-primary/30 text-primary hover:bg-primary/10"
-            >
-              {t('common.backToDashboard')}
-            </Button>
-            <Button
-              onClick={handleLogout}
-              variant="outline"
-              className="border-primary/30 text-primary hover:bg-primary/10"
-            >
-              <LogOut className="mr-2 h-4 w-4" />
-              {t('logout')}
-            </Button>
-          </div>
-        </div>
-      </header>
-
-      <main className="container mx-auto px-4 py-8 space-y-8">
-        <Card className="border-primary/20">
-          <CardHeader>
-            <CardTitle className="text-primary">HR Management</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground">
-              Manage employee records, compensation plans, skills, leave, incentives, and compliance.
-            </p>
-          </CardContent>
-        </Card>
+    <div className="p-6 md:p-8 space-y-8">
+      <div>
+        <h1 className="text-2xl font-bold text-foreground">Recursos Humanos</h1>
+        <p className="text-sm text-muted-foreground mt-1">Gestión de empleados y cumplimiento</p>
+      </div>
 
         <Tabs defaultValue="profiles" className="w-full">
           <TabsList className="grid w-full grid-cols-2 md:grid-cols-3 lg:grid-cols-6">
@@ -2345,7 +2286,6 @@ const HrManagerDashboard = () => {
             </DialogFooter>
           </DialogContent>
         </Dialog>
-      </main>
     </div>
   );
 };

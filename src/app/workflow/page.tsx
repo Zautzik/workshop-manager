@@ -17,8 +17,13 @@
  */
 'use client';
 
+import ProtectedRoute from '@/components/ProtectedRoute';
 import WorkflowDashboard from "@/page-components/WorkflowDashboard";
 
 export default function WorkflowPage() {
-  return <WorkflowDashboard />;
+  return (
+    <ProtectedRoute allowedRoles={['admin', 'supervisor', 'manager']}>
+      <WorkflowDashboard />
+    </ProtectedRoute>
+  );
 }

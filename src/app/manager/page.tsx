@@ -16,8 +16,13 @@
  */
 'use client';
 
+import ProtectedRoute from '@/components/ProtectedRoute';
 import ManagerDashboard from "@/page-components/ManagerDashboard";
 
 export default function ManagerPage() {
-  return <ManagerDashboard />;
+  return (
+    <ProtectedRoute allowedRoles={['admin', 'manager']}>
+      <ManagerDashboard />
+    </ProtectedRoute>
+  );
 }

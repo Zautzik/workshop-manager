@@ -17,8 +17,13 @@
  */
 'use client';
 
+import ProtectedRoute from '@/components/ProtectedRoute';
 import MaintenanceDashboard from "@/page-components/MaintenanceDashboard";
 
 export default function MaintenancePage() {
-  return <MaintenanceDashboard />;
+  return (
+    <ProtectedRoute allowedRoles={['admin', 'technician', 'supervisor']}>
+      <MaintenanceDashboard />
+    </ProtectedRoute>
+  );
 }

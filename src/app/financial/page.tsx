@@ -17,8 +17,13 @@
  */
 'use client';
 
+import ProtectedRoute from '@/components/ProtectedRoute';
 import FinancialReport from "@/page-components/FinancialReport";
 
 export default function FinancialPage() {
-  return <FinancialReport />;
+  return (
+    <ProtectedRoute allowedRoles={['admin', 'manager']}>
+      <FinancialReport />
+    </ProtectedRoute>
+  );
 }

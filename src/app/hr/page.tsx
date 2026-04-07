@@ -6,8 +6,13 @@
  */
 'use client';
 
+import ProtectedRoute from '@/components/ProtectedRoute';
 import HrManagerDashboard from '@/page-components/HrManagerDashboard';
 
 export default function HrPage() {
-  return <HrManagerDashboard />;
+  return (
+    <ProtectedRoute allowedRoles={['admin', 'hr_manager', 'supervisor']}>
+      <HrManagerDashboard />
+    </ProtectedRoute>
+  );
 }

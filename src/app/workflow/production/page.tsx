@@ -1,18 +1,18 @@
-/**
- * @fileoverview Production OT Retrieval Page
- * 
- * Dedicated full-page route for searching, viewing, and printing
- * production-level work orders.
- */
 'use client';
 
 import ProtectedRoute from '@/components/ProtectedRoute';
 import OTRetrievalSystem from '@/components/workflow/OTRetrievalSystem';
 
-export default function ProductionOTRetrievalPage() {
+export default function ProductionPage() {
   return (
     <ProtectedRoute allowedRoles={['admin', 'supervisor', 'manager']}>
       <div className="p-6 space-y-6">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">Producción</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Órdenes de trabajo y seguimiento de producción
+          </p>
+        </div>
         <OTRetrievalSystem />
       </div>
     </ProtectedRoute>

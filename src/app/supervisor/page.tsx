@@ -16,8 +16,13 @@
  */
 'use client';
 
+import ProtectedRoute from '@/components/ProtectedRoute';
 import SupervisorDashboard from "@/page-components/SupervisorDashboard";
 
 export default function SupervisorPage() {
-  return <SupervisorDashboard />;
+  return (
+    <ProtectedRoute allowedRoles={['admin', 'supervisor']}>
+      <SupervisorDashboard />
+    </ProtectedRoute>
+  );
 }
