@@ -44,7 +44,9 @@ import {
   EMPTY_PRODUCTION_FORM,
   MACHINE_TYPES,
   PAYMENT_CATEGORIES,
+  DIE_SHAPE_PATHS,
 } from '@/types/ot-production';
+import type { OTDieShapePreset } from '@/types/ot-production';
 import { SUBSTRATE_TYPES, PRIORITY_LEVELS } from '@/types/ot';
 import { generateProductionOTPDF } from '@/lib/ot-production-pdf';
 import type { WorkCategoryKey } from '@/types/work-category';
@@ -690,6 +692,106 @@ export default function ProductionOTFormComponent({
                       placeholder="3370"
                     />
                   </div>
+                </div>
+
+                {/* ── Die-cut shape selector ── */}
+                <Separator />
+                <div>
+                  <Label className="text-xs font-semibold flex items-center gap-1">
+                    <Scissors className="h-3 w-3" /> Forma de Troquel / Corte
+                  </Label>
+                  <p className="text-[10px] text-muted-foreground mb-2">
+                    Seleccione la forma del corte para el diagrama de montaje. Los operarios de guillotina y troquel verán esta silueta.
+                  </p>
+                  <div className="grid grid-cols-5 sm:grid-cols-6 md:grid-cols-11 gap-1.5">
+                    {(Object.keys(DIE_SHAPE_PATHS) as OTDieShapePreset[]).map((shape) => {
+                      const isActive = (item.die_shape || 'rectangle') === shape;
+                      const path = DIE_SHAPE_PATHS[shape];
+                      return (
+                        <button
+                          key={shape}
+                          type="button"
+                          onClick={() => updateItem(idx, 'die_shape', shape)}
+                          className={cn(
+                            'relative border rounded-md p-1.5 transition-all cursor-pointer',
+                            'hover:border-primary hover:bg-primary/5',
+                            isActive ? 'border-primary ring-2 ring-primary/30 bg-primary/10' : 'border-muted',
+                          )}
+                          title={shape.charAt(0).toUpperCase() + shape.slice(1).replace(/_/g, ' ')}
+                        >
+                          <svg viewBox="-5 -5 110 110" className="w-full h-8">
+                            <path d={path} fill={isActive ? 'rgba(59,130,246,0.15)' : '#f5f5f5'} stroke={isActive ? '#2563eb' : '#888'} strokeWidth="2" />
+                          </svg>
+                          <div className="text-[7px] text-center leading-tight mt-0.5 truncate">
+                            {shape === 'rectangle' ? 'Rect.' :
+                             shape === 'rounded' ? 'Redond.' :
+                             shape === 'circle' ? 'Círculo' :
+                             shape === 'oval' ? 'Óvalo' :
+                             shape === 'wavy' ? 'Ondulado' :
+                             shape === 'arch_top' ? 'Arco' :
+                             shape === 'label' ? 'Etiqueta' :
+                             shape === 'heart' ? 'Corazón' :
+                             shape === 'star' ? 'Estrella' :
+                             shape === 'scalloped' ? 'Festón' :
+                             shape}
+                          </div>
+                        </button>
+                      );
+                    })}
+                    {/* Custom SVG path option */}
+                    <button
+                      type="button"
+                      onClick={() => updateItem(idx, 'die_shape', 'custom')}
+                      className={cn(
+                        'relative border rounded-md p-1.5 transition-all cursor-pointer',
+                        'hover:border-primary hover:bg-primary/5',
+                        item.die_shape === 'custom' ? 'border-primary ring-2 ring-primary/30 bg-primary/10' : 'border-muted',
+                      )}
+                      title="Forma personalizada (SVG path)"
+                    >
+                      <svg viewBox="-5 -5 110 110" className="w-full h-8">
+                        <text x="50" y="55" textAnchor="middle" fontSize="28" fill="#888">✎</text>
+                      </svg>
+                      <div className="text-[7px] text-center leading-tight mt-0.5">Custom</div>
+                    </button>
+                  </div>
+
+                  {/* Custom path input (only when 'custom' is selected) */}
+                  {item.die_shape === 'custom' && (
+                    <div className="mt-3 space-y-2">
+                      <div>
+                        <Label className="text-xs">Etiqueta del troquel</Label>
+                        <Input
+                          value={item.die_shape_label || ''}
+                          onChange={(e) => updateItem(idx, 'die_shape_label', e.target.value)}
+                          placeholder="Ej: Troquel ondulado especial"
+                          className="text-xs"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-xs">SVG Path (coordenadas 0-100 × 0-100)</Label>
+                        <Textarea
+                          value={item.die_shape_path || ''}
+                          onChange={(e) => updateItem(idx, 'die_shape_path', e.target.value)}
+                          placeholder="M 0 0 L 100 0 Q 100 50 80 50 Q 100 50 100 100 L 0 100 Z"
+                          rows={3}
+                          className="text-xs font-mono"
+                        />
+                        <p className="text-[10px] text-muted-foreground mt-1">
+                          Coordenadas normalizadas 0–100. Se escalará al tamaño real de la página en el montaje.
+                        </p>
+                      </div>
+                      {/* Live preview */}
+                      {item.die_shape_path && (
+                        <div className="border rounded p-2 bg-muted/30">
+                          <p className="text-[10px] font-semibold mb-1">Vista previa:</p>
+                          <svg viewBox="-5 -5 110 110" className="w-24 h-24 mx-auto">
+                            <path d={item.die_shape_path} fill="rgba(59,130,246,0.1)" stroke="#2563eb" strokeWidth="1.5" />
+                          </svg>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
             ))}

@@ -135,6 +135,61 @@ export interface OTProductionDetail {
   acabado?: string;
 }
 
+/* ─── Die-cut shape presets ───────────────────────────────────── */
+export type OTDieShapePreset =
+  | 'rectangle'   // default — plain rectangle
+  | 'rounded'     // rounded corners
+  | 'circle'      // perfect circle
+  | 'oval'        // ellipse
+  | 'wavy'        // ondulating / wavy edges (troquel ondulado)
+  | 'arch_top'    // flat bottom, arched top
+  | 'label'       // classic label / tag shape with notched sides
+  | 'heart'       // heart shape
+  | 'star'        // 5-point star
+  | 'scalloped';  // scalloped edges (festoneado)
+
+/**
+ * Normalised SVG path strings for each preset shape.
+ * All paths are defined in a 0–100 × 0–100 coordinate space.
+ * The renderer scales them to the actual page dimensions.
+ */
+export const DIE_SHAPE_PATHS: Record<OTDieShapePreset, string> = {
+  rectangle:
+    'M 0 0 L 100 0 L 100 100 L 0 100 Z',
+  rounded:
+    'M 10 0 L 90 0 Q 100 0 100 10 L 100 90 Q 100 100 90 100 L 10 100 Q 0 100 0 90 L 0 10 Q 0 0 10 0 Z',
+  circle:
+    'M 50 0 A 50 50 0 1 1 50 100 A 50 50 0 1 1 50 0 Z',
+  oval:
+    'M 50 0 C 85 0 100 22 100 50 C 100 78 85 100 50 100 C 15 100 0 78 0 50 C 0 22 15 0 50 0 Z',
+  wavy:
+    // Top edge: wavy left-to-right
+    'M 0 6 Q 8 0 17 6 Q 25 12 33 6 Q 42 0 50 6 Q 58 12 67 6 Q 75 0 83 6 Q 92 12 100 6 '
+    // Right edge: wavy top-to-bottom
+    + 'L 100 6 Q 94 14 100 22 Q 94 30 100 38 Q 94 46 100 54 Q 94 62 100 70 Q 94 78 100 86 Q 94 94 100 94 '
+    // Bottom edge: wavy right-to-left
+    + 'L 100 94 Q 92 100 83 94 Q 75 88 67 94 Q 58 100 50 94 Q 42 88 33 94 Q 25 100 17 94 Q 8 88 0 94 '
+    // Left edge: wavy bottom-to-top
+    + 'L 0 94 Q 6 86 0 78 Q 6 70 0 62 Q 6 54 0 46 Q 6 38 0 30 Q 6 22 0 14 Z',
+  arch_top:
+    'M 0 100 L 0 35 Q 0 0 50 0 Q 100 0 100 35 L 100 100 Z',
+  label:
+    'M 12 0 L 88 0 L 100 12 L 100 88 L 88 100 L 12 100 L 0 88 L 0 12 Z',
+  heart:
+    'M 50 18 C 50 0 100 0 100 30 C 100 60 50 100 50 100 C 50 100 0 60 0 30 C 0 0 50 0 50 18 Z',
+  star:
+    'M 50 0 L 61 35 L 100 38 L 70 62 L 79 100 L 50 78 L 21 100 L 30 62 L 0 38 L 39 35 Z',
+  scalloped:
+    // Top edge: scalloped arcs left-to-right
+    'M 0 8 Q 5 0 10 8 Q 15 0 20 8 Q 25 0 30 8 Q 35 0 40 8 Q 45 0 50 8 Q 55 0 60 8 Q 65 0 70 8 Q 75 0 80 8 Q 85 0 90 8 Q 95 0 100 8 '
+    // Right edge: scalloped arcs top-to-bottom
+    + 'Q 100 13 92 18 Q 100 23 92 28 Q 100 33 92 38 Q 100 43 92 48 Q 100 53 92 58 Q 100 63 92 68 Q 100 73 92 78 Q 100 83 92 88 Q 100 93 92 92 '
+    // Bottom edge: scalloped arcs right-to-left
+    + 'Q 95 100 90 92 Q 85 100 80 92 Q 75 100 70 92 Q 65 100 60 92 Q 55 100 50 92 Q 45 100 40 92 Q 35 100 30 92 Q 25 100 20 92 Q 15 100 10 92 Q 5 100 0 92 '
+    // Left edge: scalloped arcs bottom-to-top
+    + 'Q 0 87 8 82 Q 0 77 8 72 Q 0 67 8 62 Q 0 57 8 52 Q 0 47 8 42 Q 0 37 8 32 Q 0 27 8 22 Q 0 17 8 12 Z',
+};
+
 /* ─── Item (can have multiple items per OT) ──────────────────── */
 export interface OTItem {
   id: string;
@@ -161,6 +216,22 @@ export interface OTItem {
   pliegos_a_maquina: number;
   /** Number of pliegos (signatures) */
   pliegos_count: number;
+  /**
+   * Optional die-cut shape for the finished piece.
+   * When set, the montaje diagram renders this outline instead of a rectangle.
+   * Can be:
+   *  - a preset key  ('rounded', 'wavy', 'circle', 'oval', 'arch_top', 'label', 'heart', 'star', 'custom')
+   *  - 'custom' means `die_shape_path` contains a raw SVG <path> d-attribute
+   */
+  die_shape?: OTDieShapePreset | 'custom';
+  /**
+   * Raw SVG path d-attribute for fully custom die-cut outlines.
+   * The path is drawn inside a normalised 0-100 × 0-100 viewBox and will be
+   * scaled to fit the page dimensions in the montaje diagram.
+   */
+  die_shape_path?: string;
+  /** Human-readable label for the shape, e.g. "Troquel ondulado" */
+  die_shape_label?: string;
 }
 
 /* ─── Administrative footer ──────────────────────────────────── */
@@ -278,6 +349,7 @@ export const EMPTY_PRODUCTION_FORM: OTProductionForm = {
     pi_sobrante: 0,
     pliegos_a_maquina: 0,
     pliegos_count: 4,
+    die_shape: 'rectangle',
   }],
 
   montaje: {

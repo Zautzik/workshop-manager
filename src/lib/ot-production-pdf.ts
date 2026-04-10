@@ -1,708 +1,765 @@
 'use client';
 
-import type { OTProductionForm } from '@/types/ot-production';
+import type { OTProductionForm, OTItem, OTMontaje } from '@/types/ot-production';
+import { DIE_SHAPE_PATHS } from '@/types/ot-production';
 
 /**
  * Generates a production work order (Orden de Trabajo) PDF that matches
- * the physical workshop form layout with all production-level detail.
- * Uses pure HTML/CSS — no external dependencies.
+ * the EXACT physical workshop form layout used by guillotine and die-cutting
+ * operators. Uses pure HTML/CSS → window.open() → print().
  */
 export function generateProductionOTPDF(form: OTProductionForm): string {
-  const {
-    ot_number,
-    ot_anterior,
-    fecha_ot,
-    fecha_entrega,
-    client_name,
-    trabajo,
-    cantidad_total,
-    unidades_label,
-    production_detail,
-    tapas,
-    items,
-    montaje,
-    machine,
-    process_summary,
-    pliegos,
-    finishing,
-    admin,
-  } = form;
+  const html = buildOTHTML(form);
 
-  const fmtDate = (d: string) => {
-    if (!d) return '';
-    try {
-      return new Date(d).toLocaleDateString('es-CL', { day: '2-digit', month: '2-digit', year: 'numeric' });
-    } catch {
-      return d;
-    }
-  };
-
-  const fmtNum = (n: number) => n?.toLocaleString('es-CL') ?? '0';
-
-  /* ── Tapas section ─────────────────────────────────────────── */
-  const tapasRows = tapas
-    .map(
-      (t) => `
-      <tr>
-        <td class="cell">${t.code}).-</td>
-        <td class="cell" style="text-align:left;">${t.destination}</td>
-        <td class="cell" style="text-align:right;">${fmtNum(t.quantity)} UNID.</td>
-      </tr>`
-    )
-    .join('');
-
-  /* ── Item section (first item shown) ───────────────────────── */
-  const item = items[0];
-
-  /* ── Pliegos table ─────────────────────────────────────────── */
-  const pliegosRows = pliegos
-    .map(
-      (p) => `
-      <tr>
-        <td class="cell center">${p.pliego_number}</td>
-        <td class="cell center">${p.unid_pag}</td>
-        <td class="cell center">${p.tiro}</td>
-        <td class="cell center">${p.retiro}</td>
-        <td class="cell">${p.description}</td>
-        <td class="cell right">${fmtNum(p.tiraje)}</td>
-        <td class="cell right">${p.sobrantes}</td>
-        <td class="cell right">${fmtNum(p.cantidad)}${p.nota ? ' ' + p.nota : ''}</td>
-      </tr>`
-    )
-    .join('');
-
-  /* ── Finishing rows ────────────────────────────────────────── */
-  const finishingRows = [
-    { label: 'CORTE RESMA', active: finishing.corte_resma, qty: finishing.corte_resma_qty },
-    { label: 'CORTE FINAL', active: finishing.corte_final, qty: finishing.corte_final_qty },
-    { label: 'DOBLADOS', active: finishing.doblados, qty: finishing.doblados_qty },
-    { label: 'CORCHETES', active: finishing.corchetes, qty: finishing.corchetes_qty },
-    { label: 'CAJAS', active: finishing.cajas, qty: finishing.cajas_qty },
-    { label: 'DESPACHO GONSA', active: finishing.despacho_gonsa, qty: undefined, detail: finishing.despacho_gonsa_detail },
-  ]
-    .map(
-      (f) => `
-      <tr>
-        <td class="cell" style="font-size:9px;">${f.label}</td>
-        <td class="cell center">${f.active ? (f.qty ? fmtNum(f.qty) : (f.detail || '✓')) : ''}</td>
-      </tr>`
-    )
-    .join('');
-
-  /* ── Montaje diagram (SVG) ─────────────────────────────────── */
-  const montajeDiagram = buildMontajeDiagram(montaje, item);
-
-  /* ── Machine label ─────────────────────────────────────────── */
-  const machineLabels: Record<string, string> = {
-    impresion_digital: 'IMPRESIÓN DIGITAL',
-    offset_1_color: 'OFFSET 1 COLOR',
-    offset_2_colores: 'OFFSET 2 COLORES',
-    offset_4_colores: 'OFFSET 4 COLORES',
-    serigrafia: 'SERIGRAFÍA',
-    flexografia: 'FLEXOGRAFÍA',
-    otro: 'OTRA',
-  };
-
-  const html = `
-<!DOCTYPE html>
-<html lang="es">
-<head>
-  <meta charset="UTF-8">
-  <title>OT ${ot_number} — Orden de Trabajo</title>
-  <style>
-    @page { margin: 8mm; size: A4; }
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body {
-      font-family: 'Courier New', 'Consolas', monospace;
-      color: #000;
-      font-size: 10px;
-      line-height: 1.3;
-      padding: 8px;
-      background: #fff;
-    }
-    
-    .ot-container {
-      border: 2px solid #000;
-      padding: 0;
-      max-width: 210mm;
-      margin: 0 auto;
-    }
-    
-    /* ── Header ──────────────────────────── */
-    .ot-header {
-      display: flex;
-      border-bottom: 2px solid #000;
-    }
-    .ot-header-left {
-      flex: 1;
-      padding: 6px 10px;
-    }
-    .ot-header-right {
-      width: 200px;
-      border-left: 2px solid #000;
-      text-align: center;
-      padding: 4px;
-    }
-    .ot-title {
-      font-size: 16px;
-      font-weight: bold;
-      text-align: center;
-      letter-spacing: 2px;
-    }
-    .ot-number-box {
-      font-size: 28px;
-      font-weight: bold;
-      border: 2px solid #000;
-      padding: 4px 12px;
-      display: inline-block;
-      margin: 2px 0;
-    }
-    .ot-field {
-      margin: 2px 0;
-    }
-    .ot-field-label {
-      font-weight: bold;
-      font-size: 8px;
-      text-transform: uppercase;
-      color: #333;
-    }
-    .ot-field-value {
-      font-size: 11px;
-      font-weight: bold;
-    }
-    
-    /* ── Rows / Sections ─────────────────── */
-    .section-row {
-      display: flex;
-      border-bottom: 1px solid #000;
-    }
-    .section-full {
-      width: 100%;
-      border-bottom: 1px solid #000;
-      padding: 4px 8px;
-    }
-    .section-left {
-      flex: 1;
-      border-right: 1px solid #000;
-      padding: 4px 8px;
-    }
-    .section-right {
-      width: 240px;
-      padding: 4px 8px;
-    }
-    .section-title {
-      font-size: 8px;
-      font-weight: bold;
-      text-transform: uppercase;
-      color: #555;
-      margin-bottom: 2px;
-    }
-    
-    /* ── Tables ───────────────────────────── */
-    table {
-      width: 100%;
-      border-collapse: collapse;
-    }
-    .cell {
-      border: 1px solid #999;
-      padding: 2px 4px;
-      font-size: 9px;
-    }
-    .cell.center { text-align: center; }
-    .cell.right { text-align: right; }
-    .cell.bold { font-weight: bold; }
-    .header-cell {
-      border: 1px solid #999;
-      padding: 2px 4px;
-      font-size: 7px;
-      font-weight: bold;
-      text-transform: uppercase;
-      background: #eee;
-      text-align: center;
-    }
-    
-    /* ── Item specs grid ─────────────────── */
-    .specs-grid {
-      display: grid;
-      grid-template-columns: repeat(7, 1fr);
-      gap: 0;
-      border: 1px solid #999;
-    }
-    .spec-cell {
-      border: 1px solid #999;
-      padding: 2px 4px;
-      text-align: center;
-    }
-    .spec-label {
-      font-size: 7px;
-      font-weight: bold;
-      text-transform: uppercase;
-      background: #eee;
-    }
-    .spec-value {
-      font-size: 11px;
-      font-weight: bold;
-    }
-    
-    /* ── Montaje area ────────────────────── */
-    .montaje-area {
-      display: flex;
-      border-bottom: 1px solid #000;
-      min-height: 120px;
-    }
-    .montaje-diagram-left {
-      flex: 1;
-      border-right: 1px solid #000;
-      padding: 4px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-    .montaje-diagram-right {
-      flex: 1;
-      padding: 4px;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-    }
-    .montaje-info-bar {
-      border-bottom: 1px solid #000;
-      padding: 2px 8px;
-      text-align: center;
-      font-size: 9px;
-      font-weight: bold;
-    }
-    
-    /* ── Machine row ─────────────────────── */
-    .machine-row {
-      display: grid;
-      grid-template-columns: 180px 80px 60px 80px 60px 1fr;
-      border-bottom: 1px solid #000;
-    }
-    .machine-cell {
-      border-right: 1px solid #999;
-      padding: 2px 4px;
-    }
-    .machine-cell:last-child { border-right: none; }
-    
-    /* ── Pliegos table ───────────────────── */
-    .pliegos-section {
-      border-bottom: 1px solid #000;
-    }
-    
-    /* ── Footer area ─────────────────────── */
-    .footer-area {
-      display: flex;
-    }
-    .footer-left {
-      flex: 1;
-      border-right: 1px solid #000;
-    }
-    .footer-right {
-      width: 240px;
-    }
-    .footer-field {
-      display: flex;
-      border-bottom: 1px solid #999;
-      font-size: 9px;
-    }
-    .footer-field-label {
-      width: 140px;
-      padding: 2px 4px;
-      font-weight: bold;
-      font-size: 8px;
-      border-right: 1px solid #999;
-      background: #f5f5f5;
-    }
-    .footer-field-value {
-      flex: 1;
-      padding: 2px 4px;
-      font-weight: bold;
-    }
-    
-    /* ── Two-column footer ───────────────── */
-    .dual-footer {
-      display: flex;
-      border-bottom: 1px solid #000;
-    }
-    .dual-footer-left {
-      flex: 1;
-      border-right: 1px solid #000;
-    }
-    .dual-footer-right {
-      width: 280px;
-    }
-    
-    .process-summary-box {
-      font-size: 9px;
-      font-weight: bold;
-      text-transform: uppercase;
-      padding: 4px;
-      line-height: 1.5;
-    }
-    
-    @media print {
-      body { padding: 0; }
-      .ot-container { border: 2px solid #000; }
-    }
-  </style>
-</head>
-<body>
-  <div class="ot-container">
-  
-    <!-- ═══ HEADER ═══ -->
-    <div class="ot-header">
-      <div class="ot-header-left">
-        <div class="ot-title">ORDEN DE TRABAJO</div>
-        <div class="ot-field" style="margin-top:4px;">
-          <span class="ot-field-label">OT Anterior</span>
-          <span class="ot-field-value" style="margin-left:8px;">${ot_anterior || ''}</span>
-        </div>
-        <div class="ot-field">
-          <span class="ot-field-label">CLIENTE</span>
-          <span class="ot-field-value" style="margin-left:8px;font-size:12px;">${client_name}</span>
-        </div>
-        <div class="ot-field">
-          <span class="ot-field-label">TRABAJO</span>
-          <span class="ot-field-value" style="margin-left:8px;">${trabajo}</span>
-        </div>
-        <div class="ot-field">
-          <span class="ot-field-label">CANTIDAD TOTAL</span>
-          <span class="ot-field-value" style="margin-left:8px;font-size:13px;">${fmtNum(cantidad_total)}</span>
-          <span style="font-size:9px;margin-left:4px;">${unidades_label}</span>
-        </div>
-      </div>
-      <div class="ot-header-right">
-        <div style="font-size:8px;font-weight:bold;">OT</div>
-        <div class="ot-number-box">${ot_number}</div>
-        <div style="font-size:7px;margin-top:4px;">
-          <div><span class="ot-field-label">Fecha O.T.</span></div>
-          <div class="ot-field-value">${fmtDate(fecha_ot)}</div>
-        </div>
-        <div style="font-size:7px;margin-top:4px;">
-          <div><span class="ot-field-label">Fecha de Entrega</span></div>
-          <div class="ot-field-value" style="font-size:12px;color:#c00;">${fmtDate(fecha_entrega)}</div>
-        </div>
-      </div>
-    </div>
-    
-    <!-- ═══ PRODUCTION DETAIL + TAPAS ═══ -->
-    <div class="section-row">
-      <div class="section-left">
-        <div class="section-title">Detalle de Producción</div>
-        <div style="font-size:10px;font-weight:bold;margin-bottom:2px;">
-          ${production_detail.production_description}
-        </div>
-        ${production_detail.formato ? `<div style="font-size:9px;">Formato: ${production_detail.formato}</div>` : ''}
-        ${production_detail.tapas_spec ? `<div style="font-size:9px;">${production_detail.tapas_spec}</div>` : ''}
-        ${production_detail.interior_spec ? `<div style="font-size:9px;">${production_detail.interior_spec}</div>` : ''}
-        ${production_detail.acabado ? `<div style="font-size:9px;">${production_detail.acabado}</div>` : ''}
-      </div>
-      <div class="section-right">
-        <div class="section-title">Tapas</div>
-        ${tapas.length > 0
-          ? `<table>${tapasRows}</table>`
-          : '<div style="font-size:9px;color:#999;">Sin distribución de tapas</div>'
-        }
-      </div>
-    </div>
-    
-    <!-- ═══ ITEM SPECS ═══ -->
-    ${item ? `
-    <div class="section-row">
-      <div class="section-left" style="flex:2;">
-        <div style="display:flex;gap:8px;align-items:baseline;margin-bottom:4px;">
-          <div class="section-title">ITEM ${item.item_number}</div>
-          <div style="font-size:10px;font-weight:bold;">${item.description}</div>
-        </div>
-        <div style="display:flex;gap:8px;font-size:9px;margin-bottom:4px;">
-          <div><span class="ot-field-label">A IMPRIMIR</span> <b>${fmtNum(item.a_imprimir)}</b></div>
-          <div style="margin-left:16px;"><span class="ot-field-label">UNIDADES</span></div>
-        </div>
-        <div style="display:flex;gap:8px;font-size:9px;margin-bottom:6px;">
-          <div><span class="ot-field-label">PAPEL</span> <b>${typeof item.papel === 'string' ? item.papel.charAt(0).toUpperCase() + item.papel.slice(1) : item.papel}</b></div>
-          <div style="margin-left:16px;"><b>${item.grammage_grs}</b> GRS.</div>
-        </div>
-        
-        <!-- Specs grid -->
-        <table style="width:100%;">
-          <tr>
-            <td class="header-cell">ANCHO</td>
-            <td class="header-cell">LARGO</td>
-            <td class="header-cell">HOJAS SIN CORTAR</td>
-            <td class="header-cell">PI/BASE</td>
-            <td class="header-cell">PI/SOBRANTE</td>
-            <td class="header-cell">PLIEGOS A MÁQUINA</td>
-          </tr>
-          <tr>
-            <td class="cell center bold">${item.sheet_width}</td>
-            <td class="cell center bold">${item.sheet_height}</td>
-            <td class="cell center bold">${fmtNum(item.hojas_sin_cortar)}</td>
-            <td class="cell center bold">${fmtNum(item.pi_base)}</td>
-            <td class="cell center bold">${item.pi_sobrante}</td>
-            <td class="cell center bold">${fmtNum(item.pliegos_a_maquina)}</td>
-          </tr>
-        </table>
-      </div>
-      <div class="section-right">
-        <table style="margin-top:16px;">
-          <tr><td class="cell" style="font-size:7px;background:#eee;">PLIEGOS</td><td class="cell center bold" style="font-size:14px;">${item.pliegos_count}</td></tr>
-          <tr><td class="cell" style="font-size:7px;background:#eee;">PÁGINAS TOTAL</td><td class="cell center bold">${montaje.paginas_total}</td></tr>
-          <tr><td class="cell" style="font-size:7px;background:#eee;">FORM. EXTENS.</td><td class="cell center bold">${montaje.forma_extension}</td></tr>
-          <tr><td class="cell" style="font-size:7px;background:#eee;">MONTAJE</td><td class="cell center bold">${montaje.montaje_grid}</td></tr>
-          <tr><td class="cell" style="font-size:7px;background:#eee;">PLIEGO A MÁQUINA</td><td class="cell center bold" style="font-size:11px;font-weight:bold;">${montaje.pliego_a_maquina}</td></tr>
-        </table>
-      </div>
-    </div>
-    ` : ''}
-    
-    <!-- ═══ MONTAJE DIAGRAM ═══ -->
-    <div class="montaje-area">
-      ${montajeDiagram}
-    </div>
-    <div class="montaje-info-bar">
-      MONTAJE DE ${montaje.montaje_paginas} páginas
-      ${montaje.pinza_cm ? `<span style="margin-left:40px;">pinza ${montaje.pinza_cm}</span>` : ''}
-    </div>
-    
-    <!-- ═══ MACHINE / PRINT CONFIG ═══ -->
-    <div style="border-bottom:1px solid #000;">
-      <table>
-        <tr>
-          <td class="header-cell" style="width:160px;">MÁQUINA</td>
-          <td class="header-cell" style="width:70px;">COLOR</td>
-          <td class="header-cell" style="width:60px;">HORAS</td>
-          <td class="header-cell" style="width:70px;">TIRAJE</td>
-          <td class="header-cell" style="width:50px;">CTP</td>
-          <td class="header-cell">RESUMEN DE PROCESOS</td>
-        </tr>
-        <tr>
-          <td class="cell bold" style="font-size:10px;">${machineLabels[machine.machine_type] || machine.machine_type}</td>
-          <td class="cell center bold">${machine.color_config}</td>
-          <td class="cell center">${machine.horas || ''}</td>
-          <td class="cell center bold">${fmtNum(machine.tiraje)}</td>
-          <td class="cell center">${machine.ctp_needed ? (machine.ctp_count || '✓') : ''}</td>
-          <td class="cell" rowspan="2">
-            <div class="process-summary-box">${process_summary.description}</div>
-          </td>
-        </tr>
-        <tr>
-          <td class="cell" style="font-size:7px;">COLORES ESPECIALES</td>
-          <td class="cell" colspan="2" style="font-size:9px;">${machine.colores_especiales || ''}</td>
-          <td class="cell center" style="font-size:7px;">V°B° PDF</td>
-          <td class="cell center">${machine.vb_pdf ? '✓' : ''}</td>
-        </tr>
-      </table>
-    </div>
-    
-    <!-- ═══ PLIEGOS TABLE ═══ -->
-    <div class="pliegos-section">
-      <table>
-        <tr>
-          <td class="header-cell" style="width:55px;">Pliegos</td>
-          <td class="header-cell" style="width:55px;">Unid/Pag</td>
-          <td class="header-cell" style="width:45px;">TIRO</td>
-          <td class="header-cell" style="width:55px;">RETIRO</td>
-          <td class="header-cell">DESCRIPCIÓN DEL PLIEGO</td>
-          <td class="header-cell" style="width:70px;">TIRAJE</td>
-          <td class="header-cell" style="width:70px;">SOBRANTES</td>
-          <td class="header-cell" style="width:80px;">CANTIDAD</td>
-        </tr>
-        ${pliegosRows}
-      </table>
-    </div>
-    
-    <!-- ═══ NOTES ═══ -->
-    <div class="section-full" style="font-size:8px;font-weight:bold;min-height:20px;">
-      NOTAS PARA PRODUCCIÓN Y OBSERVACIONES
-      <div style="font-size:9px;font-weight:normal;margin-top:2px;">
-        ${admin.notas_produccion || ''}
-        ${admin.originales_via ? `<br/>Originales: ${admin.originales_via}` : ''}
-      </div>
-    </div>
-    
-    <!-- ═══ FINISHING + ADMIN FOOTER ═══ -->
-    <div class="dual-footer">
-      <div class="dual-footer-left">
-        <table>
-          <tr>
-            <td class="header-cell" style="width:200px;">ENCUADERNACIÓN Y TERMINACIÓN</td>
-            <td class="header-cell" style="width:100px;">CANTIDAD</td>
-            <td class="header-cell">DETALLE DE PRODUCCIÓN</td>
-          </tr>
-          ${finishingRows}
-        </table>
-      </div>
-      <div class="dual-footer-right">
-        <!-- Empty production detail column -->
-      </div>
-    </div>
-    
-    <!-- ═══ ADMIN FOOTER ═══ -->
-    <div class="footer-area">
-      <div class="footer-left">
-        <div class="footer-field">
-          <div class="footer-field-label">Solicitante:</div>
-          <div class="footer-field-value">${admin.solicitante}</div>
-        </div>
-        <div class="footer-field">
-          <div class="footer-field-label">Vendedor:</div>
-          <div class="footer-field-value">${admin.vendedor}</div>
-        </div>
-        <div class="footer-field">
-          <div class="footer-field-label">RUT</div>
-          <div class="footer-field-value">${admin.rut || ''}</div>
-        </div>
-        <div class="footer-field">
-          <div class="footer-field-label">CATEGORÍA</div>
-          <div class="footer-field-value">${admin.categoria_pago}</div>
-        </div>
-      </div>
-      <div class="footer-right">
-        <div class="footer-field">
-          <div class="footer-field-label">FECHA DE ENTREGA:</div>
-          <div class="footer-field-value" style="color:#c00;font-size:11px;">${fmtDate(fecha_entrega)}</div>
-        </div>
-        <div class="footer-field">
-          <div class="footer-field-label">Presupuesto N°:</div>
-          <div class="footer-field-value">${admin.presupuesto_numero || ''}</div>
-        </div>
-        <div class="footer-field">
-          <div class="footer-field-label">O. Compra:</div>
-          <div class="footer-field-value">${admin.orden_compra || ''}</div>
-        </div>
-        <div class="footer-field">
-          <div class="footer-field-label" style="font-size:7px;">CANTIDAD TOTAL</div>
-          <div class="footer-field-value" style="font-size:12px;">OT ${ot_number}</div>
-        </div>
-      </div>
-    </div>
-    
-  </div>
-</body>
-</html>
-  `;
-
-  // Open in a new window for print/save-as-PDF
   const printWindow = window.open('', '_blank', 'width=900,height=1200');
   if (printWindow) {
     printWindow.document.write(html);
     printWindow.document.close();
     setTimeout(() => printWindow.print(), 600);
   }
-
   return html;
 }
 
 /**
- * Returns just the HTML string for embedding/preview without opening a print window.
+ * Returns just the HTML string (no print dialog).
  */
 export function getProductionOTHTML(form: OTProductionForm): string {
-  // We temporarily override window.open to prevent side effects
-  const origOpen = typeof window !== 'undefined' ? window.open : undefined;
-  if (typeof window !== 'undefined') {
-    (window as any).open = () => null;
-  }
-  const html = generateProductionOTPDF(form);
-  if (typeof window !== 'undefined' && origOpen) {
-    window.open = origOpen;
-  }
-  return html;
+  return buildOTHTML(form);
 }
 
-/* ─── Montaje diagram builder (SVG) ─────────────────────────── */
+/* ══════════════════════════════════════════════════════════════════
+   HELPERS
+   ══════════════════════════════════════════════════════════════════ */
 
-function buildMontajeDiagram(
-  montaje: OTProductionForm['montaje'],
-  item: OTProductionForm['items'][0] | undefined
-): string {
-  if (!item) return '<div style="flex:1;text-align:center;color:#999;padding:20px;">Sin datos de montaje</div>';
+const fmtDate = (d: string) => {
+  if (!d) return '';
+  try {
+    const dt = new Date(d + 'T12:00:00');
+    return `${dt.getDate().toString().padStart(2, '0')}-${(dt.getMonth() + 1).toString().padStart(2, '0')}-${dt.getFullYear()}`;
+  } catch {
+    return d;
+  }
+};
 
+const fmtNum = (n: number | undefined | null) =>
+  n != null ? n.toLocaleString('es-CL') : '';
+
+const MACHINE_LABELS: Record<string, string> = {
+  impresion_digital: 'IMPRESION DIGITAL',
+  offset_1_color: 'OFFSET 1 COLOR',
+  offset_2_colores: 'OFFSET 2 COLORES',
+  offset_4_colores: 'OFFSET 4 COLORES',
+  serigrafia: 'SERIGRAFIA',
+  flexografia: 'FLEXOGRAFIA',
+  otro: 'OTRA',
+};
+
+/* ══════════════════════════════════════════════════════════════════
+   MAIN HTML BUILDER
+   ══════════════════════════════════════════════════════════════════ */
+
+function buildOTHTML(form: OTProductionForm): string {
+  const {
+    ot_number, ot_anterior, fecha_ot, fecha_entrega,
+    client_name, trabajo, cantidad_total, unidades_label,
+    production_detail, tapas, items, montaje,
+    machine, process_summary, pliegos, finishing, admin,
+  } = form;
+
+  const item = items[0]; // primary item
+
+  /* ── Dynamic sections ──────────────────────────────────────── */
+
+  // TAPAS list
+  const tapasHTML = tapas.length
+    ? tapas.map(t =>
+        `<div style="display:flex;justify-content:space-between;padding:0 4px;">
+           <span><b>${t.code}).-</b> ${t.destination}</span>
+           <span><b>: ${fmtNum(t.quantity)} UNID.</b></span>
+         </div>`
+      ).join('')
+    : '<div style="color:#999;padding:4px;">—</div>';
+
+  // PLIEGOS table rows
+  const pliegosRows = pliegos.map(p =>
+    `<tr>
+       <td class="td c">${p.pliego_number}</td>
+       <td class="td c">${p.unid_pag}</td>
+       <td class="td c">${p.tiro}</td>
+       <td class="td c">${p.retiro}</td>
+       <td class="td l" style="padding-left:6px;">${p.description}</td>
+       <td class="td r">${fmtNum(p.tiraje)}</td>
+       <td class="td c">${p.sobrantes}</td>
+       <td class="td r">${fmtNum(p.cantidad)}${p.nota ? ' ' + p.nota : ''}</td>
+     </tr>`
+  ).join('');
+
+  // Finishing rows
+  const finItems = [
+    { lbl: 'CORTE RESMA', on: finishing.corte_resma, qty: finishing.corte_resma_qty },
+    { lbl: 'CORTE FINAL', on: finishing.corte_final, qty: finishing.corte_final_qty },
+    { lbl: 'DOBLADOS', on: finishing.doblados, qty: finishing.doblados_qty },
+    { lbl: 'CORCHETES', on: finishing.corchetes, qty: finishing.corchetes_qty },
+    { lbl: 'CAJAS', on: finishing.cajas, qty: finishing.cajas_qty },
+    { lbl: 'DESPACHO GONSA', on: finishing.despacho_gonsa, qty: undefined, detail: finishing.despacho_gonsa_detail },
+  ];
+  const finRows = finItems.map(f => {
+    let val = '';
+    if (f.on) {
+      if (f.qty != null) val = fmtNum(f.qty);
+      else if ((f as any).detail) val = (f as any).detail;
+      else val = '✓';
+    }
+    return `<tr>
+      <td class="td l" style="padding-left:6px;font-size:8px;">${f.lbl}</td>
+      <td class="td c" style="width:80px;">${val}</td>
+    </tr>`;
+  }).join('');
+
+  // Montaje diagrams SVG
+  const montajeSVG = buildMontajeDiagrams(montaje, item);
+
+  return `<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>OT ${ot_number} — Orden de Trabajo</title>
+<style>
+  @page { margin: 5mm 6mm; size: A4 portrait; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body {
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 9px;
+    color: #000;
+    background: #fff;
+    line-height: 1.3;
+  }
+
+  /* ── Container ──────────────────── */
+  .ot { border: 2px solid #000; width: 100%; max-width: 780px; margin: 0 auto; }
+
+  /* ── Generic table cell ─────────── */
+  .td { border: 1px solid #000; padding: 2px 4px; font-size: 9px; vertical-align: middle; }
+  .c  { text-align: center; }
+  .l  { text-align: left; }
+  .r  { text-align: right; }
+  .b  { font-weight: bold; }
+
+  /* ── Header cells (labels) ──────── */
+  .th {
+    border: 1px solid #000;
+    padding: 2px 4px;
+    font-size: 7.5px;
+    font-weight: bold;
+    text-transform: uppercase;
+    text-align: center;
+    background: #eee;
+    vertical-align: middle;
+  }
+
+  table { width: 100%; border-collapse: collapse; }
+
+  /* ── Layout helpers ─────────────── */
+  .row  { display: flex; border-bottom: 1px solid #000; }
+  .col  { padding: 3px 6px; }
+  .sep  { border-right: 1px solid #000; }
+
+  /* ── Header ─────────────────────── */
+  .hdr { display: flex; border-bottom: 2px solid #000; }
+  .hdr-left { flex: 1; padding: 4px 8px; }
+  .hdr-right {
+    width: 180px; border-left: 2px solid #000;
+    display: flex; flex-direction: column; align-items: center;
+    padding: 4px 8px;
+  }
+  .hdr-title {
+    text-align: center; font-size: 16px; font-weight: bold;
+    letter-spacing: 3px; text-transform: uppercase; margin-bottom: 4px;
+  }
+  .ot-box {
+    font-size: 30px; font-weight: bold;
+    border: 3px solid #000; padding: 2px 14px;
+    letter-spacing: 1px; line-height: 1;
+  }
+  .hdr-pair { margin: 2px 0; font-size: 9px; }
+  .hdr-pair .lbl { font-size: 7.5px; font-weight: bold; text-transform: uppercase; }
+  .hdr-pair .val { font-weight: bold; margin-left: 4px; }
+
+  /* ── Montaje area ───────────────── */
+  .mont { display: flex; border-bottom: 1px solid #000; min-height: 160px; }
+  .mont-left  { flex: 1; border-right: 1px solid #000; padding: 6px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  .mont-right { flex: 1; padding: 6px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  .mont-bar   {
+    border-bottom: 1px solid #000; padding: 2px 8px;
+    font-size: 9px; font-weight: bold;
+    display: flex; justify-content: center; gap: 80px;
+  }
+
+  /* ── Footer ─────────────────────── */
+  .ftr { display: flex; }
+  .ftr-left  { flex: 1; border-right: 1px solid #000; }
+  .ftr-right { width: 260px; }
+  .ftr-row { display: flex; border-bottom: 1px solid #000; }
+  .ftr-lbl { padding: 2px 5px; font-size: 8px; font-weight: bold; }
+  .ftr-val { padding: 2px 5px; font-weight: bold; font-size: 9px; }
+
+  @media print {
+    body { padding: 0; margin: 0; }
+    .ot  { border: 2px solid #000; }
+  }
+</style>
+</head>
+<body>
+<div class="ot">
+
+<!-- ═══════════════════ HEADER ═══════════════════ -->
+<div class="hdr">
+  <div class="hdr-left">
+    <div class="hdr-title">ORDEN DE TRABAJO</div>
+    <div class="hdr-pair">
+      <span class="lbl">OT Anterior</span>
+      <span class="val" style="border-bottom:1px solid #999;min-width:70px;display:inline-block;">${ot_anterior || ''}</span>
+    </div>
+    <div class="hdr-pair" style="margin-top:3px;">
+      <span class="lbl">CLIENTE</span>
+      <span class="val" style="font-size:12px;">${client_name}</span>
+    </div>
+    <div class="hdr-pair">
+      <span class="lbl">TRABAJO</span>
+      <span class="val">${trabajo}</span>
+    </div>
+    <div class="hdr-pair">
+      <span class="lbl">CANTIDAD TOTAL</span>
+      <span class="val" style="font-size:12px;">${fmtNum(cantidad_total)}</span>
+      <span style="font-size:9px;margin-left:3px;">${unidades_label || 'UNIDADES'}</span>
+    </div>
+  </div>
+  <div class="hdr-right">
+    <div style="font-size:8px;font-weight:bold;margin-bottom:2px;">OT</div>
+    <div class="ot-box">${ot_number}</div>
+    <div style="margin-top:6px;text-align:center;">
+      <div style="font-size:7px;font-weight:bold;">Fecha O.T.</div>
+      <div style="font-size:9px;font-weight:bold;">${fmtDate(fecha_ot)}</div>
+    </div>
+    <div style="margin-top:4px;text-align:center;">
+      <div style="font-size:7px;font-weight:bold;">Fecha de Entrega</div>
+      <div style="font-size:11px;font-weight:bold;">${fmtDate(fecha_entrega)}</div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════ PRODUCTION DETAIL + TAPAS ═══════════════════ -->
+<div class="row">
+  <div class="col sep" style="flex:1;">
+    <div style="display:flex;justify-content:space-between;margin-bottom:2px;">
+      <span style="font-size:8px;font-weight:bold;text-transform:uppercase;">Detalle de Producción</span>
+      <span style="font-size:7px;font-weight:bold;color:#888;">USUARIO DESARROLLO</span>
+    </div>
+    <div style="font-size:10px;font-weight:bold;">${production_detail.production_description}</div>
+    ${production_detail.formato ? `<div style="font-size:9px;margin-top:1px;">Formato : ${production_detail.formato}</div>` : ''}
+    ${production_detail.tapas_spec ? `<div style="font-size:9px;">${production_detail.tapas_spec}</div>` : ''}
+    ${production_detail.interior_spec ? `<div style="font-size:9px;">${production_detail.interior_spec}</div>` : ''}
+    ${production_detail.acabado ? `<div style="font-size:9px;">${production_detail.acabado}</div>` : ''}
+  </div>
+  <div class="col" style="width:230px;">
+    <div style="font-size:8px;font-weight:bold;text-transform:uppercase;margin-bottom:2px;">TAPAS</div>
+    ${tapasHTML}
+  </div>
+</div>
+
+<!-- ═══════════════════ ITEM SPECS ═══════════════════ -->
+${item ? `
+<div class="row">
+  <!-- LEFT: item detail + grid -->
+  <div class="col sep" style="flex:1;">
+    <div style="margin-bottom:2px;">
+      <span style="font-size:9px;font-weight:bold;background:#eee;padding:1px 6px;border:1px solid #000;">ITEM ${item.item_number}</span>
+      <span style="font-size:10px;font-weight:bold;margin-left:8px;">${item.description}</span>
+    </div>
+    <div style="margin-bottom:1px;">
+      <span style="font-size:7.5px;font-weight:bold;">A IMPRIMIR</span>
+      <span style="font-size:10px;font-weight:bold;margin-left:6px;">${fmtNum(item.a_imprimir)}</span>
+      <span style="font-size:8px;margin-left:4px;">UNIDADES</span>
+    </div>
+    <div style="margin-bottom:4px;">
+      <span style="font-size:7.5px;font-weight:bold;">PAPEL</span>
+      <span style="font-size:10px;font-weight:bold;margin-left:6px;">${typeof item.papel === 'string' ? item.papel.charAt(0).toUpperCase() + item.papel.slice(1) : item.papel}</span>
+      <span style="font-size:10px;font-weight:bold;margin-left:16px;">${item.grammage_grs}</span>
+      <span style="font-size:8px;margin-left:2px;">GRS.</span>
+    </div>
+    <table>
+      <tr>
+        <td class="th">ANCHO</td>
+        <td class="th">LARGO</td>
+        <td class="th">HOJAS SIN CORTAR</td>
+        <td class="th">PI/BASE</td>
+        <td class="th">PI/SOBRANTE</td>
+        <td class="th">PLIEGOS A MÁQUINA</td>
+      </tr>
+      <tr>
+        <td class="td c b">${item.sheet_width}</td>
+        <td class="td c b">${item.sheet_height}</td>
+        <td class="td c b">${fmtNum(item.hojas_sin_cortar)}</td>
+        <td class="td c b">${fmtNum(item.pi_base)}</td>
+        <td class="td c b">${item.pi_sobrante}</td>
+        <td class="td c b">${fmtNum(item.pliegos_a_maquina)}</td>
+      </tr>
+    </table>
+  </div>
+  <!-- RIGHT: montaje spec panel -->
+  <div class="col" style="width:230px;padding:0;">
+    <table>
+      <tr>
+        <td class="th" style="text-align:left;padding-left:6px;width:110px;">PLIEGOS</td>
+        <td class="td c b" style="font-size:16px;" rowspan="1">${item.pliegos_count}</td>
+        <td class="th">FORMA DE<br>MONTAJE</td>
+      </tr>
+      <tr>
+        <td class="th" style="text-align:left;padding-left:6px;">PÁGINAS TOTAL</td>
+        <td class="td c b" colspan="2">${montaje.paginas_total}</td>
+      </tr>
+      <tr>
+        <td class="th" style="text-align:left;padding-left:6px;">FORM. EXTENS.</td>
+        <td class="td c b" colspan="2">${montaje.forma_extension}</td>
+      </tr>
+      <tr>
+        <td class="th" style="text-align:left;padding-left:6px;">MONTAJE</td>
+        <td class="td c b" colspan="2">${montaje.montaje_grid}</td>
+      </tr>
+      <tr>
+        <td class="th" style="text-align:left;padding-left:6px;">PLIEGO A MÁQUINA</td>
+        <td class="td c b" colspan="2" style="font-size:12px;">${montaje.pliego_a_maquina}</td>
+      </tr>
+    </table>
+  </div>
+</div>
+` : ''}
+
+<!-- ═══════════════════ MONTAJE DIAGRAM ═══════════════════ -->
+<div class="mont">
+  ${montajeSVG}
+</div>
+<div class="mont-bar">
+  <span>MONTAJE DE ${montaje.montaje_paginas} páginas</span>
+  ${montaje.pinza_cm ? `<span>pinza ${montaje.pinza_cm}</span>` : ''}
+</div>
+
+<!-- ═══════════════════ MACHINE / PRINT CONFIG ═══════════════════ -->
+<div style="border-bottom:1px solid #000;">
+  <table>
+    <tr>
+      <td class="th" style="width:150px;">MÁQUINA</td>
+      <td class="th" style="width:55px;">COLOR</td>
+      <td class="th" style="width:50px;">HORAS</td>
+      <td class="th" style="width:65px;">TIRAJE</td>
+      <td class="th" style="width:45px;">CTP</td>
+      <td class="th">RESUMEN DE PROCESOS</td>
+    </tr>
+    <tr>
+      <td class="td b" style="font-size:10px;">${MACHINE_LABELS[machine.machine_type] || machine.machine_type}</td>
+      <td class="td c b">${machine.color_config}</td>
+      <td class="td c">${machine.horas || ''}</td>
+      <td class="td c b">${fmtNum(machine.tiraje)}</td>
+      <td class="td c">${machine.ctp_needed ? (machine.ctp_count || '✓') : ''}</td>
+      <td class="td" rowspan="2" style="vertical-align:top;font-size:9px;font-weight:bold;text-transform:uppercase;line-height:1.5;padding:3px 6px;">
+        ${process_summary.description}
+      </td>
+    </tr>
+    <tr>
+      <td class="td c" style="font-size:7px;font-weight:bold;">COLORES ESPECIALES: ${machine.colores_especiales || ''}</td>
+      <td class="td c" style="font-size:7px;">
+        <span style="font-weight:bold;">V°B° PDF</span><br>
+        ${machine.vb_pdf ? '☑' : '☐'}
+      </td>
+      <td class="td c" style="font-size:7px;font-weight:bold;">MONTAJE</td>
+      <td class="td c" style="font-size:7px;font-weight:bold;">T/R<br>APARTE</td>
+      <td class="td c"></td>
+    </tr>
+  </table>
+</div>
+
+<!-- ═══════════════════ PLIEGOS TABLE ═══════════════════ -->
+<div style="border-bottom:1px solid #000;">
+  <table>
+    <tr>
+      <td class="th" style="width:50px;">Pliegos</td>
+      <td class="th" style="width:50px;">Unid/Pag</td>
+      <td class="th" style="width:40px;">TIRO</td>
+      <td class="th" style="width:50px;">RETIRO</td>
+      <td class="th">DESCRIPCION DEL PLIEGO</td>
+      <td class="th" style="width:65px;">TIRAJE</td>
+      <td class="th" style="width:65px;">SOBRANTES</td>
+      <td class="th" style="width:80px;">CANTIDAD</td>
+    </tr>
+    ${pliegosRows}
+    ${pliegos.length < 8 ? Array(8 - pliegos.length).fill('<tr>' + Array(8).fill('<td class="td" style="height:14px;">&nbsp;</td>').join('') + '</tr>').join('') : ''}
+  </table>
+</div>
+
+<!-- ═══════════════════ NOTES ═══════════════════ -->
+<div style="border-bottom:1px solid #000;padding:3px 6px;min-height:28px;">
+  <div style="font-size:7.5px;font-weight:bold;text-transform:uppercase;margin-bottom:1px;">
+    NOTAS PARA PRODUCCION Y OBSERVACIONES
+  </div>
+  <div style="font-size:9px;">
+    ${admin.notas_produccion || ''}${admin.originales_via ? (admin.notas_produccion ? ' / ' : '') + 'Originales ' + admin.originales_via : ''}
+  </div>
+</div>
+
+<!-- ═══════════════════ FINISHING ═══════════════════ -->
+<div style="display:flex;border-bottom:1px solid #000;">
+  <div style="flex:1;border-right:1px solid #000;">
+    <table>
+      <tr>
+        <td class="th" style="text-align:left;padding-left:6px;">ENCUADERNACIÓN Y TERMINACIÓN</td>
+        <td class="th" style="width:80px;">CANTIDAD</td>
+      </tr>
+      ${finRows}
+    </table>
+  </div>
+  <div style="flex:1;">
+    <table>
+      <tr><td class="th">DETALLE DE PRODUCCION</td></tr>
+      <tr><td class="td" style="height:100px;vertical-align:top;font-size:8px;">${finishing.otros || ''}</td></tr>
+    </table>
+  </div>
+</div>
+
+<!-- ═══════════════════ ADMIN FOOTER ═══════════════════ -->
+<div class="ftr">
+  <div class="ftr-left">
+    <div class="ftr-row">
+      <div class="ftr-lbl sep" style="width:155px;">Solicitante: ${admin.solicitante}</div>
+      <div class="ftr-val" style="flex:1;"></div>
+    </div>
+    <div class="ftr-row">
+      <div class="ftr-lbl sep" style="width:155px;">Vendedor: ${admin.vendedor}</div>
+      <div class="ftr-val" style="flex:1;">${admin.telefono || ''}</div>
+    </div>
+    <div class="ftr-row">
+      <div class="ftr-lbl sep" style="width:155px;">RUT</div>
+      <div class="ftr-val" style="flex:1;">${admin.rut || ''}</div>
+    </div>
+    <div class="ftr-row" style="border-bottom:0;">
+      <div class="ftr-lbl sep" style="width:155px;">CATEGORÍA</div>
+      <div class="ftr-val" style="flex:1;">${admin.categoria_pago || ''}</div>
+    </div>
+  </div>
+  <div class="ftr-right">
+    <div class="ftr-row">
+      <div class="ftr-lbl sep" style="flex:1;">FECHA DE ENTREGA:</div>
+      <div class="ftr-val" style="width:110px;font-size:10px;">${fmtDate(fecha_entrega)}</div>
+    </div>
+    <div class="ftr-row">
+      <div class="ftr-lbl sep" style="flex:1;">Presupuesto N°:</div>
+      <div class="ftr-val" style="width:110px;">${admin.presupuesto_numero || ''}</div>
+    </div>
+    <div class="ftr-row">
+      <div class="ftr-lbl sep" style="flex:1;">O. Compra:</div>
+      <div class="ftr-val" style="width:110px;">${admin.orden_compra || ''}</div>
+    </div>
+    <div class="ftr-row" style="border-bottom:0;">
+      <div class="ftr-lbl sep" style="flex:1;">CANTIDAD TOTAL</div>
+      <div class="ftr-val b" style="width:110px;font-size:11px;">OT ${ot_number}</div>
+    </div>
+  </div>
+</div>
+
+</div>
+</body>
+</html>`;
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   MONTAJE DIAGRAM BUILDER
+   Produces precise SVG schematics matching the physical OT form
+   that guillotine and die-cutting operators rely on.
+   Supports custom die-cut shapes (wavy, rounded, scalloped, etc.)
+   via normalised SVG paths that scale to page dimensions.
+   ══════════════════════════════════════════════════════════════════ */
+
+function buildMontajeDiagrams(montaje: OTMontaje, item: OTItem | undefined): string {
+  if (!item) {
+    return `
+      <div class="mont-left"><span style="color:#999;">Sin datos de ítem</span></div>
+      <div class="mont-right"><span style="color:#999;">Sin datos de montaje</span></div>`;
+  }
+
+  // ── Parse all numeric dimensions ──
   const sheetW = item.sheet_width || 72;
   const sheetH = item.sheet_height || 102;
 
-  // Parse pliego a maquina dims
-  const pam = montaje.pliego_a_maquina.split(/[xX×]/);
-  const pamW = parseFloat(pam[0]) || 33;
-  const pamH = parseFloat(pam[1]) || 48;
+  // Pliego a máquina dims (e.g. "33 x 48")
+  const pamParts = montaje.pliego_a_maquina.split(/\s*[xX×]\s*/);
+  const pamW = parseFloat(pamParts[0]) || 33;
+  const pamH = parseFloat(pamParts[1]) || 48;
 
-  // Parse forma extension
-  const fe = montaje.forma_extension.split(/[xX×]/);
-  const feW = parseFloat(fe[0]) || 21.5;
-  const feH = parseFloat(fe[1]) || 32;
+  // Forma extension dims (e.g. "21.5 x 32")
+  const feParts = montaje.forma_extension.split(/\s*[xX×]\s*/);
+  const feW = parseFloat(feParts[0]) || 21.5;
+  const feH = parseFloat(feParts[1]) || 32;
 
-  // Parse montaje grid
-  const mg = montaje.montaje_grid.split(/[xX×]/);
-  const mgCols = parseInt(mg[0]) || 1;
-  const mgRows = parseInt(mg[1]) || 2;
+  // Grid (e.g. "1 x 2")
+  const gridParts = montaje.montaje_grid.split(/\s*[xX×]\s*/);
+  const gridCols = parseInt(gridParts[0]) || 1;
+  const gridRows = parseInt(gridParts[1]) || 2;
 
-  // Scale factor for SVG
-  const svgScale = 1.8;
+  const pinza = montaje.pinza_cm || 0.8;
 
-  /* Left diagram: Full sheet cut */
-  const leftSvg = `
-    <svg viewBox="0 0 ${sheetW * svgScale + 20} ${sheetH * svgScale + 30}" 
-         width="${sheetW * svgScale + 20}" height="${sheetH * svgScale + 30}" style="max-width:100%;">
-      <!-- Full sheet -->
-      <rect x="10" y="10" width="${sheetW * svgScale}" height="${sheetH * svgScale}" 
-            fill="none" stroke="#000" stroke-width="1.5"/>
-      <!-- Dimensions -->
-      <text x="${10 + sheetW * svgScale / 2}" y="8" text-anchor="middle" font-size="8" font-weight="bold">${sheetH}</text>
-      <text x="6" y="${10 + sheetH * svgScale / 2}" text-anchor="middle" font-size="8" font-weight="bold" 
-            transform="rotate(-90,6,${10 + sheetH * svgScale / 2})">${sheetW}</text>
-      <!-- Cut indicator -->
-      <text x="${10 + sheetW * svgScale / 2}" y="${sheetH * svgScale + 26}" 
-            text-anchor="middle" font-size="7">Corte de la Hoja: ${montaje.corte_hoja}</text>
-    </svg>
-  `;
-
-  /* Right diagram: Montaje layout */
-  const gap = 2 * svgScale; // gap between pages
-  const pageW = feW * svgScale;
-  const pageH = feH * svgScale;
-  const totalW = mgRows * pageW + (mgRows - 1) * gap;
-  const totalH = pamH * svgScale;
-  const offsetX = (pamW * svgScale - totalW) / 2 + 10;
-
-  let pagesRects = '';
-  for (let i = 0; i < mgRows; i++) {
-    const x = offsetX + i * (pageW + gap);
-    pagesRects += `
-      <rect x="${x}" y="10" width="${pageW}" height="${pageH}" 
-            fill="#f0f0f0" stroke="#000" stroke-width="1"/>
-      <text x="${x + pageW / 2}" y="${10 + pageH / 2 - 4}" text-anchor="middle" font-size="7" font-weight="bold">TIRO A</text>
-      <text x="${x + pageW / 2}" y="${10 + pageH / 2 + 6}" text-anchor="middle" font-size="6">${feW}</text>
-    `;
+  // ── Resolve die-cut shape path ──
+  const dieShape = item.die_shape || 'rectangle';
+  let shapePath: string;
+  if (dieShape === 'custom' && item.die_shape_path) {
+    shapePath = item.die_shape_path;
+  } else if (dieShape !== 'custom' && DIE_SHAPE_PATHS[dieShape]) {
+    shapePath = DIE_SHAPE_PATHS[dieShape];
+  } else {
+    shapePath = DIE_SHAPE_PATHS.rectangle;
   }
 
-  // Dimension labels
-  const rightSvg = `
-    <svg viewBox="0 0 ${pamW * svgScale + 30} ${pamH * svgScale + 30}" 
-         width="${pamW * svgScale + 30}" height="${pamH * svgScale + 30}" style="max-width:100%;">
-      <!-- Press sheet -->
-      <rect x="10" y="10" width="${pamW * svgScale}" height="${pamH * svgScale}" 
-            fill="none" stroke="#000" stroke-width="1.5" stroke-dasharray="4,2"/>
-      ${pagesRects}
-      <!-- Gripper (pinza) -->
-      <line x1="10" y1="${10 + pamH * svgScale - montaje.pinza_cm * svgScale}" 
-            x2="${10 + pamW * svgScale}" y2="${10 + pamH * svgScale - montaje.pinza_cm * svgScale}" 
-            stroke="#c00" stroke-width="0.5" stroke-dasharray="2,1"/>
-      <!-- Dimensions -->
-      <text x="${10 + pamW * svgScale / 2}" y="${pamH * svgScale + 26}" text-anchor="middle" font-size="7">${pamW} × ${pamH}</text>
-      <text x="${pamW * svgScale + 18}" y="${10 + feH * svgScale / 2}" text-anchor="middle" font-size="7" font-weight="bold"
-            transform="rotate(90,${pamW * svgScale + 18},${10 + feH * svgScale / 2})">${feH}</text>
-    </svg>
-  `;
+  const isCustomShape = dieShape !== 'rectangle';
+  const shapeLabel = item.die_shape_label || (isCustomShape ? dieShape.toUpperCase() : '');
+
+  // ── LEFT DIAGRAM: Full RESMA sheet ──
+  const leftSVG = buildLeftDiagram(sheetW, sheetH, pamW, pamH, montaje.corte_hoja, item.pliegos_count, shapePath, isCustomShape);
+
+  // ── RIGHT DIAGRAM: Montaje / Imposition detail ──
+  const rightSVG = buildRightDiagram(pamW, pamH, feW, feH, gridCols, gridRows, pinza, shapePath, isCustomShape, shapeLabel);
 
   return `
-    <div class="montaje-diagram-left">
-      ${leftSvg}
-    </div>
-    <div class="montaje-diagram-right">
-      ${rightSvg}
-    </div>
-  `;
+    <div class="mont-left">${leftSVG}</div>
+    <div class="mont-right">${rightSVG}</div>`;
 }
 
-// End of file
+/**
+ * Transforms a normalised 0–100 SVG path to fit within a target rectangle.
+ * The source path is assumed to be in a 0–100 × 0–100 coordinate space.
+ */
+function scalePath(path: string, x: number, y: number, w: number, h: number): string {
+  // Replace coordinate pairs: scale 0–100 → target rect
+  return path.replace(
+    /(-?\d+\.?\d*)\s+(-?\d+\.?\d*)/g,
+    (_match: string, rawX: string, rawY: string) => {
+      const nx = x + (parseFloat(rawX) / 100) * w;
+      const ny = y + (parseFloat(rawY) / 100) * h;
+      return `${nx.toFixed(2)} ${ny.toFixed(2)}`;
+    }
+  );
+}
+
+/* ────────────────────────────────────────────────────────────────
+   LEFT: Full parent RESMA sheet
+   ──────────────────────────────────────────────────────────────── */
+function buildLeftDiagram(
+  sheetW: number, sheetH: number,
+  pamW: number, pamH: number,
+  corteHoja: string, pliegosCount: number,
+  shapePath: string, isCustomShape: boolean,
+): string {
+  // Scale to fit nicely (max ~130px tall)
+  const scale = Math.min(120 / sheetH, 140 / sheetW, 1.6);
+  const sw = sheetW * scale;
+  const sh = sheetH * scale;
+  const pw = pamW * scale;
+  const ph = pamH * scale;
+
+  const ox = 28; // offset x
+  const oy = 14; // offset y
+  const W = sw + 50;
+  const H = sh + 36;
+
+  // Die-cut preview inside the sheet (small silhouette in center)
+  let shapePreview = '';
+  if (isCustomShape) {
+    // Draw a small version of the die shape centred inside the sheet
+    const previewW = Math.min(sw * 0.35, 50);
+    const previewH = Math.min(sh * 0.35, 50);
+    const previewX = ox + (sw - previewW) / 2;
+    const previewY = oy + (sh - previewH) / 2;
+    const scaledPath = scalePath(shapePath, previewX, previewY, previewW, previewH);
+    shapePreview = `
+      <path d="${scaledPath}" fill="rgba(0,100,200,0.08)" stroke="#0066cc" stroke-width="0.8" stroke-dasharray="2,1"/>
+      <text x="${previewX + previewW / 2}" y="${previewY + previewH + 9}" text-anchor="middle"
+            font-size="5" fill="#0066cc" font-weight="bold">TROQUEL</text>`;
+  }
+
+  return `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" style="max-width:100%;">
+    <!-- Sheet border -->
+    <rect x="${ox}" y="${oy}" width="${sw}" height="${sh}" fill="none" stroke="#000" stroke-width="1.5"/>
+    <!-- RESMA label inside top-left -->
+    <text x="${ox + 3}" y="${oy + 10}" font-size="6.5" font-weight="bold" fill="#333">RESMA</text>
+    <!-- Pliego number inside center -->
+    ${!isCustomShape ? `<text x="${ox + sw / 2}" y="${oy + sh / 2 + 5}" text-anchor="middle" font-size="14" font-weight="bold" fill="#ccc">${pliegosCount}</text>` : ''}
+    <!-- Dashed cut line for press sheet -->
+    <rect x="${ox}" y="${oy}" width="${pw}" height="${ph}"
+          fill="rgba(0,0,0,0.03)" stroke="#000" stroke-width="0.8" stroke-dasharray="4,2"/>
+    <!-- Die-cut shape preview -->
+    ${shapePreview}
+    <!-- Width label (top) -->
+    <line x1="${ox}" y1="${oy - 4}" x2="${ox + sw}" y2="${oy - 4}" stroke="#000" stroke-width="0.5"/>
+    <line x1="${ox}" y1="${oy - 7}" x2="${ox}" y2="${oy - 1}" stroke="#000" stroke-width="0.5"/>
+    <line x1="${ox + sw}" y1="${oy - 7}" x2="${ox + sw}" y2="${oy - 1}" stroke="#000" stroke-width="0.5"/>
+    <text x="${ox + sw / 2}" y="${oy - 6}" text-anchor="middle" font-size="8" font-weight="bold">${sheetH}</text>
+    <!-- Height label (left) -->
+    <line x1="${ox - 4}" y1="${oy}" x2="${ox - 4}" y2="${oy + sh}" stroke="#000" stroke-width="0.5"/>
+    <line x1="${ox - 7}" y1="${oy}" x2="${ox - 1}" y2="${oy}" stroke="#000" stroke-width="0.5"/>
+    <line x1="${ox - 7}" y1="${oy + sh}" x2="${ox - 1}" y2="${oy + sh}" stroke="#000" stroke-width="0.5"/>
+    <text x="${ox - 8}" y="${oy + sh / 2}" text-anchor="middle" font-size="8" font-weight="bold"
+          transform="rotate(-90,${ox - 8},${oy + sh / 2})">${sheetW}</text>
+    <!-- Corte de la Hoja label bottom -->
+    <text x="${ox + sw / 2}" y="${oy + sh + 12}" text-anchor="middle" font-size="7" font-weight="bold">
+      Corte de la Hoja: ${corteHoja || ''}
+    </text>
+  </svg>`;
+}
+
+/* ────────────────────────────────────────────────────────────────
+   RIGHT: Montaje / Imposition layout (critical for operators)
+   Supports arbitrary die-cut shapes via SVG paths.
+   When a non-rectangular shape is specified, the page outlines
+   render as the custom path instead of plain rectangles.
+   ──────────────────────────────────────────────────────────────── */
+function buildRightDiagram(
+  pamW: number, pamH: number,
+  feW: number, feH: number,
+  gridCols: number, gridRows: number,
+  pinza: number,
+  shapePath: string, isCustomShape: boolean, shapeLabel: string,
+): string {
+  // Scale to fit (max ~140px tall)
+  const scale = Math.min(130 / pamH, 160 / pamW, 2.5);
+  const pw = pamW * scale;
+  const ph = pamH * scale;
+  const pgW = feW * scale;
+  const pgH = feH * scale;
+  const pinzaPx = pinza * scale;
+
+  const ox = 22; // offset x
+  const oy = 22; // offset y
+  const W = pw + 52;
+  const H = ph + 38;
+
+  // Calculate gap
+  const gapCm = gridRows > 1 ? (pamW - gridRows * feW) / (gridRows > 1 ? 1 : 2) : pamW - feW;
+
+  // Build page shapes
+  let pages = '';
+  const pagePositions: number[] = [];
+
+  for (let col = 0; col < gridRows; col++) {
+    let px: number;
+    if (gridRows === 1) {
+      px = ox + (pw - pgW) / 2;
+    } else if (gridRows === 2) {
+      px = col === 0 ? ox : ox + pw - pgW;
+    } else {
+      const spacing = (pw - gridRows * pgW) / (gridRows + 1);
+      px = ox + spacing + col * (pgW + spacing);
+    }
+    pagePositions.push(px);
+
+    for (let row = 0; row < gridCols; row++) {
+      const py = oy + row * pgH;
+
+      if (isCustomShape) {
+        // Render the custom die-cut shape scaled to the page dimensions
+        const scaledPath = scalePath(shapePath, px, py, pgW, pgH);
+        pages += `
+          <!-- Custom die-cut page outline -->
+          <path d="${scaledPath}"
+                fill="#f0f0ff" stroke="#000" stroke-width="1"
+                stroke-dasharray="none"/>
+          <!-- Bounding box (light reference) -->
+          <rect x="${px}" y="${py}" width="${pgW}" height="${pgH}"
+                fill="none" stroke="#999" stroke-width="0.3" stroke-dasharray="2,2"/>
+          <!-- TIRO label -->
+          <text x="${px + pgW / 2}" y="${py + pgH / 2}"
+                text-anchor="middle" dominant-baseline="central"
+                font-size="7.5" font-weight="bold"
+                transform="rotate(-90,${px + pgW / 2},${py + pgH / 2})">TIRO A</text>`;
+      } else {
+        // Standard rectangle page
+        pages += `
+          <rect x="${px}" y="${py}" width="${pgW}" height="${pgH}"
+                fill="#f5f5f5" stroke="#000" stroke-width="0.8"/>
+          <text x="${px + pgW / 2}" y="${py + pgH / 2}"
+                text-anchor="middle" dominant-baseline="central"
+                font-size="7.5" font-weight="bold"
+                transform="rotate(-90,${px + pgW / 2},${py + pgH / 2})">TIRO A</text>`;
+      }
+    }
+  }
+
+  // Pinza line (gripper at bottom)
+  const pinzaY = oy + ph - pinzaPx;
+
+  // Bottom dimension annotations
+  let bottomDims = '';
+  if (gridRows === 2 && pagePositions.length === 2) {
+    const p1Left = pagePositions[0];
+    const p1Right = p1Left + pgW;
+    const p2Left = pagePositions[1];
+    const p2Right = p2Left + pgW;
+    const dimY = oy + ph + 6;
+    const tickTop = oy + ph + 3;
+    const tickBot = oy + ph + 9;
+    const gapWidth = p2Left - p1Right;
+
+    bottomDims += `
+      <line x1="${ox}" y1="${tickTop}" x2="${ox}" y2="${tickBot}" stroke="#000" stroke-width="0.5"/>
+      <line x1="${p1Right}" y1="${tickTop}" x2="${p1Right}" y2="${tickBot}" stroke="#000" stroke-width="0.5"/>
+      <line x1="${p2Left}" y1="${tickTop}" x2="${p2Left}" y2="${tickBot}" stroke="#000" stroke-width="0.5"/>
+      <line x1="${p2Right}" y1="${tickTop}" x2="${p2Right}" y2="${tickBot}" stroke="#000" stroke-width="0.5"/>
+      <line x1="${ox}" y1="${dimY}" x2="${p2Right}" y2="${dimY}" stroke="#000" stroke-width="0.5"/>
+      <text x="${(ox + p1Right) / 2}" y="${dimY + 10}" text-anchor="middle" font-size="7.5" font-weight="bold">${feW}</text>
+      ${gapWidth > 2 ? `<text x="${(p1Right + p2Left) / 2}" y="${dimY + 10}" text-anchor="middle" font-size="7" font-weight="bold">${gapCm.toFixed(1)}</text>` : ''}
+      <text x="${(p2Left + p2Right) / 2}" y="${dimY + 10}" text-anchor="middle" font-size="7.5" font-weight="bold">${feW}</text>`;
+  } else if (gridRows === 1) {
+    const dimY = oy + ph + 6;
+    bottomDims += `
+      <text x="${ox + pw / 2}" y="${dimY + 10}" text-anchor="middle" font-size="7.5" font-weight="bold">${feW}</text>`;
+  }
+
+  // Shape type label (only for non-rectangular shapes)
+  const shapeLabelSVG = isCustomShape && shapeLabel
+    ? `<text x="${ox + pw / 2}" y="${oy - 6}" text-anchor="middle" font-size="6" font-weight="bold" fill="#0066cc">
+         TROQUEL: ${shapeLabel}
+       </text>`
+    : '';
+
+  return `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" style="max-width:100%;">
+    <!-- Shape type label -->
+    ${shapeLabelSVG}
+
+    <!-- CONTRAPINZA label top-right -->
+    <text x="${ox + pw + 6}" y="${oy + 4}" font-size="5.5" font-weight="bold" fill="#666"
+          writing-mode="tb" dominant-baseline="central">CONTRAPINZA</text>
+
+    <!-- Press sheet border -->
+    <rect x="${ox}" y="${oy}" width="${pw}" height="${ph}"
+          fill="none" stroke="#000" stroke-width="1.5"/>
+
+    <!-- Page shapes with TIRO labels -->
+    ${pages}
+
+    <!-- Pinza (gripper) line -->
+    <line x1="${ox}" y1="${pinzaY}" x2="${ox + pw}" y2="${pinzaY}"
+          stroke="#cc0000" stroke-width="0.6" stroke-dasharray="3,1"/>
+    <text x="${ox + pw / 2}" y="${pinzaY - 2}" text-anchor="middle"
+          font-size="5" fill="#cc0000" font-weight="bold">${pinza}</text>
+
+    <!-- Left dimension: pamW -->
+    <line x1="${ox - 4}" y1="${oy}" x2="${ox - 4}" y2="${oy + ph}" stroke="#000" stroke-width="0.5"/>
+    <line x1="${ox - 7}" y1="${oy}" x2="${ox - 1}" y2="${oy}" stroke="#000" stroke-width="0.5"/>
+    <line x1="${ox - 7}" y1="${oy + ph}" x2="${ox - 1}" y2="${oy + ph}" stroke="#000" stroke-width="0.5"/>
+    <text x="${ox - 10}" y="${oy + ph / 2}" text-anchor="middle" font-size="8" font-weight="bold"
+          transform="rotate(-90,${ox - 10},${oy + ph / 2})">${pamW}</text>
+
+    <!-- Right dimension: feH -->
+    <text x="${ox + pw + 4}" y="${oy + pgH / 2}" text-anchor="middle" font-size="7.5" font-weight="bold"
+          transform="rotate(90,${ox + pw + 4},${oy + pgH / 2})">${feH}</text>
+
+    <!-- Bottom dimensions -->
+    ${bottomDims}
+  </svg>`;
+}
