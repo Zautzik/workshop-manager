@@ -63,6 +63,12 @@ export const queryKeys = {
     ['employeeCostTimeline', { employeeId, startDate, endDate, granularity }] as const,
   orderLaborMargin: (otId?: string, startDate?: string, endDate?: string) => 
     ['orderLaborMargin', { otId, startDate, endDate }] as const,
+
+  // WhatsApp Production Tracking (mirrors waQueryKeys in use-whatsapp.ts)
+  whatsappSummary: ['whatsapp', 'summary'] as const,
+  whatsappLogs: (filters?: Record<string, string>) => ['whatsapp', 'logs', filters] as const,
+  whatsappLog: (id: string) => ['whatsapp', 'logs', id] as const,
+  whatsappPending: ['whatsapp', 'logs', { status: 'pending' }] as const,
 };
 
 /* ------------------------------------------------------------------ */
