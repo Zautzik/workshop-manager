@@ -1,0 +1,579 @@
+'use client';
+import { useState, useCallback } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { useDaySchedule, useUnscheduledOTs } from '@/hooks/use-queries';
+import { useRealtimeProduction } from '@/hooks/use-realtime-production';
+import { Card } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { useToast } from '@/hooks/use-toast';
+import {
+  ChevronLeft, ChevronRight, Printer, RefreshCw, Plus,
+  Clock, AlertTriangle, CheckCircle2, Wifi, WifiOff, Trash2,
+} from 'lucide-react';
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+const COLOR_VALUE: Record<string, string> = {
+  cmyk: '4', '1_color': '1', '2_color': '2', '3_color': '3',
+  cmyk_pantone: '4+P', sin_impresion: '0',
+};
+function formatColor(front?: string | null, back?: string | null) {
+  if (!front) return '—';
+  return `${COLOR_VALUE[front] ?? '?'}/${COLOR_VALUE[back ?? ''] ?? '0'}`;
+}
+
+function fmtTime(dt?: string | null) {
+  if (!dt) return '—';
+  const d = new Date(dt);
+  if (Number.isNaN(d.getTime())) return '—';
+  return d.toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' });
+}
+function fmtDate(dt?: string | null) {
+  if (!dt) return '—';
+  const d = new Date(dt);
+  if (Number.isNaN(d.getTime())) return '—';
+  return d.toLocaleDateString('es-CL', { day: '2-digit', month: '2-digit', year: '2-digit' });
+}
+function isOverdue(dl?: string | null) {
+  return !!dl && new Date(dl) < new Date();
+}
+function getDateIso(d: Date) {
+  return d.toISOString().split('T')[0];
+}
+
+const MACHINE_TYPE_LABEL: Record<string, string> = {
+  offset_printer: 'Offset',
+  digital_printer: 'Digital',
+  die_cutter: 'Troqueladora',
+  guillotine: 'Guillotina',
+  manual_workshop: 'Taller Manual',
+  pre_press: 'Pre-Prensa',
+  delivery: 'Despacho',
+};
+
+const STATUS_LABELS: Record<string, string> = {
+  pre_press: 'Pre-Prensa', visto_bueno: 'Visto Bueno', paper_purchase: 'Compra Papel',
+  in_storage: 'Bodega', guillotine_first_cut: '1er Corte', offset_printing: 'Impresión',
+  die_cutting: 'Troquelado', guillotine_final_cut: 'Corte Final', workshop: 'Taller',
+  outsourced: 'Tercerizado', workshop_revision: 'Revisión', ready_for_delivery: 'Listo',
+  in_delivery: 'En Entrega', completed: 'Completado',
+};
+
+// Confidence badge colors
+const CONF_COLORS: Record<string, string> = {
+  high:   'bg-green-500/20 text-green-700 border-green-500/30',
+  medium: 'bg-amber-500/20 text-amber-700 border-amber-500/30',
+  low:    'bg-slate-400/20 text-slate-600 border-slate-400/30',
+};
+
+// ─── Flag pill ───────────────────────────────────────────────────────────────
+
+function FlagPill({
+  label, checked, onChange, color,
+}: { label: string; checked: boolean; onChange: () => void; color: string }) {
+  return (
+    <button
+      onClick={onChange}
+      title={label}
+      className={`h-5 px-1.5 rounded text-[9px] font-bold border transition-all select-none ${
+        checked
+          ? `${color} opacity-100`
+          : 'bg-muted/20 text-muted-foreground border-muted/40 opacity-50'
+      }`}
+    >
+      {label}
+    </button>
+  );
+}
+
+// ─── Shift load bar ──────────────────────────────────────────────────────────
+
+function ShiftLoadBar({ totalHours, shiftHours = 9 }: { totalHours: number; shiftHours?: number }) {
+  const pct = Math.min((totalHours / shiftHours) * 100, 100);
+  const over = totalHours > shiftHours;
+  return (
+    <div className="flex items-center gap-2 mt-1">
+      <div className="flex-1 h-2 rounded-full bg-muted overflow-hidden">
+        <div
+          className={`h-full rounded-full transition-all ${over ? 'bg-destructive' : 'bg-primary'}`}
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+      <span className={`text-xs font-mono font-semibold tabular-nums ${over ? 'text-destructive' : 'text-foreground'}`}>
+        {totalHours.toFixed(1)}/{shiftHours}h
+      </span>
+      {over && <AlertTriangle className="h-3 w-3 text-destructive shrink-0" />}
+    </div>
+  );
+}
+
+// ─── Add-to-schedule dialog (inline) ────────────────────────────────────────
+
+function AddSlotRow({
+  otId, machineId, date, onDone,
+}: { otId: string; machineId: string; date: string; onDone: () => void }) {
+  const [startTime, setStartTime] = useState('08:00');
+  const [endTime, setEndTime] = useState('17:00');
+  const [hoursOverride, setHoursOverride] = useState('');
+  const [paperType, setPaperType] = useState('');
+  const [saving, setSaving] = useState(false);
+  const { toast } = useToast();
+
+  const save = async () => {
+    setSaving(true);
+    const res = await fetch('/api/ot-schedule', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ot_id: otId,
+        machine_id: machineId,
+        scheduled_start: `${date}T${startTime}:00.000Z`,
+        scheduled_end:   `${date}T${endTime}:00.000Z`,
+        hours_override:  hoursOverride ? parseFloat(hoursOverride) : null,
+        paper_type_label: paperType || null,
+      }),
+    });
+    setSaving(false);
+    if (!res.ok) {
+      toast({ title: 'Error al agregar', variant: 'destructive' });
+      return;
+    }
+    onDone();
+  };
+
+  return (
+    <tr className="bg-primary/5 border-b border-primary/20">
+      <td colSpan={12} className="px-3 py-2">
+        <div className="flex flex-wrap items-center gap-2 text-xs">
+          <span className="font-medium text-foreground">Inicio:</span>
+          <Input type="time" value={startTime} onChange={e => setStartTime(e.target.value)} className="h-7 w-28 text-xs" />
+          <span className="font-medium text-foreground">Fin:</span>
+          <Input type="time" value={endTime} onChange={e => setEndTime(e.target.value)} className="h-7 w-28 text-xs" />
+          <span className="font-medium text-foreground">HRS:</span>
+          <Input
+            type="number" step="0.5" placeholder="Auto"
+            value={hoursOverride} onChange={e => setHoursOverride(e.target.value)}
+            className="h-7 w-20 text-xs"
+          />
+          <span className="font-medium text-foreground">Papel:</span>
+          <Input
+            placeholder="Tipo papel…" value={paperType}
+            onChange={e => setPaperType(e.target.value)}
+            className="h-7 w-40 text-xs"
+          />
+          <Button size="sm" className="h-7 text-xs" onClick={save} disabled={saving}>
+            {saving ? 'Guardando…' : 'Agregar'}
+          </Button>
+          <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={onDone}>
+            Cancelar
+          </Button>
+        </div>
+      </td>
+    </tr>
+  );
+}
+
+// ─── Main component ───────────────────────────────────────────────────────────
+
+export function HojaProduccion() {
+  const today = new Date();
+  const [selectedDate, setSelectedDate] = useState(getDateIso(today));
+  const { data: slots = [], isLoading, refetch } = useDaySchedule(selectedDate);
+  const { data: unscheduled = [] } = useUnscheduledOTs(selectedDate);
+  const { isConnected } = useRealtimeProduction();
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  const [addingSlot, setAddingSlot] = useState<{ otId: string; machineId: string } | null>(null);
+
+  // ── patch flag helper ──────────────────────────────────────────────────────
+  const patchFlag = useCallback(async (otId: string, flag: string, value: boolean) => {
+    const res = await fetch(`/api/ots/${otId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ [flag]: value }),
+    });
+    if (!res.ok) toast({ title: 'Error al guardar', variant: 'destructive' });
+    else queryClient.invalidateQueries({ queryKey: ['schedule'] });
+  }, [queryClient, toast]);
+
+  // ── patch slot helper ──────────────────────────────────────────────────────
+  const patchSlot = useCallback(async (slotId: string, fields: Record<string, unknown>) => {
+    const res = await fetch(`/api/ot-schedule/${slotId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(fields),
+    });
+    if (!res.ok) toast({ title: 'Error al actualizar', variant: 'destructive' });
+    else queryClient.invalidateQueries({ queryKey: ['schedule'] });
+  }, [queryClient, toast]);
+
+  // ── delete slot ────────────────────────────────────────────────────────────
+  const deleteSlot = useCallback(async (slotId: string) => {
+    const res = await fetch(`/api/ot-schedule/${slotId}`, { method: 'DELETE' });
+    if (!res.ok) toast({ title: 'Error al eliminar', variant: 'destructive' });
+    else queryClient.invalidateQueries({ queryKey: ['schedule'] });
+  }, [queryClient, toast]);
+
+  // ── Navigation ─────────────────────────────────────────────────────────────
+  const moveDate = (delta: number) => {
+    const d = new Date(selectedDate + 'T12:00:00');
+    d.setDate(d.getDate() + delta);
+    setSelectedDate(getDateIso(d));
+  };
+
+  // ── Group slots by machine ─────────────────────────────────────────────────
+  const byMachine: Record<string, { machine: any; slots: typeof slots }> = {};
+  for (const slot of slots) {
+    const mid = (slot as any).machine?.id ?? 'unknown';
+    if (!byMachine[mid]) byMachine[mid] = { machine: (slot as any).machine, slots: [] };
+    byMachine[mid].slots.push(slot);
+  }
+  const machineGroups = Object.values(byMachine);
+
+  // ── All unique machines from slots (for unscheduled add row) ──────────────
+  const machines = machineGroups.map(g => g.machine).filter(Boolean);
+
+  const printDate = new Date(selectedDate + 'T12:00:00').toLocaleDateString('es-CL', {
+    weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric',
+  });
+
+  return (
+    <div className="space-y-4">
+      {/* ── Toolbar ── */}
+      <Card className="bg-card/80 border-border backdrop-blur-sm p-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-1">
+            <Button variant="outline" size="icon" className="h-8 w-8 border-border bg-card/50" onClick={() => moveDate(-1)}>
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <Input
+              type="date"
+              value={selectedDate}
+              onChange={e => setSelectedDate(e.target.value)}
+              className="h-8 w-36 text-sm"
+            />
+            <Button variant="outline" size="icon" className="h-8 w-8 border-border bg-card/50" onClick={() => moveDate(1)}>
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="outline" size="sm"
+              className="h-8 border-border bg-card/50 text-xs"
+              onClick={() => setSelectedDate(getDateIso(today))}
+            >
+              Hoy
+            </Button>
+          </div>
+
+          <div className="flex items-center gap-1.5 ml-auto">
+            {isConnected
+              ? <><Wifi className="h-3.5 w-3.5 text-green-500" /><span className="text-xs text-green-600">En vivo</span></>
+              : <><WifiOff className="h-3.5 w-3.5 text-muted-foreground" /><span className="text-xs text-muted-foreground">Desconectado</span></>
+            }
+          </div>
+
+          <Button variant="outline" size="sm" onClick={() => refetch()} className="h-8 border-border bg-card/50 gap-1.5">
+            <RefreshCw className="h-4 w-4" />
+            Actualizar
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => window.print()} className="h-8 border-border bg-card/50 gap-1.5 print:hidden">
+            <Printer className="h-4 w-4" />
+            Imprimir
+          </Button>
+        </div>
+      </Card>
+
+      {/* ── Print header ── */}
+      <div className="hidden print:block text-center mb-2">
+        <h1 className="text-xl font-bold uppercase tracking-wide">Hoja de Producción</h1>
+        <p className="text-sm text-gray-600 capitalize">{printDate}</p>
+      </div>
+
+      {isLoading ? (
+        <div className="flex items-center justify-center py-16 text-muted-foreground text-sm">Cargando programación…</div>
+      ) : machineGroups.length === 0 ? (
+        <Card className="bg-card/80 border-border p-8 text-center text-muted-foreground text-sm">
+          No hay OTs programadas para este día.
+          {unscheduled.length > 0 && (
+            <p className="mt-2 text-xs">Hay {unscheduled.length} OT(s) activa(s) sin programar — asígnalas abajo.</p>
+          )}
+        </Card>
+      ) : (
+        machineGroups.map(({ machine, slots: mSlots }) => {
+          const totalHrs = mSlots.reduce((acc, s) => {
+            return acc + (Number((s as any).hours_override ?? (s as any).estimated_hours ?? 0));
+          }, 0);
+          return (
+            <Card key={machine?.id ?? 'unknown'} className="bg-card/80 border-border backdrop-blur-sm overflow-hidden">
+              {/* Machine header */}
+              <div className="flex items-center justify-between px-4 py-2.5 bg-muted/30 border-b border-border">
+                <div>
+                  <h3 className="font-bold text-foreground text-sm uppercase tracking-wide">
+                    {machine?.name ?? 'Sin máquina'}{' '}
+                    <span className="text-muted-foreground font-normal normal-case text-xs">
+                      ({MACHINE_TYPE_LABEL[machine?.type] ?? machine?.type})
+                    </span>
+                  </h3>
+                  <ShiftLoadBar totalHours={totalHrs} />
+                </div>
+                <Badge variant="outline" className={
+                  machine?.status === 'running' ? 'bg-green-500/20 text-green-700 border-green-500/30' :
+                  machine?.status === 'maintenance' ? 'bg-destructive/20 text-destructive border-destructive/30' :
+                  'bg-muted/20 text-muted-foreground border-muted'
+                }>
+                  {machine?.status ?? '—'}
+                </Badge>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs border-collapse">
+                  <thead>
+                    <tr className="border-b border-border bg-muted/20 text-muted-foreground uppercase tracking-wide text-[10px]">
+                      <th className="px-2 py-2 text-left w-5">ORD</th>
+                      <th className="px-2 py-2 text-left w-5">PRO</th>
+                      <th className="px-2 py-2 text-left w-5">VBP</th>
+                      <th className="px-2 py-2 text-left w-5">PLAN</th>
+                      <th className="px-2 py-2 text-left w-5">PAP</th>
+                      <th className="px-2 py-2 text-left w-[70px]">O.T.</th>
+                      <th className="px-2 py-2 text-left">Cliente</th>
+                      <th className="px-2 py-2 text-left">Trabajo</th>
+                      <th className="px-2 py-2 text-right w-[60px]">Cant.</th>
+                      <th className="px-2 py-2 text-center w-[50px]">Color</th>
+                      <th className="px-2 py-2 text-left">Procesos / Avance</th>
+                      <th className="px-2 py-2 text-left">Tipo Papel</th>
+                      <th className="px-2 py-2 text-center w-[70px]">Medio A</th>
+                      <th className="px-2 py-2 text-right w-[50px]">Pliego</th>
+                      <th className="px-2 py-2 text-center w-[55px]">Entrega</th>
+                      <th className="px-2 py-2 text-center w-[40px]">HRS</th>
+                      <th className="px-2 py-2 text-center w-[55px]">Inicio</th>
+                      <th className="px-2 py-2 text-center w-[55px]">Término</th>
+                      <th className="px-2 py-2 text-center w-[32px] print:hidden"></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {mSlots.map((slot: any, idx) => {
+                      const ot = slot.ot;
+                      if (!ot) return null;
+                      const hrs = slot.hours_override ?? slot.estimated_hours;
+                      const hasOverride = slot.hours_override != null;
+                      const overdue = isOverdue(ot.deadline);
+                      return (
+                        <tr
+                          key={slot.id}
+                          className={`border-b border-border/50 hover:bg-muted/10 transition-colors ${
+                            !ot.flag_paper_arrived ? 'opacity-70 bg-amber-500/5' : ''
+                          } ${idx % 2 === 0 ? '' : 'bg-muted/5'}`}
+                        >
+                          {/* Flags */}
+                          {(['flag_ord','flag_pro','flag_vbp','flag_plan'] as const).map(flag => (
+                            <td key={flag} className="px-1 py-1.5 text-center">
+                              <FlagPill
+                                label={flag.replace('flag_','').toUpperCase()}
+                                checked={!!ot[flag]}
+                                color="bg-primary/20 text-primary border-primary/30"
+                                onChange={() => patchFlag(ot.id, flag, !ot[flag])}
+                              />
+                            </td>
+                          ))}
+                          <td className="px-1 py-1.5 text-center">
+                            <FlagPill
+                              label="PAP"
+                              checked={!!ot.flag_paper_arrived}
+                              color={ot.flag_paper_arrived
+                                ? 'bg-green-500/20 text-green-700 border-green-500/30'
+                                : 'bg-amber-500/20 text-amber-700 border-amber-500/30'}
+                              onChange={() => patchFlag(ot.id, 'flag_paper_arrived', !ot.flag_paper_arrived)}
+                            />
+                          </td>
+
+                          {/* OT # */}
+                          <td className="px-2 py-1.5 font-mono font-semibold text-foreground whitespace-nowrap">
+                            {ot.ot_number}
+                          </td>
+
+                          {/* Cliente */}
+                          <td className="px-2 py-1.5 font-medium text-foreground">{ot.client_name}</td>
+
+                          {/* Trabajo */}
+                          <td className="px-2 py-1.5 text-foreground max-w-[160px]">
+                            <span className="line-clamp-2">{ot.product_name || ot.description || '—'}</span>
+                          </td>
+
+                          {/* Cant */}
+                          <td className="px-2 py-1.5 text-right tabular-nums">
+                            {ot.quantity?.toLocaleString('es-CL') ?? '—'}
+                          </td>
+
+                          {/* Color */}
+                          <td className="px-2 py-1.5 text-center font-mono">
+                            {formatColor(ot.color_front, ot.color_back)}
+                          </td>
+
+                          {/* Procesos / Avance */}
+                          <td className="px-2 py-1.5">
+                            <div className="flex flex-col gap-0.5">
+                              <span className="text-[10px] text-muted-foreground font-medium">
+                                {STATUS_LABELS[ot.status] ?? ot.status}
+                              </span>
+                              {ot.proceso_actual && (
+                                <span className="text-foreground text-[10px]">{ot.proceso_actual}</span>
+                              )}
+                            </div>
+                          </td>
+
+                          {/* Tipo papel */}
+                          <td className="px-2 py-1.5 text-foreground">
+                            {slot.paper_type_label || '—'}
+                          </td>
+
+                          {/* Medio A (sheet dims) */}
+                          <td className="px-2 py-1.5 text-center font-mono text-muted-foreground">
+                            {slot.sheet_width_cm && slot.sheet_height_cm
+                              ? `${slot.sheet_width_cm}×${slot.sheet_height_cm}`
+                              : '—'}
+                          </td>
+
+                          {/* Pliego */}
+                          <td className="px-2 py-1.5 text-right tabular-nums text-muted-foreground">
+                            {slot.calc_sheets?.toLocaleString('es-CL') ?? '—'}
+                          </td>
+
+                          {/* Entrega */}
+                          <td className={`px-2 py-1.5 text-center tabular-nums font-medium ${overdue ? 'text-destructive' : 'text-foreground'}`}>
+                            {fmtDate(ot.deadline)}
+                          </td>
+
+                          {/* HRS */}
+                          <td className="px-2 py-1.5 text-center">
+                            {hrs != null ? (
+                              <span className={`font-mono font-semibold ${hasOverride ? 'text-primary' : 'text-muted-foreground'}`}>
+                                {Number(hrs).toFixed(1)}
+                                {hasOverride && <span className="text-[9px] ml-0.5">★</span>}
+                              </span>
+                            ) : (
+                              <span className="text-muted-foreground">—</span>
+                            )}
+                          </td>
+
+                          {/* Inicio */}
+                          <td className="px-2 py-1.5 text-center font-mono text-foreground">
+                            {fmtTime(slot.scheduled_start)}
+                          </td>
+
+                          {/* Término */}
+                          <td className="px-2 py-1.5 text-center font-mono text-foreground">
+                            {fmtTime(slot.scheduled_end)}
+                          </td>
+
+                          {/* Delete */}
+                          <td className="px-2 py-1.5 text-center print:hidden">
+                            <button
+                              onClick={() => deleteSlot(slot.id)}
+                              className="text-muted-foreground hover:text-destructive transition-colors"
+                              title="Quitar de este día"
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+
+                    {/* Add slot row inline */}
+                    {addingSlot && addingSlot.machineId === machine?.id && (
+                      <AddSlotRow
+                        otId={addingSlot!.otId}
+                        machineId={machine.id}
+                        date={selectedDate}
+                        onDone={() => {
+                          setAddingSlot(null);
+                          queryClient.invalidateQueries({ queryKey: ['schedule'] });
+                        }}
+                      />
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </Card>
+          );
+        })
+      )}
+
+      {/* ── Backlog panel — unscheduled active OTs ── */}
+      {unscheduled.length > 0 && (
+        <Card className="bg-card/80 border-border backdrop-blur-sm p-4">
+          <h3 className="text-sm font-bold text-foreground mb-3 flex items-center gap-2">
+            <Clock className="h-4 w-4 text-amber-500" />
+            OTs Activas sin Programar ({unscheduled.length})
+          </h3>
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs border-collapse">
+              <thead>
+                <tr className="border-b border-border bg-muted/20 text-muted-foreground uppercase tracking-wide text-[10px]">
+                  <th className="px-2 py-1.5 text-left">O.T.</th>
+                  <th className="px-2 py-1.5 text-left">Cliente</th>
+                  <th className="px-2 py-1.5 text-left">Trabajo</th>
+                  <th className="px-2 py-1.5 text-right">Cant.</th>
+                  <th className="px-2 py-1.5 text-center">Estado</th>
+                  <th className="px-2 py-1.5 text-center">Entrega</th>
+                  <th className="px-2 py-1.5 text-center print:hidden">Agregar</th>
+                </tr>
+              </thead>
+              <tbody>
+                {unscheduled.map((ot: any, idx) => (
+                  <tr key={ot.id} className={`border-b border-border/40 hover:bg-muted/10 ${idx % 2 === 0 ? '' : 'bg-muted/5'}`}>
+                    <td className="px-2 py-1.5 font-mono font-semibold">{ot.ot_number}</td>
+                    <td className="px-2 py-1.5">{ot.client_name}</td>
+                    <td className="px-2 py-1.5 max-w-[160px]">
+                      <span className="line-clamp-1">{ot.product_name || ot.description || '—'}</span>
+                    </td>
+                    <td className="px-2 py-1.5 text-right tabular-nums">{ot.quantity?.toLocaleString('es-CL') ?? '—'}</td>
+                    <td className="px-2 py-1.5 text-center text-muted-foreground">{STATUS_LABELS[ot.status] ?? ot.status}</td>
+                    <td className={`px-2 py-1.5 text-center tabular-nums ${isOverdue(ot.deadline) ? 'text-destructive font-semibold' : 'text-foreground'}`}>
+                      {fmtDate(ot.deadline)}
+                    </td>
+                    <td className="px-2 py-1.5 text-center print:hidden">
+                      {machines.length > 0 ? (
+                        <select
+                          defaultValue=""
+                          onChange={e => {
+                            if (e.target.value) {
+                              setAddingSlot({ otId: ot.id, machineId: e.target.value });
+                              e.target.value = '';
+                            }
+                          }}
+                          className="h-6 rounded border border-input bg-card text-xs px-1 text-foreground"
+                        >
+                          <option value="">+ Máquina…</option>
+                          {machines.map((m: any) => (
+                            <option key={m.id} value={m.id}>{m.name}</option>
+                          ))}
+                        </select>
+                      ) : (
+                        <span className="text-muted-foreground text-[10px]">Sin máquinas</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      )}
+
+      <style>{`
+        @media print {
+          body * { visibility: hidden; }
+          .hoja-print-root, .hoja-print-root * { visibility: visible; }
+          .hoja-print-root { position: absolute; inset: 0; padding: 16px; }
+          nav, header, aside { display: none !important; }
+          .print\\:hidden { display: none !important; }
+          table { font-size: 9px !important; }
+          th, td { padding: 3px 5px !important; }
+        }
+      `}</style>
+    </div>
+  );
+}

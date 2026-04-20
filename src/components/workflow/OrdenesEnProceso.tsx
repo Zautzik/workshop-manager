@@ -1,15 +1,14 @@
 'use client';
 import { useState, useRef, useCallback } from 'react';
-import { useActiveOTs } from '@/hooks/use-queries';
-import { supabase } from '@/integrations/supabase/client';
+import { useActiveOTs, queryKeys } from '@/hooks/use-queries';
+import { useRealtimeProduction } from '@/hooks/use-realtime-production';
 import { useQueryClient } from '@tanstack/react-query';
-import { queryKeys } from '@/hooks/use-queries';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { Printer, Search, RefreshCw, Edit2, Check, X } from 'lucide-react';
+import { Printer, Search, RefreshCw, Edit2, Check, X, Wifi, WifiOff } from 'lucide-react';
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -72,6 +71,35 @@ function formatDeadline(deadline?: string | null): string {
 function isOverdue(deadline?: string | null): boolean {
   if (!deadline) return false;
   return new Date(deadline) < new Date();
+}
+
+// ─── Inline editable cell ───────────────────────────────────────────────────
+// ─── Flag pill ──────────────────────────────────────────────────────────────
+
+function FlagPill({
+  label,
+  checked,
+  onChange,
+  activeColor = 'bg-emerald-500 text-white',
+}: {
+  label: string;
+  checked: boolean;
+  onChange: (next: boolean) => void;
+  activeColor?: string;
+}) {
+  return (
+    <button
+      onClick={() => onChange(!checked)}
+      title={`Toggle ${label}`}
+      className={`inline-flex items-center justify-center rounded px-1.5 py-0.5 text-[10px] font-bold border transition-colors leading-none ${
+        checked
+          ? `${activeColor} border-transparent`
+          : 'bg-transparent text-muted-foreground border-border hover:border-foreground/40'
+      }`}
+    >
+      {label}
+    </button>
+  );
 }
 
 // ─── Inline editable cell ───────────────────────────────────────────────────
@@ -145,6 +173,7 @@ function InlineEditable({
 
 export function OrdenesEnProceso() {
   const { data: ots = [], isLoading, refetch } = useActiveOTs();
+  const { isConnected } = useRealtimeProduction();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('');
   const queryClient = useQueryClient();
@@ -240,7 +269,17 @@ export function OrdenesEnProceso() {
             Imprimir
           </Button>
 
-          <span className="text-sm text-muted-foreground ml-auto">
+            <div
+              className={`flex items-center gap-1.5 text-xs font-medium ml-auto print:hidden ${
+                isConnected ? 'text-emerald-600' : 'text-amber-500'
+              }`}
+              title={isConnected ? 'Actualizaciones en vivo activas' : 'Sin conexión en tiempo real'}
+            >
+              {isConnected ? <Wifi className="h-3.5 w-3.5" /> : <WifiOff className="h-3.5 w-3.5" />}
+              {isConnected ? 'En vivo' : 'Offline'}
+            </div>
+
+            <span className="text-sm text-muted-foreground print:ml-auto">
             {filtered.length} órden{filtered.length !== 1 ? 'es' : ''}
           </span>
         </div>
@@ -270,12 +309,18 @@ export function OrdenesEnProceso() {
             <table className="w-full text-sm border-collapse print:text-xs">
               <thead>
                 <tr className="border-b border-border bg-muted/40 text-muted-foreground text-xs uppercase tracking-wide">
+                  <th className="px-2 py-2.5 text-center font-medium w-[30px]">ORD</th>
+                  <th className="px-2 py-2.5 text-center font-medium w-[30px]">PRO</th>
+                  <th className="px-2 py-2.5 text-center font-medium w-[30px]">VBP</th>
+                  <th className="px-2 py-2.5 text-center font-medium w-[30px]">PLN</th>
+                  <th className="px-2 py-2.5 text-center font-medium w-[30px]">PAP</th>
                   <th className="px-3 py-2.5 text-left font-medium w-[90px]">OT</th>
                   <th className="px-3 py-2.5 text-left font-medium">Cliente</th>
                   <th className="px-3 py-2.5 text-left font-medium">Trabajo</th>
                   <th className="px-3 py-2.5 text-right font-medium w-[70px]">Cant.</th>
                   <th className="px-3 py-2.5 text-center font-medium w-[60px]">Color</th>
                   <th className="px-3 py-2.5 text-left font-medium min-w-[180px]">Procesos / Avance</th>
+                  <th className="px-3 py-2.5 text-right font-medium w-[55px]">HRS</th>
                   <th className="px-3 py-2.5 text-center font-medium w-[80px]">Entrega</th>
                   <th className="px-3 py-2.5 text-left font-medium w-[120px]">MAQ</th>
                 </tr>
@@ -293,10 +338,27 @@ export function OrdenesEnProceso() {
                     <tr
                       key={ot.id}
                       className={`border-b border-border/50 transition-colors hover:bg-muted/20 ${
-                        idx % 2 === 0 ? '' : 'bg-muted/10'
+                          !(ot as any).flag_paper_arrived ? 'bg-amber-500/5' : idx % 2 === 0 ? '' : 'bg-muted/10'
                       }`}
                     >
-                      {/* OT # */}
+                        {/* FLAGS */}
+                        <td className="px-2 py-2 text-center">
+                          <FlagPill label="ORD" checked={!!(ot as any).flag_ord} onChange={(v) => patchOT(ot.id, { flag_ord: v })} activeColor="bg-blue-600 text-white" />
+                        </td>
+                        <td className="px-2 py-2 text-center">
+                          <FlagPill label="PRO" checked={!!(ot as any).flag_pro} onChange={(v) => patchOT(ot.id, { flag_pro: v })} activeColor="bg-violet-600 text-white" />
+                        </td>
+                        <td className="px-2 py-2 text-center">
+                          <FlagPill label="VBP" checked={!!(ot as any).flag_vbp} onChange={(v) => patchOT(ot.id, { flag_vbp: v })} activeColor="bg-amber-500 text-white" />
+                        </td>
+                        <td className="px-2 py-2 text-center">
+                          <FlagPill label="PLN" checked={!!(ot as any).flag_plan} onChange={(v) => patchOT(ot.id, { flag_plan: v })} activeColor="bg-cyan-600 text-white" />
+                        </td>
+                        <td className="px-2 py-2 text-center">
+                          <FlagPill label="PAP" checked={!!(ot as any).flag_paper_arrived} onChange={(v) => patchOT(ot.id, { flag_paper_arrived: v })} activeColor="bg-emerald-600 text-white" />
+                        </td>
+
+                        {/* OT # */}
                       <td className="px-3 py-2 font-mono font-semibold text-foreground whitespace-nowrap">
                         {ot.ot_number}
                       </td>
@@ -340,6 +402,14 @@ export function OrdenesEnProceso() {
                             }
                           />
                         </div>
+                      </td>
+
+                      {/* ENTREGA */}
+                      {/* HRS */}
+                      <td className="px-3 py-2 text-right tabular-nums text-muted-foreground text-xs">
+                        {(ot as any).calc_print_hours != null || (ot as any).calc_finish_hours != null
+                          ? (((ot as any).calc_print_hours ?? 0) + ((ot as any).calc_finish_hours ?? 0)).toFixed(1)
+                          : '—'}
                       </td>
 
                       {/* ENTREGA */}

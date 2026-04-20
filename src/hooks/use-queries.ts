@@ -292,13 +292,19 @@ export function useJobs() {
 /*  OTs (work orders)                                                 */
 /* ------------------------------------------------------------------ */
 
+const OT_SELECT = `
+  *,
+  workstation:workstations(*),
+  machine:machines!assigned_machine_id(id,name,type)
+` as const;
+
 export function useOTs() {
   return useQuery({
     queryKey: queryKeys.ots,
     queryFn: async () => {
       const { data, error } = await supabase
         .from('ots')
-        .select('*, workstation:workstations(*), machine:machines!assigned_machine_id(id,name,type)')
+        .select(OT_SELECT)
         .order('priority', { ascending: false })
         .order('created_at', { ascending: false });
       if (error) throw error;
@@ -320,13 +326,105 @@ export function useActiveOTs() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('ots')
-        .select('*, workstation:workstations(*), machine:machines!assigned_machine_id(id,name,type)')
+        .select(OT_SELECT)
         .in('status', activeOTStatuses as unknown as string[])
         .order('priority', { ascending: false })
         .order('created_at', { ascending: false });
       if (error) throw error;
       return data ?? [];
     },
+  });
+}
+
+// ── Machine schedule hooks ─────────────────────────────────────────────────
+
+const SCHEDULE_SELECT = `
+  *,
+  ot:ots(
+    id, ot_number, client_name, product_name, description,
+    quantity, color_front, color_back, pantone_colors,
+    status, deadline, proceso_actual,
+    flag_ord, flag_pro, flag_vbp, flag_plan, flag_paper_arrived,
+    calc_print_hours, calc_finish_hours,
+    finish_troquelado, finish_plegado, finish_pegado, finish_laminado,
+    finish_barniz, finish_relieve, finish_perforado, finish_hot_stamping,
+    finish_uv_localizado, finish_numeracion
+  ),
+  machine:machines(id, name, type, status)
+` as const;
+
+/** All schedule slots for a given calendar date, grouped ready for HojaProduccion */
+export function useDaySchedule(date: string) {
+  return useQuery({
+    queryKey: ['schedule', 'day', date],
+    queryFn: async () => {
+      const dayStart = `${date}T00:00:00.000Z`;
+      const dayEnd   = `${date}T23:59:59.999Z`;
+      const { data, error } = await supabase
+        .from('ot_machine_schedule')
+        .select(SCHEDULE_SELECT)
+        .gte('scheduled_start', dayStart)
+        .lte('scheduled_start', dayEnd)
+        .order('sort_order', { ascending: true })
+        .order('scheduled_start', { ascending: true });
+      if (error) throw error;
+      return data ?? [];
+    },
+    enabled: !!date,
+  });
+}
+
+/** All unscheduled active OTs (no slot for the chosen date — for the "Backlog" sidebar) */
+export function useUnscheduledOTs(date: string) {
+  return useQuery({
+    queryKey: ['schedule', 'unscheduled', date],
+    queryFn: async () => {
+      const dayStart = `${date}T00:00:00.000Z`;
+      const dayEnd   = `${date}T23:59:59.999Z`;
+      // OTs that are active but have no schedule slot on this date
+      const { data: slots } = await supabase
+        .from('ot_machine_schedule')
+        .select('ot_id')
+        .gte('scheduled_start', dayStart)
+        .lte('scheduled_start', dayEnd);
+      const scheduledIds = (slots ?? []).map((s: any) => s.ot_id);
+
+      let query = supabase
+        .from('ots')
+        .select(OT_SELECT)
+        .in('status', activeOTStatuses as unknown as string[])
+        .order('priority', { ascending: false });
+      if (scheduledIds.length > 0) {
+        query = query.not('id', 'in', `(${scheduledIds.join(',')})`);
+      }
+      const { data, error } = await query;
+      if (error) throw error;
+      return data ?? [];
+    },
+    enabled: !!date,
+  });
+}
+
+/** Call the estimate_ot_hours RPC */
+export function useOTHoursEstimate(otId: string | null, machineType?: string) {
+  return useQuery({
+    queryKey: ['estimate', 'hours', otId, machineType],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('estimate_ot_hours', {
+        p_ot_id: otId!,
+        p_machine_type: machineType ?? null,
+      });
+      if (error) throw error;
+      return data as {
+        estimated_hours: number;
+        tier1_hours: number;
+        tier2_hours: number | null;
+        sample_count: number;
+        confidence: 'low' | 'medium' | 'high';
+      } | null;
+    },
+    enabled: !!otId,
+    staleTime: 5 * 60 * 1000, // 5 min cache — estimation is stable
   });
 }
 

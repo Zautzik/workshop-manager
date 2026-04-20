@@ -106,6 +106,12 @@ const UpdateOTSchema = z.object({
 	proceso_actual: z.string().max(500).optional().nullable(),
 	assigned_machine_id: z.string().uuid().optional().nullable(),
 	current_workstation_id: z.string().uuid().optional().nullable(),
+	// Planning flags (Hoja de Producción checkboxes)
+	flag_ord: z.boolean().optional(),
+	flag_pro: z.boolean().optional(),
+	flag_vbp: z.boolean().optional(),
+	flag_plan: z.boolean().optional(),
+	flag_paper_arrived: z.boolean().optional(),
 });
 
 export async function PATCH(

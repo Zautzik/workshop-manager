@@ -15,7 +15,8 @@ import { OTManagement } from "@/components/workflow/OTManagement";
 import OTRetrievalSystem from "@/components/workflow/OTRetrievalSystem";
 import { ClientManager } from "@/components/workflow/ClientManager";
 import { OrdenesEnProceso } from "@/components/workflow/OrdenesEnProceso";
-import { Users, Factory, Clock, ClipboardList, ChevronLeft, ChevronRight, CalendarDays, WandSparkles, Replace, Shuffle, UploadCloud, ShieldAlert, CheckCircle2, Copy, RotateCcw, Printer, LayoutList } from "lucide-react";
+import { HojaProduccion } from "@/components/workflow/HojaProduccion";
+import { Users, Factory, Clock, ClipboardList, ChevronLeft, ChevronRight, CalendarDays, WandSparkles, Replace, Shuffle, UploadCloud, ShieldAlert, CheckCircle2, Copy, RotateCcw, Printer, LayoutList, FileSpreadsheet } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCompensationRatesForDate, useSchedulingCostModel, useWorkerAssignments, useWorkerMonthlyOvertime, useWorkflowCertificationAlerts, useWorkflowContracts, useWorkflowIncentiveStatuses, useWorkflowLeaveStatuses, useWorkflowWeeklyHours, useWorkersByRating, useWorkstations, useShifts } from "@/hooks/use-queries";
@@ -1120,11 +1121,19 @@ export default function WorkflowDashboard() {
               <Printer className="w-4 h-4" />
               Archivo OT
             </TabsTrigger>
+              <TabsTrigger value="hoja_prod" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground gap-1.5">
+                <FileSpreadsheet className="w-4 h-4" />
+                Hoja Prod.
+              </TabsTrigger>
           </TabsList>
 
           <TabsContent value="en_proceso" className="mt-4">
             <OrdenesEnProceso />
           </TabsContent>
+
+            <TabsContent value="hoja_prod" className="mt-4">
+              <HojaProduccion />
+            </TabsContent>
 
           <TabsContent value="ots" className="mt-4">
             <OTManagement onOTSelect={setSelectedOT} />
