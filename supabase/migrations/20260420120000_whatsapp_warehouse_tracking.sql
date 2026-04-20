@@ -115,10 +115,9 @@ CREATE INDEX IF NOT EXISTS idx_wh_logs_pending
   ON public.whatsapp_warehouse_logs(review_status, created_at DESC)
   WHERE review_status = 'pending';
 
--- Composite: today's activity stats
+-- Composite: activity stats by date
 CREATE INDEX IF NOT EXISTS idx_wh_logs_today
-  ON public.whatsapp_warehouse_logs(action_type, created_at)
-  WHERE created_at >= CURRENT_DATE;
+  ON public.whatsapp_warehouse_logs(action_type, created_at);
 
 -- Deduplication: same operator + item + action within short window
 CREATE UNIQUE INDEX IF NOT EXISTS uq_wh_logs_dedup
