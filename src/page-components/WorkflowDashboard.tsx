@@ -14,7 +14,8 @@ import { ShiftManagement } from "@/components/workflow/ShiftManagement";
 import { OTManagement } from "@/components/workflow/OTManagement";
 import OTRetrievalSystem from "@/components/workflow/OTRetrievalSystem";
 import { ClientManager } from "@/components/workflow/ClientManager";
-import { Users, Factory, Clock, ClipboardList, ChevronLeft, ChevronRight, CalendarDays, WandSparkles, Replace, Shuffle, UploadCloud, ShieldAlert, CheckCircle2, Copy, RotateCcw, Printer } from "lucide-react";
+import { OrdenesEnProceso } from "@/components/workflow/OrdenesEnProceso";
+import { Users, Factory, Clock, ClipboardList, ChevronLeft, ChevronRight, CalendarDays, WandSparkles, Replace, Shuffle, UploadCloud, ShieldAlert, CheckCircle2, Copy, RotateCcw, Printer, LayoutList } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCompensationRatesForDate, useSchedulingCostModel, useWorkerAssignments, useWorkerMonthlyOvertime, useWorkflowCertificationAlerts, useWorkflowContracts, useWorkflowIncentiveStatuses, useWorkflowLeaveStatuses, useWorkflowWeeklyHours, useWorkersByRating, useWorkstations, useShifts } from "@/hooks/use-queries";
@@ -1093,11 +1094,15 @@ export default function WorkflowDashboard() {
         )}
 
         {/* Main Content */}
-        <Tabs defaultValue="ots" className="w-full">
+        <Tabs defaultValue="en_proceso" className="w-full">
           <TabsList className="bg-card/80 border-border backdrop-blur-sm">
+            <TabsTrigger value="en_proceso" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground gap-1.5">
+              <LayoutList className="w-4 h-4" />
+              En Proceso
+            </TabsTrigger>
             <TabsTrigger value="ots" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground gap-1.5">
               <ClipboardList className="w-4 h-4" />
-              Órdenes
+              Kanban
             </TabsTrigger>
             <TabsTrigger value="clients" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground gap-1.5">
               <Users className="w-4 h-4" />
@@ -1116,6 +1121,10 @@ export default function WorkflowDashboard() {
               Archivo OT
             </TabsTrigger>
           </TabsList>
+
+          <TabsContent value="en_proceso" className="mt-4">
+            <OrdenesEnProceso />
+          </TabsContent>
 
           <TabsContent value="ots" className="mt-4">
             <OTManagement onOTSelect={setSelectedOT} />

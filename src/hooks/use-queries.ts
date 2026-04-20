@@ -298,7 +298,30 @@ export function useOTs() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('ots')
-        .select('*, workstation:workstations(*)')
+        .select('*, workstation:workstations(*), machine:machines!assigned_machine_id(id,name,type)')
+        .order('priority', { ascending: false })
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+}
+
+export const activeOTStatuses = [
+  'pre_press', 'visto_bueno', 'paper_purchase', 'in_storage',
+  'guillotine_first_cut', 'offset_printing', 'die_cutting',
+  'guillotine_final_cut', 'workshop', 'outsourced',
+  'workshop_revision', 'ready_for_delivery', 'in_delivery',
+] as const;
+
+export function useActiveOTs() {
+  return useQuery({
+    queryKey: [...queryKeys.ots, 'active'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('ots')
+        .select('*, workstation:workstations(*), machine:machines!assigned_machine_id(id,name,type)')
+        .in('status', activeOTStatuses as unknown as string[])
         .order('priority', { ascending: false })
         .order('created_at', { ascending: false });
       if (error) throw error;

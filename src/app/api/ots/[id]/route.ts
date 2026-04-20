@@ -102,6 +102,10 @@ const UpdateOTSchema = z.object({
 	// Operations (replace all)
 	operations: z.array(OTOperationSchema).optional(),
 	notes: z.string().max(5000).optional().nullable(),
+	// Production floor tracking
+	proceso_actual: z.string().max(500).optional().nullable(),
+	assigned_machine_id: z.string().uuid().optional().nullable(),
+	current_workstation_id: z.string().uuid().optional().nullable(),
 });
 
 export async function PATCH(
