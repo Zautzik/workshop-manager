@@ -69,6 +69,12 @@ export const queryKeys = {
   whatsappLogs: (filters?: Record<string, string>) => ['whatsapp', 'logs', filters] as const,
   whatsappLog: (id: string) => ['whatsapp', 'logs', id] as const,
   whatsappPending: ['whatsapp', 'logs', { status: 'pending' }] as const,
+
+  // WhatsApp Warehouse Tracking (mirrors whQueryKeys in use-warehouse.ts)
+  warehouseSummary: ['warehouse', 'summary'] as const,
+  warehouseLogs: (filters?: Record<string, string>) => ['warehouse', 'logs', filters] as const,
+  warehouseLog: (id: string) => ['warehouse', 'logs', id] as const,
+  warehousePending: ['warehouse', 'logs', { status: 'pending' }] as const,
 };
 
 /* ------------------------------------------------------------------ */

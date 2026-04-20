@@ -35,6 +35,7 @@ import {
   UserCog,
   Menu,
   MessageSquare,
+  Warehouse,
 } from 'lucide-react';
 
 interface NavItem {
@@ -54,6 +55,7 @@ const navItems: NavItem[] = [
   { label: 'Producción', icon: ClipboardList, href: '/workflow/production', group: 'operations', roles: ['admin', 'supervisor', 'manager'] },
   { label: 'WhatsApp Producción', icon: MessageSquare, href: '/workflow/whatsapp', group: 'operations', roles: ['admin', 'supervisor', 'manager'] },
   { label: 'Mis Reportes WA', icon: MessageSquare, href: '/workflow/whatsapp/operator', group: 'operations', roles: ['technician'] },
+  { label: 'Bodega WhatsApp', icon: Warehouse, href: '/workflow/warehouse', group: 'operations', roles: ['admin', 'supervisor', 'manager'] },
 
   // Management (KPIs, analytics, cost reports)
   { label: 'Resumen Ejecutivo', icon: LayoutDashboard, href: '/admin/overview', group: 'management', roles: ['admin', 'manager'] },
