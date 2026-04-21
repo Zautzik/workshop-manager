@@ -374,6 +374,47 @@ export function useDaySchedule(date: string) {
   });
 }
 
+/** Weekly matrix schedule for the planner report (Monday-Sunday). */
+export function useWeekSchedule(weekStart: string) {
+  return useQuery({
+    queryKey: ['schedule', 'week', weekStart],
+    queryFn: async () => {
+      const res = await fetch(`/api/ot-schedule/week?start=${weekStart}`);
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        throw new Error(body?.error ?? 'Failed to fetch weekly schedule');
+      }
+      return res.json() as Promise<{
+        week_start: string;
+        week_end: string;
+        days: string[];
+        shift_hours: number;
+        published_snapshot: {
+          id: string;
+          version: number;
+          published_at: string;
+          week_start: string;
+          week_end: string;
+        } | null;
+        machine_rows: Array<{
+          machine: { id: string; name: string; type: string; status: string };
+          days: Array<{
+            date: string;
+            slots: any[];
+            planned_hours: number;
+            is_overloaded: boolean;
+          }>;
+          slot_count: number;
+          planned_hours_total: number;
+          overloaded_days: number;
+        }>;
+        unscheduled: any[];
+      }>;
+    },
+    enabled: !!weekStart,
+  });
+}
+
 /** All unscheduled active OTs (no slot for the chosen date — for the "Backlog" sidebar) */
 export function useUnscheduledOTs(date: string) {
   return useQuery({

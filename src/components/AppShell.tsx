@@ -29,6 +29,7 @@ import {
   ChevronLeft,
   ChevronRight,
   ClipboardList,
+  CalendarDays,
   LayoutDashboard,
   Package,
   ShoppingCart,
@@ -53,6 +54,7 @@ const navItems: NavItem[] = [
   // Operations
   { label: 'Flujo de Trabajo', icon: Factory, href: '/workflow', group: 'operations', roles: ['admin', 'supervisor', 'manager'] },
   { label: 'Producción', icon: ClipboardList, href: '/workflow/production', group: 'operations', roles: ['admin', 'supervisor', 'manager'] },
+  { label: 'Plan Semanal', icon: CalendarDays, href: '/workflow/plan-semanal', group: 'operations', roles: ['admin', 'supervisor', 'manager'] },
   { label: 'WhatsApp Producción', icon: MessageSquare, href: '/workflow/whatsapp', group: 'operations', roles: ['admin', 'supervisor', 'manager'] },
   { label: 'Mis Reportes WA', icon: MessageSquare, href: '/workflow/whatsapp/operator', group: 'operations', roles: ['technician'] },
   { label: 'Bodega WhatsApp', icon: Warehouse, href: '/workflow/warehouse', group: 'operations', roles: ['admin', 'supervisor', 'manager'] },

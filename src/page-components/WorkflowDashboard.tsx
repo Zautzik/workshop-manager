@@ -16,6 +16,7 @@ import OTRetrievalSystem from "@/components/workflow/OTRetrievalSystem";
 import { ClientManager } from "@/components/workflow/ClientManager";
 import { OrdenesEnProceso } from "@/components/workflow/OrdenesEnProceso";
 import { HojaProduccion } from "@/components/workflow/HojaProduccion";
+import { PlanSemanal } from "@/components/workflow/PlanSemanal";
 import { Users, Factory, Clock, ClipboardList, ChevronLeft, ChevronRight, CalendarDays, WandSparkles, Replace, Shuffle, UploadCloud, ShieldAlert, CheckCircle2, Copy, RotateCcw, Printer, LayoutList, FileSpreadsheet } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
@@ -1125,6 +1126,10 @@ export default function WorkflowDashboard() {
                 <FileSpreadsheet className="w-4 h-4" />
                 Hoja Prod.
               </TabsTrigger>
+              <TabsTrigger value="plan_semanal" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground gap-1.5">
+                <CalendarDays className="w-4 h-4" />
+                Plan Semanal
+              </TabsTrigger>
           </TabsList>
 
           <TabsContent value="en_proceso" className="mt-4">
@@ -1133,6 +1138,10 @@ export default function WorkflowDashboard() {
 
             <TabsContent value="hoja_prod" className="mt-4">
               <HojaProduccion />
+            </TabsContent>
+
+            <TabsContent value="plan_semanal" className="mt-4">
+              <PlanSemanal />
             </TabsContent>
 
           <TabsContent value="ots" className="mt-4">
