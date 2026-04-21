@@ -70,7 +70,6 @@ export function EditOTDialog({ ot, open, onOpenChange, onSuccess }: EditOTDialog
         description: formData.description,
         quantity: formData.quantity,
         priority: formData.priority,
-        status: formData.status as any,
         deadline: formData.deadline ? new Date(formData.deadline).toISOString() : null,
       };
 
@@ -83,6 +82,23 @@ export function EditOTDialog({ ot, open, onOpenChange, onSuccess }: EditOTDialog
       if (!response.ok) {
         const errorBody = await response.json().catch(() => null);
         throw new Error(errorBody?.error || 'Request failed');
+      }
+
+      const statusChanged = ot?.status && ot.status !== formData.status;
+      if (statusChanged) {
+        const transitionRes = await fetch(`/api/ots/${ot.id}/transition`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            to_status: formData.status,
+            reason: 'manual_edit_dialog',
+          }),
+        });
+
+        if (!transitionRes.ok) {
+          const transitionError = await transitionRes.json().catch(() => null);
+          throw new Error(transitionError?.error || 'Status transition failed');
+        }
       }
 
       toast({

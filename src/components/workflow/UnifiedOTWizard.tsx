@@ -204,6 +204,29 @@ export function UnifiedOTWizard({ onClose, onSuccess }: Props) {
     if (step > 0) setStep(step - 1);
   };
 
+  const uploadAttachments = async (otId: string, files: File[]) => {
+    if (!files.length) return { uploaded: 0, failed: 0 };
+
+    let uploaded = 0;
+    let failed = 0;
+
+    for (const file of files) {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('ot_id', otId);
+
+      const response = await fetch('/api/attachments/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (response.ok) uploaded += 1;
+      else failed += 1;
+    }
+
+    return { uploaded, failed };
+  };
+
   /* ── Submit to API ──────────────────────────────────────────── */
   const handleSubmit = async () => {
     setSubmitting(true);
@@ -280,6 +303,8 @@ export function UnifiedOTWizard({ onClose, onSuccess }: Props) {
 
       const createdOT = await res.json();
 
+      const attachmentResult = await uploadAttachments(createdOT.id, form.attachments);
+
       // Store production-specific data in localStorage for now
       // (production detail, tapas, items, pliegos, montaje, machine, finishing, admin)
       localStorage.setItem(
@@ -305,6 +330,14 @@ export function UnifiedOTWizard({ onClose, onSuccess }: Props) {
         title: '✅ OT Creada',
         description: `${createdOT.ot_number} — Esperando aprobación (Visto Bueno)`,
       });
+
+      if (attachmentResult.failed > 0) {
+        toast({
+          title: 'OT creada con advertencias',
+          description: `Se subieron ${attachmentResult.uploaded} archivo(s) y ${attachmentResult.failed} fallaron.`,
+          variant: 'destructive',
+        });
+      }
 
       onSuccess();
     } catch (err: any) {

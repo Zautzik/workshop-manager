@@ -25,6 +25,7 @@ import {
 } from '@/types/ot';
 import type { OTFinishes } from '@/types/ot';
 import type { UnifiedOTForm } from '@/types/ot-unified';
+import { ArtworkUpload } from '../ot-wizard/ArtworkUpload';
 
 interface Props {
   form: UnifiedOTForm;
@@ -375,6 +376,18 @@ export function UnifiedStepSpecs({ form, updateForm }: Props) {
             ))}
           </div>
         )}
+      </Card>
+
+      {/* ── Artwork Attachments ────────────────────────────────── */}
+      <Card className="p-4 border-border space-y-4">
+        <h3 className="font-semibold text-sm text-foreground">Archivos de Arte</h3>
+        <p className="text-xs text-muted-foreground">
+          Adjunta PDF, AI, EPS o imágenes para que producción trabaje con la versión correcta.
+        </p>
+        <ArtworkUpload
+          files={form.attachments}
+          onFilesChange={(files) => updateForm({ attachments: files })}
+        />
       </Card>
     </div>
   );

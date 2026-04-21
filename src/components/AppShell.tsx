@@ -37,7 +37,10 @@ import {
   Menu,
   MessageSquare,
   Warehouse,
+  Bell,
 } from 'lucide-react';
+import { NotificationCenter } from '@/components/NotificationCenter';
+import { ReportingQuickActions } from '@/components/ReportingQuickActions';
 
 interface NavItem {
   label: string;
@@ -66,6 +69,9 @@ const navItems: NavItem[] = [
 
   // HR
   { label: 'Recursos Humanos', icon: Users, href: '/hr', group: 'hr', roles: ['admin', 'hr_manager'] },
+
+  // Notifications
+  { label: 'Notificaciones', icon: Bell, href: '/admin/notifications', group: 'management', roles: ['admin', 'manager', 'supervisor', 'hr_manager', 'technician'] },
 
   // Maintenance
   { label: 'Mantenimiento', icon: Wrench, href: '/maintenance', group: 'maintenance', roles: ['admin', 'technician', 'supervisor'] },
@@ -342,6 +348,23 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             <Menu className="w-5 h-5" />
           </Button>
           <span className="text-sm font-medium text-foreground">GonsAdmin</span>
+          <div className="ml-auto flex items-center gap-1">
+            <ReportingQuickActions isAdmin={role === 'admin'} />
+            <NotificationCenter />
+          </div>
+        </div>
+
+        {/* Desktop header */}
+        <div className="hidden md:flex items-center justify-between px-5 py-3 border-b border-border/50 bg-card/60 backdrop-blur-sm">
+          <div className="text-sm text-muted-foreground">
+            <span className="font-semibold text-foreground">GonsAdmin</span>
+            <span className="mx-2">•</span>
+            <span className="capitalize">{role?.replace('_', ' ')}</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <ReportingQuickActions isAdmin={role === 'admin'} />
+            <NotificationCenter />
+          </div>
         </div>
 
         {/* Page content */}

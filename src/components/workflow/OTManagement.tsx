@@ -47,10 +47,13 @@ export function OTManagement({ onOTSelect }: OTManagementProps) {
   const { toast } = useToast();
 
   const updateOTStatus = async (otId: string, newStatus: string) => {
-    const response = await fetch(`/api/ots/${otId}`, {
-      method: 'PATCH',
+    const response = await fetch(`/api/ots/${otId}/transition`, {
+      method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status: newStatus }),
+      body: JSON.stringify({
+        to_status: newStatus,
+        reason: 'kanban_advance',
+      }),
     });
 
     if (!response.ok) {
