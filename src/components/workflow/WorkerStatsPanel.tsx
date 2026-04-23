@@ -3,7 +3,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Star, TrendingUp, Clock, Users, Zap, Award } from "lucide-react";
+import { TrendingUp, Clock, Users, Zap, Award } from "lucide-react";
 
 interface WorkerStatsPanelProps {
   selectedWorker: any;
@@ -20,6 +20,17 @@ export function WorkerStatsPanel({
   workers,
   onWorkerSelect,
 }: WorkerStatsPanelProps) {
+
+  const getProfileLabel = (worker: any) => {
+    const quality = Number(worker?.quality_score || 0);
+    const teamwork = Number(worker?.teamwork_rating || 0);
+    const attendance = Number(worker?.attendance_score || 0);
+    const avg = (quality + teamwork + attendance) / 3;
+
+    if (avg >= 80) return 'High consistency';
+    if (avg >= 60) return 'Stable performance';
+    return 'Needs coaching support';
+  };
   
   const getStatColor = (value: number) => {
     if (value >= 80) return "text-green-400";
@@ -50,10 +61,8 @@ export function WorkerStatsPanel({
               </div>
             </div>
             <div className="text-right">
-              <div className="text-4xl font-bold text-primary">
-                {selectedWorker.overall_rating}
-              </div>
-              <p className="text-xs text-muted-foreground">OVERALL</p>
+              <p className="text-xs uppercase tracking-wide text-muted-foreground">Performance profile</p>
+              <p className="text-sm font-semibold text-foreground">{getProfileLabel(selectedWorker)}</p>
             </div>
           </div>
 
@@ -159,7 +168,7 @@ export function WorkerStatsPanel({
         </Card>
       ) : (
         <Card className="bg-card border-border p-6 text-center">
-          <Star className="w-12 h-12 mx-auto mb-2 text-primary/70" />
+          <Users className="w-12 h-12 mx-auto mb-2 text-primary/70" />
           <p className="text-foreground">Select a worker to view stats</p>
         </Card>
       )}
@@ -190,21 +199,8 @@ export function WorkerStatsPanel({
                     </div>
                   </div>
                   <div className="text-right">
-                    <div className="text-xl font-bold text-primary">
-                      {worker.overall_rating || 75}
-                    </div>
-                    <div className="flex gap-1">
-                      {[...Array(5)].map((_, i) => (
-                        <Star
-                          key={i}
-                          className={`w-3 h-3 ${
-                            i < Math.floor((worker.overall_rating || 75) / 20)
-                              ? "fill-yellow-400 text-yellow-400"
-                              : "text-gray-500"
-                          }`}
-                        />
-                      ))}
-                    </div>
+                    <p className="text-xs text-muted-foreground">Profile</p>
+                    <p className="text-sm font-semibold text-foreground">{getProfileLabel(worker)}</p>
                   </div>
                 </div>
               </div>

@@ -251,7 +251,7 @@ function DroppableWorkstation({
 							}`}
 						>
 							{isOver
-								? '📌 Release to assign!'
+								? 'Release to assign'
 								: showOnlyOvertime
 									? 'No OT workers assigned in this station'
 									: 'Drop workers here'}
@@ -510,7 +510,7 @@ export function WorkstationLayout({
 				? `Cost estimate: ${costInfo.currencyCode || 'USD'} ${(costInfo.estimatedCost || 0).toFixed(2)} (rate ${costInfo.hourlyRate.toFixed(2)}/hr)`
 				: 'Cost estimate: no active compensation rate for selected date',
 			`Performance rating: ${rating.toFixed(0)}/100`,
-			`Planning score: ${score.toFixed(1)} (skill + availability + cost + overtime risk)`,
+			`Selection rationale balances skill, availability, cost, and overtime risk`,
 		];
 	};
 
@@ -620,18 +620,18 @@ export function WorkstationLayout({
 			<Alert className='bg-card/80 border-2 border-border backdrop-blur-sm shadow-lg'>
 				<Hand className='h-5 w-5 text-primary' />
 				<AlertDescription className='text-foreground'>
-					<strong className='text-primary text-lg'>🎯 Quick Guide:</strong>
+					<strong className='text-primary text-lg'>Quick Guide:</strong>
 					<ol className='mt-2 space-y-1 text-sm'>
 						<li>
-							1️⃣ <strong>Grab</strong> a worker card from the &quot;Available
+							1. <strong>Grab</strong> a worker card from the &quot;Available
 							Workers&quot; section below
 						</li>
 						<li>
-							2️⃣ <strong>Drag</strong> the worker over any workstation (the box
+							2. <strong>Drag</strong> the worker over any workstation (the box
 							will glow when ready)
 						</li>
 						<li>
-							3️⃣ <strong>Drop</strong> to assign! You can also move assigned
+							3. <strong>Drop</strong> to assign. You can also move assigned
 							workers between workstations
 						</li>
 					</ol>
@@ -641,9 +641,7 @@ export function WorkstationLayout({
 			{/* Workshop Floor - Grouped by Machine Type - MOVED BEFORE WORKERS */}
 			<div className='space-y-6'>
 				<div className='flex items-center gap-3'>
-					<h2 className='text-3xl font-bold text-foreground'>
-						🏭 Workshop Floor
-					</h2>
+					<h2 className='text-3xl font-bold text-foreground'>Workshop Floor</h2>
 					<Badge
 						variant='outline'
 						className='bg-supervisor/20 text-supervisor border-supervisor/40 text-sm'

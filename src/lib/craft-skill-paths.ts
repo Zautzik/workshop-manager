@@ -114,6 +114,96 @@ export const TIER_LABELS: Record<number, string> = {
   5: 'Master',
 };
 
+export interface SkillTrack {
+  id: string;
+  name: string;
+  description: string;
+  branch: CraftBranch;
+  nodeIds: string[];
+}
+
+export interface RoleTargetTemplate {
+  id: string;
+  name: string;
+  description: string;
+  primaryTrackId: string;
+  secondaryTrackIds: string[];
+  requiredNodeIds: string[];
+}
+
+export const SKILL_TRACKS: SkillTrack[] = [
+  {
+    id: 'track_offset_operator',
+    name: 'Offset Operator Path',
+    description: 'From press introduction to full offset production autonomy.',
+    branch: 'offset_printing',
+    nodeIds: ['PRESS_INTRO', 'OFF_PAPER', 'OFF_INK', 'OFF_SINGLE', 'OFF_MULTI', 'OFF_MASTER'],
+  },
+  {
+    id: 'track_digital_operator',
+    name: 'Digital Operator Path',
+    description: 'From file preparation to advanced digital printing leadership.',
+    branch: 'digital_printing',
+    nodeIds: ['PRESS_INTRO', 'DIG_FILES', 'DIG_BASIC', 'DIG_COLOR', 'DIG_SPEC', 'DIG_MASTER'],
+  },
+  {
+    id: 'track_guillotine_specialist',
+    name: 'Guillotine Specialist Path',
+    description: 'Safe cutting foundations evolving into precision and programming.',
+    branch: 'guillotine',
+    nodeIds: ['GUIL_INTRO', 'GUIL_SINGLE', 'GUIL_COMPLEX', 'GUIL_PRECISION', 'GUIL_MASTER'],
+  },
+  {
+    id: 'track_diecut_specialist',
+    name: 'Die-Cutting Specialist Path',
+    description: 'Die setup, complex configurations, registration and multi-station operations.',
+    branch: 'die_cutting',
+    nodeIds: ['DIE_INTRO', 'DIE_SETUP', 'DIE_COMPLEX', 'DIE_REGISTER', 'DIE_MASTER'],
+  },
+  {
+    id: 'track_workshop_finisher',
+    name: 'Workshop Finishing Path',
+    description: 'From revision and packaging to advanced finishing mastery.',
+    branch: 'workshop',
+    nodeIds: ['WORK_INTRO', 'WORK_REVISION', 'WORK_DETACH', 'WORK_FINISH', 'WORK_MASTER'],
+  },
+];
+
+export const ROLE_TARGET_TEMPLATES: RoleTargetTemplate[] = [
+  {
+    id: 'role_offset_lead',
+    name: 'Offset Lead Operator',
+    description: 'Runs offset production with quality responsibility and coaching capability.',
+    primaryTrackId: 'track_offset_operator',
+    secondaryTrackIds: ['track_guillotine_specialist'],
+    requiredNodeIds: ['OFF_MULTI', 'OFF_TRX', 'OFF_MASTER', 'QC_BASICS'],
+  },
+  {
+    id: 'role_digital_specialist',
+    name: 'Digital Print Specialist',
+    description: 'Owns color-critical digital jobs and specialty media execution.',
+    primaryTrackId: 'track_digital_operator',
+    secondaryTrackIds: ['track_workshop_finisher'],
+    requiredNodeIds: ['DIG_COLOR', 'DIG_SPEC', 'DIG_MASTER', 'QC_BASICS'],
+  },
+  {
+    id: 'role_diecut_trainer',
+    name: 'Die-Cutting Trainer',
+    description: 'Leads die-cut setup, registration precision, and team training.',
+    primaryTrackId: 'track_diecut_specialist',
+    secondaryTrackIds: ['track_workshop_finisher'],
+    requiredNodeIds: ['DIE_COMPLEX', 'DIE_REGISTER', 'DIE_MASTER', 'QC_BASICS'],
+  },
+  {
+    id: 'role_finishing_supervisor',
+    name: 'Finishing Supervisor',
+    description: 'Coordinates workshop finishing flow and final quality outcomes.',
+    primaryTrackId: 'track_workshop_finisher',
+    secondaryTrackIds: ['track_guillotine_specialist'],
+    requiredNodeIds: ['WORK_FINISH', 'WORK_MASTER', 'GUIL_PRECISION', 'QC_BASICS'],
+  },
+];
+
 // ── Layout constants ─────────────────────────────────────────────────
 
 export const VIEWBOX = { width: 1400, height: 1100 };
@@ -428,6 +518,7 @@ export const CONNECTIONS: SkillConnection[] = [
   { from: 'PRESS_INTRO', to: 'OFF_INK',    branch: 'offset_printing' },
   { from: 'PRESS_INTRO', to: 'DIG_FILES',  branch: 'digital_printing' },
   { from: 'PRESS_INTRO', to: 'DIG_BASIC',  branch: 'digital_printing' },
+  { from: 'QC_BASICS',   to: 'DIG_BASIC',  branch: 'digital_printing' },
 
   // ── Offset internal ────────────────────────────────────────────────
   { from: 'OFF_PAPER',  to: 'OFF_SINGLE',  branch: 'offset_printing' },
@@ -436,6 +527,7 @@ export const CONNECTIONS: SkillConnection[] = [
   { from: 'OFF_SINGLE', to: 'OFF_MULTI',   branch: 'offset_printing' },
   { from: 'OFF_PLATE',  to: 'OFF_MULTI',   branch: 'offset_printing' },
   { from: 'OFF_SINGLE', to: 'OFF_TRX',     branch: 'offset_printing' },
+  { from: 'QC_BASICS',  to: 'OFF_TRX',     branch: 'offset_printing' },
   { from: 'OFF_MULTI',  to: 'OFF_MASTER',  branch: 'offset_printing' },
   { from: 'OFF_TRX',    to: 'OFF_MASTER',  branch: 'offset_printing' },
 
@@ -446,6 +538,7 @@ export const CONNECTIONS: SkillConnection[] = [
   { from: 'DIG_COLOR',   to: 'DIG_VARDATA', branch: 'digital_printing' },
   { from: 'DIG_COLOR',   to: 'DIG_SPEC',    branch: 'digital_printing' },
   { from: 'DIG_LARGE',   to: 'DIG_SPEC',    branch: 'digital_printing' },
+  { from: 'QC_BASICS',   to: 'DIG_SPEC',    branch: 'digital_printing' },
   { from: 'DIG_VARDATA', to: 'DIG_MASTER',  branch: 'digital_printing' },
   { from: 'DIG_SPEC',    to: 'DIG_MASTER',  branch: 'digital_printing' },
 
@@ -455,8 +548,10 @@ export const CONNECTIONS: SkillConnection[] = [
   { from: 'GUIL_SINGLE',    to: 'GUIL_COMPLEX',   branch: 'guillotine' },
   { from: 'GUIL_MEASURE',   to: 'GUIL_COMPLEX',   branch: 'guillotine' },
   { from: 'GUIL_SINGLE',    to: 'GUIL_BLADE',     branch: 'guillotine' },
+  { from: 'TOOLS',          to: 'GUIL_BLADE',     branch: 'guillotine' },
   { from: 'GUIL_COMPLEX',   to: 'GUIL_PRECISION', branch: 'guillotine' },
   { from: 'GUIL_BLADE',     to: 'GUIL_PRECISION', branch: 'guillotine' },
+  { from: 'QC_BASICS',      to: 'GUIL_PRECISION', branch: 'guillotine' },
   { from: 'GUIL_COMPLEX',   to: 'GUIL_PROGRAM',   branch: 'guillotine' },
   { from: 'GUIL_PRECISION', to: 'GUIL_MASTER',    branch: 'guillotine' },
   { from: 'GUIL_PROGRAM',   to: 'GUIL_MASTER',    branch: 'guillotine' },
@@ -464,12 +559,14 @@ export const CONNECTIONS: SkillConnection[] = [
   // ── Die Cutting internal ───────────────────────────────────────────
   { from: 'DIE_INTRO',     to: 'DIE_SETUP',    branch: 'die_cutting' },
   { from: 'DIE_INTRO',     to: 'DIE_RUN',      branch: 'die_cutting' },
+  { from: 'TOOLS',         to: 'DIE_SETUP',    branch: 'die_cutting' },
   { from: 'DIE_SETUP',     to: 'DIE_COMPLEX',  branch: 'die_cutting' },
   { from: 'DIE_RUN',       to: 'DIE_COMPLEX',  branch: 'die_cutting' },
   { from: 'DIE_RUN',       to: 'DIE_STRIP',    branch: 'die_cutting' },
   { from: 'DIE_COMPLEX',   to: 'DIE_REGISTER', branch: 'die_cutting' },
   { from: 'DIE_COMPLEX',   to: 'DIE_MULTI',    branch: 'die_cutting' },
   { from: 'DIE_STRIP',     to: 'DIE_MULTI',    branch: 'die_cutting' },
+  { from: 'QC_BASICS',     to: 'DIE_REGISTER', branch: 'die_cutting' },
   { from: 'DIE_REGISTER',  to: 'DIE_MASTER',   branch: 'die_cutting' },
   { from: 'DIE_MULTI',     to: 'DIE_MASTER',   branch: 'die_cutting' },
 
@@ -481,6 +578,7 @@ export const CONNECTIONS: SkillConnection[] = [
   { from: 'WORK_BOXING',    to: 'WORK_BEND',      branch: 'workshop' },
   { from: 'WORK_DETACH',    to: 'WORK_FINISH',    branch: 'workshop' },
   { from: 'WORK_SASH',      to: 'WORK_FINISH',    branch: 'workshop' },
+  { from: 'QC_BASICS',      to: 'WORK_FINISH',    branch: 'workshop' },
   { from: 'WORK_BEND',      to: 'WORK_BEND_ADV',  branch: 'workshop' },
   { from: 'WORK_FINISH',    to: 'WORK_MASTER',    branch: 'workshop' },
   { from: 'WORK_BEND_ADV',  to: 'WORK_MASTER',    branch: 'workshop' },
@@ -544,5 +642,63 @@ export const getBranchProgress = (
     completed,
     total: nodes.length,
     percentage: nodes.length > 0 ? Math.round((completed / nodes.length) * 100) : 0,
+  };
+};
+
+export const getTrackProgress = (
+  trackId: string,
+  proficiencyMap: ProficiencyMap,
+): { completed: number; total: number; percentage: number } => {
+  const track = SKILL_TRACKS.find(t => t.id === trackId);
+  if (!track) return { completed: 0, total: 0, percentage: 0 };
+
+  const completed = track.nodeIds.filter(nodeId => {
+    const node = nodeById.get(nodeId);
+    return node ? (proficiencyMap.get(node.code) ?? 0) >= 1 : false;
+  }).length;
+
+  return {
+    completed,
+    total: track.nodeIds.length,
+    percentage: track.nodeIds.length > 0 ? Math.round((completed / track.nodeIds.length) * 100) : 0,
+  };
+};
+
+export const getRoleTemplateReadiness = (
+  templateId: string,
+  proficiencyMap: ProficiencyMap,
+): {
+  readiness: number;
+  missingNodeIds: string[];
+  coveredNodeIds: string[];
+} => {
+  const template = ROLE_TARGET_TEMPLATES.find(t => t.id === templateId);
+  if (!template) {
+    return { readiness: 0, missingNodeIds: [], coveredNodeIds: [] };
+  }
+
+  const allTrackIds = [template.primaryTrackId, ...template.secondaryTrackIds];
+  const trackProgress = allTrackIds.map(trackId => getTrackProgress(trackId, proficiencyMap));
+  const primary = trackProgress[0]?.percentage ?? 0;
+  const secondaryAverage = trackProgress.length > 1
+    ? Math.round(trackProgress.slice(1).reduce((acc, p) => acc + p.percentage, 0) / (trackProgress.length - 1))
+    : 0;
+
+  const coveredNodeIds = template.requiredNodeIds.filter(nodeId => {
+    const node = nodeById.get(nodeId);
+    return node ? (proficiencyMap.get(node.code) ?? 0) >= 1 : false;
+  });
+
+  const missingNodeIds = template.requiredNodeIds.filter(nodeId => !coveredNodeIds.includes(nodeId));
+  const requiredCoverage = template.requiredNodeIds.length > 0
+    ? Math.round((coveredNodeIds.length / template.requiredNodeIds.length) * 100)
+    : 0;
+
+  const readiness = Math.round((primary * 0.5) + (secondaryAverage * 0.2) + (requiredCoverage * 0.3));
+
+  return {
+    readiness,
+    missingNodeIds,
+    coveredNodeIds,
   };
 };

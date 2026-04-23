@@ -38,6 +38,8 @@ import {
   MessageSquare,
   Warehouse,
   Bell,
+  Plug,
+  BookOpen,
 } from 'lucide-react';
 import { NotificationCenter } from '@/components/NotificationCenter';
 import { ReportingQuickActions } from '@/components/ReportingQuickActions';
@@ -81,6 +83,8 @@ const navItems: NavItem[] = [
   { label: 'Operarios', icon: Users, href: '/admin/workers', group: 'admin', roles: ['admin'] },
   { label: 'Inventario', icon: Package, href: '/admin/inventory', group: 'admin', roles: ['admin'] },
   { label: 'Compras', icon: ShoppingCart, href: '/admin/purchases', group: 'admin', roles: ['admin'] },
+  { label: 'Integraciones', icon: Plug, href: '/admin/integrations', group: 'admin', roles: ['admin', 'manager', 'supervisor'] },
+  { label: 'Knowledge Base', icon: BookOpen, href: '/admin/training', group: 'admin', roles: ['admin', 'manager', 'hr_manager'] },
 ];
 
 const groupLabels: Record<string, { en: string; es: string }> = {

@@ -103,24 +103,6 @@ export async function POST(
 
     const db = supabaseAdmin as any;
 
-    const { error: transitionError } = await db
-      .from('ot_state_transitions')
-      .insert([
-        {
-          ot_id: id,
-          from_status: fromStatus,
-          to_status: toStatus,
-          changed_by: auth.id,
-          reason: parsed.data.reason ?? null,
-          metadata: parsed.data.metadata ?? {},
-          created_at: nowIso,
-        },
-      ]);
-
-    if (transitionError) {
-      console.error('Error logging transition:', transitionError);
-    }
-
     const approverRoles = ['admin', 'supervisor', 'manager'];
     const { data: candidateUsers } = await db
       .from('user_roles')
@@ -141,6 +123,8 @@ export async function POST(
           from_status: fromStatus,
           to_status: toStatus,
           by_role: auth.role,
+          reason: parsed.data.reason ?? null,
+          transition_metadata: parsed.data.metadata ?? {},
         },
       }));
 
