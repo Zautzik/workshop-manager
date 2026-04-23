@@ -41,6 +41,7 @@ import {
 } from '@/hooks/use-queries';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import MaintenanceSlotSuggester from './MaintenanceSlotSuggester';
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 
@@ -217,7 +218,7 @@ export default function WeeklyProgramLog() {
       <Card className="p-8 text-center">
         <ClipboardList className="h-10 w-10 mx-auto mb-3 text-muted-foreground/50" />
         <p className="text-muted-foreground">No hay programas de mantenimiento activos.</p>
-        <p className="text-xs text-muted-foreground mt-1">Ejecute las migraciones SQL para cargar los programas Ryobi.</p>
+        <p className="text-xs text-muted-foreground mt-1">Ejecute las migraciones SQL para cargar los programas de mantenimiento.</p>
       </Card>
     );
   }
@@ -302,6 +303,13 @@ export default function WeeklyProgramLog() {
           </span>
         )}
       </div>
+
+      {/* ── Smart slot suggester ── */}
+      <MaintenanceSlotSuggester
+        tasks={tasks}
+        completedSet={completedSet}
+        programName={activeProgram?.name}
+      />
 
       {/* ── Task grid ── */}
       {isLoading ? (
