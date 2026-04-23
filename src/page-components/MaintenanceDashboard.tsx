@@ -3,13 +3,15 @@
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Calendar, Clock, AlertCircle, CheckCircle, Wrench, FileText, BarChart3 } from 'lucide-react';
+import { Calendar, Clock, AlertCircle, CheckCircle, Wrench, FileText, BarChart3, ClipboardList, BookOpen } from 'lucide-react';
 import { useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { useMaintenanceStats, useMaintenanceWorkOrders } from '@/hooks/use-queries';
 import MaintenanceChecklistEditor from '@/components/maintenance/MaintenanceChecklistEditor';
 import WorkOrderExecution from '@/components/maintenance/WorkOrderExecution';
+import WeeklyProgramLog from '@/components/maintenance/WeeklyProgramLog';
+import MaintenanceProgramView from '@/components/maintenance/MaintenanceProgramView';
 
 interface WorkOrderStats {
   pending: number;
@@ -108,10 +110,18 @@ export default function MaintenanceDashboard() {
 
       {/* Main Content Tabs */}
       <Tabs defaultValue="workorders" className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="workorders" className="flex items-center gap-2">
             <Wrench className="h-4 w-4" />
             Órdenes
+          </TabsTrigger>
+          <TabsTrigger value="registro" className="flex items-center gap-2">
+            <ClipboardList className="h-4 w-4" />
+            Registro Semanal
+          </TabsTrigger>
+          <TabsTrigger value="programas" className="flex items-center gap-2">
+            <BookOpen className="h-4 w-4" />
+            Programas
           </TabsTrigger>
           <TabsTrigger value="checklists" className="flex items-center gap-2">
             <FileText className="h-4 w-4" />
@@ -125,6 +135,14 @@ export default function MaintenanceDashboard() {
 
         <TabsContent value="workorders" className="mt-6">
           <WorkOrderExecution />
+        </TabsContent>
+
+        <TabsContent value="registro" className="mt-6">
+          <WeeklyProgramLog />
+        </TabsContent>
+
+        <TabsContent value="programas" className="mt-6">
+          <MaintenanceProgramView />
         </TabsContent>
 
         <TabsContent value="checklists" className="mt-6">

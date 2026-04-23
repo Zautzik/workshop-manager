@@ -1578,3 +1578,119 @@ export function useOrderLaborMargin(
     enabled: hasValidStartDate && hasValidEndDate,
   });
 }
+
+/* ------------------------------------------------------------------ */
+/*  Maintenance Programs                                              */
+/* ------------------------------------------------------------------ */
+
+/** All active maintenance programs (one per machine model / manual) */
+export function useMaintenancePrograms() {
+  return useQuery<any[]>({
+    queryKey: ['maintenance-programs'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('maintenance_programs')
+        .select('*')
+        .eq('is_active', true)
+        .order('created_at', { ascending: true });
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+}
+
+/** Tasks for a specific program, ordered by sort_order */
+export function useProgramTasks(programId?: string | null) {
+  return useQuery<any[]>({
+    queryKey: ['program-tasks', programId],
+    queryFn: async () => {
+      if (!programId) return [];
+      const { data, error } = await supabase
+        .from('program_tasks')
+        .select('*')
+        .eq('program_id', programId)
+        .eq('is_active', true)
+        .order('sort_order', { ascending: true });
+      if (error) throw error;
+      return data ?? [];
+    },
+    enabled: Boolean(programId),
+  });
+}
+
+/**
+ * Log entries for a program+week combination.
+ * weekStart must be an ISO date string for Monday (YYYY-MM-DD).
+ */
+export function useWeeklyProgramLogs(programId?: string | null, weekStart?: string | null) {
+  return useQuery<any[]>({
+    queryKey: ['program-task-logs', programId, weekStart],
+    queryFn: async () => {
+      if (!programId || !weekStart) return [];
+      const { data, error } = await supabase
+        .from('program_task_logs')
+        .select('*')
+        .eq('program_id', programId)
+        .eq('week_start', weekStart);
+      if (error) throw error;
+      return data ?? [];
+    },
+    enabled: Boolean(programId && weekStart),
+  });
+}
+
+/**
+ * Toggle a task-day completion.
+ * Pass completed=true to mark done, false to remove the log entry.
+ */
+export function useToggleProgramTaskLog() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      taskId,
+      programId,
+      weekStart,
+      dayOfWeek,
+      completed,
+      completedBy,
+    }: {
+      taskId: string;
+      programId: string;
+      weekStart: string;
+      dayOfWeek: number;
+      completed: boolean;
+      completedBy?: string | null;
+    }) => {
+      if (completed) {
+        const { error } = await supabase
+          .from('program_task_logs')
+          .upsert(
+            {
+              task_id: taskId,
+              program_id: programId,
+              week_start: weekStart,
+              day_of_week: dayOfWeek,
+              completed: true,
+              completed_by: completedBy ?? null,
+              completed_at: new Date().toISOString(),
+            },
+            { onConflict: 'task_id,week_start,day_of_week' },
+          );
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from('program_task_logs')
+          .delete()
+          .eq('task_id', taskId)
+          .eq('week_start', weekStart)
+          .eq('day_of_week', dayOfWeek);
+        if (error) throw error;
+      }
+    },
+    onSuccess: (_result, { programId, weekStart }) => {
+      queryClient.invalidateQueries({
+        queryKey: ['program-task-logs', programId, weekStart],
+      });
+    },
+  });
+}
