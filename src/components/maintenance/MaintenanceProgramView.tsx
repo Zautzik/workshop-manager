@@ -123,7 +123,7 @@ export default function MaintenanceProgramView() {
         {activeProgram && (
           <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
             <Badge variant="outline">{activeProgram.machine_model}</Badge>
-            <Badge variant="outline">{activeProgram.source_language === 'de' ? '🇩🇪 Manual Alemán' : activeProgram.source_language === 'ja' ? '🇯🇵 Manual Japonés' : activeProgram.source_language}</Badge>
+            <Badge variant="outline">{activeProgram.source_language === 'de' ? '🇩🇪 Roland (Manual Alemán)' : activeProgram.source_language === 'ja' ? '🇯🇵 Ryobi (Manual Japonés)' : activeProgram.source_language}</Badge>
             {activeProgram.manual_source && (
               <span className="flex items-center gap-1">
                 <Book className="h-3 w-3" /> {activeProgram.manual_source}
