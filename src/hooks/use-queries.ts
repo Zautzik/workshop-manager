@@ -1694,3 +1694,147 @@ export function useToggleProgramTaskLog() {
     },
   });
 }
+
+// ─── Program CRUD ─────────────────────────────────────────────────────────────
+
+export function useUpdateProgram() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      id,
+      ...patch
+    }: {
+      id: string;
+      name?: string;
+      machine_model?: string;
+      source_language?: string;
+      description?: string;
+    }) => {
+      const { error } = await supabase
+        .from('maintenance_programs')
+        .update({ ...patch, updated_at: new Date().toISOString() })
+        .eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['maintenance-programs'] });
+    },
+  });
+}
+
+export function useCreateProgram() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (program: {
+      name: string;
+      machine_model: string;
+      source_language?: string;
+      description?: string;
+      manual_source?: string;
+    }) => {
+      const { data, error } = await supabase
+        .from('maintenance_programs')
+        .insert({ ...program, is_active: true })
+        .select()
+        .single();
+      if (error) throw error;
+      return data as { id: string; [key: string]: any };
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['maintenance-programs'] });
+    },
+  });
+}
+
+export function useDeleteProgram() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from('maintenance_programs')
+        .update({ is_active: false, updated_at: new Date().toISOString() })
+        .eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['maintenance-programs'] });
+    },
+  });
+}
+
+// ─── Task CRUD ────────────────────────────────────────────────────────────────
+
+export function useUpdateTask() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      id,
+      programId,
+      ...patch
+    }: {
+      id: string;
+      programId: string;
+      description?: string;
+      section?: string | null;
+      subsection?: string | null;
+      frequency?: string;
+      action_type?: string;
+      estimated_minutes?: number | null;
+      task_number?: number | null;
+    }) => {
+      const { error } = await supabase
+        .from('program_tasks')
+        .update(patch)
+        .eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: (_r, { programId }) => {
+      queryClient.invalidateQueries({ queryKey: ['program-tasks', programId] });
+    },
+  });
+}
+
+export function useCreateTask() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (task: {
+      program_id: string;
+      description: string;
+      section?: string | null;
+      subsection?: string | null;
+      frequency: string;
+      action_type: string;
+      estimated_minutes?: number | null;
+      task_number?: number | null;
+      sort_order?: number;
+      source?: string;
+    }) => {
+      const { data, error } = await supabase
+        .from('program_tasks')
+        .insert({ ...task, is_active: true })
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (_r, { program_id }) => {
+      queryClient.invalidateQueries({ queryKey: ['program-tasks', program_id] });
+    },
+  });
+}
+
+export function useDeleteTask() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, programId }: { id: string; programId: string }) => {
+      const { error } = await supabase
+        .from('program_tasks')
+        .update({ is_active: false })
+        .eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: (_r, { programId }) => {
+      queryClient.invalidateQueries({ queryKey: ['program-tasks', programId] });
+    },
+  });
+}
