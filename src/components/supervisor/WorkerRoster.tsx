@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useWorkerStats } from '@/hooks/use-queries';
+import { useWorkerStats } from '@/hooks/use-operations-queries';
 import { toast } from 'sonner';
 import { Plus, Search } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';

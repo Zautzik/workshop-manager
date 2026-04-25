@@ -57,7 +57,7 @@ import {
   useBatchReviewWarehouse,
   useGenerateWarehouseQR,
 } from '@/hooks/use-warehouse';
-import { useInventoryItems } from '@/hooks/use-queries';
+import { useInventoryItems } from '@/hooks/use-workflow-queries';
 import { useToast } from '@/hooks/use-toast';
 import type { WhatsAppWarehouseLog } from '@/types/whatsapp-warehouse';
 

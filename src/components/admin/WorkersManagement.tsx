@@ -30,7 +30,7 @@ import {
 import { toast } from 'sonner';
 import { Plus, Pencil, Trash2 } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { useWorkers } from '@/hooks/use-queries';
+import { useWorkers } from '@/hooks/use-operations-queries';
 
 interface WorkersManagementProps {
   onUpdate: () => void;

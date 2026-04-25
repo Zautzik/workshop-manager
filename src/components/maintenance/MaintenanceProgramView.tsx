@@ -11,7 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useCreateProgram, useCreateTask, useDeleteProgram, useDeleteTask, useMaintenancePrograms, useProgramTasks, useUpdateProgram, useUpdateTask } from '@/hooks/use-queries';
+import { useCreateProgram, useCreateTask, useDeleteProgram, useDeleteTask, useMaintenancePrograms, useProgramTasks, useUpdateProgram, useUpdateTask } from '@/hooks/use-maintenance-queries';
 
 const FREQUENCY_ORDER = ['daily','weekly','biweekly','monthly','quarterly','semiannual','annual'];
 const FREQUENCY_META: Record<string, { label: string; color: string }> = {

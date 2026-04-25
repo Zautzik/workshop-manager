@@ -11,7 +11,8 @@ import { TrendingUp, TrendingDown, Plus, Edit2, AlertCircle } from 'lucide-react
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { useMachineCosts, useMachines } from '@/hooks/use-queries';
+import { useMachineCosts } from '@/hooks/use-financial-queries';
+import { useMachines } from '@/hooks/use-operations-queries';
 
 interface MachineCost {
   id: string;

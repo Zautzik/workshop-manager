@@ -8,7 +8,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { useWorkerStats } from '@/hooks/use-queries';
+import { useWorkerStats } from '@/hooks/use-operations-queries';
 import { toast } from 'sonner';
 import { useLanguage } from '@/contexts/LanguageContext';
 import WorkerCard from '../supervisor/WorkerCard';

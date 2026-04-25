@@ -71,7 +71,7 @@ import {
 import { toast } from 'sonner';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { supabase } from '@/integrations/supabase/client';
-import { useMaintenanceChecklists } from '@/hooks/use-queries';
+import { useMaintenanceChecklists } from '@/hooks/use-maintenance-queries';
 
 interface ChecklistItem {
   id: string;

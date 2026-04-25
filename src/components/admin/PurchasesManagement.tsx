@@ -25,7 +25,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Plus, Pencil, Trash2 } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { usePurchases } from '@/hooks/use-queries';
+import { usePurchases } from '@/hooks/use-admin-queries';
 
 const PurchasesManagement = () => {
   const { t } = useLanguage();

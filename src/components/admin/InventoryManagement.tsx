@@ -61,8 +61,8 @@ import {
   useInventoryLots,
   useInventoryTransactions,
   useInventoryLowStockAlerts,
-  useOTs,
-} from '@/hooks/use-queries';
+} from '@/hooks/use-admin-queries';
+import { useOTs } from '@/hooks/use-operations-queries';
 
 const CATEGORY_OPTIONS = [
   { value: 'tool', label: 'Tools' },

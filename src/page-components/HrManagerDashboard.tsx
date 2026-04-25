@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from 'react';
+import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
@@ -45,9 +46,9 @@ import {
   useCompensationHistory,
   useLeaveRequests,
 } from '@/hooks/use-employees';
-import SkillTreeManager from '@/components/hr/SkillTreeManager';
-import WorkerSkillsProficiency from '@/components/hr/WorkerSkillsProficiency';
-import CraftSkillTree from '@/components/hr/CraftSkillTree';
+const SkillTreeManager = dynamic(() => import('@/components/hr/SkillTreeManager'));
+const WorkerSkillsProficiency = dynamic(() => import('@/components/hr/WorkerSkillsProficiency'));
+const CraftSkillTree = dynamic(() => import('@/components/hr/CraftSkillTree'));
 
 const HrManagerDashboard = () => {
   const { role } = useAuth();

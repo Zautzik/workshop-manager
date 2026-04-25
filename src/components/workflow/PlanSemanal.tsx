@@ -5,7 +5,7 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { useWeekSchedule } from '@/hooks/use-queries';
+import { useWeekSchedule } from '@/hooks/use-workflow-queries';
 import { useRealtimeProduction } from '@/hooks/use-realtime-production';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';

@@ -6,8 +6,12 @@
  */
 'use client';
 
+import dynamic from 'next/dynamic';
 import ProtectedRoute from '@/components/ProtectedRoute';
-import HrManagerDashboard from '@/page-components/HrManagerDashboard';
+
+const HrManagerDashboard = dynamic(() => import('@/page-components/HrManagerDashboard'), {
+  loading: () => <div className="p-8 text-muted-foreground text-sm">Cargando...</div>,
+});
 
 export default function HrPage() {
   return (

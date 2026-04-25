@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { FileDown, DollarSign } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { useJobs } from '@/hooks/use-queries';
+import { useJobs } from '@/hooks/use-operations-queries';
 import { toast } from 'sonner';
 
 const CostReport = () => {

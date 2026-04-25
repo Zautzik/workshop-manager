@@ -24,7 +24,7 @@ import {
 } from '@/components/ui/select';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
-import { useOTs } from '@/hooks/use-queries';
+import { useOTs } from '@/hooks/use-operations-queries';
 import {
   FileText,
   Printer,

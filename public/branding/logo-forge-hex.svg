@@ -1,0 +1,20 @@
+<svg width="1200" height="520" viewBox="0 0 1200 520" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="56" y1="44" x2="356" y2="352" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0F172A"/>
+      <stop offset="1" stop-color="#111827"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="120" y1="92" x2="284" y2="300" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#22D3EE"/>
+      <stop offset="1" stop-color="#F59E0B"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="520" rx="28" fill="#F8FAFC"/>
+  <rect x="56" y="56" width="300" height="300" rx="72" fill="url(#bg)"/>
+  <path d="M206 96L282 140V228L206 272L130 228V140L206 96Z" stroke="url(#accent)" stroke-width="18" stroke-linejoin="round"/>
+  <path d="M145 170L173 236L206 182L239 236L267 170" stroke="#F8FAFC" stroke-width="22" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="206" cy="272" r="12" fill="#F59E0B"/>
+  <text x="412" y="188" fill="#0F172A" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="78" font-weight="800">Forge Hex</text>
+  <text x="412" y="256" fill="#334155" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="34" font-weight="600">Industrial precision + executive clarity</text>
+  <text x="412" y="322" fill="#475569" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="28">Best fit for the main product mark. Reads well in a browser tab, app shell, and dark UI.</text>
+</svg>

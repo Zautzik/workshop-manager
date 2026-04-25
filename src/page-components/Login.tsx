@@ -22,6 +22,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
+import { ForgeHexLogo } from '@/components/branding/ForgeHexLogo';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
@@ -136,13 +137,9 @@ const Login = () => {
 
       <Card className="w-full max-w-md shadow-xl border-primary/20">
         <CardHeader className="text-center space-y-4">
-          <img 
-            src="/gonsa-logo.jpg" 
-            alt="Gonsa Impresores - Print shop management system logo" 
-            className="h-20 mx-auto object-contain"
-          />
+          <ForgeHexLogo size={80} showWordmark={false} className="justify-center" />
           <CardTitle className="text-3xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
-            PrintPress Manager
+            Workshop Manager
           </CardTitle>
           <CardDescription className="text-base">{t('login')}</CardDescription>
         </CardHeader>

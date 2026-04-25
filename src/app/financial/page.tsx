@@ -17,8 +17,12 @@
  */
 'use client';
 
+import dynamic from 'next/dynamic';
 import ProtectedRoute from '@/components/ProtectedRoute';
-import FinancialReport from "@/page-components/FinancialReport";
+
+const FinancialReport = dynamic(() => import('@/page-components/FinancialReport'), {
+  loading: () => <div className="p-8 text-muted-foreground text-sm">Cargando...</div>,
+});
 
 export default function FinancialPage() {
   return (

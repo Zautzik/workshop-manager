@@ -32,19 +32,21 @@
 'use client';
 
 import { useEffect } from 'react';
+import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
+import { ForgeHexLogo } from '@/components/branding/ForgeHexLogo';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { useAdminStats } from '@/hooks/use-queries';
+import { useAdminStats } from '@/hooks/use-admin-queries';
 import { LogOut, Users, Package, FileText, DollarSign, Factory, Wrench, LayoutDashboard } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import UserManagement from '@/components/admin/UserManagement';
 import WorkersManagement from '@/components/admin/WorkersManagement';
 import InventoryManagement from '@/components/admin/InventoryManagement';
 import PurchasesManagement from '@/components/admin/PurchasesManagement';
-import ExecutiveOverview from '@/components/admin/ExecutiveOverview';
+const ExecutiveOverview = dynamic(() => import('@/components/admin/ExecutiveOverview'));
 
 const AdminDashboard = () => {
   const { user, role, signOut } = useAuth();
@@ -69,10 +71,10 @@ const AdminDashboard = () => {
       <header className="border-b border-primary/20 shadow-lg sticky top-0 z-50 backdrop-blur-sm bg-card/95" role="banner">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <img src="/gonsa-logo.jpg" alt="Gonsa Impresores Company Logo" className="h-12" />
+            <ForgeHexLogo size={48} showWordmark={false} />
             <div>
               <h1 className="text-2xl font-bold text-primary">{t('adminDashboard')}</h1>
-              <p className="text-xs text-muted-foreground">System Administration</p>
+              <p className="text-xs text-muted-foreground">Workshop Manager • System Administration</p>
             </div>
           </div>
           <nav aria-label="Main navigation" className="flex gap-2">

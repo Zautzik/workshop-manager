@@ -20,7 +20,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { supabase } from '@/integrations/supabase/client';
-import { useWorkerName } from '@/hooks/use-queries';
+import { useWorkerName } from '@/hooks/use-operations-queries';
 import { toast } from 'sonner';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { Slider } from '@/components/ui/slider';

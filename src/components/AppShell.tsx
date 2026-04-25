@@ -5,6 +5,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useTheme } from '@/contexts/ThemeContext';
+import { ForgeHexLogo } from '@/components/branding/ForgeHexLogo';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -164,15 +165,12 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         "flex items-center gap-3 px-4 py-5 border-b border-border/50",
         collapsed && "justify-center px-2"
       )}>
-        <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-          <Factory className="w-5 h-5 text-primary" />
-        </div>
-        {!collapsed && (
-          <div className="overflow-hidden">
-            <h1 className="text-sm font-semibold text-foreground truncate">GonsAdmin</h1>
-            <p className="text-[10px] text-muted-foreground truncate capitalize">{role?.replace('_', ' ')}</p>
-          </div>
-        )}
+        <ForgeHexLogo
+          size={32}
+          showWordmark={!collapsed}
+          subtitle={role?.replace('_', ' ')}
+          className={collapsed ? 'justify-center' : undefined}
+        />
       </div>
 
       {/* Nav */}
@@ -351,7 +349,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           <Button variant="ghost" size="icon" onClick={() => setMobileOpen(true)}>
             <Menu className="w-5 h-5" />
           </Button>
-          <span className="text-sm font-medium text-foreground">GonsAdmin</span>
+          <ForgeHexLogo size={28} className="min-w-0" titleClassName="text-sm font-medium" />
           <div className="ml-auto flex items-center gap-1">
             <ReportingQuickActions isAdmin={role === 'admin'} />
             <NotificationCenter />
@@ -361,9 +359,12 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         {/* Desktop header */}
         <div className="hidden md:flex items-center justify-between px-5 py-3 border-b border-border/50 bg-card/60 backdrop-blur-sm">
           <div className="text-sm text-muted-foreground">
-            <span className="font-semibold text-foreground">GonsAdmin</span>
-            <span className="mx-2">•</span>
-            <span className="capitalize">{role?.replace('_', ' ')}</span>
+            <ForgeHexLogo
+              size={28}
+              titleClassName="text-sm font-semibold"
+              subtitleClassName="text-xs"
+              subtitle={role?.replace('_', ' ')}
+            />
           </div>
           <div className="flex items-center gap-2">
             <ReportingQuickActions isAdmin={role === 'admin'} />

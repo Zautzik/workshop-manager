@@ -9,7 +9,6 @@ import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 import { Plus, X, FileText, Download } from 'lucide-react';
 import type { OTFormData, MultiQuantityQuote } from '@/types/ot';
 import { computeOTPricing, computeMultiQuantityQuotes } from '@/lib/ot-calculations';
-import { generateQuotePDF } from '@/lib/ot-quote-pdf';
 
 interface Props {
   form: OTFormData;
@@ -23,6 +22,7 @@ export function OTStepPricing({ form, updateForm }: Props) {
   const { pricing, quantity, operations, extra_quantities } = form;
   const [multiQuotes, setMultiQuotes] = useState<MultiQuantityQuote[]>([]);
   const [newQty, setNewQty] = useState('');
+  const [isExportingPdf, setIsExportingPdf] = useState(false);
 
   const recalc = (
     marginPct = pricing.margin_pct,
@@ -65,6 +65,16 @@ export function OTStepPricing({ form, updateForm }: Props) {
 
   const removeExtraQuantity = (qty: number) => {
     updateForm({ extra_quantities: extra_quantities.filter((q) => q !== qty) });
+  };
+
+  const handleExportQuotePdf = async () => {
+    setIsExportingPdf(true);
+    try {
+      const { generateQuotePDF } = await import('@/lib/ot-quote-pdf');
+      generateQuotePDF(form, null, multiQuotes);
+    } finally {
+      setIsExportingPdf(false);
+    }
   };
 
   const fmt = (val: number) =>
@@ -380,10 +390,11 @@ export function OTStepPricing({ form, updateForm }: Props) {
           type="button"
           variant="outline"
           className="w-full gap-2 border-primary/30 text-primary hover:bg-primary/10"
-          onClick={() => generateQuotePDF(form, null, multiQuotes)}
+          onClick={handleExportQuotePdf}
+          disabled={isExportingPdf}
         >
           <Download className="h-4 w-4" />
-          Exportar Cotización PDF
+          {isExportingPdf ? 'Generando PDF...' : 'Exportar Cotización PDF'}
         </Button>
       </div>
     </div>

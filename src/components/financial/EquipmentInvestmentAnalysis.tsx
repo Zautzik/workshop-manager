@@ -10,7 +10,8 @@ import { toast } from 'sonner';
 import { Plus, Edit2, TrendingUp, Clock, DollarSign } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
-import { useEquipmentInvestments, useMachines } from '@/hooks/use-queries';
+import { useEquipmentInvestments } from '@/hooks/use-financial-queries';
+import { useMachines } from '@/hooks/use-operations-queries';
 
 interface Investment {
   id: string;

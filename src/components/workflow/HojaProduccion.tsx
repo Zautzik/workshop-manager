@@ -1,7 +1,7 @@
 'use client';
 import { useState, useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { useDaySchedule, useUnscheduledOTs } from '@/hooks/use-queries';
+import { useDaySchedule, useUnscheduledOTs } from '@/hooks/use-workflow-queries';
 import { useRealtimeProduction } from '@/hooks/use-realtime-production';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';

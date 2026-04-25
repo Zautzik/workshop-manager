@@ -17,8 +17,12 @@ import { Providers } from "./providers";
 import "@/index.css";
 
 export const metadata: Metadata = {
-  title: "GonsAdmin",
-  description: "Administrative dashboard for Gons",
+  title: "Workshop Manager",
+  description: "Professional workshop operations platform for maintenance, workflow, HR, financial control, and production visibility.",
+  icons: {
+    icon: '/favicon.svg',
+    shortcut: '/favicon.svg',
+  },
 };
 
 export default function RootLayout({

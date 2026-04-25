@@ -7,7 +7,7 @@ import { Calendar, Clock, AlertCircle, CheckCircle, Wrench, FileText, BarChart3,
 import { useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-import { useMaintenanceStats, useMaintenanceWorkOrders } from '@/hooks/use-queries';
+import { useMaintenanceStats, useMaintenanceWorkOrders } from '@/hooks/use-maintenance-queries';
 import MaintenanceChecklistEditor from '@/components/maintenance/MaintenanceChecklistEditor';
 import WorkOrderExecution from '@/components/maintenance/WorkOrderExecution';
 import WeeklyProgramLog from '@/components/maintenance/WeeklyProgramLog';

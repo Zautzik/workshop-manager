@@ -1,6 +1,6 @@
 'use client';
 import { useState, useRef, useCallback } from 'react';
-import { useActiveOTs, queryKeys } from '@/hooks/use-queries';
+import { useActiveOTs, queryKeys } from '@/hooks/use-workflow-queries';
 import { useRealtimeProduction } from '@/hooks/use-realtime-production';
 import { useQueryClient } from '@tanstack/react-query';
 import { Card } from '@/components/ui/card';

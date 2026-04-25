@@ -3,7 +3,7 @@
 import { useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { useMachines, useJobs } from '@/hooks/use-queries';
+import { useMachines, useJobs } from '@/hooks/use-operations-queries';
 import { TrendingUp, CheckCircle, Clock, Package } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import CostReport from '@/components/manager/CostReport';

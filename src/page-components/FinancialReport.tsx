@@ -1,15 +1,16 @@
 'use client';
 
+import dynamic from 'next/dynamic';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { DollarSign, BarChart3, Wrench, Users, FileText } from 'lucide-react';
-import { OTFinancialTracking } from '@/components/financial/OTFinancialTracking';
-import { MachineCostAnalysis } from '@/components/financial/MachineCostAnalysis';
-import { EquipmentInvestmentAnalysis } from '@/components/financial/EquipmentInvestmentAnalysis';
-import { MonthlyPayrollCalculator } from '@/components/financial/MonthlyPayrollCalculator';
-import { EmployeeCostTimeline } from '@/components/financial/EmployeeCostTimeline';
-import { OrderLaborMarginAnalysis } from '@/components/financial/OrderLaborMarginAnalysis';
-import { CostCenterManager } from '@/components/financial/CostCenterManager';
-import { OTCostAnalysisReport } from '@/components/financial/OTCostAnalysisReport';
+const OTFinancialTracking = dynamic(() => import('@/components/financial/OTFinancialTracking').then((m) => m.OTFinancialTracking));
+const MachineCostAnalysis = dynamic(() => import('@/components/financial/MachineCostAnalysis').then((m) => m.MachineCostAnalysis));
+const EquipmentInvestmentAnalysis = dynamic(() => import('@/components/financial/EquipmentInvestmentAnalysis').then((m) => m.EquipmentInvestmentAnalysis));
+const MonthlyPayrollCalculator = dynamic(() => import('@/components/financial/MonthlyPayrollCalculator').then((m) => m.MonthlyPayrollCalculator));
+const EmployeeCostTimeline = dynamic(() => import('@/components/financial/EmployeeCostTimeline').then((m) => m.EmployeeCostTimeline));
+const OrderLaborMarginAnalysis = dynamic(() => import('@/components/financial/OrderLaborMarginAnalysis').then((m) => m.OrderLaborMarginAnalysis));
+const CostCenterManager = dynamic(() => import('@/components/financial/CostCenterManager').then((m) => m.CostCenterManager));
+const OTCostAnalysisReport = dynamic(() => import('@/components/financial/OTCostAnalysisReport').then((m) => m.OTCostAnalysisReport));
 
 const FinancialReport = () => {
   return (

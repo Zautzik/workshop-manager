@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { useMachines, useJobs } from '@/hooks/use-queries';
+import { useMachines, useJobs } from '@/hooks/use-operations-queries';
 import { Plus, Package, FileText } from 'lucide-react';
 import MachineList from '@/components/supervisor/MachineList';
 import JobList from '@/components/supervisor/JobList';

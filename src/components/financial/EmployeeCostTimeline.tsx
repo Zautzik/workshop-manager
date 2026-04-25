@@ -5,7 +5,8 @@ import { format, subMonths, startOfMonth, endOfMonth } from 'date-fns';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { useEmployeeCostTimeline, useWorkers } from '@/hooks/use-queries';
+import { useEmployeeCostTimeline } from '@/hooks/use-financial-queries';
+import { useWorkers } from '@/hooks/use-operations-queries';
 import { Loader2, TrendingUp, DollarSign, Clock, AlertTriangle } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 

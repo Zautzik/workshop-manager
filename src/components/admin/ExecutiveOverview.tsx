@@ -12,7 +12,8 @@ import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart as RechartsPie, Pie, Cell, BarChart, Bar, Legend
 } from 'recharts';
-import { useMaintenanceWorkOrdersByStatus, useMachines, useOTs, useWorkers } from '@/hooks/use-queries';
+import { useMaintenanceWorkOrdersByStatus } from '@/hooks/use-maintenance-queries';
+import { useMachines, useOTs, useWorkers } from '@/hooks/use-operations-queries';
 
 interface OTByStatus {
   status: string;

@@ -11,7 +11,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Clock, Play, CheckCircle, Wrench, AlertCircle } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { useMaintenanceTaskCompletions, useMaintenanceWorkOrdersByStatus } from '@/hooks/use-queries';
+import { useMaintenanceTaskCompletions, useMaintenanceWorkOrdersByStatus } from '@/hooks/use-maintenance-queries';
 
 interface ChecklistItem {
   id: string;

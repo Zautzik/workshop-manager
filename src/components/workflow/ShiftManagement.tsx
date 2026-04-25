@@ -6,7 +6,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Factory, Package, Clock, AlertCircle, Info } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { useMachines, useOTs } from "@/hooks/use-queries";
+import { useMachines, useOTs } from "@/hooks/use-workflow-queries";
 
 interface ShiftManagementProps {
   onShiftChange: () => void;

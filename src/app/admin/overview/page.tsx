@@ -1,7 +1,9 @@
 'use client';
 
+import dynamic from 'next/dynamic';
 import ProtectedRoute from '@/components/ProtectedRoute';
-import ExecutiveOverview from '@/components/admin/ExecutiveOverview';
+
+const ExecutiveOverview = dynamic(() => import('@/components/admin/ExecutiveOverview'));
 
 export default function OverviewPage() {
   return (

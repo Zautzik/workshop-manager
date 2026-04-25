@@ -9,7 +9,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { DollarSign, TrendingUp, TrendingDown, Plus, Edit2 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { useOTFinancials, useOTs } from '@/hooks/use-queries';
+import { useOTFinancials } from '@/hooks/use-financial-queries';
+import { useOTs } from '@/hooks/use-operations-queries';
 
 interface OTFinancial {
   id: string;
