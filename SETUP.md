@@ -1,6 +1,6 @@
 # Quick Start Guide - PostgreSQL Setup
 
-This is a quick guide to get your GonsAdmin application running with PostgreSQL.
+This is a quick guide to get your Workshop Manager application running with PostgreSQL.
 
 ## 🚀 Quick Setup (5 minutes)
 
@@ -50,8 +50,8 @@ npm run dev
 
 Visit `http://localhost:3000` and login with:
 
-- **Admin:** admin@gonsadmin.com / admin123
-- **Supervisor:** supervisor@gonsadmin.com / supervisor123
+- **Admin:** admin@workshopmanager.app / admin123
+- **Supervisor:** supervisor@workshopmanager.app / supervisor123
 
 ## 📚 Useful Commands
 

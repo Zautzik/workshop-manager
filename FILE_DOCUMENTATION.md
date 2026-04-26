@@ -1,7 +1,7 @@
-# GonsAdmin - Complete File Documentation
+# Workshop Manager - Complete File Documentation
 
 ## Project Overview
-**GonsAdmin** is a comprehensive workshop management system built with Next.js, TypeScript, PostgreSQL, Supabase, and NextAuth. It provides role-based dashboards for admins, supervisors, managers, and technicians to manage machines, jobs, workers, inventory, and financial operations.
+**Workshop Manager** is a comprehensive workshop management system built with Next.js, TypeScript, PostgreSQL, Supabase, and NextAuth. It provides role-based dashboards for admins, supervisors, managers, and technicians to manage machines, jobs, workers, inventory, and financial operations.
 
 ---
 

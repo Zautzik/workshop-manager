@@ -1,4 +1,4 @@
-# GonsAdmin - Workshop Management System
+# Workshop Manager
 
 A comprehensive workshop management system built with Next.js, TypeScript, PostgreSQL, Supabase, and NextAuth.
 
@@ -25,8 +25,8 @@ npm run dev
 
 **Default Login:**
 
-- Admin: `admin@gonsadmin.com` / `admin123`
-- Supervisor: `supervisor@gonsadmin.com` / `supervisor123`
+- Admin: `admin@workshopmanager.app` / `admin123`
+- Supervisor: `supervisor@workshopmanager.app` / `supervisor123`
 
 ## 🛠️ Tech Stack
 
@@ -53,7 +53,7 @@ npm run lint             # Run ESLint
 ## 🏗️ Project Structure
 
 ```
-GonsAdmin/
+workshop-manager/
 
 ├── src/
 │   ├── app/            # Next.js app router pages
@@ -80,8 +80,6 @@ GonsAdmin/
 
 ---
 
-## Original Project Info
+## Project Info
 
-**Lovable Project URL**: https://lovable.dev/projects/e0be18ac-d7d9-48ca-86f2-dad2bd003304
-
-This project was originally built with Lovable and now uses Supabase (PostgreSQL) for database management.
+This project uses Supabase (PostgreSQL) for database management.

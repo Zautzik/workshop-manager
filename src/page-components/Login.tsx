@@ -157,7 +157,7 @@ const Login = () => {
                 aria-required="true"
                 autoComplete="email"
                 className="border-primary/30 focus:border-primary"
-                placeholder="user@gonsa.cl"
+                placeholder="user@workshopmanager.app"
               />
             </div>
             <div className="space-y-2">
