@@ -55,7 +55,21 @@ SELECT
     )
     FROM public.ots o
     WHERE o.assigned_machine_id = m.id
-      AND o.status IN ('en_proceso', 'maquina')
+      AND o.status IN (
+        'pre_press',
+        'visto_bueno',
+        'paper_purchase',
+        'in_storage',
+        'guillotine_first_cut',
+        'offset_printing',
+        'die_cutting',
+        'guillotine_final_cut',
+        'workshop',
+        'outsourced',
+        'workshop_revision',
+        'ready_for_delivery',
+        'in_delivery'
+      )
     ORDER BY o.updated_at DESC
     LIMIT 1
   )                               AS active_ot,
