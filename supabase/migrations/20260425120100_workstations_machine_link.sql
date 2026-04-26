@@ -50,7 +50,7 @@ SELECT
       'client',       o.client_name,
       'product',      o.product_name,
       'status',       o.status,
-      'due_date',     o.due_date,
+      'due_date',     o.deadline,
       'priority',     o.priority_level
     )
     FROM public.ots o
