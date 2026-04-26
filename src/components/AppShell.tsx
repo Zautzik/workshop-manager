@@ -41,6 +41,8 @@ import {
   Bell,
   Plug,
   BookOpen,
+  Cpu,
+  LayoutGrid,
 } from 'lucide-react';
 import { NotificationCenter } from '@/components/NotificationCenter';
 import { ReportingQuickActions } from '@/components/ReportingQuickActions';
@@ -57,44 +59,49 @@ const navItems: NavItem[] = [
   // Main
   { label: 'Inicio', icon: Home, href: '/admin', group: 'main', roles: ['admin', 'manager', 'supervisor', 'hr_manager', 'technician'] },
 
-  // Operations
-  { label: 'Flujo de Trabajo', icon: Factory, href: '/workflow', group: 'operations', roles: ['admin', 'supervisor', 'manager'] },
+  // Operations — core production loop
+  { label: 'Planta Integrada', icon: LayoutGrid, href: '/workflow/planta', group: 'operations', roles: ['admin', 'supervisor', 'manager'] },
+  { label: 'OT / Flujo', icon: Factory, href: '/workflow', group: 'operations', roles: ['admin', 'supervisor', 'manager'] },
   { label: 'Producción', icon: ClipboardList, href: '/workflow/production', group: 'operations', roles: ['admin', 'supervisor', 'manager'] },
   { label: 'Plan Semanal', icon: CalendarDays, href: '/workflow/plan-semanal', group: 'operations', roles: ['admin', 'supervisor', 'manager'] },
   { label: 'WhatsApp Producción', icon: MessageSquare, href: '/workflow/whatsapp', group: 'operations', roles: ['admin', 'supervisor', 'manager'] },
   { label: 'Mis Reportes WA', icon: MessageSquare, href: '/workflow/whatsapp/operator', group: 'operations', roles: ['technician'] },
   { label: 'Bodega WhatsApp', icon: Warehouse, href: '/workflow/warehouse', group: 'operations', roles: ['admin', 'supervisor', 'manager'] },
 
+  // Machines — setup, maintenance, costs
+  { label: 'Máquinas', icon: Cpu, href: '/maintenance', group: 'machines', roles: ['admin', 'technician', 'supervisor', 'manager'] },
+
+  // People — HR
+  { label: 'Personas / RRHH', icon: Users, href: '/hr', group: 'hr', roles: ['admin', 'hr_manager'] },
+
+  // Inventory
+  { label: 'Inventario', icon: Package, href: '/admin/inventory', group: 'inventory', roles: ['admin', 'manager', 'supervisor'] },
+  { label: 'Compras', icon: ShoppingCart, href: '/admin/purchases', group: 'inventory', roles: ['admin', 'manager'] },
+
   // Management (KPIs, analytics, cost reports)
   { label: 'Resumen Ejecutivo', icon: LayoutDashboard, href: '/admin/overview', group: 'management', roles: ['admin', 'manager'] },
   { label: 'KPIs & Reportes', icon: BarChart3, href: '/manager', group: 'management', roles: ['admin', 'manager'] },
   { label: 'Finanzas', icon: DollarSign, href: '/financial', group: 'management', roles: ['admin', 'manager'] },
 
-  // HR
-  { label: 'Recursos Humanos', icon: Users, href: '/hr', group: 'hr', roles: ['admin', 'hr_manager'] },
-
   // Notifications
   { label: 'Notificaciones', icon: Bell, href: '/admin/notifications', group: 'management', roles: ['admin', 'manager', 'supervisor', 'hr_manager', 'technician'] },
-
-  // Maintenance
-  { label: 'Mantenimiento', icon: Wrench, href: '/maintenance', group: 'maintenance', roles: ['admin', 'technician', 'supervisor'] },
 
   // Admin
   { label: 'Usuarios', icon: UserCog, href: '/admin/users', group: 'admin', roles: ['admin'] },
   { label: 'Operarios', icon: Users, href: '/admin/workers', group: 'admin', roles: ['admin'] },
-  { label: 'Inventario', icon: Package, href: '/admin/inventory', group: 'admin', roles: ['admin'] },
-  { label: 'Compras', icon: ShoppingCart, href: '/admin/purchases', group: 'admin', roles: ['admin'] },
   { label: 'Integraciones', icon: Plug, href: '/admin/integrations', group: 'admin', roles: ['admin', 'manager', 'supervisor'] },
   { label: 'Knowledge Base', icon: BookOpen, href: '/admin/training', group: 'admin', roles: ['admin', 'manager', 'hr_manager'] },
 ];
 
 const groupLabels: Record<string, { en: string; es: string }> = {
-  main: { en: 'Main', es: 'Principal' },
-  operations: { en: 'Operations', es: 'Operaciones' },
-  management: { en: 'Management', es: 'Gestión' },
-  hr: { en: 'People', es: 'Personas' },
-  maintenance: { en: 'Maintenance', es: 'Mantenimiento' },
-  admin: { en: 'Administration', es: 'Administración' },
+  main:        { en: 'Main',         es: 'Principal' },
+  operations:  { en: 'Operations',   es: 'Operaciones' },
+  machines:    { en: 'Machines',     es: 'Máquinas' },
+  hr:          { en: 'People',       es: 'Personas' },
+  inventory:   { en: 'Inventory',    es: 'Inventario' },
+  management:  { en: 'Management',   es: 'Gestión' },
+  maintenance: { en: 'Machines',     es: 'Máquinas' },
+  admin:       { en: 'Administration', es: 'Administración' },
 };
 
 export default function AppShell({ children }: { children: React.ReactNode }) {

@@ -12,10 +12,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Cog, Printer, FileCheck } from 'lucide-react';
+import { Cog, Printer, FileCheck, Cpu, Zap, Activity } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { MACHINE_TYPES, PAYMENT_CATEGORIES, type OTMachineType } from '@/types/ot-production';
 import type { UnifiedOTForm } from '@/types/ot-unified';
+import { useMachines, MACHINE_TYPE_LABELS, MACHINE_STATUS_COLOR } from '@/hooks/use-machines';
 
 interface Props {
   form: UnifiedOTForm;
@@ -27,7 +28,20 @@ const COLOR_CONFIGS = [
   '4/0', '4/1', '4/2', '4/4',
 ];
 
+// Map machines.type → OTMachineType
+const MACHINE_TYPE_MAP: Record<string, OTMachineType> = {
+  offset_printer:  'offset_4_colores',
+  die_cutter:      'otro',
+  guillotine:      'otro',
+  digital_printer: 'impresion_digital',
+  pre_press:       'otro',
+  manual_workshop: 'otro',
+  delivery:        'otro',
+};
+
 export function UnifiedStepMachine({ form, updateForm }: Props) {
+  const { data: machines = [] } = useMachines(true);
+
   const updateMachine = (patch: Partial<UnifiedOTForm['machine']>) => {
     updateForm({ machine: { ...form.machine, ...patch } });
   };
@@ -40,12 +54,80 @@ export function UnifiedStepMachine({ form, updateForm }: Props) {
     updateForm({ finishing: { ...form.finishing, ...patch } });
   };
 
+  const handleMachineSelect = (machineId: string) => {
+    const m = machines.find(x => x.id === machineId);
+    if (!m) {
+      updateMachine({ machine_id: null, machine_name: null });
+      return;
+    }
+    const derivedType = MACHINE_TYPE_MAP[m.type] ?? 'offset_4_colores';
+    updateMachine({
+      machine_id: m.id,
+      machine_name: m.name,
+      machine_type: derivedType,
+    });
+  };
+
+  const selectedMachine = machines.find(m => m.id === form.machine.machine_id);
+
   return (
     <div className="space-y-6">
+      {/* ── Real Machine Picker ─────────────────────────── */}
+      <Card className="p-4 border-primary/30 bg-primary/5 border space-y-3">
+        <h3 className="font-semibold text-sm flex items-center gap-2">
+          <Cpu className="h-4 w-4 text-primary" />
+          Máquina real de la planta
+        </h3>
+        <div className="space-y-1">
+          <Label className="text-xs">Seleccionar máquina (opcional)</Label>
+          <Select value={form.machine.machine_id ?? '__none__'} onValueChange={v => handleMachineSelect(v === '__none__' ? '' : v)}>
+            <SelectTrigger>
+              <SelectValue placeholder="Selecciona una máquina de la planta…" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__none__">— Sin asignar —</SelectItem>
+              {machines.map(m => (
+                <SelectItem key={m.id} value={m.id}>
+                  <span className="flex items-center gap-2">
+                    <span className={cn('h-2 w-2 rounded-full inline-block', MACHINE_STATUS_COLOR[m.status])} />
+                    {m.name}
+                    {m.brand && <span className="text-muted-foreground text-xs"> · {m.brand} {m.model}</span>}
+                  </span>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        {selectedMachine && (
+          <div className="flex flex-wrap gap-2 pt-1">
+            <Badge variant="secondary" className="text-xs">{MACHINE_TYPE_LABELS[selectedMachine.type]}</Badge>
+            {selectedMachine.colors && <Badge variant="outline" className="text-xs">{selectedMachine.colors} colores</Badge>}
+            {selectedMachine.nominal_speed_sheets_hr && (
+              <Badge variant="outline" className="text-xs gap-1">
+                <Activity className="h-3 w-3" />{selectedMachine.nominal_speed_sheets_hr.toLocaleString()} h/hr
+              </Badge>
+            )}
+            {selectedMachine.power_kw && (
+              <Badge variant="outline" className="text-xs gap-1">
+                <Zap className="h-3 w-3 text-amber-500" />{selectedMachine.power_kw} kW
+              </Badge>
+            )}
+            {selectedMachine.location && (
+              <Badge variant="outline" className="text-xs">{selectedMachine.location}</Badge>
+            )}
+          </div>
+        )}
+        {machines.length === 0 && (
+          <p className="text-xs text-muted-foreground italic">
+            No hay máquinas registradas en el módulo Máquinas. Puedes continuar sin asignar.
+          </p>
+        )}
+      </Card>
+
       <div className="text-center mb-4">
         <h2 className="text-2xl font-bold text-foreground flex items-center justify-center gap-2">
           <Cog className="h-6 w-6 text-primary" />
-          Máquina y Terminación
+          Configuración de Impresión
         </h2>
         <p className="text-muted-foreground text-sm mt-1">
           Configuración de impresión, acabados y datos administrativos

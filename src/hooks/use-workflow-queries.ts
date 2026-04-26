@@ -22,7 +22,7 @@ export const queryKeys = {
 const OT_SELECT = `
   *,
   workstation:workstations(*),
-  machine:machines!assigned_machine_id(id,name,type)
+  machine:machines!assigned_machine_id(id,name,brand,model,type,status,location,colors,nominal_speed_sheets_hr,power_kw)
 ` as const;
 
 const SCHEDULE_SELECT = `
@@ -225,7 +225,10 @@ export function useWorkstations() {
   return useQuery({
     queryKey: queryKeys.workstations,
     queryFn: async () => {
-      const { data, error } = await supabase.from('workstations').select('*').order('name');
+      const { data, error } = await supabase
+        .from('workstations')
+        .select('*, machine:machines(id, name, brand, model, type, status, colors, power_kw, nominal_speed_sheets_hr, location, photo_url)')
+        .order('name');
       if (error) throw error;
       return data ?? [];
     },

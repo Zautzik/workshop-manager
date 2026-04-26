@@ -78,6 +78,10 @@ export const MACHINE_TYPES: { value: OTMachineType; label: string }[] = [
 ];
 
 export interface OTMachineConfig {
+  /** Real machine ID from the machines table (optional – may be set by operator) */
+  machine_id?: string | null;
+  /** Resolved machine display name from the machines table */
+  machine_name?: string | null;
   machine_type: OTMachineType;
   /** Color config string, e.g. "4/4", "4/1", "1/1" */
   color_config: string;

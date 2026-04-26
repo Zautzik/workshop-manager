@@ -11,6 +11,9 @@ import {
 	Layers,
 	Hand,
 	X,
+	Zap,
+	GaugeCircle,
+	MapPin,
 } from 'lucide-react';
 import { useDroppable } from '@dnd-kit/core';
 import { useDraggable } from '@dnd-kit/core';
@@ -168,23 +171,44 @@ function DroppableWorkstation({
 			<div className='flex items-center justify-between mb-3'>
 				<div className='flex items-center gap-2'>
 					{getWorkstationIcon(station.type)}
-					<div>
-						<h3 className='font-bold text-foreground text-lg'>{station.name}</h3>
-						<p className='text-xs text-muted-foreground capitalize'>
-							{station.type.replace('_', ' ')}
-						</p>
+					<div className='min-w-0'>
+						<h3 className='font-bold text-foreground text-lg leading-tight truncate'>
+							{station.display_name ?? station.machine?.name ?? station.name}
+						</h3>
+						{station.machine?.brand || station.machine?.model ? (
+							<p className='text-xs text-muted-foreground truncate'>
+								{[station.machine.brand, station.machine.model].filter(Boolean).join(' ')}
+								{station.machine.year_manufactured ? ` (${station.machine.year_manufactured})` : ''}
+							</p>
+						) : (
+							<p className='text-xs text-muted-foreground capitalize'>
+								{station.type.replace(/_/g, ' ')}
+							</p>
+						)}
 					</div>
 				</div>
-				<Badge
-					variant='outline'
-					className={`${
-						station.status === 'active'
-							? 'bg-primary/15 border-primary/40 text-foreground'
-							: 'bg-muted border-border text-muted-foreground'
-					}`}
-				>
-					{station.status}
-				</Badge>
+				<div className='flex flex-col items-end gap-1 shrink-0'>
+					<Badge
+						variant='outline'
+						className={`text-[10px] ${
+							(station.machine?.status ?? station.status) === 'running'
+								? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-700 dark:text-emerald-300'
+								: (station.machine?.status ?? station.status) === 'maintenance'
+									? 'bg-amber-500/15 border-amber-500/40 text-amber-700 dark:text-amber-300'
+									: (station.machine?.status ?? station.status) === 'offline'
+										? 'bg-destructive/15 border-destructive/40 text-destructive'
+										: 'bg-muted border-border text-muted-foreground'
+						}`}
+					>
+						{station.machine?.status ?? station.status}
+					</Badge>
+					{(station.machine?.nominal_speed_sheets_hr ?? station.machine?.productivity_sheets_per_hour) ? (
+						<span className='flex items-center gap-0.5 text-[10px] text-muted-foreground'>
+							<GaugeCircle className='w-2.5 h-2.5' />
+							{(station.machine.nominal_speed_sheets_hr ?? station.machine.productivity_sheets_per_hour).toLocaleString()}/h
+						</span>
+					) : null}
+				</div>
 			</div>
 
 			<div className='mb-3'>
@@ -260,6 +284,23 @@ function DroppableWorkstation({
 				)}
 			</div>
 
+			{/* Machine location / energy pill */}
+			{(station.machine?.location || station.machine?.energy_consumption_kw) && (
+				<div className='flex items-center gap-2 mb-2 flex-wrap'>
+					{station.machine?.location && (
+						<span className='flex items-center gap-0.5 text-[10px] text-muted-foreground'>
+							<MapPin className='w-2.5 h-2.5' />
+							{station.machine.location}
+						</span>
+					)}
+					{station.machine?.energy_consumption_kw ? (
+						<span className='flex items-center gap-0.5 text-[10px] text-muted-foreground'>
+							<Zap className='w-2.5 h-2.5' />
+							{station.machine.energy_consumption_kw} kW
+						</span>
+					) : null}
+				</div>
+			)}
 			{selectedOT && (
 				<Badge className='bg-primary/15 text-foreground border-primary/30 w-full justify-center mb-2'>
 					{selectedOT.ot_number}
@@ -606,12 +647,16 @@ export function WorkstationLayout({
 
 	const getTypeLabel = (type: string) => {
 		const labels: { [key: string]: string } = {
-			offset_printer: 'Offset Printers',
-			guillotine: 'Guillotine Cutters',
-			die_cutter: 'Die Cutters',
-			workshop: 'Workshop Stations',
+			offset_printer:  'Prensas Offset',
+			guillotine:      'Guillotinas',
+			die_cutter:      'Troqueladoras',
+			digital_printer: 'Impresión Digital',
+			pre_press:       'Pre-Prensa',
+			manual_workshop: 'Taller Manual',
+			workshop:        'Taller',
+			delivery:        'Despacho',
 		};
-		return labels[type] || type.replace('_', ' ');
+		return labels[type] || type.replace(/_/g, ' ');
 	};
 
 	return (
@@ -620,19 +665,16 @@ export function WorkstationLayout({
 			<Alert className='bg-card/80 border-2 border-border backdrop-blur-sm shadow-lg'>
 				<Hand className='h-5 w-5 text-primary' />
 				<AlertDescription className='text-foreground'>
-					<strong className='text-primary text-lg'>Quick Guide:</strong>
+					<strong className='text-primary text-lg'>Guía rápida:</strong>
 					<ol className='mt-2 space-y-1 text-sm'>
 						<li>
-							1. <strong>Grab</strong> a worker card from the &quot;Available
-							Workers&quot; section below
+							1. <strong>Toma</strong> la tarjeta de un operario desde la sección &quot;Operarios Disponibles&quot;
 						</li>
 						<li>
-							2. <strong>Drag</strong> the worker over any workstation (the box
-							will glow when ready)
+							2. <strong>Arrastra</strong> al operario sobre la máquina (el cuadro brilla cuando está listo)
 						</li>
 						<li>
-							3. <strong>Drop</strong> to assign. You can also move assigned
-							workers between workstations
+							3. <strong>Suelta</strong> para asignar. También puedes mover operarios entre máquinas
 						</li>
 					</ol>
 				</AlertDescription>
@@ -641,7 +683,7 @@ export function WorkstationLayout({
 			{/* Workshop Floor - Grouped by Machine Type - MOVED BEFORE WORKERS */}
 			<div className='space-y-6'>
 				<div className='flex items-center gap-3'>
-					<h2 className='text-3xl font-bold text-foreground'>Workshop Floor</h2>
+					<h2 className='text-3xl font-bold text-foreground'>Planta</h2>
 					<Badge
 						variant='outline'
 						className='bg-supervisor/20 text-supervisor border-supervisor/40 text-sm'
@@ -657,7 +699,7 @@ export function WorkstationLayout({
 								: 'bg-amber-500/20 text-amber-700 border-amber-500/40 hover:bg-amber-500/30'
 						}`}
 					>
-						OT workers: {currentShiftOvertimeWorkerCount}
+						Operarios HE: {currentShiftOvertimeWorkerCount}
 					</button>
 				</div>
 
@@ -677,7 +719,7 @@ export function WorkstationLayout({
 								</h3>
 								<Badge className={theme.countBadge}>
 									{(stations as any[]).length}{' '}
-									{(stations as any[]).length === 1 ? 'Station' : 'Stations'}
+								{(stations as any[]).length === 1 ? 'Máquina' : 'Máquinas'}
 								</Badge>
 							</div>
 
@@ -714,10 +756,10 @@ export function WorkstationLayout({
 								<Card className={`${theme.poolCard} p-4 lg:sticky lg:top-4 self-start`}>
 									<div className='mb-3'>
 										<h4 className='text-sm font-semibold text-foreground'>
-											Available {getTypeLabel(type)} Workers
+											Operarios disponibles — {getTypeLabel(type)}
 										</h4>
 										<p className='text-xs text-muted-foreground'>
-											Drag to a station to assign. Use the X on assigned cards to unassign.
+											Arrastra hacia una máquina para asignar. Usa la X para quitar.
 										</p>
 									</div>
 									<DroppableAvailablePool
@@ -741,7 +783,7 @@ export function WorkstationLayout({
 												))
 											) : (
 												<p className='text-sm text-muted-foreground border border-dashed border-border rounded-md p-3'>
-													No available workers in this department.
+													No hay operarios disponibles para este sector.
 												</p>
 											)}
 										</div>
@@ -761,10 +803,10 @@ export function WorkstationLayout({
 						<Hand className='w-5 h-5 text-primary' />
 						<div>
 							<h3 className='text-lg font-bold text-foreground'>
-								Other Available Workers
+								Otros Operarios Disponibles
 							</h3>
 							<p className='text-sm text-muted-foreground'>
-								These workers have no direct machine-department match.
+								Estos operarios no tienen una máquina asignada como principal.
 							</p>
 						</div>
 						<Badge className='ml-auto bg-primary/15 text-foreground border-primary/30'>

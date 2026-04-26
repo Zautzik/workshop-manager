@@ -288,6 +288,8 @@ export function UnifiedOTWizard({ onClose, onSuccess }: Props) {
         ]
           .filter(Boolean)
           .join('\n') || null,
+        // Machine assignment from Machines module
+        assigned_machine_id: form.machine.machine_id || null,
       };
 
       const res = await fetch('/api/ots', {
