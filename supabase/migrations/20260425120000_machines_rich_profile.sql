@@ -66,6 +66,9 @@ CREATE INDEX IF NOT EXISTS idx_machine_supply_item      ON public.machine_supply
 
 ALTER TABLE public.machine_supply_requirements ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "machine_supply_select" ON public.machine_supply_requirements;
+DROP POLICY IF EXISTS "machine_supply_all"    ON public.machine_supply_requirements;
+
 CREATE POLICY "machine_supply_select" ON public.machine_supply_requirements
   FOR SELECT TO authenticated USING (true);
 CREATE POLICY "machine_supply_all" ON public.machine_supply_requirements
@@ -96,6 +99,9 @@ CREATE INDEX IF NOT EXISTS idx_machine_cost_period   ON public.machine_cost_entr
 
 ALTER TABLE public.machine_cost_entries ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "machine_cost_select" ON public.machine_cost_entries;
+DROP POLICY IF EXISTS "machine_cost_all"    ON public.machine_cost_entries;
+
 CREATE POLICY "machine_cost_select" ON public.machine_cost_entries
   FOR SELECT TO authenticated USING (true);
 CREATE POLICY "machine_cost_all" ON public.machine_cost_entries
@@ -106,6 +112,7 @@ CREATE POLICY "machine_cost_all" ON public.machine_cost_entries
   );
 
 -- ─── updated_at trigger ───────────────────────────────
+DROP TRIGGER IF EXISTS machine_supply_requirements_updated_at ON public.machine_supply_requirements;
 CREATE TRIGGER machine_supply_requirements_updated_at
   BEFORE UPDATE ON public.machine_supply_requirements
   FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
