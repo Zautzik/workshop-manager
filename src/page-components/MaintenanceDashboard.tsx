@@ -3,7 +3,7 @@
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Calendar, Clock, AlertCircle, CheckCircle, Wrench, FileText, BarChart3, ClipboardList, BookOpen } from 'lucide-react';
+import { Calendar, Clock, AlertCircle, CheckCircle, Wrench, FileText, BarChart3, ClipboardList, BookOpen, Cpu } from 'lucide-react';
 import { useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
@@ -12,6 +12,7 @@ import MaintenanceChecklistEditor from '@/components/maintenance/MaintenanceChec
 import WorkOrderExecution from '@/components/maintenance/WorkOrderExecution';
 import WeeklyProgramLog from '@/components/maintenance/WeeklyProgramLog';
 import MaintenanceProgramView from '@/components/maintenance/MaintenanceProgramView';
+import { MachineManagementPanel } from '@/components/maintenance/MachineManagementPanel';
 
 interface WorkOrderStats {
   pending: number;
@@ -52,9 +53,9 @@ export default function MaintenanceDashboard() {
       <div>
         <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
           <Wrench className="h-6 w-6" />
-          Mantenimiento
+          Máquinas &amp; Mantenimiento
         </h1>
-        <p className="text-sm text-muted-foreground mt-1">Gestión de mantenimiento de equipos</p>
+        <p className="text-sm text-muted-foreground mt-1">Registro de máquinas, programas de mantenimiento y órdenes de trabajo</p>
       </div>
 
       {/* Stats Cards */}
@@ -109,8 +110,12 @@ export default function MaintenanceDashboard() {
       </section>
 
       {/* Main Content Tabs */}
-      <Tabs defaultValue="workorders" className="w-full">
-        <TabsList className="grid w-full grid-cols-5">
+      <Tabs defaultValue="maquinas" className="w-full">
+        <TabsList className="grid w-full grid-cols-6">
+          <TabsTrigger value="maquinas" className="flex items-center gap-2">
+            <Cpu className="h-4 w-4" />
+            Máquinas
+          </TabsTrigger>
           <TabsTrigger value="workorders" className="flex items-center gap-2">
             <Wrench className="h-4 w-4" />
             Órdenes
@@ -132,6 +137,10 @@ export default function MaintenanceDashboard() {
             Calendario
           </TabsTrigger>
         </TabsList>
+
+        <TabsContent value="maquinas" className="mt-6">
+          <MachineManagementPanel />
+        </TabsContent>
 
         <TabsContent value="workorders" className="mt-6">
           <WorkOrderExecution />
