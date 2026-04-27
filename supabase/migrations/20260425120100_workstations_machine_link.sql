@@ -86,7 +86,7 @@ SELECT
   (
     SELECT jsonb_agg(jsonb_build_object(
       'id',    COALESCE(e.id::text, w.id::text),
-      'name',  COALESCE(e.full_name, w.full_name),
+      'name',  COALESCE(e.full_name, w.name),
       'role',  wa.role
     ) ORDER BY wa.role)
     FROM public.worker_assignments wa
