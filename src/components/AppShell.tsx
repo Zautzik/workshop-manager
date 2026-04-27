@@ -60,8 +60,9 @@ const navItems: NavItem[] = [
   { label: 'Inicio', icon: Home, href: '/admin', group: 'main', roles: ['admin', 'manager', 'supervisor', 'hr_manager', 'technician'] },
 
   // Operations — core production loop
-  { label: 'Planta Integrada', icon: LayoutGrid, href: '/workflow/planta', group: 'operations', roles: ['admin', 'supervisor', 'manager'] },
-  { label: 'OT / Flujo', icon: Factory, href: '/workflow', group: 'operations', roles: ['admin', 'supervisor', 'manager'] },
+  { label: 'Planta', icon: Factory, href: '/workflow/planta', group: 'operations', roles: ['admin', 'supervisor', 'manager'] },
+  { label: 'Planta Integrada', icon: LayoutGrid, href: '/workflow/planta-integrada', group: 'operations', roles: ['admin', 'supervisor', 'manager'] },
+  { label: 'OT / Flujo', icon: ClipboardList, href: '/workflow', group: 'operations', roles: ['admin', 'supervisor', 'manager'] },
   { label: 'Producción', icon: ClipboardList, href: '/workflow/production', group: 'operations', roles: ['admin', 'supervisor', 'manager'] },
   { label: 'Plan Semanal', icon: CalendarDays, href: '/workflow/plan-semanal', group: 'operations', roles: ['admin', 'supervisor', 'manager'] },
   { label: 'WhatsApp Producción', icon: MessageSquare, href: '/workflow/whatsapp', group: 'operations', roles: ['admin', 'supervisor', 'manager'] },
