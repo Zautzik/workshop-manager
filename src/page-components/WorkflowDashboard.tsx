@@ -26,7 +26,13 @@ import { DndContext, DragEndEvent, DragOverlay } from "@dnd-kit/core";
 import { useTranslation } from "react-i18next";
 import { isWorkerQualifiedForStation } from "@/lib/workstation-skills";
 
-export default function WorkflowDashboard() {
+type WorkflowTab = 'en_proceso' | 'ots' | 'clients' | 'layout' | 'shifts' | 'production' | 'hoja_prod' | 'plan_semanal';
+
+interface WorkflowDashboardProps {
+  initialTab?: WorkflowTab;
+}
+
+export default function WorkflowDashboard({ initialTab = 'en_proceso' }: WorkflowDashboardProps) {
   const getDateIso = (date: Date) => {
     const offset = date.getTimezoneOffset() * 60 * 1000;
     return new Date(date.getTime() - offset).toISOString().split("T")[0];
@@ -1097,7 +1103,7 @@ export default function WorkflowDashboard() {
         )}
 
         {/* Main Content */}
-        <Tabs defaultValue="en_proceso" className="w-full">
+        <Tabs defaultValue={initialTab} className="w-full">
           <TabsList className="bg-card/80 border-border backdrop-blur-sm">
             <TabsTrigger value="en_proceso" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground gap-1.5">
               <LayoutList className="w-4 h-4" />
