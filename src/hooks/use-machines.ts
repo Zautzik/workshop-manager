@@ -97,7 +97,7 @@ export function useMachines(activeOnly = false) {
     queryFn: async () => {
       let q = supabase
         .from('machines')
-        .select('*, workstations(id, name)')
+        .select('*')
         .order('name');
       if (activeOnly) q = q.eq('is_active', true);
       const { data, error } = await q;
@@ -115,7 +115,7 @@ export function useMachine(id: string | undefined | null) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('machines')
-        .select('*, workstations(id, name), machine_supply_requirements(*, inventory_items(id, name, unit, category))')
+        .select('*, machine_supply_requirements(*, inventory_items(id, name, unit, category))')
         .eq('id', id!)
         .maybeSingle();
       if (error) throw error;

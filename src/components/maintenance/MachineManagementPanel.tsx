@@ -43,7 +43,7 @@ const STATUS_OPTIONS: { value: MachineStatus; label: string }[] = [
 ];
 
 export function MachineManagementPanel() {
-  const { data: machines = [], isLoading } = useMachines();
+  const { data: machines = [], isLoading, isError, error, refetch } = useMachines();
   const deleteMachine = useDeleteMachine();
   const updateStatus = useUpdateMachineStatus();
 
@@ -74,6 +74,24 @@ export function MachineManagementPanel() {
       <div className="flex items-center justify-center h-40">
         <div className="animate-spin rounded-full h-7 w-7 border-b-2 border-primary" />
       </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <Card className="border-destructive/30 bg-destructive/5">
+        <CardContent className="flex flex-col items-start gap-3 p-6">
+          <div>
+            <p className="font-medium text-destructive">No se pudieron cargar las máquinas.</p>
+            <p className="text-sm text-muted-foreground mt-1">
+              {error instanceof Error ? error.message : 'Ocurrió un error al consultar la base de datos.'}
+            </p>
+          </div>
+          <Button variant="outline" onClick={() => refetch()}>
+            Reintentar
+          </Button>
+        </CardContent>
+      </Card>
     );
   }
 

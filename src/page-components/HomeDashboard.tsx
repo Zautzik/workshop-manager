@@ -65,8 +65,8 @@ const quickActions: QuickAction[] = [
     roles: ['admin', 'hr_manager'],
   },
   {
-    label: 'Mantenimiento',
-    description: 'Órdenes de trabajo preventivo y correctivo',
+    label: 'Máquinas',
+    description: 'Registro de máquinas, mantenimiento y órdenes de trabajo',
     icon: Wrench,
     href: '/maintenance',
     color: 'bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-500/20 hover:border-orange-500/40 hover:bg-orange-500/15',
