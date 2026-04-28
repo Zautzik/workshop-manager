@@ -225,12 +225,33 @@ export function useWorkstations() {
   return useQuery({
     queryKey: queryKeys.workstations,
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data: workstationData, error: workstationError } = await supabase
         .from('workstations')
-        .select('*, machine:machines(id, name, brand, model, type, status, colors, power_kw, nominal_speed_sheets_hr, location, photo_url)')
+        .select('*')
         .order('name');
-      if (error) throw error;
-      return data ?? [];
+      if (workstationError) throw workstationError;
+
+      const { data: machineData, error: machineError } = await supabase
+        .from('machines')
+        .select('id, name, brand, model, type, status, colors, power_kw, nominal_speed_sheets_hr, location, photo_url, workstation_id, is_active')
+        .eq('is_active', true);
+      if (machineError) throw machineError;
+
+      const machines = machineData ?? [];
+      const machinesById = new Map(machines.map((machine: any) => [machine.id, machine]));
+      const machinesByWorkstationId = new Map(
+        machines
+          .filter((machine: any) => machine.workstation_id)
+          .map((machine: any) => [machine.workstation_id, machine])
+      );
+
+      return (workstationData ?? []).map((workstation: any) => ({
+        ...workstation,
+        machine:
+          (workstation.machine_id ? machinesById.get(workstation.machine_id) : null) ??
+          machinesByWorkstationId.get(workstation.id) ??
+          null,
+      }));
     },
   });
 }
