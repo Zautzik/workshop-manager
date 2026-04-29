@@ -6,7 +6,7 @@ import { supabaseAdmin } from '@/integrations/supabase/server';
 const UpdateMachineSchema = z.object({
 	name: z.string().min(1).max(255).optional(),
 	type: z.string().min(1).max(100).optional(),
-	status: z.enum(['idle', 'running', 'maintenance', 'offline']).optional(),
+	status: z.enum(['idle', 'running', 'maintenance', 'offline', 'setup', 'breakdown']).optional(),
 });
 
 const IdParamSchema = z.string().uuid();
@@ -83,7 +83,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 }
 
 export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-	const auth = await requireAuth('admin');
+	const auth = await requireAuth(['supervisor', 'admin']);
 	if (isAuthError(auth)) return auth;
 
 	const { id } = await params;

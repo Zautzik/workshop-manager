@@ -88,6 +88,57 @@ const Q = {
   planta:     ['planta', 'live'] as const,
 };
 
+const LEGACY_MACHINE_NAME_ALIASES: Record<string, string> = {
+  'offset printer 1': 'ryobi offset 524gs #1',
+  'offset printer 2': 'ryobi offset 524gs #2',
+  'offset printer 3': 'roland offset #1',
+  'die cutter': 'die cutter #1',
+  'die cutter 1': 'die cutter #1',
+  'guillotine 1': 'guillotine #1',
+  'guillotine 2': 'guillotine #2',
+  'guillotine 3': 'guillotine #3',
+  'delivery station': 'dispatch vehicle #1',
+};
+
+function canonicalMachineName(name: string) {
+  const normalized = name.trim().toLowerCase().replace(/\s+/g, ' ');
+  return LEGACY_MACHINE_NAME_ALIASES[normalized] ?? normalized;
+}
+
+function machineQualityScore(machine: Machine) {
+  return (
+    (machine.is_active ? 20 : 0) +
+    (machine.workstation_id ? 10 : 0) +
+    (machine.brand ? 4 : 0) +
+    (machine.model ? 4 : 0) +
+    (machine.location ? 2 : 0)
+  );
+}
+
+function dedupeMachines(machines: Machine[]) {
+  const winners = new Map<string, Machine>();
+
+  for (const machine of machines) {
+    const key = canonicalMachineName(machine.name);
+    const current = winners.get(key);
+    if (!current) {
+      winners.set(key, machine);
+      continue;
+    }
+
+    const currentScore = machineQualityScore(current);
+    const nextScore = machineQualityScore(machine);
+    const currentUpdated = Date.parse(current.updated_at || current.created_at || '1970-01-01');
+    const nextUpdated = Date.parse(machine.updated_at || machine.created_at || '1970-01-01');
+
+    if (nextScore > currentScore || (nextScore === currentScore && nextUpdated > currentUpdated)) {
+      winners.set(key, machine);
+    }
+  }
+
+  return [...winners.values()].sort((a, b) => a.name.localeCompare(b.name));
+}
+
 // ─── Queries ──────────────────────────────────────────────────────────────────
 
 /** All machines with basic workstation join */
@@ -102,7 +153,7 @@ export function useMachines(activeOnly = false) {
       if (activeOnly) q = q.eq('is_active', true);
       const { data, error } = await q;
       if (error) throw error;
-      return (data ?? []) as Machine[];
+      return dedupeMachines((data ?? []) as Machine[]);
     },
   });
 }
@@ -209,8 +260,23 @@ export function useDeleteMachine() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from('machines').delete().eq('id', id);
-      if (error) throw error;
+      const response = await fetch(`/api/machines/${id}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        let message = 'Failed to delete machine';
+        try {
+          const body = await response.json();
+          if (body?.error) message = body.error;
+        } catch {
+          // ignore JSON parse errors
+        }
+        throw new Error(message);
+      }
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: Q.all });
