@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { WorkerStatsPanel } from "@/components/workflow/WorkerStatsPanel";
 import { ShiftManagement } from "@/components/workflow/ShiftManagement";
 import { OTManagement } from "@/components/workflow/OTManagement";
@@ -27,6 +27,23 @@ import { useTranslation } from "react-i18next";
 import { isWorkerQualifiedForStation } from "@/lib/workstation-skills";
 
 type WorkflowTab = 'en_proceso' | 'ots' | 'clients' | 'layout' | 'shifts' | 'production' | 'hoja_prod' | 'plan_semanal';
+
+const workflowTabMeta: Array<{
+  value: WorkflowTab;
+  label: string;
+  subtitle: string;
+  icon: any;
+  accent: string;
+}> = [
+  { value: 'en_proceso', label: 'En Proceso', subtitle: 'Seguimiento activo', icon: LayoutList, accent: 'from-sky-500/25 to-sky-500/5' },
+  { value: 'ots', label: 'Kanban', subtitle: 'Flujo por estado', icon: ClipboardList, accent: 'from-cyan-500/25 to-cyan-500/5' },
+  { value: 'clients', label: 'Clientes', subtitle: 'Gestión comercial', icon: Users, accent: 'from-violet-500/25 to-violet-500/5' },
+  { value: 'layout', label: 'Planta', subtitle: 'Vista de piso', icon: Factory, accent: 'from-emerald-500/25 to-emerald-500/5' },
+  { value: 'shifts', label: 'Turnos', subtitle: 'Asignación diaria', icon: Clock, accent: 'from-amber-500/25 to-amber-500/5' },
+  { value: 'production', label: 'Archivo OT', subtitle: 'Documentos OT', icon: Printer, accent: 'from-orange-500/25 to-orange-500/5' },
+  { value: 'hoja_prod', label: 'Hoja Prod.', subtitle: 'Control operativo', icon: FileSpreadsheet, accent: 'from-fuchsia-500/25 to-fuchsia-500/5' },
+  { value: 'plan_semanal', label: 'Plan Semanal', subtitle: 'Panorama semanal', icon: CalendarDays, accent: 'from-indigo-500/25 to-indigo-500/5' },
+];
 
 interface WorkflowDashboardProps {
   initialTab?: WorkflowTab;
@@ -56,6 +73,7 @@ export default function WorkflowDashboard({ initialTab = 'en_proceso' }: Workflo
   };
 
   const today = new Date();
+  const [activeTab, setActiveTab] = useState<WorkflowTab>(initialTab);
   const [selectedWorker, setSelectedWorker] = useState<any>(null);
   const [selectedOT, setSelectedOT] = useState<any>(null);
   const [selectedDate, setSelectedDate] = useState<string>(getDateIso(today));
@@ -93,6 +111,10 @@ export default function WorkflowDashboard({ initialTab = 'en_proceso' }: Workflo
   const { t } = useTranslation();
 
   const canManageCostModel = role === 'admin';
+
+  useEffect(() => {
+    setActiveTab(initialTab);
+  }, [initialTab]);
 
   const defaultCostModel = {
     name: 'Default Cost Model',
@@ -1103,41 +1125,64 @@ export default function WorkflowDashboard({ initialTab = 'en_proceso' }: Workflo
         )}
 
         {/* Main Content */}
-        <Tabs defaultValue={initialTab} className="w-full">
-          <TabsList className="bg-card/80 border-border backdrop-blur-sm">
-            <TabsTrigger value="en_proceso" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground gap-1.5">
-              <LayoutList className="w-4 h-4" />
-              En Proceso
-            </TabsTrigger>
-            <TabsTrigger value="ots" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground gap-1.5">
-              <ClipboardList className="w-4 h-4" />
-              Kanban
-            </TabsTrigger>
-            <TabsTrigger value="clients" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground gap-1.5">
-              <Users className="w-4 h-4" />
-              Clientes
-            </TabsTrigger>
-            <TabsTrigger value="layout" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground gap-1.5">
-              <Factory className="w-4 h-4" />
-              Planta
-            </TabsTrigger>
-            <TabsTrigger value="shifts" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground gap-1.5">
-              <Clock className="w-4 h-4" />
-              Turnos
-            </TabsTrigger>
-            <TabsTrigger value="production" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground gap-1.5">
-              <Printer className="w-4 h-4" />
-              Archivo OT
-            </TabsTrigger>
-              <TabsTrigger value="hoja_prod" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground gap-1.5">
-                <FileSpreadsheet className="w-4 h-4" />
-                Hoja Prod.
-              </TabsTrigger>
-              <TabsTrigger value="plan_semanal" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground gap-1.5">
-                <CalendarDays className="w-4 h-4" />
-                Plan Semanal
-              </TabsTrigger>
-          </TabsList>
+        <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as WorkflowTab)} className="w-full">
+          <Card className="mb-5 border-border/60 bg-card/70 backdrop-blur-sm p-4 md:p-5 overflow-hidden">
+            <div className="flex flex-col gap-4">
+              <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-2">
+                <div>
+                  <h3 className="text-lg font-bold text-foreground">Mapa del Proceso</h3>
+                  <p className="text-sm text-muted-foreground">Navega todo el flujo operativo desde una sola vista compacta.</p>
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  Módulo activo: <span className="text-foreground font-medium">{workflowTabMeta.find((tab) => tab.value === activeTab)?.label}</span>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap justify-center gap-x-3 gap-y-6 md:gap-x-4 md:gap-y-7 py-2">
+                {workflowTabMeta.map((tab, index) => {
+                  const Icon = tab.icon;
+                  const isActive = activeTab === tab.value;
+
+                  return (
+                    <button
+                      key={tab.value}
+                      type="button"
+                      onClick={() => setActiveTab(tab.value)}
+                      aria-pressed={isActive}
+                      className={[
+                        'group relative w-[124px] h-[110px] sm:w-[136px] sm:h-[118px] transition-all duration-200',
+                        isActive ? 'scale-[1.03]' : 'hover:scale-[1.02]'
+                      ].join(' ')}
+                    >
+                      <div
+                        className={[
+                          'absolute inset-0 border shadow-sm',
+                          'bg-gradient-to-br',
+                          tab.accent,
+                          isActive
+                            ? 'border-primary shadow-[0_0_0_1px_rgba(34,211,238,0.25),0_12px_30px_rgba(0,0,0,0.22)]'
+                            : 'border-border/70 group-hover:border-primary/40 group-hover:shadow-lg'
+                        ].join(' ')}
+                        style={{ clipPath: 'polygon(25% 6%, 75% 6%, 100% 50%, 75% 94%, 25% 94%, 0% 50%)' }}
+                      />
+
+                      <div className="relative z-10 h-full px-4 py-4 flex flex-col items-center justify-center text-center">
+                        <div className={[
+                          'mb-1.5 inline-flex items-center justify-center rounded-full w-9 h-9 border',
+                          isActive ? 'border-primary/60 bg-primary/15 text-primary' : 'border-border/70 bg-background/60 text-muted-foreground group-hover:text-foreground'
+                        ].join(' ')}>
+                          <Icon className="w-4 h-4" />
+                        </div>
+                        <span className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground/80">{String(index + 1).padStart(2, '0')}</span>
+                        <span className={['mt-1 text-sm font-semibold leading-tight', isActive ? 'text-foreground' : 'text-foreground/90'].join(' ')}>{tab.label}</span>
+                        <span className="mt-1 text-[11px] leading-tight text-muted-foreground">{tab.subtitle}</span>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </Card>
 
           <TabsContent value="en_proceso" className="mt-4">
             <OrdenesEnProceso />
