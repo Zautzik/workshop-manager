@@ -1,11 +1,10 @@
 'use client';
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { useOTs } from "@/hooks/use-workflow-queries";
 import { Plus, ArrowRight, Edit2, Info, Package, Clock, User, DollarSign } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -37,6 +36,7 @@ const STATUS_FLOW = [
 
 export function OTManagement({ onOTSelect }: OTManagementProps) {
   const { data: ots = [], refetch: refetchOTs } = useOTs();
+  const [activeStage, setActiveStage] = useState<string>(STATUS_FLOW[0].key);
   const [createFlow, setCreateFlow] = useState<'none' | 'wizard'>('none');
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [editingOT, setEditingOT] = useState<any>(null);
@@ -75,6 +75,14 @@ export function OTManagement({ onOTSelect }: OTManagementProps) {
     ot.client_name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  const stageStats = useMemo(
+    () => STATUS_FLOW.map((stage) => ({
+      ...stage,
+      count: filteredOTs.filter((ot) => ot.status === stage.key).length,
+    })),
+    [filteredOTs]
+  );
+
   const getOTsByStatus = (statusKey: string) => {
     return filteredOTs
       .filter(ot => ot.status === statusKey)
@@ -84,6 +92,19 @@ export function OTManagement({ onOTSelect }: OTManagementProps) {
   const getStatusInfo = (status: string) => {
     return STATUS_FLOW.find(s => s.key === status) || STATUS_FLOW[0];
   };
+
+  useEffect(() => {
+    if (!STATUS_FLOW.some((stage) => stage.key === activeStage)) {
+      setActiveStage(STATUS_FLOW[0].key);
+      return;
+    }
+
+    const currentStageCount = stageStats.find((stage) => stage.key === activeStage)?.count ?? 0;
+    if (currentStageCount === 0) {
+      const firstWithOrders = stageStats.find((stage) => stage.count > 0);
+      if (firstWithOrders) setActiveStage(firstWithOrders.key);
+    }
+  }, [activeStage, stageStats]);
 
   const getNextStatuses = (currentStatus: string) => {
     const currentIndex = STATUS_FLOW.findIndex(s => s.key === currentStatus);
@@ -132,6 +153,8 @@ export function OTManagement({ onOTSelect }: OTManagementProps) {
   };
 
   const activeOTsCount = filteredOTs.filter(ot => ot.status !== 'completed').length;
+  const activeStageInfo = getStatusInfo(activeStage);
+  const activeStageOTs = getOTsByStatus(activeStage);
 
   const getPriorityColor = (priority: number) => {
     if (priority >= 8) return 'bg-red-500/20 text-red-400 border-red-500/40';
@@ -172,152 +195,154 @@ export function OTManagement({ onOTSelect }: OTManagementProps) {
         </div>
       </div>
 
-      {/* Kanban Board */}
-      <ScrollArea className="w-full">
-        <div className="flex gap-4 pb-4 min-w-max">
-          {STATUS_FLOW.map((status) => {
-            const statusOTs = getOTsByStatus(status.key);
-            const isCompleted = status.key === 'completed';
-            
-            return (
-              <div 
-                key={status.key}
-                className={`flex-shrink-0 w-72 ${isCompleted ? 'opacity-60' : ''}`}
-              >
-                {/* Column Header */}
-                <div className={`${status.color} rounded-t-lg p-3`}>
-                  <div className="flex items-center justify-between">
-                    <h3 className="font-bold text-white text-sm">
-                      {status.labelEs}
-                    </h3>
-                    <Badge variant="secondary" className="bg-white/20 text-white border-0">
-                      {statusOTs.length}
-                    </Badge>
+      {/* Process map + focused stage board */}
+      <div className="space-y-4">
+        <Card className="bg-card/70 border-border p-4">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-semibold text-foreground">Mapa de Proceso</h3>
+            <p className="text-xs text-muted-foreground">Vista completa en una sola pantalla</p>
+          </div>
+          <div className="flex flex-wrap justify-center gap-x-3 gap-y-5">
+            {stageStats.map((stage, idx) => {
+              const isActive = stage.key === activeStage;
+
+              return (
+                <button
+                  key={stage.key}
+                  type="button"
+                  onClick={() => setActiveStage(stage.key)}
+                  className={`relative w-[110px] h-[96px] transition-transform ${isActive ? 'scale-[1.03]' : 'hover:scale-[1.02]'}`}
+                  aria-pressed={isActive}
+                >
+                  <div
+                    className={`absolute inset-0 border ${isActive ? 'border-primary shadow-lg' : 'border-border/80'} bg-muted/40`}
+                    style={{ clipPath: 'polygon(25% 6%, 75% 6%, 100% 50%, 75% 94%, 25% 94%, 0% 50%)' }}
+                  />
+                  <div className="relative z-10 h-full flex flex-col items-center justify-center px-3 text-center">
+                    <span className="text-[9px] uppercase tracking-[0.15em] text-muted-foreground">{String(idx + 1).padStart(2, '0')}</span>
+                    <span className="mt-1 text-xs font-semibold leading-tight text-foreground">{stage.labelEs}</span>
+                    <span className="mt-1 text-[10px] text-muted-foreground">{stage.count} OT</span>
                   </div>
-                  <p className="text-white/70 text-xs mt-1">{status.description}</p>
-                </div>
+                </button>
+              );
+            })}
+          </div>
+        </Card>
 
-                {/* Column Content */}
-                <div className="bg-muted/30 border border-t-0 border-border rounded-b-lg min-h-[400px] p-2 space-y-2">
-                  {statusOTs.length === 0 ? (
-                    <div className="flex items-center justify-center h-32 text-muted-foreground text-xs">
-                      Sin órdenes
+        <div className="w-full">
+          <div className={`${activeStageInfo.color} rounded-t-lg p-3`}>
+            <div className="flex items-center justify-between">
+              <h3 className="font-bold text-white text-sm">{activeStageInfo.labelEs}</h3>
+              <Badge variant="secondary" className="bg-white/20 text-white border-0">{activeStageOTs.length}</Badge>
+            </div>
+            <p className="text-white/70 text-xs mt-1">{activeStageInfo.description}</p>
+          </div>
+
+          <div className="bg-muted/30 border border-t-0 border-border rounded-b-lg min-h-[420px] max-h-[70vh] overflow-y-auto p-2 space-y-2">
+            {activeStageOTs.length === 0 ? (
+              <div className="flex items-center justify-center h-32 text-muted-foreground text-xs">Sin órdenes</div>
+            ) : (
+              activeStageOTs.map((ot) => {
+                const nextStatuses = getNextStatuses(ot.status);
+
+                return (
+                  <Card
+                    key={ot.id}
+                    className="bg-card border-border p-3 hover:border-primary/50 transition-all cursor-pointer"
+                    onClick={() => onOTSelect(ot)}
+                  >
+                    <div className="flex items-start justify-between gap-2 mb-2">
+                      <div className="flex-1 min-w-0">
+                        <h4 className="font-bold text-foreground text-sm truncate">{ot.ot_number}</h4>
+                        <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                          <User className="w-3 h-3" />
+                          <span className="truncate">{ot.client_name}</span>
+                        </div>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-6 w-6 p-0 hover:bg-muted flex-shrink-0"
+                        onClick={(e) => handleEditOT(ot, e)}
+                      >
+                        <Edit2 className="h-3 w-3 text-muted-foreground" />
+                      </Button>
                     </div>
-                  ) : (
-                    statusOTs.map((ot) => {
-                      const nextStatuses = getNextStatuses(ot.status);
-                      
-                      return (
-                        <Card 
-                          key={ot.id}
-                          className="bg-card border-border p-3 hover:border-primary/50 transition-all cursor-pointer"
-                          onClick={() => onOTSelect(ot)}
-                        >
-                          {/* OT Header */}
-                          <div className="flex items-start justify-between gap-2 mb-2">
-                            <div className="flex-1 min-w-0">
-                              <h4 className="font-bold text-foreground text-sm truncate">
-                                {ot.ot_number}
-                              </h4>
-                              <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                                <User className="w-3 h-3" />
-                                <span className="truncate">{ot.client_name}</span>
-                              </div>
-                            </div>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="h-6 w-6 p-0 hover:bg-muted flex-shrink-0"
-                              onClick={(e) => handleEditOT(ot, e)}
-                            >
-                              <Edit2 className="h-3 w-3 text-muted-foreground" />
-                            </Button>
-                          </div>
 
-                          {/* OT Details */}
-                          <div className="flex items-center gap-2 mb-2">
-                            <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                              <Package className="w-3 h-3" />
-                              <span>{ot.quantity.toLocaleString()}</span>
-                            </div>
-                            {ot.deadline && (
-                              <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                                <Clock className="w-3 h-3" />
-                                <span>{new Date(ot.deadline).toLocaleDateString()}</span>
-                              </div>
-                            )}
-                          </div>
-                          
-                          {/* Priority Badge */}
-                          <Badge className={`${getPriorityColor(ot.priority)} text-xs mb-2`}>
-                            P{ot.priority}
-                          </Badge>
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                        <Package className="w-3 h-3" />
+                        <span>{ot.quantity.toLocaleString()}</span>
+                      </div>
+                      {ot.deadline && (
+                        <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                          <Clock className="w-3 h-3" />
+                          <span>{new Date(ot.deadline).toLocaleDateString()}</span>
+                        </div>
+                      )}
+                    </div>
 
-                          {/* Edit Budget button (only pre_press & visto_bueno) */}
-                          {(ot.status === 'pre_press' || ot.status === 'visto_bueno') && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="w-full h-7 text-xs mb-1 border-amber-500/40 text-amber-400 hover:bg-amber-500 hover:text-white"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setBudgetEditOT(ot);
-                              }}
-                            >
-                              <DollarSign className="w-3 h-3 mr-1" />
-                              Modificar Presupuesto
-                            </Button>
-                          )}
+                    <Badge className={`${getPriorityColor(ot.priority)} text-xs mb-2`}>P{ot.priority}</Badge>
 
-                          {/* Advance Button(s) */}
-                          {nextStatuses.length === 1 && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="w-full h-7 text-xs border-primary/40 text-primary hover:bg-primary hover:text-primary-foreground"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                requestAdvance(ot, nextStatuses[0].key, nextStatuses[0].labelEs);
-                              }}
-                            >
-                              <ArrowRight className="w-3 h-3 mr-1" />
-                              {nextStatuses[0].labelEs}
-                            </Button>
-                          )}
-                          {nextStatuses.length > 1 && (
-                            <div className="space-y-1">
-                              {nextStatuses.map((ns) => (
-                                <Button
-                                  key={ns.key}
-                                  size="sm"
-                                  variant="outline"
-                                  className={`w-full h-7 text-xs ${
-                                    ns.optional
-                                      ? 'border-muted-foreground/40 text-muted-foreground hover:bg-muted hover:text-foreground'
-                                      : 'border-primary/40 text-primary hover:bg-primary hover:text-primary-foreground'
-                                  }`}
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    requestAdvance(ot, ns.key, ns.labelEs);
-                                  }}
-                                >
-                                  <ArrowRight className="w-3 h-3 mr-1" />
-                                  {ns.labelEs}
-                                </Button>
-                              ))}
-                            </div>
-                          )}
-                        </Card>
-                      );
-                    })
-                  )}
-                </div>
-              </div>
-            );
-          })}
+                    {(ot.status === 'pre_press' || ot.status === 'visto_bueno') && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="w-full h-7 text-xs mb-1 border-amber-500/40 text-amber-400 hover:bg-amber-500 hover:text-white"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setBudgetEditOT(ot);
+                        }}
+                      >
+                        <DollarSign className="w-3 h-3 mr-1" />
+                        Modificar Presupuesto
+                      </Button>
+                    )}
+
+                    {nextStatuses.length === 1 && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="w-full h-7 text-xs border-primary/40 text-primary hover:bg-primary hover:text-primary-foreground"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          requestAdvance(ot, nextStatuses[0].key, nextStatuses[0].labelEs);
+                        }}
+                      >
+                        <ArrowRight className="w-3 h-3 mr-1" />
+                        {nextStatuses[0].labelEs}
+                      </Button>
+                    )}
+                    {nextStatuses.length > 1 && (
+                      <div className="space-y-1">
+                        {nextStatuses.map((ns) => (
+                          <Button
+                            key={ns.key}
+                            size="sm"
+                            variant="outline"
+                            className={`w-full h-7 text-xs ${
+                              ns.optional
+                                ? 'border-muted-foreground/40 text-muted-foreground hover:bg-muted hover:text-foreground'
+                                : 'border-primary/40 text-primary hover:bg-primary hover:text-primary-foreground'
+                            }`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              requestAdvance(ot, ns.key, ns.labelEs);
+                            }}
+                          >
+                            <ArrowRight className="w-3 h-3 mr-1" />
+                            {ns.labelEs}
+                          </Button>
+                        ))}
+                      </div>
+                    )}
+                  </Card>
+                );
+              })
+            )}
+          </div>
         </div>
-        <ScrollBar orientation="horizontal" />
-      </ScrollArea>
+      </div>
 
       {/* Unified creation wizard */}
       {createFlow === 'wizard' && (
