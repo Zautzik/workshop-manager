@@ -231,14 +231,26 @@ export function useUpsertMachine() {
     mutationFn: async (machine: MachineUpsert) => {
       const { id, ...rest } = machine;
       if (id) {
-        const { data, error } = await supabase
-          .from('machines')
-          .update({ ...rest, updated_at: new Date().toISOString() })
-          .eq('id', id)
-          .select()
-          .single();
-        if (error) throw error;
-        return data;
+        const response = await fetch(`/api/machines/${id}`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(rest),
+        });
+
+        let payload: any = null;
+        try {
+          payload = await response.json();
+        } catch {
+          payload = null;
+        }
+
+        if (!response.ok) {
+          throw new Error(payload?.error || 'Failed to update machine');
+        }
+
+        return payload;
       } else {
         const { data, error } = await supabase
           .from('machines')

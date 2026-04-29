@@ -3,10 +3,31 @@ import { z } from 'zod';
 import { requireAuth, isAuthError } from '@/lib/api-middleware';
 import { supabaseAdmin } from '@/integrations/supabase/server';
 
+const nullableString = z.string().max(5000).nullable().optional();
+const nullableNumber = z.number().nullable().optional();
+
 const UpdateMachineSchema = z.object({
 	name: z.string().min(1).max(255).optional(),
-	type: z.string().min(1).max(100).optional(),
+	type: z.enum(['offset_printer', 'die_cutter', 'guillotine', 'digital_printer', 'pre_press', 'manual_workshop', 'delivery']).optional(),
 	status: z.enum(['idle', 'running', 'maintenance', 'offline', 'setup', 'breakdown']).optional(),
+	brand: nullableString,
+	model: nullableString,
+	serial_number: nullableString,
+	year_manufactured: nullableNumber,
+	location: nullableString,
+	description: nullableString,
+	photo_url: nullableString,
+	nominal_speed_sheets_hr: nullableNumber,
+	optimal_speed_sheets_hr: nullableNumber,
+	max_print_width_mm: nullableNumber,
+	max_print_height_mm: nullableNumber,
+	colors: nullableNumber,
+	power_kw: nullableNumber,
+	energy_cost_per_hr: nullableNumber,
+	maintenance_cost_monthly: nullableNumber,
+	depreciation_monthly: nullableNumber,
+	is_active: z.boolean().optional(),
+	workstation_id: z.string().uuid().nullable().optional(),
 });
 
 const IdParamSchema = z.string().uuid();
@@ -65,7 +86,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
 		const { data, error } = await supabaseAdmin
 			.from('machines')
-			.update(parsed.data as any)
+			.update({ ...parsed.data, updated_at: new Date().toISOString() } as any)
 			.eq('id', id)
 			.select('*')
 			.single();
