@@ -22,7 +22,6 @@ import {
   DollarSign,
   Users,
   Wrench,
-  Settings,
   LogOut,
   Moon,
   Sun,
@@ -43,6 +42,8 @@ import {
   BookOpen,
   Cpu,
   LayoutGrid,
+  TrendingUp,
+  Settings2,
 } from 'lucide-react';
 import { NotificationCenter } from '@/components/NotificationCenter';
 import { ReportingQuickActions } from '@/components/ReportingQuickActions';
@@ -55,55 +56,60 @@ interface NavItem {
   group: string;
 }
 
+// ─── 7 categories matching the Inicio dashboard cards ─────────────────────────
 const navItems: NavItem[] = [
-  // Main
+  // ① Inicio
   { label: 'Inicio', icon: Home, href: '/admin', group: 'main', roles: ['admin', 'manager', 'supervisor', 'hr_manager', 'technician'] },
 
-  // Operations — core production loop
-  { label: 'Planta', icon: Factory, href: '/workflow/planta', group: 'operations', roles: ['admin', 'supervisor', 'manager'] },
-  { label: 'Planta Integrada', icon: LayoutGrid, href: '/workflow/planta-integrada', group: 'operations', roles: ['admin', 'supervisor', 'manager'] },
-  { label: 'Kanban OTs', icon: ClipboardList, href: '/workflow/kanban', group: 'operations', roles: ['admin', 'supervisor', 'manager'] },
-  { label: 'OT / Flujo', icon: ClipboardList, href: '/workflow/kanban', group: 'operations', roles: ['admin', 'supervisor', 'manager'] },
-  { label: 'Producción', icon: ClipboardList, href: '/workflow/production', group: 'operations', roles: ['admin', 'supervisor', 'manager'] },
-  { label: 'Plan Semanal', icon: CalendarDays, href: '/workflow/plan-semanal', group: 'operations', roles: ['admin', 'supervisor', 'manager'] },
-  { label: 'WhatsApp Producción', icon: MessageSquare, href: '/workflow/whatsapp', group: 'operations', roles: ['admin', 'supervisor', 'manager'] },
-  { label: 'Mis Reportes WA', icon: MessageSquare, href: '/workflow/whatsapp/operator', group: 'operations', roles: ['technician'] },
-  { label: 'Bodega WhatsApp', icon: Warehouse, href: '/workflow/warehouse', group: 'operations', roles: ['admin', 'supervisor', 'manager'] },
+  // ② Flujo de Trabajo — production floor orchestration
+  { label: 'Planta',              icon: Factory,       href: '/workflow/planta',           group: 'workflow', roles: ['admin', 'supervisor', 'manager'] },
+  { label: 'Planta Integrada',    icon: LayoutGrid,    href: '/workflow/planta-integrada', group: 'workflow', roles: ['admin', 'supervisor', 'manager'] },
+  { label: 'Kanban',              icon: ClipboardList, href: '/workflow/kanban',           group: 'workflow', roles: ['admin', 'supervisor', 'manager'] },
+  { label: 'Plan Semanal',        icon: CalendarDays,  href: '/workflow/plan-semanal',     group: 'workflow', roles: ['admin', 'supervisor', 'manager'] },
+  { label: 'WhatsApp Producción', icon: MessageSquare, href: '/workflow/whatsapp',         group: 'workflow', roles: ['admin', 'supervisor', 'manager'] },
+  { label: 'Bodega',              icon: Warehouse,     href: '/workflow/warehouse',        group: 'workflow', roles: ['admin', 'supervisor', 'manager'] },
 
-  // Machines — setup, maintenance, costs
+  // ③ Producción — order tracking & operator reports
+  { label: 'Seguimiento OTs',  icon: TrendingUp,    href: '/workflow/production',          group: 'production', roles: ['admin', 'supervisor', 'manager'] },
+  { label: 'Mis Reportes',     icon: MessageSquare, href: '/workflow/whatsapp/operator',   group: 'production', roles: ['technician'] },
+
+  // ④ KPIs & Reportes — analytics & executive summaries
+  { label: 'Resumen Ejecutivo', icon: LayoutDashboard, href: '/admin/overview', group: 'kpis', roles: ['admin', 'manager'] },
+  { label: 'KPIs & Reportes',   icon: BarChart3,       href: '/manager',        group: 'kpis', roles: ['admin', 'manager'] },
+  { label: 'Notificaciones',    icon: Bell,            href: '/admin/notifications', group: 'kpis', roles: ['admin', 'manager', 'supervisor', 'hr_manager', 'technician'] },
+
+  // ⑤ Finanzas
+  { label: 'Finanzas', icon: DollarSign, href: '/financial', group: 'financial', roles: ['admin', 'manager'] },
+
+  // ⑥ Recursos Humanos
+  { label: 'Recursos Humanos', icon: Users, href: '/hr', group: 'hr', roles: ['admin', 'hr_manager'] },
+
+  // ⑦ Máquinas
   { label: 'Máquinas', icon: Cpu, href: '/maintenance', group: 'machines', roles: ['admin', 'technician', 'supervisor', 'manager'] },
 
-  // People — HR
-  { label: 'Personas / RRHH', icon: Users, href: '/hr', group: 'hr', roles: ['admin', 'hr_manager'] },
+  // ⑧ Inventario (maps to home card)
+  { label: 'Inventario', icon: Package,      href: '/admin/inventory',  group: 'inventory', roles: ['admin', 'manager', 'supervisor'] },
+  { label: 'Compras',    icon: ShoppingCart, href: '/admin/purchases',  group: 'inventory', roles: ['admin', 'manager'] },
 
-  // Inventory
-  { label: 'Inventario', icon: Package, href: '/admin/inventory', group: 'inventory', roles: ['admin', 'manager', 'supervisor'] },
-  { label: 'Compras', icon: ShoppingCart, href: '/admin/purchases', group: 'inventory', roles: ['admin', 'manager'] },
-
-  // Management (KPIs, analytics, cost reports)
-  { label: 'Resumen Ejecutivo', icon: LayoutDashboard, href: '/admin/overview', group: 'management', roles: ['admin', 'manager'] },
-  { label: 'KPIs & Reportes', icon: BarChart3, href: '/manager', group: 'management', roles: ['admin', 'manager'] },
-  { label: 'Finanzas', icon: DollarSign, href: '/financial', group: 'management', roles: ['admin', 'manager'] },
-
-  // Notifications
-  { label: 'Notificaciones', icon: Bell, href: '/admin/notifications', group: 'management', roles: ['admin', 'manager', 'supervisor', 'hr_manager', 'technician'] },
-
-  // Admin
-  { label: 'Usuarios', icon: UserCog, href: '/admin/users', group: 'admin', roles: ['admin'] },
-  { label: 'Operarios', icon: Users, href: '/admin/workers', group: 'admin', roles: ['admin'] },
-  { label: 'Integraciones', icon: Plug, href: '/admin/integrations', group: 'admin', roles: ['admin', 'manager', 'supervisor'] },
-  { label: 'Knowledge Base', icon: BookOpen, href: '/admin/training', group: 'admin', roles: ['admin', 'manager', 'hr_manager'] },
+  // ⑨ Administración (back-office, admin-only)
+  { label: 'Usuarios',       icon: UserCog,  href: '/admin/users',        group: 'admin', roles: ['admin'] },
+  { label: 'Operarios',      icon: Users,    href: '/admin/workers',       group: 'admin', roles: ['admin'] },
+  { label: 'Integraciones',  icon: Plug,     href: '/admin/integrations',  group: 'admin', roles: ['admin', 'manager', 'supervisor'] },
+  { label: 'Knowledge Base', icon: BookOpen, href: '/admin/training',      group: 'admin', roles: ['admin', 'manager', 'hr_manager'] },
+  { label: 'Configuración',  icon: Settings2,href: '/admin/settings',      group: 'admin', roles: ['admin'] },
 ];
 
-const groupLabels: Record<string, { en: string; es: string }> = {
-  main:        { en: 'Main',         es: 'Principal' },
-  operations:  { en: 'Operations',   es: 'Operaciones' },
-  machines:    { en: 'Machines',     es: 'Máquinas' },
-  hr:          { en: 'People',       es: 'Personas' },
-  inventory:   { en: 'Inventory',    es: 'Inventario' },
-  management:  { en: 'Management',   es: 'Gestión' },
-  maintenance: { en: 'Machines',     es: 'Máquinas' },
-  admin:       { en: 'Administration', es: 'Administración' },
+// Palette: label + accent colour (Tailwind utility classes) per group
+const groupMeta: Record<string, { es: string; en: string; dot: string; active: string; text: string }> = {
+  main:       { es: 'Inicio',            en: 'Home',           dot: 'bg-slate-400',   active: 'bg-slate-500/10 text-slate-300',   text: 'text-slate-400' },
+  workflow:   { es: 'Flujo de Trabajo',  en: 'Workflow',       dot: 'bg-blue-400',    active: 'bg-blue-500/15 text-blue-300',     text: 'text-blue-400' },
+  production: { es: 'Producción',        en: 'Production',     dot: 'bg-emerald-400', active: 'bg-emerald-500/15 text-emerald-300', text: 'text-emerald-400' },
+  kpis:       { es: 'KPIs & Reportes',   en: 'KPIs & Reports', dot: 'bg-violet-400',  active: 'bg-violet-500/15 text-violet-300', text: 'text-violet-400' },
+  financial:  { es: 'Finanzas',          en: 'Finance',        dot: 'bg-green-400',   active: 'bg-green-500/15 text-green-300',   text: 'text-green-400' },
+  hr:         { es: 'Recursos Humanos',  en: 'Human Resources',dot: 'bg-amber-400',   active: 'bg-amber-500/15 text-amber-300',   text: 'text-amber-400' },
+  machines:   { es: 'Máquinas',          en: 'Machines',       dot: 'bg-orange-400',  active: 'bg-orange-500/15 text-orange-300', text: 'text-orange-400' },
+  inventory:  { es: 'Inventario',        en: 'Inventory',      dot: 'bg-cyan-400',    active: 'bg-cyan-500/15 text-cyan-300',     text: 'text-cyan-400' },
+  admin:      { es: 'Administración',    en: 'Administration', dot: 'bg-rose-400',    active: 'bg-rose-500/15 text-rose-300',     text: 'text-rose-400' },
 };
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
@@ -184,18 +190,22 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
       {/* Nav */}
       <ScrollArea className="flex-1 py-3">
-        <nav className="space-y-1 px-2">
+        <nav className="space-y-0.5 px-2">
           {groups.map((group, gi) => {
             const groupItems = filteredItems.filter((item) => item.group === group);
             if (groupItems.length === 0) return null;
+            const meta = groupMeta[group] ?? { es: group, en: group, dot: 'bg-slate-400', active: 'bg-slate-500/10 text-slate-300', text: 'text-slate-400' };
 
             return (
               <div key={group}>
-                {gi > 0 && <Separator className="my-3 opacity-50" />}
+                {gi > 0 && <Separator className="my-2.5 opacity-30" />}
                 {!collapsed && (
-                  <p className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">
-                    {language === 'es' ? groupLabels[group]?.es : groupLabels[group]?.en}
-                  </p>
+                  <div className="flex items-center gap-1.5 px-3 pt-2 pb-1">
+                    <span className={cn("w-1.5 h-1.5 rounded-full shrink-0", meta.dot)} />
+                    <p className={cn("text-[10px] font-semibold uppercase tracking-widest", meta.text)}>
+                      {language === 'es' ? meta.es : meta.en}
+                    </p>
+                  </div>
                 )}
                 {groupItems.map((item) => {
                   const Icon = item.icon;
@@ -209,15 +219,14 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                         setMobileOpen(false);
                       }}
                       className={cn(
-                        "w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-all duration-150",
-                        "hover:bg-primary/8 hover:text-foreground",
+                        "w-full flex items-center gap-2.5 px-3 py-1.5 rounded-lg text-sm transition-all duration-150",
                         active
-                          ? "bg-primary/10 text-primary font-medium shadow-sm"
-                          : "text-muted-foreground",
+                          ? cn(meta.active, "font-medium shadow-sm")
+                          : "text-muted-foreground/80 hover:text-foreground hover:bg-white/5",
                         collapsed && "justify-center px-2"
                       )}
                     >
-                      <Icon className={cn("w-4 h-4 shrink-0", active && "text-primary")} />
+                      <Icon className={cn("w-4 h-4 shrink-0", active ? meta.text : "opacity-70")} />
                       {!collapsed && <span className="truncate">{item.label}</span>}
                     </button>
                   );
