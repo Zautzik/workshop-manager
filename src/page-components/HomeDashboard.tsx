@@ -11,7 +11,6 @@ import {
   Wrench,
   ClipboardList,
   Package,
-  ArrowRight,
 } from 'lucide-react';
 
 interface QuickAction {
@@ -19,7 +18,10 @@ interface QuickAction {
   description: string;
   icon: React.ElementType;
   href: string;
-  color: string;
+  /** tailwind bg colour for the hex fill, e.g. "59 130 246" (rgb channels) */
+  rgb: string;
+  /** tailwind text colour class */
+  textCls: string;
   roles: string[];
 }
 
@@ -29,7 +31,8 @@ const quickActions: QuickAction[] = [
     description: 'Gestionar asignaciones, turnos y órdenes de trabajo',
     icon: Factory,
     href: '/workflow',
-    color: 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20 hover:border-blue-500/40 hover:bg-blue-500/15',
+    rgb: '59 130 246',       // blue-500
+    textCls: 'text-blue-200',
     roles: ['admin', 'supervisor', 'manager'],
   },
   {
@@ -37,7 +40,8 @@ const quickActions: QuickAction[] = [
     description: 'Órdenes de trabajo y seguimiento de producción',
     icon: ClipboardList,
     href: '/workflow/production',
-    color: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 hover:border-emerald-500/40 hover:bg-emerald-500/15',
+    rgb: '16 185 129',       // emerald-500
+    textCls: 'text-emerald-200',
     roles: ['admin', 'supervisor', 'manager'],
   },
   {
@@ -45,7 +49,8 @@ const quickActions: QuickAction[] = [
     description: 'Analítica, rendimiento y reportes gerenciales',
     icon: BarChart3,
     href: '/manager',
-    color: 'bg-violet-500/10 text-violet-600 dark:text-violet-400 border-violet-500/20 hover:border-violet-500/40 hover:bg-violet-500/15',
+    rgb: '139 92 246',       // violet-500
+    textCls: 'text-violet-200',
     roles: ['admin', 'manager'],
   },
   {
@@ -53,7 +58,8 @@ const quickActions: QuickAction[] = [
     description: 'Control de costos, nómina y análisis financiero',
     icon: DollarSign,
     href: '/financial',
-    color: 'bg-green-500/10 text-green-600 dark:text-green-400 border-green-500/20 hover:border-green-500/40 hover:bg-green-500/15',
+    rgb: '34 197 94',        // green-500
+    textCls: 'text-green-200',
     roles: ['admin', 'manager'],
   },
   {
@@ -61,7 +67,8 @@ const quickActions: QuickAction[] = [
     description: 'Empleados, contratos, licencias y certificaciones',
     icon: Users,
     href: '/hr',
-    color: 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20 hover:border-amber-500/40 hover:bg-amber-500/15',
+    rgb: '245 158 11',       // amber-500
+    textCls: 'text-amber-200',
     roles: ['admin', 'hr_manager'],
   },
   {
@@ -69,7 +76,8 @@ const quickActions: QuickAction[] = [
     description: 'Registro de máquinas, mantenimiento y órdenes de trabajo',
     icon: Wrench,
     href: '/maintenance',
-    color: 'bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-500/20 hover:border-orange-500/40 hover:bg-orange-500/15',
+    rgb: '249 115 22',       // orange-500
+    textCls: 'text-orange-200',
     roles: ['admin', 'technician', 'supervisor'],
   },
   {
@@ -77,10 +85,143 @@ const quickActions: QuickAction[] = [
     description: 'Materiales, suministros y control de stock',
     icon: Package,
     href: '/admin/inventory',
-    color: 'bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border-cyan-500/20 hover:border-cyan-500/40 hover:bg-cyan-500/15',
+    rgb: '6 182 212',        // cyan-500
+    textCls: 'text-cyan-200',
     roles: ['admin'],
   },
 ];
+
+// ─── Honeycomb layout ────────────────────────────────────────────────────────
+// Pointy-top hexagon: clip-path polygon
+// Width : Height ≈ 1 : 1.1547  (= 2/√3)
+// Row-to-row vertical step  = height × 0.75   (rows overlap by ¼)
+// Odd rows shift right by    width × 0.5
+const HEX_W = 164;                            // px – bounding-box width
+const HEX_H = Math.round(HEX_W * 1.1547);    // 189 px
+const V_STEP = Math.round(HEX_H * 0.75);     // 142 px – row vertical step
+const GAP = 4;                                // px – tiny gap between cells
+
+// Build rows: [4, 3] fits 7 nicely; adapt to < 7 cards
+function buildRows<T>(items: T[]): T[][] {
+  const rows: T[][] = [];
+  let i = 0;
+  let wide = true;
+  while (i < items.length) {
+    const size = wide ? 4 : 3;
+    rows.push(items.slice(i, i + size));
+    i += size;
+    wide = !wide;
+  }
+  return rows;
+}
+
+const HEX_CLIP = 'polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)';
+
+interface HexCellProps {
+  action: QuickAction;
+  onClick: () => void;
+}
+
+function HexCell({ action, onClick }: HexCellProps) {
+  const Icon = action.icon;
+  return (
+    // drop-shadow wraps the clip-path correctly (unlike box-shadow)
+    <div
+      className="group cursor-pointer"
+      style={{
+        width: HEX_W,
+        height: HEX_H,
+        filter: `drop-shadow(0 6px 18px rgb(${action.rgb} / 0.45))`,
+        flexShrink: 0,
+        transition: 'filter 0.25s, transform 0.25s',
+      }}
+      onMouseEnter={e => {
+        (e.currentTarget as HTMLDivElement).style.filter =
+          `drop-shadow(0 10px 28px rgb(${action.rgb} / 0.7))`;
+        (e.currentTarget as HTMLDivElement).style.transform = 'scale(1.07)';
+      }}
+      onMouseLeave={e => {
+        (e.currentTarget as HTMLDivElement).style.filter =
+          `drop-shadow(0 6px 18px rgb(${action.rgb} / 0.45))`;
+        (e.currentTarget as HTMLDivElement).style.transform = 'scale(1)';
+      }}
+      onClick={onClick}
+    >
+      {/* Hex face — bubbly radial gradient + clipped */}
+      <div
+        style={{
+          width: '100%',
+          height: '100%',
+          clipPath: HEX_CLIP,
+          background: `
+            radial-gradient(
+              ellipse 65% 60% at 38% 30%,
+              rgb(${action.rgb} / 0.55) 0%,
+              rgb(${action.rgb} / 0.22) 55%,
+              rgb(${action.rgb} / 0.38) 100%
+            )
+          `,
+          // subtle inner border via box-shadow inside clip is invisible —
+          // so we layer a second, slightly-inset gradient ring via pseudo:
+          // we'll fake it with an inset element instead
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 8,
+          position: 'relative',
+          backdropFilter: 'blur(1px)',
+        }}
+      >
+        {/* Highlight gleam – top-left bubble sheen */}
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            clipPath: HEX_CLIP,
+            background: `radial-gradient(
+              ellipse 50% 40% at 30% 20%,
+              rgba(255,255,255,0.18) 0%,
+              transparent 70%
+            )`,
+            pointerEvents: 'none',
+          }}
+        />
+
+        {/* Icon */}
+        <div
+          style={{
+            width: 44,
+            height: 44,
+            borderRadius: '50%',
+            background: `rgb(${action.rgb} / 0.25)`,
+            border: `1.5px solid rgb(${action.rgb} / 0.5)`,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <Icon
+            style={{
+              width: 20,
+              height: 20,
+              color: `rgb(${action.rgb})`,
+              filter: 'brightness(1.7)',
+            }}
+          />
+        </div>
+
+        {/* Label */}
+        <span
+          className={`font-semibold text-center leading-tight ${action.textCls}`}
+          style={{ fontSize: 11.5, maxWidth: '72%', lineHeight: 1.3 }}
+        >
+          {action.label}
+        </span>
+      </div>
+    </div>
+  );
+}
 
 export default function HomeDashboard() {
   const { user, role } = useAuth();
@@ -91,6 +232,8 @@ export default function HomeDashboard() {
     (action) => action.roles.includes(role || '')
   );
 
+  const rows = buildRows(visibleActions);
+
   const getGreeting = () => {
     const hour = new Date().getHours();
     if (hour < 12) return language === 'es' ? 'Buenos días' : 'Good morning';
@@ -99,6 +242,15 @@ export default function HomeDashboard() {
   };
 
   const firstName = user?.name?.split(' ')[0] || user?.email?.split('@')[0] || '';
+
+  // Total height of the honeycomb block
+  const totalHeight = rows.length > 0
+    ? HEX_H + (rows.length - 1) * V_STEP + GAP * (rows.length - 1)
+    : 0;
+
+  // Total width = widest row × (HEX_W + GAP)
+  const maxRow = Math.max(...rows.map(r => r.length));
+  const totalWidth = maxRow * (HEX_W + GAP) - GAP;
 
   return (
     <div className="min-h-full flex flex-col">
@@ -119,29 +271,40 @@ export default function HomeDashboard() {
         </div>
       </div>
 
-      {/* Quick actions grid */}
-      <div className="flex-1 px-6 pb-12 md:px-12">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 max-w-5xl">
-          {visibleActions.map((action) => {
-            const Icon = action.icon;
-            return (
-              <button
-                key={action.href}
-                onClick={() => router.push(action.href)}
-                className={`group relative flex flex-col items-start gap-4 p-5 rounded-xl border transition-all duration-200 text-left ${action.color}`}
-              >
-                <div className="flex items-center justify-between w-full">
-                  <div className="p-2.5 rounded-lg bg-white/50 dark:bg-white/5">
-                    <Icon className="w-5 h-5" />
-                  </div>
-                  <ArrowRight className="w-4 h-4 opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-200" />
+      {/* Honeycomb grid */}
+      <div className="flex-1 px-6 pb-16 md:px-12 flex items-start">
+        <div
+          style={{
+            position: 'relative',
+            width: totalWidth,
+            height: totalHeight,
+          }}
+        >
+          {rows.map((rowItems, rowIdx) => {
+            // Odd rows (0-indexed) shift right by half a hex width
+            const isOffset = rowIdx % 2 === 1;
+            const xShift = isOffset ? (HEX_W + GAP) / 2 : 0;
+            const yBase = rowIdx * (V_STEP + GAP);
+
+            return rowItems.map((action, colIdx) => {
+              const x = xShift + colIdx * (HEX_W + GAP);
+              const y = yBase;
+              return (
+                <div
+                  key={action.href}
+                  style={{
+                    position: 'absolute',
+                    left: x,
+                    top: y,
+                  }}
+                >
+                  <HexCell
+                    action={action}
+                    onClick={() => router.push(action.href)}
+                  />
                 </div>
-                <div>
-                  <h3 className="font-semibold text-[15px] text-foreground">{action.label}</h3>
-                  <p className="text-xs text-muted-foreground mt-1 leading-relaxed">{action.description}</p>
-                </div>
-              </button>
-            );
+              );
+            });
           })}
         </div>
       </div>
