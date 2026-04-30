@@ -33,16 +33,16 @@ const workflowTabMeta: Array<{
   label: string;
   subtitle: string;
   icon: any;
-  accent: string;
+  rgb: string;
 }> = [
-  { value: 'en_proceso', label: 'En Proceso', subtitle: 'Seguimiento activo', icon: LayoutList, accent: 'from-sky-500/25 to-sky-500/5' },
-  { value: 'ots', label: 'Kanban', subtitle: 'Flujo por estado', icon: ClipboardList, accent: 'from-cyan-500/25 to-cyan-500/5' },
-  { value: 'clients', label: 'Clientes', subtitle: 'Gestión comercial', icon: Users, accent: 'from-violet-500/25 to-violet-500/5' },
-  { value: 'layout', label: 'Planta', subtitle: 'Vista de piso', icon: Factory, accent: 'from-emerald-500/25 to-emerald-500/5' },
-  { value: 'shifts', label: 'Turnos', subtitle: 'Asignación diaria', icon: Clock, accent: 'from-amber-500/25 to-amber-500/5' },
-  { value: 'production', label: 'Archivo OT', subtitle: 'Documentos OT', icon: Printer, accent: 'from-orange-500/25 to-orange-500/5' },
-  { value: 'hoja_prod', label: 'Hoja Prod.', subtitle: 'Control operativo', icon: FileSpreadsheet, accent: 'from-fuchsia-500/25 to-fuchsia-500/5' },
-  { value: 'plan_semanal', label: 'Plan Semanal', subtitle: 'Panorama semanal', icon: CalendarDays, accent: 'from-indigo-500/25 to-indigo-500/5' },
+  { value: 'en_proceso',   label: 'En Proceso',  subtitle: 'Seguimiento activo',  icon: LayoutList,    rgb: '14 165 233'  }, // sky-500
+  { value: 'ots',          label: 'Kanban',       subtitle: 'Flujo por estado',    icon: ClipboardList, rgb: '6 182 212'   }, // cyan-500
+  { value: 'clients',      label: 'Clientes',     subtitle: 'Gestión comercial',   icon: Users,         rgb: '139 92 246'  }, // violet-500
+  { value: 'layout',       label: 'Planta',       subtitle: 'Vista de piso',       icon: Factory,       rgb: '16 185 129'  }, // emerald-500
+  { value: 'shifts',       label: 'Turnos',       subtitle: 'Asignación diaria',   icon: Clock,         rgb: '245 158 11'  }, // amber-500
+  { value: 'production',   label: 'Archivo OT',   subtitle: 'Documentos OT',       icon: Printer,       rgb: '249 115 22'  }, // orange-500
+  { value: 'hoja_prod',    label: 'Hoja Prod.',   subtitle: 'Control operativo',   icon: FileSpreadsheet, rgb: '217 70 239' }, // fuchsia-500
+  { value: 'plan_semanal', label: 'Plan Semanal', subtitle: 'Panorama semanal',    icon: CalendarDays,  rgb: '99 102 241'  }, // indigo-500
 ];
 
 interface WorkflowDashboardProps {
@@ -1142,42 +1142,78 @@ export default function WorkflowDashboard({ initialTab = 'en_proceso' }: Workflo
                 {workflowTabMeta.map((tab, index) => {
                   const Icon = tab.icon;
                   const isActive = activeTab === tab.value;
+                  const HEX_CLIP = 'polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)';
 
                   return (
-                    <button
+                    <div
                       key={tab.value}
-                      type="button"
                       onClick={() => setActiveTab(tab.value)}
                       aria-pressed={isActive}
-                      className={[
-                        'group relative w-[124px] h-[110px] sm:w-[136px] sm:h-[118px] transition-all duration-200',
-                        isActive ? 'scale-[1.03]' : 'hover:scale-[1.02]'
-                      ].join(' ')}
+                      style={{
+                        width: 124,
+                        height: 110,
+                        cursor: 'pointer',
+                        filter: isActive
+                          ? `drop-shadow(0 8px 22px rgb(${tab.rgb} / 0.75))`
+                          : `drop-shadow(0 4px 12px rgb(${tab.rgb} / 0.35))`,
+                        transform: isActive ? 'scale(1.07)' : 'scale(1)',
+                        transition: 'filter 0.2s, transform 0.2s',
+                        flexShrink: 0,
+                      }}
+                      onMouseEnter={e => {
+                        if (!isActive) {
+                          (e.currentTarget as HTMLDivElement).style.filter = `drop-shadow(0 7px 20px rgb(${tab.rgb} / 0.6))`;
+                          (e.currentTarget as HTMLDivElement).style.transform = 'scale(1.04)';
+                        }
+                      }}
+                      onMouseLeave={e => {
+                        if (!isActive) {
+                          (e.currentTarget as HTMLDivElement).style.filter = `drop-shadow(0 4px 12px rgb(${tab.rgb} / 0.35))`;
+                          (e.currentTarget as HTMLDivElement).style.transform = 'scale(1)';
+                        }
+                      }}
                     >
-                      <div
-                        className={[
-                          'absolute inset-0 border shadow-sm',
-                          'bg-gradient-to-br',
-                          tab.accent,
-                          isActive
-                            ? 'border-primary shadow-[0_0_0_1px_rgba(34,211,238,0.25),0_12px_30px_rgba(0,0,0,0.22)]'
-                            : 'border-border/70 group-hover:border-primary/40 group-hover:shadow-lg'
-                        ].join(' ')}
-                        style={{ clipPath: 'polygon(25% 6%, 75% 6%, 100% 50%, 75% 94%, 25% 94%, 0% 50%)' }}
-                      />
-
-                      <div className="relative z-10 h-full px-4 py-4 flex flex-col items-center justify-center text-center">
-                        <div className={[
-                          'mb-1.5 inline-flex items-center justify-center rounded-full w-9 h-9 border',
-                          isActive ? 'border-primary/60 bg-primary/15 text-primary' : 'border-border/70 bg-background/60 text-muted-foreground group-hover:text-foreground'
-                        ].join(' ')}>
-                          <Icon className="w-4 h-4" />
+                      {/* Hex face */}
+                      <div style={{
+                        width: '100%', height: '100%',
+                        clipPath: HEX_CLIP,
+                        background: isActive
+                          ? `radial-gradient(ellipse 65% 60% at 38% 30%, rgb(${tab.rgb} / 0.75) 0%, rgb(${tab.rgb} / 0.38) 55%, rgb(${tab.rgb} / 0.55) 100%)`
+                          : `radial-gradient(ellipse 65% 60% at 38% 30%, rgb(${tab.rgb} / 0.42) 0%, rgb(${tab.rgb} / 0.14) 55%, rgb(${tab.rgb} / 0.28) 100%)`,
+                        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                        gap: 4, position: 'relative',
+                      }}>
+                        {/* Gleam */}
+                        <div style={{
+                          position: 'absolute', inset: 0, clipPath: HEX_CLIP, pointerEvents: 'none',
+                          background: 'radial-gradient(ellipse 50% 40% at 30% 20%, rgba(255,255,255,0.18) 0%, transparent 70%)',
+                        }} />
+                        {/* Active ring */}
+                        {isActive && (
+                          <div style={{
+                            position: 'absolute', inset: 3, clipPath: HEX_CLIP, pointerEvents: 'none',
+                            background: `radial-gradient(ellipse 80% 80% at 50% 50%, transparent 70%, rgb(${tab.rgb} / 0.5) 100%)`,
+                          }} />
+                        )}
+                        <div style={{
+                          width: 32, height: 32, borderRadius: '50%',
+                          background: `rgb(${tab.rgb} / 0.25)`,
+                          border: `1.5px solid rgb(${tab.rgb} / 0.55)`,
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        }}>
+                          <Icon style={{ width: 14, height: 14, color: `rgb(${tab.rgb})`, filter: 'brightness(1.8)' }} />
                         </div>
-                        <span className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground/80">{String(index + 1).padStart(2, '0')}</span>
-                        <span className={['mt-1 text-sm font-semibold leading-tight', isActive ? 'text-foreground' : 'text-foreground/90'].join(' ')}>{tab.label}</span>
-                        <span className="mt-1 text-[11px] leading-tight text-muted-foreground">{tab.subtitle}</span>
+                        <span style={{ fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.15em', color: 'rgba(255,255,255,0.5)' }}>
+                          {String(index + 1).padStart(2, '0')}
+                        </span>
+                        <span style={{ fontSize: 11, fontWeight: 700, color: '#fff', textAlign: 'center', lineHeight: 1.2, maxWidth: '80%' }}>
+                          {tab.label}
+                        </span>
+                        <span style={{ fontSize: 9.5, color: 'rgba(255,255,255,0.55)', textAlign: 'center', lineHeight: 1.2, maxWidth: '78%' }}>
+                          {tab.subtitle}
+                        </span>
                       </div>
-                    </button>
+                    </div>
                   );
                 })}
               </div>

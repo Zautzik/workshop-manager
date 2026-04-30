@@ -61,17 +61,16 @@ const navItems: NavItem[] = [
   // ① Inicio
   { label: 'Inicio', icon: Home, href: '/admin', group: 'main', roles: ['admin', 'manager', 'supervisor', 'hr_manager', 'technician'] },
 
-  // ② Flujo de Trabajo — production floor orchestration
-  { label: 'Planta',              icon: Factory,       href: '/workflow/planta',           group: 'workflow', roles: ['admin', 'supervisor', 'manager'] },
-  { label: 'Planta Integrada',    icon: LayoutGrid,    href: '/workflow/planta-integrada', group: 'workflow', roles: ['admin', 'supervisor', 'manager'] },
-  { label: 'Kanban',              icon: ClipboardList, href: '/workflow/kanban',           group: 'workflow', roles: ['admin', 'supervisor', 'manager'] },
-  { label: 'Plan Semanal',        icon: CalendarDays,  href: '/workflow/plan-semanal',     group: 'workflow', roles: ['admin', 'supervisor', 'manager'] },
-  { label: 'WhatsApp Producción', icon: MessageSquare, href: '/workflow/whatsapp',         group: 'workflow', roles: ['admin', 'supervisor', 'manager'] },
-  { label: 'Bodega',              icon: Warehouse,     href: '/workflow/warehouse',        group: 'workflow', roles: ['admin', 'supervisor', 'manager'] },
-
-  // ③ Producción — order tracking & operator reports
-  { label: 'Seguimiento OTs',  icon: TrendingUp,    href: '/workflow/production',          group: 'production', roles: ['admin', 'supervisor', 'manager'] },
-  { label: 'Mis Reportes',     icon: MessageSquare, href: '/workflow/whatsapp/operator',   group: 'production', roles: ['technician'] },
+  // ② Gestión de Taller — all workflow/production functions
+  { label: 'Gestión de Taller',   icon: Factory,       href: '/workflow',                  group: 'gestion', roles: ['admin', 'supervisor', 'manager'] },
+  { label: 'Planta',              icon: Factory,       href: '/workflow/planta',           group: 'gestion', roles: ['admin', 'supervisor', 'manager'] },
+  { label: 'Planta Integrada',    icon: LayoutGrid,    href: '/workflow/planta-integrada', group: 'gestion', roles: ['admin', 'supervisor', 'manager'] },
+  { label: 'Kanban',              icon: ClipboardList, href: '/workflow/kanban',           group: 'gestion', roles: ['admin', 'supervisor', 'manager'] },
+  { label: 'Plan Semanal',        icon: CalendarDays,  href: '/workflow/plan-semanal',     group: 'gestion', roles: ['admin', 'supervisor', 'manager'] },
+  { label: 'WhatsApp Producción', icon: MessageSquare, href: '/workflow/whatsapp',         group: 'gestion', roles: ['admin', 'supervisor', 'manager'] },
+  { label: 'Bodega',              icon: Warehouse,     href: '/workflow/warehouse',        group: 'gestion', roles: ['admin', 'supervisor', 'manager'] },
+  { label: 'Seguimiento OTs',     icon: TrendingUp,    href: '/workflow/production',       group: 'gestion', roles: ['admin', 'supervisor', 'manager'] },
+  { label: 'Mis Reportes',        icon: MessageSquare, href: '/workflow/whatsapp/operator',group: 'gestion', roles: ['technician'] },
 
   // ④ KPIs & Reportes — analytics & executive summaries
   { label: 'Resumen Ejecutivo', icon: LayoutDashboard, href: '/admin/overview', group: 'kpis', roles: ['admin', 'manager'] },
@@ -101,15 +100,14 @@ const navItems: NavItem[] = [
 
 // Palette: label + accent colour (Tailwind utility classes) per group
 const groupMeta: Record<string, { es: string; en: string; dot: string; active: string; text: string }> = {
-  main:       { es: 'Inicio',            en: 'Home',           dot: 'bg-slate-400',   active: 'bg-slate-500/10 text-slate-300',   text: 'text-slate-400' },
-  workflow:   { es: 'Flujo de Trabajo',  en: 'Workflow',       dot: 'bg-blue-400',    active: 'bg-blue-500/15 text-blue-300',     text: 'text-blue-400' },
-  production: { es: 'Producción',        en: 'Production',     dot: 'bg-emerald-400', active: 'bg-emerald-500/15 text-emerald-300', text: 'text-emerald-400' },
-  kpis:       { es: 'KPIs & Reportes',   en: 'KPIs & Reports', dot: 'bg-violet-400',  active: 'bg-violet-500/15 text-violet-300', text: 'text-violet-400' },
-  financial:  { es: 'Finanzas',          en: 'Finance',        dot: 'bg-green-400',   active: 'bg-green-500/15 text-green-300',   text: 'text-green-400' },
-  hr:         { es: 'Recursos Humanos',  en: 'Human Resources',dot: 'bg-amber-400',   active: 'bg-amber-500/15 text-amber-300',   text: 'text-amber-400' },
-  machines:   { es: 'Máquinas',          en: 'Machines',       dot: 'bg-orange-400',  active: 'bg-orange-500/15 text-orange-300', text: 'text-orange-400' },
-  inventory:  { es: 'Inventario',        en: 'Inventory',      dot: 'bg-cyan-400',    active: 'bg-cyan-500/15 text-cyan-300',     text: 'text-cyan-400' },
-  admin:      { es: 'Administración',    en: 'Administration', dot: 'bg-rose-400',    active: 'bg-rose-500/15 text-rose-300',     text: 'text-rose-400' },
+  main:       { es: 'Inicio',              en: 'Home',             dot: 'bg-slate-400',   active: 'bg-slate-500/10 text-slate-300',    text: 'text-slate-400' },
+  gestion:    { es: 'Gestión de Taller',   en: 'Workshop Mgmt',    dot: 'bg-sky-400',     active: 'bg-sky-500/15 text-sky-300',        text: 'text-sky-400' },
+  kpis:       { es: 'KPIs & Reportes',     en: 'KPIs & Reports',   dot: 'bg-violet-400',  active: 'bg-violet-500/15 text-violet-300',  text: 'text-violet-400' },
+  financial:  { es: 'Finanzas',            en: 'Finance',          dot: 'bg-green-400',   active: 'bg-green-500/15 text-green-300',    text: 'text-green-400' },
+  hr:         { es: 'Recursos Humanos',    en: 'Human Resources',  dot: 'bg-amber-400',   active: 'bg-amber-500/15 text-amber-300',    text: 'text-amber-400' },
+  machines:   { es: 'Máquinas',            en: 'Machines',         dot: 'bg-orange-400',  active: 'bg-orange-500/15 text-orange-300',  text: 'text-orange-400' },
+  inventory:  { es: 'Inventario',          en: 'Inventory',        dot: 'bg-cyan-400',    active: 'bg-cyan-500/15 text-cyan-300',      text: 'text-cyan-400' },
+  admin:      { es: 'Administración',      en: 'Administration',   dot: 'bg-rose-400',    active: 'bg-rose-500/15 text-rose-300',      text: 'text-rose-400' },
 };
 
 export default function AppShell({ children }: { children: React.ReactNode }) {

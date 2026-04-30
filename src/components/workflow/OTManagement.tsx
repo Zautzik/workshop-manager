@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useOTs } from "@/hooks/use-workflow-queries";
-import { Plus, ArrowRight, Edit2, Info, Package, Clock, User, DollarSign } from "lucide-react";
+import { Plus, ArrowRight, ArrowDown, CornerDownLeft, Edit2, Info, Package, Clock, User, DollarSign } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { UnifiedOTWizard } from "./UnifiedOTWizard";
 import { EditBudgetWizard } from "./EditBudgetWizard";
@@ -18,21 +18,21 @@ interface OTManagementProps {
 }
 
 const STATUS_FLOW = [
-  { key: 'pre_press', label: 'Pre-Press', labelEs: 'Pre-Prensa', color: 'bg-violet-500', description: 'Design & Modeling' },
-  { key: 'visto_bueno', label: 'Approval', labelEs: 'Visto Bueno', color: 'bg-amber-500', description: 'Customer Confirmation' },
-  { key: 'paper_purchase', label: 'Paper Purchase', labelEs: 'Compra Papel', color: 'bg-slate-500', description: 'Ordering materials' },
-  { key: 'in_storage', label: 'In Storage', labelEs: 'En Bodega', color: 'bg-cyan-500', description: 'Ready for production' },
-  { key: 'guillotine_first_cut', label: 'First Cut', labelEs: 'Primer Corte', color: 'bg-orange-500', description: 'Guillotine initial cut' },
-  { key: 'offset_printing', label: 'Printing', labelEs: 'Impresión', color: 'bg-purple-500', description: 'Offset printing' },
-  { key: 'die_cutting', label: 'Die Cutting', labelEs: 'Troquelado', color: 'bg-pink-500', description: 'Die cutting process' },
-  { key: 'guillotine_final_cut', label: 'Final Cut', labelEs: 'Corte Final', color: 'bg-red-500', description: 'Final guillotine cut' },
-  { key: 'workshop', label: 'Workshop', labelEs: 'Taller', color: 'bg-indigo-500', description: 'Internal workshop processing', optional: true },
-  { key: 'outsourced', label: 'Outsourced', labelEs: 'Tercerizado', color: 'bg-yellow-500', description: 'External processing', optional: true },
-  { key: 'workshop_revision', label: 'Revision', labelEs: 'Revisión', color: 'bg-emerald-500', description: 'Quality check & packaging' },
-  { key: 'ready_for_delivery', label: 'Ready', labelEs: 'Listo', color: 'bg-green-500', description: 'Ready for delivery' },
-  { key: 'in_delivery', label: 'In Delivery', labelEs: 'En Entrega', color: 'bg-teal-500', description: 'Out for delivery' },
-  { key: 'completed', label: 'Completed', labelEs: 'Completado', color: 'bg-gray-500', description: 'Order finished' },
-];
+  { key: 'pre_press',           label: 'Pre-Press',      labelEs: 'Pre-Prensa',     color: 'bg-violet-500',  rgb: '139 92 246',  description: 'Design & Modeling' },
+  { key: 'visto_bueno',         label: 'Approval',       labelEs: 'Visto Bueno',    color: 'bg-amber-500',   rgb: '245 158 11',  description: 'Customer Confirmation' },
+  { key: 'paper_purchase',      label: 'Paper Purchase', labelEs: 'Compra Papel',   color: 'bg-slate-500',   rgb: '100 116 139', description: 'Ordering materials' },
+  { key: 'in_storage',          label: 'In Storage',     labelEs: 'En Bodega',      color: 'bg-cyan-500',    rgb: '6 182 212',   description: 'Ready for production' },
+  { key: 'guillotine_first_cut',label: 'First Cut',      labelEs: 'Primer Corte',   color: 'bg-orange-500',  rgb: '249 115 22',  description: 'Guillotine initial cut' },
+  { key: 'offset_printing',     label: 'Printing',       labelEs: 'Impresión',      color: 'bg-purple-500',  rgb: '168 85 247',  description: 'Offset printing' },
+  { key: 'die_cutting',         label: 'Die Cutting',    labelEs: 'Troquelado',     color: 'bg-pink-500',    rgb: '236 72 153',  description: 'Die cutting process' },
+  { key: 'guillotine_final_cut',label: 'Final Cut',      labelEs: 'Corte Final',    color: 'bg-red-500',     rgb: '239 68 68',   description: 'Final guillotine cut' },
+  { key: 'workshop',            label: 'Workshop',       labelEs: 'Taller',         color: 'bg-indigo-500',  rgb: '99 102 241',  description: 'Internal workshop', optional: true },
+  { key: 'outsourced',          label: 'Outsourced',     labelEs: 'Tercerizado',    color: 'bg-yellow-500',  rgb: '234 179 8',   description: 'External processing', optional: true },
+  { key: 'workshop_revision',   label: 'Revision',       labelEs: 'Revisión',       color: 'bg-emerald-500', rgb: '16 185 129',  description: 'Quality check & packaging' },
+  { key: 'ready_for_delivery',  label: 'Ready',          labelEs: 'Listo',          color: 'bg-green-500',   rgb: '34 197 94',   description: 'Ready for delivery' },
+  { key: 'in_delivery',         label: 'In Delivery',    labelEs: 'En Entrega',     color: 'bg-teal-500',    rgb: '20 184 166',  description: 'Out for delivery' },
+  { key: 'completed',           label: 'Completed',      labelEs: 'Completado',     color: 'bg-gray-500',    rgb: '107 114 128', description: 'Order finished' },
+] satisfies { key: string; label: string; labelEs: string; color: string; rgb: string; description: string; optional?: boolean }[];
 
 export function OTManagement({ onOTSelect }: OTManagementProps) {
   const { data: ots = [], refetch: refetchOTs } = useOTs();
@@ -197,36 +197,113 @@ export function OTManagement({ onOTSelect }: OTManagementProps) {
 
       {/* Process map + focused stage board */}
       <div className="space-y-4">
-        <Card className="bg-card/70 border-border p-4">
-          <div className="flex items-center justify-between mb-3">
+        <Card className="bg-card/70 border-border p-4 overflow-x-auto">
+          <div className="flex items-center justify-between mb-4">
             <h3 className="text-sm font-semibold text-foreground">Mapa de Proceso</h3>
-            <p className="text-xs text-muted-foreground">Vista completa en una sola pantalla</p>
+            <p className="text-xs text-muted-foreground">Pre-Prensa → Completado</p>
           </div>
-          <div className="flex flex-wrap justify-center gap-x-3 gap-y-5">
-            {stageStats.map((stage, idx) => {
-              const isActive = stage.key === activeStage;
 
+          {/* ── Serpentine hex flow ─────────────────────────────────── */}
+          {(() => {
+            const HEX_CLIP = 'polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)';
+            const HW = 88;   // hex bounding width px
+            const HH = 78;   // hex bounding height px
+
+            const row1 = stageStats.slice(0, 8);
+            const row2 = stageStats.slice(8);       // optional(2) + main(4)
+
+            const renderHex = (stage: typeof stageStats[number]) => {
+              const isActive = stage.key === activeStage;
               return (
-                <button
+                <div
                   key={stage.key}
-                  type="button"
                   onClick={() => setActiveStage(stage.key)}
-                  className={`relative w-[110px] h-[96px] transition-transform ${isActive ? 'scale-[1.03]' : 'hover:scale-[1.02]'}`}
-                  aria-pressed={isActive}
+                  style={{
+                    width: HW, height: HH, flexShrink: 0, cursor: 'pointer',
+                    filter: isActive
+                      ? `drop-shadow(0 6px 16px rgb(${stage.rgb} / 0.8))`
+                      : `drop-shadow(0 3px 8px rgb(${stage.rgb} / 0.35))`,
+                    transform: isActive ? 'scale(1.1)' : 'scale(1)',
+                    transition: 'filter 0.2s, transform 0.2s',
+                  }}
+                  onMouseEnter={e => {
+                    if (!isActive) {
+                      (e.currentTarget as HTMLDivElement).style.filter = `drop-shadow(0 5px 14px rgb(${stage.rgb} / 0.6))`;
+                      (e.currentTarget as HTMLDivElement).style.transform = 'scale(1.05)';
+                    }
+                  }}
+                  onMouseLeave={e => {
+                    if (!isActive) {
+                      (e.currentTarget as HTMLDivElement).style.filter = `drop-shadow(0 3px 8px rgb(${stage.rgb} / 0.35))`;
+                      (e.currentTarget as HTMLDivElement).style.transform = 'scale(1)';
+                    }
+                  }}
                 >
-                  <div
-                    className={`absolute inset-0 border ${isActive ? 'border-primary shadow-lg' : 'border-border/80'} bg-muted/40`}
-                    style={{ clipPath: 'polygon(25% 6%, 75% 6%, 100% 50%, 75% 94%, 25% 94%, 0% 50%)' }}
-                  />
-                  <div className="relative z-10 h-full flex flex-col items-center justify-center px-3 text-center">
-                    <span className="text-[9px] uppercase tracking-[0.15em] text-muted-foreground">{String(idx + 1).padStart(2, '0')}</span>
-                    <span className="mt-1 text-xs font-semibold leading-tight text-foreground">{stage.labelEs}</span>
-                    <span className="mt-1 text-[10px] text-muted-foreground">{stage.count} OT</span>
+                  <div style={{
+                    width: '100%', height: '100%', clipPath: HEX_CLIP, position: 'relative',
+                    background: isActive
+                      ? `radial-gradient(ellipse 65% 60% at 38% 28%, rgb(${stage.rgb} / 0.85) 0%, rgb(${stage.rgb} / 0.45) 55%, rgb(${stage.rgb} / 0.65) 100%)`
+                      : `radial-gradient(ellipse 65% 60% at 38% 28%, rgb(${stage.rgb} / 0.48) 0%, rgb(${stage.rgb} / 0.15) 55%, rgb(${stage.rgb} / 0.32) 100%)`,
+                    display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 2,
+                  }}>
+                    {/* Bubble gleam */}
+                    <div style={{
+                      position: 'absolute', inset: 0, clipPath: HEX_CLIP, pointerEvents: 'none',
+                      background: 'radial-gradient(ellipse 50% 38% at 30% 20%, rgba(255,255,255,0.22) 0%, transparent 65%)',
+                    }} />
+                    {/* Optional badge */}
+                    {'optional' in stage && stage.optional && (
+                      <span style={{ fontSize: 7, color: `rgb(${stage.rgb})`, filter: 'brightness(1.8)', letterSpacing: '0.1em', textTransform: 'uppercase', position: 'absolute', top: 12 }}>opt</span>
+                    )}
+                    <span style={{ fontSize: 8.5, fontWeight: 700, color: '#fff', textAlign: 'center', lineHeight: 1.25, maxWidth: '80%' }}>
+                      {stage.labelEs}
+                    </span>
+                    <span style={{
+                      fontSize: 10, fontWeight: 700, lineHeight: 1,
+                      color: stage.count > 0 ? `rgb(${stage.rgb})` : 'rgba(255,255,255,0.35)',
+                      filter: stage.count > 0 ? 'brightness(1.9)' : 'none',
+                    }}>
+                      {stage.count > 0 ? `${stage.count} OT` : '—'}
+                    </span>
                   </div>
-                </button>
+                </div>
               );
-            })}
-          </div>
+            };
+
+            const FlowArrow = ({ dim = false }: { dim?: boolean }) => (
+              <ArrowRight style={{ width: 14, height: 14, color: dim ? 'rgba(255,255,255,0.18)' : 'rgba(255,255,255,0.35)', flexShrink: 0 }} />
+            );
+
+            return (
+              <div className="space-y-2">
+                {/* Row 1: stages 1-8 */}
+                <div className="flex items-center gap-1 flex-wrap">
+                  {row1.map((stage, idx) => (
+                    <div key={stage.key} className="flex items-center gap-1">
+                      {renderHex(stage)}
+                      {idx < row1.length - 1 && <FlowArrow />}
+                    </div>
+                  ))}
+                  {/* Turn-down arrow at end of row 1 */}
+                  <div className="flex flex-col items-center ml-1" style={{ gap: 2 }}>
+                    <ArrowDown style={{ width: 14, height: 14, color: 'rgba(255,255,255,0.4)' }} />
+                    <span style={{ fontSize: 7.5, color: 'rgba(255,255,255,0.25)', letterSpacing: '0.08em' }}>→</span>
+                  </div>
+                </div>
+
+                {/* Row 2: optional stages + final stages */}
+                <div className="flex items-center gap-1 flex-wrap">
+                  <CornerDownLeft style={{ width: 14, height: 14, color: 'rgba(255,255,255,0.3)', flexShrink: 0 }} />
+                  {row2.map((stage, idx) => (
+                    <div key={stage.key} className="flex items-center gap-1">
+                      {renderHex(stage)}
+                      {idx < row2.length - 1 && <FlowArrow dim={'optional' in stage && !!(stage as any).optional} />}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
         </Card>
 
         <div className="w-full">
