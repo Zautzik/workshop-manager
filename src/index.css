@@ -38,47 +38,49 @@
  */
 @layer base {
   :root {
-    /* Light mode - Light background colors */
-    --background: 0 0% 100%;
-    --foreground: 220 15% 20%;
+    /* Light mode — higher-contrast palette */
+    --background: 210 22% 97%;          /* very light blue-grey, not stark white */
+    --foreground: 220 25% 12%;          /* near-black with a hint of blue */
 
     --card: 0 0% 100%;
-    --card-foreground: 220 15% 20%;
+    --card-foreground: 220 25% 12%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 220 15% 20%;
+    --popover-foreground: 220 25% 12%;
 
     /* Company cyan blue - Primary brand color */
-    --primary: 190 95% 45%;
+    --primary: 190 90% 36%;             /* deeper cyan — better contrast on white */
     --primary-foreground: 0 0% 100%;
 
-    /* Production green for supervisors - Conveys action/operations */
-    --supervisor: 150 70% 45%;
+    --supervisor: 150 65% 36%;
     --supervisor-foreground: 0 0% 100%;
 
-    /* Analytical gray-blue for managers - Conveys professionalism */
-    --manager: 210 25% 55%;
+    --manager: 210 28% 42%;
     --manager-foreground: 0 0% 100%;
 
-    --secondary: 210 20% 90%;
-    --secondary-foreground: 220 15% 20%;
+    --secondary: 210 25% 88%;
+    --secondary-foreground: 220 25% 12%;
 
-    --muted: 210 20% 95%;
-    --muted-foreground: 220 10% 45%;
+    --muted: 210 25% 92%;               /* slightly bluer muted bg */
+    --muted-foreground: 220 18% 32%;    /* was 45% lightness — now 32% for +contrast */
 
-    --accent: 320 75% 55%;
+    --accent: 320 72% 48%;
     --accent-foreground: 0 0% 100%;
 
-    --destructive: 0 70% 50%;
+    --destructive: 0 72% 44%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 210 20% 88%;
-    --input: 210 20% 90%;
-    --ring: 190 95% 45%;
+    --border: 210 22% 80%;              /* slightly darker borders */
+    --input: 210 22% 88%;
+    --ring: 190 90% 36%;
 
     --radius: 0.5rem;
 
     --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+
+    /* Sidebar coloured hazes (light mode) */
+    --sidebar-bg: 210 28% 96%;
+    --sidebar-border: 210 22% 82%;
   }
 
   /* Dark mode theme - Applied when .dark class is on html element */
