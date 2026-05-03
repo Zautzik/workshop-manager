@@ -39,53 +39,53 @@
  */
 @layer base {
   :root {
-    /* ── Canvas ──────────────────────────────────────────────────── */
-    --background: 34 38% 96%;           /* warm parchment — ivory not sterile white */
-    --foreground: 228 32% 13%;          /* deep ink-blue, warm near-black */
+    /* ── Canvas — pure white like the painting's bright white areas ── */
+    --background: 0 0% 98%;             /* clean white — let the wash blobs provide the color */
+    --foreground: 225 28% 14%;          /* deep blue-ink near-black */
 
-    /* ── Surface cards ───────────────────────────────────────────── */
-    --card: 32 30% 99%;                 /* barely-warm white, like stretched watercolor paper */
-    --card-foreground: 228 32% 13%;
+    /* ── Surface cards — pure white so content is crisp ─────────── */
+    --card: 0 0% 100%;
+    --card-foreground: 225 28% 14%;
 
-    --popover: 32 30% 99%;
-    --popover-foreground: 228 32% 13%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 225 28% 14%;
 
-    /* ── Brand primary — deep printing-press teal ─────────────────  */
-    --primary: 183 82% 30%;             /* rich teal; the blue-green heart of the painting */
+    /* ── Brand primary — deep teal (dominant blue of the painting) ── */
+    --primary: 188 82% 32%;             /* deep ocean teal */
     --primary-foreground: 0 0% 100%;
 
     /* ── Roles ───────────────────────────────────────────────────── */
-    --supervisor: 155 62% 35%;          /* forest green — steady, grounded */
+    --supervisor: 158 62% 34%;
     --supervisor-foreground: 0 0% 100%;
 
-    --manager: 228 40% 45%;             /* watercolor indigo blue */
+    --manager: 225 48% 44%;             /* strong indigo-blue */
     --manager-foreground: 0 0% 100%;
 
     /* ── Secondary / muted ───────────────────────────────────────── */
-    --secondary: 280 28% 91%;           /* soft lavender wash */
-    --secondary-foreground: 228 32% 18%;
+    --secondary: 278 32% 92%;           /* soft lavender — pulled from painting */
+    --secondary-foreground: 225 28% 18%;
 
-    --muted: 30 25% 92%;                /* warm parchment muted bg */
-    --muted-foreground: 228 20% 38%;    /* legible warm-blue grey */
+    --muted: 210 18% 94%;               /* cool light grey — neutral, not yellow */
+    --muted-foreground: 225 18% 38%;
 
-    /* ── Accent — coral magenta (the painting's warm pinks/reds) ─── */
-    --accent: 338 74% 50%;              /* vivid raspberry-coral */
+    /* ── Accent — hot coral-magenta from the painting's reds ──────── */
+    --accent: 340 80% 52%;              /* vivid magenta-coral */
     --accent-foreground: 0 0% 100%;
 
-    --destructive: 5 76% 48%;
+    --destructive: 4 78% 48%;
     --destructive-foreground: 0 0% 100%;
 
     /* ── Structure ───────────────────────────────────────────────── */
-    --border: 28 22% 82%;               /* warm sand border */
-    --input: 30 28% 90%;
-    --ring: 183 82% 36%;
+    --border: 220 16% 86%;              /* cool light grey border */
+    --input: 220 18% 92%;
+    --ring: 188 82% 36%;
 
     --radius: 0.5rem;
     --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 
     /* ── Sidebar ─────────────────────────────────────────────────── */
-    --sidebar-bg: 32 30% 95%;
-    --sidebar-border: 30 22% 84%;
+    --sidebar-bg: 220 18% 97%;
+    --sidebar-border: 220 16% 88%;
   }
 
   /* ── Dark mode — deep indigo canvas, jewel pigments ─────────────── */
@@ -145,22 +145,20 @@
      so UI elements read clearly on top                                   */
   :root body {
     background-image:
-      /* warm orange glow — bottom left, like the painting */
-      radial-gradient(ellipse 62% 52% at 8% 88%,  hsl(22  92% 72% / 0.38) 0%, transparent 60%),
-      /* coral-red bloom — left center */
-      radial-gradient(ellipse 45% 55% at 4%  48%,  hsl(8   85% 65% / 0.28) 0%, transparent 58%),
-      /* hot pink / magenta — center */
-      radial-gradient(ellipse 50% 42% at 42% 60%,  hsl(338 78% 68% / 0.22) 0%, transparent 55%),
-      /* lavender — upper center */
-      radial-gradient(ellipse 55% 48% at 55% 20%,  hsl(275 65% 76% / 0.26) 0%, transparent 60%),
-      /* electric teal — top right */
-      radial-gradient(ellipse 52% 55% at 92% 12%,  hsl(188 88% 62% / 0.30) 0%, transparent 58%),
-      /* deep blue — right edge */
-      radial-gradient(ellipse 38% 50% at 96% 55%,  hsl(210 82% 62% / 0.24) 0%, transparent 55%),
+      /* vivid orange-coral flood — bottom left (dominant warm zone) */
+      radial-gradient(ellipse 70% 60% at 0%   92%,  hsl(20  100% 65% / 0.55) 0%, transparent 55%),
+      /* coral-red — left side bleed */
+      radial-gradient(ellipse 42% 60% at 0%   52%,  hsl(6   88%  58% / 0.40) 0%, transparent 55%),
+      /* hot magenta-pink — lower center */
+      radial-gradient(ellipse 52% 44% at 40%  68%,  hsl(338 90%  62% / 0.35) 0%, transparent 50%),
+      /* soft purple-lavender — upper center */
+      radial-gradient(ellipse 58% 52% at 52%  16%,  hsl(272 72%  70% / 0.38) 0%, transparent 55%),
+      /* electric teal — top right corner */
+      radial-gradient(ellipse 55% 58% at 100% 5%,   hsl(188 92%  58% / 0.48) 0%, transparent 55%),
+      /* sky blue — right center */
+      radial-gradient(ellipse 40% 52% at 100% 50%,  hsl(208 86%  60% / 0.38) 0%, transparent 52%),
       /* teal-green — bottom right */
-      radial-gradient(ellipse 44% 40% at 84% 90%,  hsl(168 72% 62% / 0.26) 0%, transparent 52%),
-      /* golden highlight — top left */
-      radial-gradient(ellipse 42% 35% at 18% 10%,  hsl(42  88% 76% / 0.22) 0%, transparent 58%);
+      radial-gradient(ellipse 48% 42% at 88%  92%,  hsl(168 78%  56% / 0.40) 0%, transparent 50%);
     background-attachment: fixed;
   }
 
@@ -169,18 +167,18 @@
      glowing in the dark, like looking at the painting under spotlights      */
   .dark body {
     background-image:
-      /* warm ember — bottom left */
-      radial-gradient(ellipse 55% 45% at 8%  88%,  hsl(22  90% 45% / 0.18) 0%, transparent 58%),
-      /* deep magenta bloom — center */
-      radial-gradient(ellipse 48% 50% at 42% 55%,  hsl(338 80% 45% / 0.14) 0%, transparent 55%),
-      /* indigo-purple — upper center */
-      radial-gradient(ellipse 52% 45% at 55% 18%,  hsl(268 65% 45% / 0.18) 0%, transparent 58%),
-      /* electric teal — top right */
-      radial-gradient(ellipse 50% 52% at 92% 10%,  hsl(188 90% 40% / 0.20) 0%, transparent 55%),
+      /* smouldering ember — bottom left */
+      radial-gradient(ellipse 60% 52% at 0%   92%,  hsl(20  95% 40% / 0.25) 0%, transparent 55%),
+      /* deep magenta — lower center */
+      radial-gradient(ellipse 48% 48% at 40%  62%,  hsl(338 85% 40% / 0.20) 0%, transparent 52%),
+      /* deep purple — upper center */
+      radial-gradient(ellipse 52% 50% at 52%  14%,  hsl(268 68% 40% / 0.24) 0%, transparent 55%),
+      /* luminous teal — top right */
+      radial-gradient(ellipse 52% 55% at 100% 5%,   hsl(188 92% 36% / 0.28) 0%, transparent 52%),
       /* ocean blue — right */
-      radial-gradient(ellipse 36% 48% at 96% 52%,  hsl(210 85% 42% / 0.15) 0%, transparent 52%),
-      /* deep teal — bottom right */
-      radial-gradient(ellipse 42% 38% at 82% 90%,  hsl(170 75% 38% / 0.16) 0%, transparent 50%);
+      radial-gradient(ellipse 38% 48% at 100% 50%,  hsl(210 88% 38% / 0.22) 0%, transparent 50%),
+      /* teal-green — bottom right */
+      radial-gradient(ellipse 45% 40% at 88%  92%,  hsl(168 80% 32% / 0.22) 0%, transparent 50%);
     background-attachment: fixed;
   }
 }
