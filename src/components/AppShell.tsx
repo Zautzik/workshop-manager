@@ -44,6 +44,8 @@ import {
   LayoutGrid,
   TrendingUp,
   Settings2,
+  FileSpreadsheet,
+  Printer,
 } from 'lucide-react';
 import { NotificationCenter } from '@/components/NotificationCenter';
 import { ReportingQuickActions } from '@/components/ReportingQuickActions';
@@ -56,43 +58,52 @@ interface NavItem {
   group: string;
 }
 
-// ─── 7 Modules mirroring the Inicio honeycomb ─────────────────────────────────
+// ─── Sidebar — mirroring the 7 Inicio modules, logically grouped ──────────────
 const navItems: NavItem[] = [
-  // ① Inicio
-  { label: 'Inicio', icon: Home, href: '/admin', group: 'main', roles: ['admin', 'manager', 'supervisor', 'hr_manager', 'technician'] },
+  // ─ Inicio ─────────────────────────────────────────────────────────────────
+  { label: 'Inicio', icon: Home, href: '/admin', group: 'main',
+    roles: ['admin', 'manager', 'supervisor', 'hr_manager', 'technician'] },
 
-  // ② Flujo de Trabajo — workshop floor orchestration
-  { label: 'Planta',              icon: Factory,       href: '/workflow/planta',           group: 'workflow', roles: ['admin', 'supervisor', 'manager'] },
+  // ─ Flujo de Trabajo ───────────────────────────────────────────────────────
+  //   Floor orchestration: where people work, how shifts are arranged,
+  //   weekly planning. NOT about individual orders (that's Producción).
+  { label: 'Vista de Planta',     icon: Factory,       href: '/workflow/planta',           group: 'workflow', roles: ['admin', 'supervisor', 'manager'] },
   { label: 'Planta Integrada',    icon: LayoutGrid,    href: '/workflow/planta-integrada', group: 'workflow', roles: ['admin', 'supervisor', 'manager'] },
-  { label: 'Kanban',              icon: ClipboardList, href: '/workflow/kanban',           group: 'workflow', roles: ['admin', 'supervisor', 'manager'] },
   { label: 'Plan Semanal',        icon: CalendarDays,  href: '/workflow/plan-semanal',     group: 'workflow', roles: ['admin', 'supervisor', 'manager'] },
   { label: 'WhatsApp Producción', icon: MessageSquare, href: '/workflow/whatsapp',         group: 'workflow', roles: ['admin', 'supervisor', 'manager'] },
+  { label: 'Mis Reportes',        icon: MessageSquare, href: '/workflow/whatsapp/operator',group: 'workflow', roles: ['technician'] },
 
-  // ③ Producción — OT tracking, clients, operator reports
-  { label: 'Órdenes en Proceso',  icon: TrendingUp,    href: '/workflow/production',         group: 'production', roles: ['admin', 'supervisor', 'manager'] },
-  { label: 'Clientes',            icon: Users,         href: '/workflow/kanban',             group: 'production', roles: ['admin', 'supervisor', 'manager'] },
-  { label: 'Mis Reportes',        icon: MessageSquare, href: '/workflow/whatsapp/operator',  group: 'production', roles: ['technician'] },
+  // ─ Producción ─────────────────────────────────────────────────────────────
+  //   OT lifecycle from creation to delivery: kanban board, order tracking,
+  //   production sheets, client management, archive.
+  { label: 'Kanban OTs',          icon: ClipboardList, href: '/workflow/kanban',           group: 'production', roles: ['admin', 'supervisor', 'manager'] },
+  { label: 'Órdenes en Proceso',  icon: TrendingUp,    href: '/workflow/ordenes-en-proceso',group: 'production', roles: ['admin', 'supervisor', 'manager'] },
+  { label: 'Hoja de Producción',  icon: FileSpreadsheet, href: '/workflow/hoja-produccion',group: 'production', roles: ['admin', 'supervisor', 'manager'] },
+  { label: 'Archivo OT',          icon: Printer,       href: '/workflow/production',       group: 'production', roles: ['admin', 'supervisor', 'manager'] },
+  { label: 'Clientes',            icon: Users,         href: '/workflow/clients',          group: 'production', roles: ['admin', 'supervisor', 'manager'] },
 
-  // ④ KPIs & Reportes
-  { label: 'Resumen Ejecutivo', icon: LayoutDashboard, href: '/admin/overview',       group: 'kpis', roles: ['admin', 'manager'] },
-  { label: 'KPIs & Reportes',   icon: BarChart3,       href: '/manager',              group: 'kpis', roles: ['admin', 'manager'] },
-  { label: 'Notificaciones',    icon: Bell,            href: '/admin/notifications',  group: 'kpis', roles: ['admin', 'manager', 'supervisor', 'hr_manager', 'technician'] },
+  // ─ KPIs & Reportes ────────────────────────────────────────────────────────
+  { label: 'Resumen Ejecutivo',   icon: LayoutDashboard, href: '/admin/overview',          group: 'kpis', roles: ['admin', 'manager'] },
+  { label: 'KPIs & Reportes',     icon: BarChart3,       href: '/manager',                 group: 'kpis', roles: ['admin', 'manager'] },
+  { label: 'Notificaciones',      icon: Bell,            href: '/admin/notifications',     group: 'kpis', roles: ['admin', 'manager', 'supervisor', 'hr_manager', 'technician'] },
 
-  // ⑤ Finanzas
+  // ─ Finanzas ───────────────────────────────────────────────────────────────
   { label: 'Finanzas', icon: DollarSign, href: '/financial', group: 'financial', roles: ['admin', 'manager'] },
 
-  // ⑥ Recursos Humanos
+  // ─ Recursos Humanos ───────────────────────────────────────────────────────
   { label: 'Recursos Humanos', icon: Users, href: '/hr', group: 'hr', roles: ['admin', 'hr_manager'] },
 
-  // ⑦ Máquinas
-  { label: 'Máquinas', icon: Cpu, href: '/maintenance', group: 'machines', roles: ['admin', 'technician', 'supervisor', 'manager'] },
+  // ─ Máquinas ───────────────────────────────────────────────────────────────
+  { label: 'Máquinas',   icon: Cpu,     href: '/maintenance',            group: 'machines', roles: ['admin', 'technician', 'supervisor', 'manager'] },
+  { label: 'Checklists', icon: Wrench,  href: '/maintenance/checklists', group: 'machines', roles: ['admin', 'technician', 'supervisor', 'manager'] },
 
-  // ⑧ Inventario — stock, purchasing, bodega
-  { label: 'Inventario', icon: Package,   href: '/admin/inventory',  group: 'inventory', roles: ['admin', 'manager', 'supervisor'] },
-  { label: 'Compras',    icon: ShoppingCart, href: '/admin/purchases', group: 'inventory', roles: ['admin', 'manager'] },
-  { label: 'Bodega',     icon: Warehouse, href: '/workflow/warehouse', group: 'inventory', roles: ['admin', 'supervisor', 'manager'] },
+  // ─ Inventario ─────────────────────────────────────────────────────────────
+  //   Bodega lives here: it's a warehouse/stock function, not a production tool.
+  { label: 'Inventario', icon: Package,      href: '/admin/inventory',    group: 'inventory', roles: ['admin', 'manager', 'supervisor'] },
+  { label: 'Compras',    icon: ShoppingCart, href: '/admin/purchases',    group: 'inventory', roles: ['admin', 'manager'] },
+  { label: 'Bodega',     icon: Warehouse,    href: '/workflow/warehouse', group: 'inventory', roles: ['admin', 'supervisor', 'manager'] },
 
-  // ⑨ Administración
+  // ─ Administración ─────────────────────────────────────────────────────────
   { label: 'Usuarios',       icon: UserCog,   href: '/admin/users',        group: 'admin', roles: ['admin'] },
   { label: 'Operarios',      icon: Users,     href: '/admin/workers',       group: 'admin', roles: ['admin'] },
   { label: 'Integraciones',  icon: Plug,      href: '/admin/integrations',  group: 'admin', roles: ['admin', 'manager', 'supervisor'] },
