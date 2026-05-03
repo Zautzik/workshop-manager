@@ -1,5 +1,6 @@
 'use client';
 import { useEffect, useMemo, useState } from "react";
+import { useTheme } from "@/contexts/ThemeContext";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -74,6 +75,9 @@ export function OTManagement({ onOTSelect }: OTManagementProps) {
     ot.ot_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
     ot.client_name.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  const { theme } = useTheme();
+  const isDark = theme === 'dark';
 
   const stageStats = useMemo(
     () => STATUS_FLOW.map((stage) => ({
@@ -214,6 +218,19 @@ export function OTManagement({ onOTSelect }: OTManagementProps) {
 
             const renderHex = (stage: typeof stageStats[number]) => {
               const isActive = stage.key === activeStage;
+              // Theme-aware opacities
+              const activeFill   = isDark ? { c: 0.88, m: 0.50, e: 0.70 } : { c: 0.78, m: 0.50, e: 0.66 };
+              const inactiveFill = isDark ? { c: 0.62, m: 0.28, e: 0.46 } : { c: 0.70, m: 0.42, e: 0.58 };
+              const fill         = isActive ? activeFill : inactiveFill;
+              const shadowActive = isDark ? 0.85 : 0.55;
+              const shadowIdle   = isDark ? 0.40 : 0.28;
+              const shadowHover  = isDark ? 0.65 : 0.45;
+              const labelColor   = isDark ? '#fff' : `rgb(${stage.rgb})`;
+              const labelFilter  = isDark ? 'none' : 'brightness(0.55)';
+              const countColor   = isDark
+                ? (stage.count > 0 ? `rgb(${stage.rgb})` : 'rgba(255,255,255,0.35)')
+                : (stage.count > 0 ? `rgb(${stage.rgb})` : 'rgba(0,0,0,0.25)');
+              const countFilter  = stage.count > 0 ? (isDark ? 'brightness(1.9)' : 'brightness(0.7)') : 'none';
               return (
                 <div
                   key={stage.key}
@@ -221,47 +238,45 @@ export function OTManagement({ onOTSelect }: OTManagementProps) {
                   style={{
                     width: HW, height: HH, flexShrink: 0, cursor: 'pointer',
                     filter: isActive
-                      ? `drop-shadow(0 6px 16px rgb(${stage.rgb} / 0.8))`
-                      : `drop-shadow(0 3px 8px rgb(${stage.rgb} / 0.35))`,
+                      ? `drop-shadow(0 6px 16px rgb(${stage.rgb} / ${shadowActive}))`
+                      : `drop-shadow(0 3px 8px rgb(${stage.rgb} / ${shadowIdle}))`,
                     transform: isActive ? 'scale(1.1)' : 'scale(1)',
                     transition: 'filter 0.2s, transform 0.2s',
                   }}
                   onMouseEnter={e => {
                     if (!isActive) {
-                      (e.currentTarget as HTMLDivElement).style.filter = `drop-shadow(0 5px 14px rgb(${stage.rgb} / 0.6))`;
+                      (e.currentTarget as HTMLDivElement).style.filter = `drop-shadow(0 5px 14px rgb(${stage.rgb} / ${shadowHover}))`;
                       (e.currentTarget as HTMLDivElement).style.transform = 'scale(1.05)';
                     }
                   }}
                   onMouseLeave={e => {
                     if (!isActive) {
-                      (e.currentTarget as HTMLDivElement).style.filter = `drop-shadow(0 3px 8px rgb(${stage.rgb} / 0.35))`;
+                      (e.currentTarget as HTMLDivElement).style.filter = `drop-shadow(0 3px 8px rgb(${stage.rgb} / ${shadowIdle}))`;
                       (e.currentTarget as HTMLDivElement).style.transform = 'scale(1)';
                     }
                   }}
                 >
                   <div style={{
                     width: '100%', height: '100%', clipPath: HEX_CLIP, position: 'relative',
-                    background: isActive
-                      ? `radial-gradient(ellipse 65% 60% at 38% 28%, rgb(${stage.rgb} / 0.85) 0%, rgb(${stage.rgb} / 0.45) 55%, rgb(${stage.rgb} / 0.65) 100%)`
-                      : `radial-gradient(ellipse 65% 60% at 38% 28%, rgb(${stage.rgb} / 0.48) 0%, rgb(${stage.rgb} / 0.15) 55%, rgb(${stage.rgb} / 0.32) 100%)`,
+                    background: `radial-gradient(ellipse 65% 60% at 38% 28%, rgb(${stage.rgb} / ${fill.c}) 0%, rgb(${stage.rgb} / ${fill.m}) 55%, rgb(${stage.rgb} / ${fill.e}) 100%)`,
                     display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 2,
                   }}>
                     {/* Bubble gleam */}
                     <div style={{
                       position: 'absolute', inset: 0, clipPath: HEX_CLIP, pointerEvents: 'none',
-                      background: 'radial-gradient(ellipse 50% 38% at 30% 20%, rgba(255,255,255,0.22) 0%, transparent 65%)',
+                      background: `radial-gradient(ellipse 50% 38% at 30% 20%, rgba(255,255,255,${isDark ? 0.22 : 0.35}) 0%, transparent 65%)`,
                     }} />
                     {/* Optional badge */}
                     {'optional' in stage && stage.optional && (
-                      <span style={{ fontSize: 7, color: `rgb(${stage.rgb})`, filter: 'brightness(1.8)', letterSpacing: '0.1em', textTransform: 'uppercase', position: 'absolute', top: 12 }}>opt</span>
+                      <span style={{ fontSize: 7, color: `rgb(${stage.rgb})`, filter: isDark ? 'brightness(1.8)' : 'brightness(0.6)', letterSpacing: '0.1em', textTransform: 'uppercase', position: 'absolute', top: 12 }}>opt</span>
                     )}
-                    <span style={{ fontSize: 8.5, fontWeight: 700, color: '#fff', textAlign: 'center', lineHeight: 1.25, maxWidth: '80%' }}>
+                    <span style={{ fontSize: 8.5, fontWeight: 700, color: labelColor, filter: labelFilter, textAlign: 'center', lineHeight: 1.25, maxWidth: '80%' }}>
                       {stage.labelEs}
                     </span>
                     <span style={{
                       fontSize: 10, fontWeight: 700, lineHeight: 1,
-                      color: stage.count > 0 ? `rgb(${stage.rgb})` : 'rgba(255,255,255,0.35)',
-                      filter: stage.count > 0 ? 'brightness(1.9)' : 'none',
+                      color: countColor,
+                      filter: countFilter,
                     }}>
                       {stage.count > 0 ? `${stage.count} OT` : '—'}
                     </span>

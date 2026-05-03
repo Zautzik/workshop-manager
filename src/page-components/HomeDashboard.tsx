@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useTheme } from '@/contexts/ThemeContext';
 import {
   Factory,
   BarChart3,
@@ -20,8 +21,10 @@ interface QuickAction {
   href: string;
   /** tailwind bg colour for the hex fill, e.g. "59 130 246" (rgb channels) */
   rgb: string;
-  /** tailwind text colour class */
+  /** tailwind text colour class for dark mode */
   textCls: string;
+  /** tailwind text colour class for light mode */
+  lightTextCls: string;
   roles: string[];
 }
 
@@ -32,7 +35,8 @@ const quickActions: QuickAction[] = [
     icon: Factory,
     href: '/workflow',
     rgb: '59 130 246',       // blue-500
-    textCls: 'text-blue-200',
+    textCls: 'text-blue-100',
+    lightTextCls: 'text-blue-900',
     roles: ['admin', 'supervisor', 'manager'],
   },
   {
@@ -41,7 +45,8 @@ const quickActions: QuickAction[] = [
     icon: ClipboardList,
     href: '/workflow/production',
     rgb: '16 185 129',       // emerald-500
-    textCls: 'text-emerald-200',
+    textCls: 'text-emerald-100',
+    lightTextCls: 'text-emerald-900',
     roles: ['admin', 'supervisor', 'manager'],
   },
   {
@@ -50,7 +55,8 @@ const quickActions: QuickAction[] = [
     icon: BarChart3,
     href: '/manager',
     rgb: '139 92 246',       // violet-500
-    textCls: 'text-violet-200',
+    textCls: 'text-violet-100',
+    lightTextCls: 'text-violet-900',
     roles: ['admin', 'manager'],
   },
   {
@@ -59,7 +65,8 @@ const quickActions: QuickAction[] = [
     icon: DollarSign,
     href: '/financial',
     rgb: '34 197 94',        // green-500
-    textCls: 'text-green-200',
+    textCls: 'text-green-100',
+    lightTextCls: 'text-green-900',
     roles: ['admin', 'manager'],
   },
   {
@@ -68,7 +75,8 @@ const quickActions: QuickAction[] = [
     icon: Users,
     href: '/hr',
     rgb: '245 158 11',       // amber-500
-    textCls: 'text-amber-200',
+    textCls: 'text-amber-100',
+    lightTextCls: 'text-amber-900',
     roles: ['admin', 'hr_manager'],
   },
   {
@@ -77,7 +85,8 @@ const quickActions: QuickAction[] = [
     icon: Wrench,
     href: '/maintenance',
     rgb: '249 115 22',       // orange-500
-    textCls: 'text-orange-200',
+    textCls: 'text-orange-100',
+    lightTextCls: 'text-orange-900',
     roles: ['admin', 'technician', 'supervisor'],
   },
   {
@@ -86,7 +95,8 @@ const quickActions: QuickAction[] = [
     icon: Package,
     href: '/admin/inventory',
     rgb: '6 182 212',        // cyan-500
-    textCls: 'text-cyan-200',
+    textCls: 'text-cyan-100',
+    lightTextCls: 'text-cyan-900',
     roles: ['admin'],
   },
 ];
@@ -120,10 +130,17 @@ const HEX_CLIP = 'polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)'
 interface HexCellProps {
   action: QuickAction;
   onClick: () => void;
+  isDark: boolean;
 }
 
-function HexCell({ action, onClick }: HexCellProps) {
+function HexCell({ action, onClick, isDark }: HexCellProps) {
   const Icon = action.icon;
+  // Light mode: richer fills + dark text; dark mode: translucent fills + light text
+  const fillOpacity   = isDark ? { c: 0.58, m: 0.24, e: 0.42 } : { c: 0.72, m: 0.42, e: 0.60 };
+  const gleamOpacity  = isDark ? 0.18 : 0.28;
+  const iconBrightness = isDark ? 1.7 : 0.65;
+  const labelCls      = isDark ? action.textCls : action.lightTextCls;
+
   return (
     // drop-shadow wraps the clip-path correctly (unlike box-shadow)
     <div
@@ -131,18 +148,18 @@ function HexCell({ action, onClick }: HexCellProps) {
       style={{
         width: HEX_W,
         height: HEX_H,
-        filter: `drop-shadow(0 6px 18px rgb(${action.rgb} / 0.45))`,
+        filter: `drop-shadow(0 6px 18px rgb(${action.rgb} / ${isDark ? 0.45 : 0.30}))`,
         flexShrink: 0,
         transition: 'filter 0.25s, transform 0.25s',
       }}
       onMouseEnter={e => {
         (e.currentTarget as HTMLDivElement).style.filter =
-          `drop-shadow(0 10px 28px rgb(${action.rgb} / 0.7))`;
+          `drop-shadow(0 10px 28px rgb(${action.rgb} / ${isDark ? 0.7 : 0.5}))`;
         (e.currentTarget as HTMLDivElement).style.transform = 'scale(1.07)';
       }}
       onMouseLeave={e => {
         (e.currentTarget as HTMLDivElement).style.filter =
-          `drop-shadow(0 6px 18px rgb(${action.rgb} / 0.45))`;
+          `drop-shadow(0 6px 18px rgb(${action.rgb} / ${isDark ? 0.45 : 0.30}))`;
         (e.currentTarget as HTMLDivElement).style.transform = 'scale(1)';
       }}
       onClick={onClick}
@@ -156,14 +173,11 @@ function HexCell({ action, onClick }: HexCellProps) {
           background: `
             radial-gradient(
               ellipse 65% 60% at 38% 30%,
-              rgb(${action.rgb} / 0.55) 0%,
-              rgb(${action.rgb} / 0.22) 55%,
-              rgb(${action.rgb} / 0.38) 100%
+              rgb(${action.rgb} / ${fillOpacity.c}) 0%,
+              rgb(${action.rgb} / ${fillOpacity.m}) 55%,
+              rgb(${action.rgb} / ${fillOpacity.e}) 100%
             )
           `,
-          // subtle inner border via box-shadow inside clip is invisible —
-          // so we layer a second, slightly-inset gradient ring via pseudo:
-          // we'll fake it with an inset element instead
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
@@ -181,7 +195,7 @@ function HexCell({ action, onClick }: HexCellProps) {
             clipPath: HEX_CLIP,
             background: `radial-gradient(
               ellipse 50% 40% at 30% 20%,
-              rgba(255,255,255,0.18) 0%,
+              rgba(255,255,255,${gleamOpacity}) 0%,
               transparent 70%
             )`,
             pointerEvents: 'none',
@@ -194,8 +208,8 @@ function HexCell({ action, onClick }: HexCellProps) {
             width: 44,
             height: 44,
             borderRadius: '50%',
-            background: `rgb(${action.rgb} / 0.25)`,
-            border: `1.5px solid rgb(${action.rgb} / 0.5)`,
+            background: `rgb(${action.rgb} / ${isDark ? 0.25 : 0.18})`,
+            border: `1.5px solid rgb(${action.rgb} / ${isDark ? 0.5 : 0.7})`,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -206,14 +220,14 @@ function HexCell({ action, onClick }: HexCellProps) {
               width: 20,
               height: 20,
               color: `rgb(${action.rgb})`,
-              filter: 'brightness(1.7)',
+              filter: `brightness(${iconBrightness})`,
             }}
           />
         </div>
 
         {/* Label */}
         <span
-          className={`font-semibold text-center leading-tight ${action.textCls}`}
+          className={`font-semibold text-center leading-tight ${labelCls}`}
           style={{ fontSize: 11.5, maxWidth: '72%', lineHeight: 1.3 }}
         >
           {action.label}
@@ -226,6 +240,8 @@ function HexCell({ action, onClick }: HexCellProps) {
 export default function HomeDashboard() {
   const { user, role } = useAuth();
   const { language } = useLanguage();
+  const { theme } = useTheme();
+  const isDark = theme === 'dark';
   const router = useRouter();
 
   const visibleActions = quickActions.filter(
@@ -301,6 +317,7 @@ export default function HomeDashboard() {
                   <HexCell
                     action={action}
                     onClick={() => router.push(action.href)}
+                    isDark={isDark}
                   />
                 </div>
               );

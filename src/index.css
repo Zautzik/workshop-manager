@@ -130,6 +130,22 @@
   body {
     @apply bg-background text-foreground;
   }
+
+  /* Watercolor background blobs — light mode only */
+  :root body {
+    background-image:
+      radial-gradient(ellipse 55% 45% at 12% 14%, hsl(210 90% 85% / 0.5) 0%, transparent 62%),
+      radial-gradient(ellipse 48% 55% at 88% 10%, hsl(275 72% 88% / 0.42) 0%, transparent 58%),
+      radial-gradient(ellipse 44% 50% at 82% 86%, hsl(155 68% 86% / 0.48) 0%, transparent 55%),
+      radial-gradient(ellipse 58% 42% at 16% 84%, hsl(33 82% 87% / 0.44) 0%, transparent 60%),
+      radial-gradient(ellipse 38% 34% at 52% 50%, hsl(318 65% 90% / 0.28) 0%, transparent 68%);
+    background-attachment: fixed;
+  }
+
+  /* Remove watercolor in dark mode */
+  .dark body {
+    background-image: none;
+  }
 }
 
 /**
