@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useOTs } from "@/hooks/use-workflow-queries";
-import { Plus, ArrowRight, ArrowDown, CornerDownLeft, Edit2, Info, Package, Clock, User, DollarSign } from "lucide-react";
+import { Plus, Edit2, Info, Package, Clock, User, DollarSign } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { UnifiedOTWizard } from "./UnifiedOTWizard";
 import { EditBudgetWizard } from "./EditBudgetWizard";
@@ -176,151 +176,132 @@ export function OTManagement({ onOTSelect }: OTManagementProps) {
         </AlertDescription>
       </Alert>
 
-      {/* Header */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div>
-          <h2 className="text-xl font-bold text-foreground">Órdenes de Trabajo</h2>
-          <p className="text-sm text-muted-foreground">{activeOTsCount} activas</p>
+      {/* Header — title + controls + mini process map side-by-side */}
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        {/* Left: title, search, new button */}
+        <div className="flex flex-col gap-2">
+          <div>
+            <h2 className="text-xl font-bold text-foreground">Órdenes de Trabajo</h2>
+            <p className="text-sm text-muted-foreground">{activeOTsCount} activas</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Input
+              placeholder="Buscar OT o cliente..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="bg-input border-border placeholder:text-muted-foreground w-52"
+            />
+            <Button
+              onClick={() => setCreateFlow('wizard')}
+              className="bg-primary hover:bg-primary/90"
+            >
+              <Plus className="w-4 h-4 mr-1" />
+              Nueva OT
+            </Button>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          <Input
-            placeholder="Buscar OT o cliente..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="bg-input border-border placeholder:text-muted-foreground w-56"
-          />
-          <Button
-            onClick={() => setCreateFlow('wizard')}
-            className="bg-primary hover:bg-primary/90"
-          >
-            <Plus className="w-4 h-4 mr-1" />
-            Nueva OT
-          </Button>
-        </div>
+
+        {/* Right: compact honeycomb process map */}
+        {(() => {
+          const HEX_CLIP = 'polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)';
+          const HW = 42;    // hex width px
+          const HH = 38;    // hex height px
+          const GAP = 2;    // gap between hexes px
+          const COL_STEP = HW + GAP;           // 44 px
+          const V_STEP   = Math.round(HH * 0.75); // 28 px — rows overlap ¼
+
+          // [4, 4, 3, 3] honeycomb — alternating rows offset by half a column
+          const ROWS = [
+            stageStats.slice(0, 4),    // row 0 — no offset
+            stageStats.slice(4, 8),    // row 1 — offset right
+            stageStats.slice(8, 11),   // row 2 — no offset
+            stageStats.slice(11, 14),  // row 3 — offset right
+          ];
+
+          const containerW = 4 * COL_STEP + Math.round(COL_STEP / 2); // ≈ 198 px
+          const containerH = HH + 3 * V_STEP;                          // ≈ 122 px
+
+          return (
+            <div className="flex flex-col items-end gap-1 shrink-0">
+              <span className="text-[10px] font-medium text-muted-foreground tracking-wide uppercase">Mapa de Proceso</span>
+              <div style={{ position: 'relative', width: containerW, height: containerH }}>
+                {ROWS.map((row, rowIdx) => {
+                  const isOffsetRow = rowIdx % 2 === 1;
+                  const xBase = isOffsetRow ? Math.round(COL_STEP / 2) : 0;
+                  const y = rowIdx * V_STEP;
+                  return row.map((stage, colIdx) => {
+                    const x = xBase + colIdx * COL_STEP;
+                    const isActive = stage.key === activeStage;
+                    const activeFill   = isDark ? { c: 0.88, m: 0.50, e: 0.70 } : { c: 0.78, m: 0.50, e: 0.66 };
+                    const inactiveFill = isDark ? { c: 0.55, m: 0.22, e: 0.40 } : { c: 0.68, m: 0.38, e: 0.54 };
+                    const fill         = isActive ? activeFill : inactiveFill;
+                    const shadowActive = isDark ? 0.80 : 0.50;
+                    const shadowIdle   = isDark ? 0.30 : 0.20;
+                    const labelColor   = isDark ? '#fff' : `rgb(${stage.rgb})`;
+                    const labelFilter  = isDark ? 'none' : 'brightness(0.5)';
+                    return (
+                      <div
+                        key={stage.key}
+                        title={`${stage.labelEs}${stage.count > 0 ? ` — ${stage.count} OT` : ''}`}
+                        onClick={() => setActiveStage(stage.key)}
+                        style={{
+                          position: 'absolute', left: x, top: y,
+                          width: HW, height: HH, cursor: 'pointer',
+                          filter: isActive
+                            ? `drop-shadow(0 4px 10px rgb(${stage.rgb} / ${shadowActive}))`
+                            : `drop-shadow(0 2px 5px rgb(${stage.rgb} / ${shadowIdle}))`,
+                          transform: isActive ? 'scale(1.15)' : 'scale(1)',
+                          transition: 'filter 0.18s, transform 0.18s',
+                          zIndex: isActive ? 2 : 1,
+                        }}
+                        onMouseEnter={e => {
+                          if (!isActive) {
+                            (e.currentTarget as HTMLDivElement).style.filter = `drop-shadow(0 3px 8px rgb(${stage.rgb} / 0.55))`;
+                            (e.currentTarget as HTMLDivElement).style.transform = 'scale(1.08)';
+                          }
+                        }}
+                        onMouseLeave={e => {
+                          if (!isActive) {
+                            (e.currentTarget as HTMLDivElement).style.filter = `drop-shadow(0 2px 5px rgb(${stage.rgb} / ${shadowIdle}))`;
+                            (e.currentTarget as HTMLDivElement).style.transform = 'scale(1)';
+                          }
+                        }}
+                      >
+                        <div style={{
+                          width: '100%', height: '100%', clipPath: HEX_CLIP, position: 'relative',
+                          background: `radial-gradient(ellipse 65% 60% at 38% 28%, rgb(${stage.rgb} / ${fill.c}) 0%, rgb(${stage.rgb} / ${fill.m}) 55%, rgb(${stage.rgb} / ${fill.e}) 100%)`,
+                          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 1,
+                        }}>
+                          {/* Gleam */}
+                          <div style={{
+                            position: 'absolute', inset: 0, clipPath: HEX_CLIP, pointerEvents: 'none',
+                            background: `radial-gradient(ellipse 50% 38% at 30% 20%, rgba(255,255,255,${isDark ? 0.20 : 0.32}) 0%, transparent 65%)`,
+                          }} />
+                          <span style={{ fontSize: 7, fontWeight: 700, color: labelColor, filter: labelFilter, textAlign: 'center', lineHeight: 1.2, maxWidth: '86%', zIndex: 1 }}>
+                            {stage.labelEs}
+                          </span>
+                          {stage.count > 0 && (
+                            <span style={{
+                              fontSize: 8, fontWeight: 800, lineHeight: 1, zIndex: 1,
+                              color: `rgb(${stage.rgb})`,
+                              filter: isDark ? 'brightness(1.9)' : 'brightness(0.6)',
+                            }}>
+                              {stage.count}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  });
+                })}
+              </div>
+            </div>
+          );
+        })()}
       </div>
 
-      {/* Process map + focused stage board */}
+      {/* Focused stage board */}
       <div className="space-y-4">
-        <Card className="bg-card/70 border-border p-4 overflow-x-auto">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-semibold text-foreground">Mapa de Proceso</h3>
-            <p className="text-xs text-muted-foreground">Pre-Prensa → Completado</p>
-          </div>
-
-          {/* ── Serpentine hex flow ─────────────────────────────────── */}
-          {(() => {
-            const HEX_CLIP = 'polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)';
-            const HW = 88;   // hex bounding width px
-            const HH = 78;   // hex bounding height px
-
-            const row1 = stageStats.slice(0, 8);
-            const row2 = stageStats.slice(8);       // optional(2) + main(4)
-
-            const renderHex = (stage: typeof stageStats[number]) => {
-              const isActive = stage.key === activeStage;
-              // Theme-aware opacities
-              const activeFill   = isDark ? { c: 0.88, m: 0.50, e: 0.70 } : { c: 0.78, m: 0.50, e: 0.66 };
-              const inactiveFill = isDark ? { c: 0.62, m: 0.28, e: 0.46 } : { c: 0.70, m: 0.42, e: 0.58 };
-              const fill         = isActive ? activeFill : inactiveFill;
-              const shadowActive = isDark ? 0.85 : 0.55;
-              const shadowIdle   = isDark ? 0.40 : 0.28;
-              const shadowHover  = isDark ? 0.65 : 0.45;
-              const labelColor   = isDark ? '#fff' : `rgb(${stage.rgb})`;
-              const labelFilter  = isDark ? 'none' : 'brightness(0.55)';
-              const countColor   = isDark
-                ? (stage.count > 0 ? `rgb(${stage.rgb})` : 'rgba(255,255,255,0.35)')
-                : (stage.count > 0 ? `rgb(${stage.rgb})` : 'rgba(0,0,0,0.25)');
-              const countFilter  = stage.count > 0 ? (isDark ? 'brightness(1.9)' : 'brightness(0.7)') : 'none';
-              return (
-                <div
-                  key={stage.key}
-                  onClick={() => setActiveStage(stage.key)}
-                  style={{
-                    width: HW, height: HH, flexShrink: 0, cursor: 'pointer',
-                    filter: isActive
-                      ? `drop-shadow(0 6px 16px rgb(${stage.rgb} / ${shadowActive}))`
-                      : `drop-shadow(0 3px 8px rgb(${stage.rgb} / ${shadowIdle}))`,
-                    transform: isActive ? 'scale(1.1)' : 'scale(1)',
-                    transition: 'filter 0.2s, transform 0.2s',
-                  }}
-                  onMouseEnter={e => {
-                    if (!isActive) {
-                      (e.currentTarget as HTMLDivElement).style.filter = `drop-shadow(0 5px 14px rgb(${stage.rgb} / ${shadowHover}))`;
-                      (e.currentTarget as HTMLDivElement).style.transform = 'scale(1.05)';
-                    }
-                  }}
-                  onMouseLeave={e => {
-                    if (!isActive) {
-                      (e.currentTarget as HTMLDivElement).style.filter = `drop-shadow(0 3px 8px rgb(${stage.rgb} / ${shadowIdle}))`;
-                      (e.currentTarget as HTMLDivElement).style.transform = 'scale(1)';
-                    }
-                  }}
-                >
-                  <div style={{
-                    width: '100%', height: '100%', clipPath: HEX_CLIP, position: 'relative',
-                    background: `radial-gradient(ellipse 65% 60% at 38% 28%, rgb(${stage.rgb} / ${fill.c}) 0%, rgb(${stage.rgb} / ${fill.m}) 55%, rgb(${stage.rgb} / ${fill.e}) 100%)`,
-                    display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 2,
-                  }}>
-                    {/* Bubble gleam */}
-                    <div style={{
-                      position: 'absolute', inset: 0, clipPath: HEX_CLIP, pointerEvents: 'none',
-                      background: `radial-gradient(ellipse 50% 38% at 30% 20%, rgba(255,255,255,${isDark ? 0.22 : 0.35}) 0%, transparent 65%)`,
-                    }} />
-                    {/* Optional badge */}
-                    {'optional' in stage && stage.optional && (
-                      <span style={{ fontSize: 7, color: `rgb(${stage.rgb})`, filter: isDark ? 'brightness(1.8)' : 'brightness(0.6)', letterSpacing: '0.1em', textTransform: 'uppercase', position: 'absolute', top: 12 }}>opt</span>
-                    )}
-                    <span style={{ fontSize: 8.5, fontWeight: 700, color: labelColor, filter: labelFilter, textAlign: 'center', lineHeight: 1.25, maxWidth: '80%' }}>
-                      {stage.labelEs}
-                    </span>
-                    <span style={{
-                      fontSize: 10, fontWeight: 700, lineHeight: 1,
-                      color: countColor,
-                      filter: countFilter,
-                    }}>
-                      {stage.count > 0 ? `${stage.count} OT` : '—'}
-                    </span>
-                  </div>
-                </div>
-              );
-            };
-
-            const FlowArrow = ({ dim = false }: { dim?: boolean }) => (
-              <ArrowRight style={{ width: 14, height: 14, color: dim ? 'rgba(255,255,255,0.18)' : 'rgba(255,255,255,0.35)', flexShrink: 0 }} />
-            );
-
-            return (
-              <div className="space-y-2">
-                {/* Row 1: stages 1-8 */}
-                <div className="flex items-center gap-1 flex-wrap">
-                  {row1.map((stage, idx) => (
-                    <div key={stage.key} className="flex items-center gap-1">
-                      {renderHex(stage)}
-                      {idx < row1.length - 1 && <FlowArrow />}
-                    </div>
-                  ))}
-                  {/* Turn-down arrow at end of row 1 */}
-                  <div className="flex flex-col items-center ml-1" style={{ gap: 2 }}>
-                    <ArrowDown style={{ width: 14, height: 14, color: 'rgba(255,255,255,0.4)' }} />
-                    <span style={{ fontSize: 7.5, color: 'rgba(255,255,255,0.25)', letterSpacing: '0.08em' }}>→</span>
-                  </div>
-                </div>
-
-                {/* Row 2: optional stages + final stages */}
-                <div className="flex items-center gap-1 flex-wrap">
-                  <CornerDownLeft style={{ width: 14, height: 14, color: 'rgba(255,255,255,0.3)', flexShrink: 0 }} />
-                  {row2.map((stage, idx) => (
-                    <div key={stage.key} className="flex items-center gap-1">
-                      {renderHex(stage)}
-                      {idx < row2.length - 1 && <FlowArrow dim={'optional' in stage && !!(stage as any).optional} />}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            );
-          })()}
-        </Card>
-
         <div className="w-full">
           <div className={`${activeStageInfo.color} rounded-t-lg p-3`}>
             <div className="flex items-center justify-between">
