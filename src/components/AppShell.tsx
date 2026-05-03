@@ -62,7 +62,6 @@ const navItems: NavItem[] = [
   { label: 'Inicio', icon: Home, href: '/admin', group: 'main', roles: ['admin', 'manager', 'supervisor', 'hr_manager', 'technician'] },
 
   // ② Flujo de Trabajo — workshop floor orchestration
-  { label: 'Flujo de Trabajo',    icon: Factory,       href: '/workflow',                  group: 'workflow', roles: ['admin', 'supervisor', 'manager'] },
   { label: 'Planta',              icon: Factory,       href: '/workflow/planta',           group: 'workflow', roles: ['admin', 'supervisor', 'manager'] },
   { label: 'Planta Integrada',    icon: LayoutGrid,    href: '/workflow/planta-integrada', group: 'workflow', roles: ['admin', 'supervisor', 'manager'] },
   { label: 'Kanban',              icon: ClipboardList, href: '/workflow/kanban',           group: 'workflow', roles: ['admin', 'supervisor', 'manager'] },
