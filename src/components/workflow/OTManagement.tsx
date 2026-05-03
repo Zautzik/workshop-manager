@@ -204,22 +204,21 @@ export function OTManagement({ onOTSelect }: OTManagementProps) {
         {/* Right: compact honeycomb process map */}
         {(() => {
           const HEX_CLIP = 'polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)';
-          const HW = 84;    // hex width px
-          const HH = 76;    // hex height px
-          const GAP = 4;    // gap between hexes px
-          const COL_STEP = HW + GAP;              // 88 px
-          const V_STEP   = Math.round(HH * 0.76); // 58 px — rows overlap ¼
+          const HW = 108;   // hex width px
+          const HH = 96;    // hex height px
+          const GAP = 5;    // gap between hexes px
+          const COL_STEP = HW + GAP;              // 113 px
+          const V_STEP   = Math.round(HH * 0.76); // 73 px — rows overlap ¼
 
-          // [4, 4, 3, 3] honeycomb — alternating rows offset by half a column
+          // [5, 5, 4] honeycomb — 3 rows fit all 14 stages
           const ROWS = [
-            stageStats.slice(0, 4),    // row 0 — no offset
-            stageStats.slice(4, 8),    // row 1 — offset right
-            stageStats.slice(8, 11),   // row 2 — no offset
-            stageStats.slice(11, 14),  // row 3 — offset right
+            stageStats.slice(0, 5),    // row 0 — no offset
+            stageStats.slice(5, 10),   // row 1 — offset right
+            stageStats.slice(10, 14),  // row 2 — no offset
           ];
 
-          const containerW = 4 * COL_STEP + Math.round(COL_STEP / 2) + 4; // ≈ 400 px
-          const containerH = HH + 3 * V_STEP + 10;                         // ≈ 260 px
+          const containerW = 5 * COL_STEP + Math.round(COL_STEP / 2) + 4; // ≈ 622 px
+          const containerH = HH + 2 * V_STEP + 10;                         // ≈ 252 px
 
           return (
             <div className="flex flex-col items-end gap-1 shrink-0">
@@ -277,12 +276,12 @@ export function OTManagement({ onOTSelect }: OTManagementProps) {
                             position: 'absolute', inset: 0, clipPath: HEX_CLIP, pointerEvents: 'none',
                             background: `radial-gradient(ellipse 50% 38% at 30% 20%, rgba(255,255,255,${isDark ? 0.20 : 0.32}) 0%, transparent 65%)`,
                           }} />
-                          <span style={{ fontSize: 11, fontWeight: 700, color: labelColor, filter: labelFilter, textAlign: 'center', lineHeight: 1.25, maxWidth: '86%', zIndex: 1 }}>
+                          <span style={{ fontSize: 13, fontWeight: 700, color: labelColor, filter: labelFilter, textAlign: 'center', lineHeight: 1.25, maxWidth: '86%', zIndex: 1 }}>
                               {stage.labelEs}
                             </span>
                           {stage.count > 0 && (
                             <span style={{
-                              fontSize: 13, fontWeight: 800, lineHeight: 1, zIndex: 1,
+                              fontSize: 15, fontWeight: 800, lineHeight: 1, zIndex: 1,
                               color: `rgb(${stage.rgb})`,
                               filter: isDark ? 'brightness(1.9)' : 'brightness(0.6)',
                             }}>
