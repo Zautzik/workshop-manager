@@ -32,96 +32,104 @@
 @tailwind utilities;
 
 /**
- * Design System Definition
- * All colors are defined in HSL format for maximum flexibility
- * Theme tokens are referenced throughout components via Tailwind classes
+ * Design System — Watercolor Printing Theme
+ * Inspired by flowing watercolor washes: warm coral/orange → magenta/lavender → electric teal/blue
+ * Light mode: creamy parchment canvas, rich pigment tones, translucent washes
+ * Dark mode:  deep indigo canvas, jewel-bright pigments, luminous ink-on-dark feel
  */
 @layer base {
   :root {
-    /* Light mode — higher-contrast palette */
-    --background: 210 22% 97%;          /* very light blue-grey, not stark white */
-    --foreground: 220 25% 12%;          /* near-black with a hint of blue */
+    /* ── Canvas ──────────────────────────────────────────────────── */
+    --background: 34 38% 96%;           /* warm parchment — ivory not sterile white */
+    --foreground: 228 32% 13%;          /* deep ink-blue, warm near-black */
 
-    --card: 0 0% 100%;
-    --card-foreground: 220 25% 12%;
+    /* ── Surface cards ───────────────────────────────────────────── */
+    --card: 32 30% 99%;                 /* barely-warm white, like stretched watercolor paper */
+    --card-foreground: 228 32% 13%;
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 220 25% 12%;
+    --popover: 32 30% 99%;
+    --popover-foreground: 228 32% 13%;
 
-    /* Company cyan blue - Primary brand color */
-    --primary: 190 90% 36%;             /* deeper cyan — better contrast on white */
+    /* ── Brand primary — deep printing-press teal ─────────────────  */
+    --primary: 183 82% 30%;             /* rich teal; the blue-green heart of the painting */
     --primary-foreground: 0 0% 100%;
 
-    --supervisor: 150 65% 36%;
+    /* ── Roles ───────────────────────────────────────────────────── */
+    --supervisor: 155 62% 35%;          /* forest green — steady, grounded */
     --supervisor-foreground: 0 0% 100%;
 
-    --manager: 210 28% 42%;
+    --manager: 228 40% 45%;             /* watercolor indigo blue */
     --manager-foreground: 0 0% 100%;
 
-    --secondary: 210 25% 88%;
-    --secondary-foreground: 220 25% 12%;
+    /* ── Secondary / muted ───────────────────────────────────────── */
+    --secondary: 280 28% 91%;           /* soft lavender wash */
+    --secondary-foreground: 228 32% 18%;
 
-    --muted: 210 25% 92%;               /* slightly bluer muted bg */
-    --muted-foreground: 220 18% 32%;    /* was 45% lightness — now 32% for +contrast */
+    --muted: 30 25% 92%;                /* warm parchment muted bg */
+    --muted-foreground: 228 20% 38%;    /* legible warm-blue grey */
 
-    --accent: 320 72% 48%;
+    /* ── Accent — coral magenta (the painting's warm pinks/reds) ─── */
+    --accent: 338 74% 50%;              /* vivid raspberry-coral */
     --accent-foreground: 0 0% 100%;
 
-    --destructive: 0 72% 44%;
+    --destructive: 5 76% 48%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 210 22% 80%;              /* slightly darker borders */
-    --input: 210 22% 88%;
-    --ring: 190 90% 36%;
+    /* ── Structure ───────────────────────────────────────────────── */
+    --border: 28 22% 82%;               /* warm sand border */
+    --input: 30 28% 90%;
+    --ring: 183 82% 36%;
 
     --radius: 0.5rem;
-
     --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 
-    /* Sidebar coloured hazes (light mode) */
-    --sidebar-bg: 210 28% 96%;
-    --sidebar-border: 210 22% 82%;
+    /* ── Sidebar ─────────────────────────────────────────────────── */
+    --sidebar-bg: 32 30% 95%;
+    --sidebar-border: 30 22% 84%;
   }
 
-  /* Dark mode theme - Applied when .dark class is on html element */
+  /* ── Dark mode — deep indigo canvas, jewel pigments ─────────────── */
   .dark {
-    --background: 220 20% 10%;
-    --foreground: 210 20% 95%;
+    --background: 228 30% 7%;           /* very deep ink-indigo night */
+    --foreground: 34 28% 93%;           /* warm ivory text, like lamplight on paper */
 
-    --card: 220 18% 12%;
-    --card-foreground: 210 20% 95%;
+    --card: 228 26% 10%;                /* slightly lighter than body, warm-tinged */
+    --card-foreground: 34 28% 93%;
 
-    --popover: 220 18% 12%;
-    --popover-foreground: 210 20% 95%;
+    --popover: 228 26% 10%;
+    --popover-foreground: 34 28% 93%;
 
-    --primary: 190 95% 50%;
-    --primary-foreground: 0 0% 100%;
+    --primary: 183 92% 52%;             /* electric teal — luminous ink */
+    --primary-foreground: 228 30% 7%;
 
-    --supervisor: 150 70% 50%;
-    --supervisor-foreground: 0 0% 100%;
+    --supervisor: 155 70% 52%;
+    --supervisor-foreground: 228 30% 7%;
 
-    --manager: 210 30% 60%;
-    --manager-foreground: 0 0% 100%;
+    --manager: 228 65% 68%;
+    --manager-foreground: 228 30% 7%;
 
-    --secondary: 220 18% 20%;
-    --secondary-foreground: 210 20% 95%;
+    --secondary: 280 22% 18%;           /* deep purple-indigo */
+    --secondary-foreground: 280 40% 85%;
 
-    --muted: 220 18% 18%;
-    --muted-foreground: 210 15% 60%;
+    --muted: 228 22% 14%;
+    --muted-foreground: 228 18% 60%;
 
-    --accent: 320 75% 60%;
+    --accent: 338 80% 62%;              /* vivid coral-magenta on dark */
     --accent-foreground: 0 0% 100%;
 
-    --destructive: 0 70% 55%;
+    --destructive: 5 75% 58%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 220 18% 22%;
-    --input: 220 18% 20%;
-    --ring: 190 95% 50%;
+    --border: 228 22% 18%;
+    --input: 228 22% 16%;
+    --ring: 183 92% 52%;
+
+    --sidebar-bg: 228 28% 9%;
+    --sidebar-border: 228 22% 16%;
   }
 }
 
-/* Base element styles */
+/* ── Base element styles ─────────────────────────────────────────────── */
 @layer base {
   * {
     @apply border-border;
@@ -131,33 +139,56 @@
     @apply bg-background text-foreground;
   }
 
-  /* Watercolor background blobs — light mode only */
+  /* ── Light mode watercolor wash ──────────────────────────────────────
+     Mimics the painting: warm orange/coral bottom-left, cool blue top-right,
+     lavender center, teal top-right, pink middle — all at low opacity
+     so UI elements read clearly on top                                   */
   :root body {
     background-image:
-      radial-gradient(ellipse 55% 45% at 12% 14%, hsl(210 90% 85% / 0.5) 0%, transparent 62%),
-      radial-gradient(ellipse 48% 55% at 88% 10%, hsl(275 72% 88% / 0.42) 0%, transparent 58%),
-      radial-gradient(ellipse 44% 50% at 82% 86%, hsl(155 68% 86% / 0.48) 0%, transparent 55%),
-      radial-gradient(ellipse 58% 42% at 16% 84%, hsl(33 82% 87% / 0.44) 0%, transparent 60%),
-      radial-gradient(ellipse 38% 34% at 52% 50%, hsl(318 65% 90% / 0.28) 0%, transparent 68%);
+      /* warm orange glow — bottom left, like the painting */
+      radial-gradient(ellipse 62% 52% at 8% 88%,  hsl(22  92% 72% / 0.38) 0%, transparent 60%),
+      /* coral-red bloom — left center */
+      radial-gradient(ellipse 45% 55% at 4%  48%,  hsl(8   85% 65% / 0.28) 0%, transparent 58%),
+      /* hot pink / magenta — center */
+      radial-gradient(ellipse 50% 42% at 42% 60%,  hsl(338 78% 68% / 0.22) 0%, transparent 55%),
+      /* lavender — upper center */
+      radial-gradient(ellipse 55% 48% at 55% 20%,  hsl(275 65% 76% / 0.26) 0%, transparent 60%),
+      /* electric teal — top right */
+      radial-gradient(ellipse 52% 55% at 92% 12%,  hsl(188 88% 62% / 0.30) 0%, transparent 58%),
+      /* deep blue — right edge */
+      radial-gradient(ellipse 38% 50% at 96% 55%,  hsl(210 82% 62% / 0.24) 0%, transparent 55%),
+      /* teal-green — bottom right */
+      radial-gradient(ellipse 44% 40% at 84% 90%,  hsl(168 72% 62% / 0.26) 0%, transparent 52%),
+      /* golden highlight — top left */
+      radial-gradient(ellipse 42% 35% at 18% 10%,  hsl(42  88% 76% / 0.22) 0%, transparent 58%);
     background-attachment: fixed;
   }
 
-  /* Remove watercolor in dark mode */
+  /* ── Dark mode watercolor wash ───────────────────────────────────────
+     Same composition but deeply saturated, very low opacity — jewel tones
+     glowing in the dark, like looking at the painting under spotlights      */
   .dark body {
-    background-image: none;
+    background-image:
+      /* warm ember — bottom left */
+      radial-gradient(ellipse 55% 45% at 8%  88%,  hsl(22  90% 45% / 0.18) 0%, transparent 58%),
+      /* deep magenta bloom — center */
+      radial-gradient(ellipse 48% 50% at 42% 55%,  hsl(338 80% 45% / 0.14) 0%, transparent 55%),
+      /* indigo-purple — upper center */
+      radial-gradient(ellipse 52% 45% at 55% 18%,  hsl(268 65% 45% / 0.18) 0%, transparent 58%),
+      /* electric teal — top right */
+      radial-gradient(ellipse 50% 52% at 92% 10%,  hsl(188 90% 40% / 0.20) 0%, transparent 55%),
+      /* ocean blue — right */
+      radial-gradient(ellipse 36% 48% at 96% 52%,  hsl(210 85% 42% / 0.15) 0%, transparent 52%),
+      /* deep teal — bottom right */
+      radial-gradient(ellipse 42% 38% at 82% 90%,  hsl(170 75% 38% / 0.16) 0%, transparent 50%);
+    background-attachment: fixed;
   }
 }
 
 /**
  * Accessibility improvements
- * These utilities improve keyboard navigation and screen reader support
  */
 @layer utilities {
-  /**
-   * Screen reader only content
-   * Text that should only be visible to screen readers, not to sighted users
-   * Example: <span class="sr-only">Loading</span>
-   */
   .sr-only {
     position: absolute;
     width: 1px;
@@ -170,11 +201,6 @@
     border-width: 0;
   }
 
-  /**
-   * Focus visible style for keyboard navigation
-   * Shows outline when user tabs through interactive elements
-   * Improves accessibility for keyboard-only users
-   */
   *:focus-visible {
     @apply outline-none ring-2 ring-ring ring-offset-2 ring-offset-background;
   }
