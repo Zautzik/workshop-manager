@@ -1126,19 +1126,18 @@ export default function WorkflowDashboard({ initialTab = 'en_proceso' }: Workflo
 
         {/* Main Content */}
         <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as WorkflowTab)} className="w-full">
-          <Card className="mb-5 border-border/60 bg-card/70 backdrop-blur-sm p-4 md:p-5 overflow-hidden">
-            <div className="flex flex-col gap-4">
-              <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-2">
-                <div>
-                  <h3 className="text-lg font-bold text-foreground">Mapa del Proceso</h3>
-                  <p className="text-sm text-muted-foreground">Navega todo el flujo operativo desde una sola vista compacta.</p>
-                </div>
-                <div className="text-xs text-muted-foreground">
-                  Módulo activo: <span className="text-foreground font-medium">{workflowTabMeta.find((tab) => tab.value === activeTab)?.label}</span>
-                </div>
+          <Card className="mb-4 border-border/60 bg-card/70 backdrop-blur-sm px-4 py-2 overflow-hidden">
+            <div className="flex items-center justify-between gap-4">
+              {/* Left label */}
+              <div className="shrink-0">
+                <p className="text-xs font-semibold text-foreground leading-tight">Mapa del Proceso</p>
+                <p className="text-[10px] text-muted-foreground leading-tight mt-0.5">
+                  Activo: <span className="text-foreground font-medium">{workflowTabMeta.find((tab) => tab.value === activeTab)?.label}</span>
+                </p>
               </div>
 
-              <div className="flex flex-wrap justify-center gap-x-3 gap-y-6 md:gap-x-4 md:gap-y-7 py-2">
+              {/* Hex row — smaller, single row with wrap */}
+              <div className="flex flex-wrap justify-end gap-x-2 gap-y-3 py-1 flex-1">
                 {workflowTabMeta.map((tab, index) => {
                   const Icon = tab.icon;
                   const isActive = activeTab === tab.value;
@@ -1149,26 +1148,27 @@ export default function WorkflowDashboard({ initialTab = 'en_proceso' }: Workflo
                       key={tab.value}
                       onClick={() => setActiveTab(tab.value)}
                       aria-pressed={isActive}
+                      title={tab.label}
                       style={{
-                        width: 124,
-                        height: 110,
+                        width: 76,
+                        height: 68,
                         cursor: 'pointer',
                         filter: isActive
-                          ? `drop-shadow(0 8px 22px rgb(${tab.rgb} / 0.75))`
-                          : `drop-shadow(0 4px 12px rgb(${tab.rgb} / 0.35))`,
-                        transform: isActive ? 'scale(1.07)' : 'scale(1)',
+                          ? `drop-shadow(0 5px 14px rgb(${tab.rgb} / 0.75))`
+                          : `drop-shadow(0 2px 8px rgb(${tab.rgb} / 0.30))`,
+                        transform: isActive ? 'scale(1.10)' : 'scale(1)',
                         transition: 'filter 0.2s, transform 0.2s',
                         flexShrink: 0,
                       }}
                       onMouseEnter={e => {
                         if (!isActive) {
-                          (e.currentTarget as HTMLDivElement).style.filter = `drop-shadow(0 7px 20px rgb(${tab.rgb} / 0.6))`;
-                          (e.currentTarget as HTMLDivElement).style.transform = 'scale(1.04)';
+                          (e.currentTarget as HTMLDivElement).style.filter = `drop-shadow(0 4px 12px rgb(${tab.rgb} / 0.55))`;
+                          (e.currentTarget as HTMLDivElement).style.transform = 'scale(1.05)';
                         }
                       }}
                       onMouseLeave={e => {
                         if (!isActive) {
-                          (e.currentTarget as HTMLDivElement).style.filter = `drop-shadow(0 4px 12px rgb(${tab.rgb} / 0.35))`;
+                          (e.currentTarget as HTMLDivElement).style.filter = `drop-shadow(0 2px 8px rgb(${tab.rgb} / 0.30))`;
                           (e.currentTarget as HTMLDivElement).style.transform = 'scale(1)';
                         }
                       }}
@@ -1178,10 +1178,10 @@ export default function WorkflowDashboard({ initialTab = 'en_proceso' }: Workflo
                         width: '100%', height: '100%',
                         clipPath: HEX_CLIP,
                         background: isActive
-                          ? `radial-gradient(ellipse 65% 60% at 38% 30%, rgb(${tab.rgb} / 0.75) 0%, rgb(${tab.rgb} / 0.38) 55%, rgb(${tab.rgb} / 0.55) 100%)`
-                          : `radial-gradient(ellipse 65% 60% at 38% 30%, rgb(${tab.rgb} / 0.42) 0%, rgb(${tab.rgb} / 0.14) 55%, rgb(${tab.rgb} / 0.28) 100%)`,
+                          ? `radial-gradient(ellipse 65% 60% at 38% 30%, rgb(${tab.rgb} / 0.80) 0%, rgb(${tab.rgb} / 0.42) 55%, rgb(${tab.rgb} / 0.60) 100%)`
+                          : `radial-gradient(ellipse 65% 60% at 38% 30%, rgb(${tab.rgb} / 0.45) 0%, rgb(${tab.rgb} / 0.16) 55%, rgb(${tab.rgb} / 0.30) 100%)`,
                         display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-                        gap: 4, position: 'relative',
+                        gap: 3, position: 'relative',
                       }}>
                         {/* Gleam */}
                         <div style={{
@@ -1191,26 +1191,20 @@ export default function WorkflowDashboard({ initialTab = 'en_proceso' }: Workflo
                         {/* Active ring */}
                         {isActive && (
                           <div style={{
-                            position: 'absolute', inset: 3, clipPath: HEX_CLIP, pointerEvents: 'none',
+                            position: 'absolute', inset: 2, clipPath: HEX_CLIP, pointerEvents: 'none',
                             background: `radial-gradient(ellipse 80% 80% at 50% 50%, transparent 70%, rgb(${tab.rgb} / 0.5) 100%)`,
                           }} />
                         )}
                         <div style={{
-                          width: 32, height: 32, borderRadius: '50%',
+                          width: 22, height: 22, borderRadius: '50%',
                           background: `rgb(${tab.rgb} / 0.25)`,
                           border: `1.5px solid rgb(${tab.rgb} / 0.55)`,
                           display: 'flex', alignItems: 'center', justifyContent: 'center',
                         }}>
-                          <Icon style={{ width: 14, height: 14, color: `rgb(${tab.rgb})`, filter: 'brightness(1.8)' }} />
+                          <Icon style={{ width: 11, height: 11, color: `rgb(${tab.rgb})`, filter: 'brightness(1.8)' }} />
                         </div>
-                        <span style={{ fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.15em', color: 'rgba(255,255,255,0.5)' }}>
-                          {String(index + 1).padStart(2, '0')}
-                        </span>
-                        <span style={{ fontSize: 11, fontWeight: 700, color: '#fff', textAlign: 'center', lineHeight: 1.2, maxWidth: '80%' }}>
+                        <span style={{ fontSize: 10, fontWeight: 700, color: '#fff', textAlign: 'center', lineHeight: 1.2, maxWidth: '82%' }}>
                           {tab.label}
-                        </span>
-                        <span style={{ fontSize: 9.5, color: 'rgba(255,255,255,0.55)', textAlign: 'center', lineHeight: 1.2, maxWidth: '78%' }}>
-                          {tab.subtitle}
                         </span>
                       </div>
                     </div>
