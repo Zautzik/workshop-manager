@@ -234,43 +234,38 @@ export function OTManagement({ onOTSelect }: OTManagementProps) {
                     return (
                       <div
                         key={stageKey}
-                        className={`flex-1 min-w-[160px] flex flex-col transition-colors duration-100
+                        className={`flex-1 min-w-[80px] flex flex-col transition-colors duration-100
                           ${isOver ? 'ring-2 ring-inset ring-primary/50 bg-primary/5' : ''}`}
                         onDragEnter={(e) => onColEnter(e, stageKey)}
                         onDragLeave={(e) => onColLeave(e, stageKey)}
                         onDragOver={onColOver}
                         onDrop={(e) => onColDrop(e, stageKey)}
                       >
-                        {/* Slim column header */}
-                        <div className="px-2 py-1 border-b border-border/50 flex items-center justify-between bg-card/30">
-                          <div className="flex items-center gap-1.5">
-                            <div className={`w-1.5 h-1.5 rounded-full ${stInfo.color} shrink-0 ${isOver ? 'animate-pulse' : ''}`} />
-                            <span className="text-[10px] font-semibold text-foreground/80 truncate">{stInfo.labelEs}</span>
-                            {isOpt && <span className="text-[9px] text-muted-foreground/60 italic">opt</span>}
+                        {/* Column header */}
+                        <div className="px-1.5 py-0.5 border-b border-border/50 flex items-center justify-between bg-card/30">
+                          <div className="flex items-center gap-1 min-w-0">
+                            <div className={`w-1 h-1 rounded-full ${stInfo.color} shrink-0 ${isOver ? 'animate-pulse' : ''}`} />
+                            <span className="text-[9px] font-semibold text-foreground/80 truncate">{stInfo.labelEs}{isOpt ? <span className="text-muted-foreground/50"> opt</span> : null}</span>
                           </div>
-                          <span className={`text-[10px] font-bold tabular-nums transition-colors duration-100 ${isOver ? 'text-primary' : 'text-muted-foreground/60'}`}>
+                          <span className={`text-[9px] font-bold tabular-nums ml-1 shrink-0 transition-colors duration-100 ${isOver ? 'text-primary' : 'text-muted-foreground/50'}`}>
                             {stageOTs.length}
                           </span>
                         </div>
 
                         {/* Cards */}
-                        <div className={`p-1 space-y-1 flex-1 ${
-                          stageOTs.length === 0 && !isOver ? 'min-h-[28px]' : 'min-h-[28px]'
-                        }`}>
-                          {/* drop hint shown only while dragging over empty col */}
+                        <div className="p-0.5 space-y-0.5 flex-1 min-h-[20px]">
                           {isOver && stageOTs.length === 0 && (
-                            <div className="border border-dashed border-primary/40 rounded text-center text-[9px] text-primary/60 py-1.5">
-                              ↓ {stInfo.labelEs}
+                            <div className="border border-dashed border-primary/40 rounded text-center text-[8px] text-primary/60 py-1">
+                              ↓
                             </div>
                           )}
 
                           {stageOTs.map(ot => {
-                            const nextSt     = getAllNextStatuses(ot.status);
-                            const isDragging  = draggingId === ot.id;
-                            const hasBudget   = ot.status === 'pre_press' || ot.status === 'visto_bueno';
+                            const nextSt    = getAllNextStatuses(ot.status);
+                            const isDragging = draggingId === ot.id;
+                            const hasBudget  = ot.status === 'pre_press' || ot.status === 'visto_bueno';
 
                             return (
-                              // group/hover pattern — actions revealed on hover
                               <div
                                 key={ot.id}
                                 draggable
@@ -281,68 +276,58 @@ export function OTManagement({ onOTSelect }: OTManagementProps) {
                                   'transition-all duration-100 cursor-grab active:cursor-grabbing',
                                   'hover:shadow-sm hover:-translate-y-px',
                                   isDragging
-                                    ? `opacity-30 scale-95 rotate-[0.5deg] border-primary/30`
-                                    : `border-border/60 hover:border-primary/40`,
+                                    ? 'opacity-30 scale-95 border-primary/30'
+                                    : 'border-border/60 hover:border-primary/40',
                                 ].join(' ')}
                                 onClick={() => { if (!isDragging) onOTSelect(ot); }}
                               >
                                 {/* Priority left-bar */}
-                                <div className={`absolute left-0 top-0 bottom-0 w-[3px] rounded-l ${
+                                <div className={`absolute left-0 top-0 bottom-0 w-[2px] rounded-l ${
                                   ot.priority >= 8 ? 'bg-red-500' : ot.priority >= 5 ? 'bg-amber-500' : 'bg-blue-400'
                                 }`} />
 
-                                {/* Main card row */}
-                                <div className="pl-2.5 pr-1 py-1 flex items-center gap-1.5">
-                                  <GripVertical className="w-2.5 h-2.5 text-muted-foreground/25 shrink-0" />
+                                {/* Single-line card row */}
+                                <div className="pl-1.5 pr-1 py-0.5 flex items-center gap-1">
+                                  <GripVertical className="w-2 h-2 text-muted-foreground/20 shrink-0" />
                                   <div className="flex-1 min-w-0">
-                                    <div className="font-semibold text-foreground text-[11px] truncate leading-tight">{ot.ot_number}</div>
-                                    <div className="text-[9px] text-muted-foreground/70 truncate leading-tight">{ot.client_name}</div>
+                                    <div className="font-semibold text-foreground text-[10px] truncate leading-tight">{ot.ot_number}</div>
+                                    <div className="text-[8px] text-muted-foreground/60 truncate leading-tight">{ot.client_name}</div>
                                   </div>
-                                  {/* meta inline */}
-                                  <div className="flex items-center gap-1 shrink-0">
-                                    {ot.deadline && (
-                                      <span className="text-[9px] text-muted-foreground/50 tabular-nums">
-                                        {new Date(ot.deadline).toLocaleDateString('es', { day: '2-digit', month: 'short' })}
-                                      </span>
-                                    )}
-                                    <span className={`text-[9px] font-bold px-1 py-0 rounded ${
-                                      ot.priority >= 8 ? 'text-red-400' : ot.priority >= 5 ? 'text-amber-400' : 'text-blue-400'
-                                    }`}>P{ot.priority}</span>
-                                  </div>
-                                  {/* edit icon — visible on hover */}
-                                  <Button
-                                    size="sm" variant="ghost"
-                                    className="h-4 w-4 p-0 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
-                                    onClick={(e) => { e.stopPropagation(); setEditingOT(ot); setShowEditDialog(true); }}
-                                  >
-                                    <Edit2 className="h-2.5 w-2.5 text-muted-foreground" />
-                                  </Button>
+                                  <span className={`text-[8px] font-bold shrink-0 ${
+                                    ot.priority >= 8 ? 'text-red-400' : ot.priority >= 5 ? 'text-amber-400' : 'text-blue-400'
+                                  }`}>P{ot.priority}</span>
                                 </div>
 
-                                {/* Hover-reveal action row */}
-                                <div className="overflow-hidden max-h-0 group-hover:max-h-20 transition-all duration-200 px-1.5 pb-0 group-hover:pb-1">
-                                  <div className="flex flex-wrap gap-1 pt-0.5 border-t border-border/40">
+                                {/* Hover-reveal actions */}
+                                <div className="overflow-hidden max-h-0 group-hover:max-h-16 transition-all duration-150 px-1 pb-0 group-hover:pb-0.5">
+                                  <div className="flex flex-col gap-0.5 pt-0.5 border-t border-border/40">
                                     {hasBudget && (
                                       <button
-                                        className="flex items-center gap-0.5 text-[9px] text-amber-500 hover:text-amber-400 font-medium"
+                                        className="flex items-center gap-0.5 text-[8px] text-amber-500 hover:text-amber-400 font-medium truncate"
                                         onClick={(e) => { e.stopPropagation(); setBudgetEditOT(ot); }}
                                       >
-                                        <DollarSign className="w-2.5 h-2.5" />Presup.
+                                        <DollarSign className="w-2 h-2 shrink-0" />Presup.
                                       </button>
                                     )}
                                     {nextSt.map(ns => (
                                       <button
                                         key={ns.key}
-                                        className={`flex items-center gap-0.5 text-[9px] font-medium ${
+                                        className={`flex items-center gap-0.5 text-[8px] font-medium truncate ${
                                           (ns as any).optional
                                             ? 'text-muted-foreground hover:text-foreground'
                                             : 'text-primary hover:text-primary/70'
                                         }`}
                                         onClick={(e) => { e.stopPropagation(); requestAdvance(ot, ns.key, ns.labelEs); }}
                                       >
-                                        <ArrowRight className="w-2.5 h-2.5" />{ns.labelEs}
+                                        <ArrowRight className="w-2 h-2 shrink-0" />{ns.labelEs}
                                       </button>
                                     ))}
+                                    <button
+                                      className="flex items-center gap-0.5 text-[8px] text-muted-foreground hover:text-foreground font-medium"
+                                      onClick={(e) => { e.stopPropagation(); setEditingOT(ot); setShowEditDialog(true); }}
+                                    >
+                                      <Edit2 className="w-2 h-2 shrink-0" />Editar
+                                    </button>
                                   </div>
                                 </div>
                               </div>
