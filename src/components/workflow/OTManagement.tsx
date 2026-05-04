@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { useOTs } from "@/hooks/use-workflow-queries";
 import {
-  Plus, ArrowRight, Edit2, Package, Clock, User, DollarSign,
+  Plus, ArrowRight, Edit2, DollarSign,
   ChevronDown, ChevronRight, GripVertical, Search,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -164,10 +164,10 @@ export function OTManagement({ onOTSelect }: OTManagementProps) {
   return (
     <div className="space-y-4">
       {/* Header */}
-      <div className="flex items-center justify-between gap-3 flex-wrap">
-        <div>
-          <h2 className="text-xl font-bold text-foreground">Órdenes de Trabajo</h2>
-          <p className="text-sm text-muted-foreground">{activeOTsCount} activas</p>
+      <div className="flex items-center justify-between gap-2 flex-wrap">
+        <div className="flex items-baseline gap-2">
+          <h2 className="text-base font-bold text-foreground">Órdenes de Trabajo</h2>
+          <span className="text-xs text-muted-foreground">{activeOTsCount} activas</span>
         </div>
         <div className="flex items-center gap-2">
           <div className="relative">
@@ -193,33 +193,31 @@ export function OTManagement({ onOTSelect }: OTManagementProps) {
       )}
 
       {/* 7 Kanban groups */}
-      <div className="space-y-3">
+      <div className="space-y-1.5">
         {KANBAN_GROUPS.map(group => {
           const count      = groupCounts[group.id];
           const isCollapsed = collapsed[group.id];
 
           return (
-            <Card key={group.id} className={`border ${group.borderColor} overflow-hidden`}>
-              {/* Collapsible group header */}
+            <div key={group.id} className={`rounded border ${group.borderColor} overflow-hidden`}>
+              {/* Slim collapsible group header */}
               <button
                 type="button"
-                className={`w-full ${group.colorClass} px-4 py-2 flex items-center justify-between hover:brightness-110 transition-all duration-150 focus:outline-none`}
+                className={`w-full ${group.colorClass} px-3 py-[5px] flex items-center justify-between hover:brightness-110 transition-all duration-150 focus:outline-none`}
                 onClick={() => setCollapsed(p => ({ ...p, [group.id]: !p[group.id] }))}
               >
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5">
                   {isCollapsed
-                    ? <ChevronRight className="w-4 h-4 text-white/80" />
-                    : <ChevronDown  className="w-4 h-4 text-white/80" />}
-                  <span className="font-bold text-white text-sm tracking-wide">{group.label}</span>
+                    ? <ChevronRight className="w-3 h-3 text-white/70" />
+                    : <ChevronDown  className="w-3 h-3 text-white/70" />}
+                  <span className="font-semibold text-white text-[11px] tracking-wide uppercase">{group.label}</span>
                 </div>
-                {count > 0 && (
-                  <Badge className="bg-white/20 text-white border-0 text-xs">{count} OT</Badge>
-                )}
+                <Badge className="bg-white/25 text-white border-0 text-[10px] h-4 px-1.5">{count}</Badge>
               </button>
 
               {/* Stage columns */}
               {!isCollapsed && (
-                <div className={`${group.bgColor} flex gap-0 divide-x divide-border/60 overflow-x-auto`}>
+                <div className={`${group.bgColor} flex divide-x divide-border/50 overflow-x-auto`}>
                   {group.stages.map(stageKey => {
                     const stInfo   = getStatusInfo(stageKey);
                     const stageOTs = getByStatus(stageKey);
@@ -229,144 +227,127 @@ export function OTManagement({ onOTSelect }: OTManagementProps) {
                     return (
                       <div
                         key={stageKey}
-                        className={`flex-1 min-w-[190px] flex flex-col transition-colors duration-150
-                          ${isOver ? 'ring-2 ring-inset ring-primary/60 bg-primary/5' : ''}`}
+                        className={`flex-1 min-w-[160px] flex flex-col transition-colors duration-100
+                          ${isOver ? 'ring-2 ring-inset ring-primary/50 bg-primary/5' : ''}`}
                         onDragEnter={(e) => onColEnter(e, stageKey)}
                         onDragLeave={(e) => onColLeave(e, stageKey)}
                         onDragOver={onColOver}
                         onDrop={(e) => onColDrop(e, stageKey)}
                       >
-                        {/* Column header */}
-                        <div className="px-3 py-2 border-b border-border/60 flex items-center justify-between bg-card/40">
-                          <div className="flex items-center gap-2">
-                            <div className={`w-2 h-2 rounded-full ${stInfo.color} ${isOver ? 'animate-pulse' : ''}`} />
-                            <span className="text-xs font-semibold text-foreground">{stInfo.labelEs}</span>
-                            {isOpt && <span className="text-[10px] text-muted-foreground italic">opt</span>}
+                        {/* Slim column header */}
+                        <div className="px-2 py-1 border-b border-border/50 flex items-center justify-between bg-card/30">
+                          <div className="flex items-center gap-1.5">
+                            <div className={`w-1.5 h-1.5 rounded-full ${stInfo.color} shrink-0 ${isOver ? 'animate-pulse' : ''}`} />
+                            <span className="text-[10px] font-semibold text-foreground/80 truncate">{stInfo.labelEs}</span>
+                            {isOpt && <span className="text-[9px] text-muted-foreground/60 italic">opt</span>}
                           </div>
-                          <Badge
-                            variant="secondary"
-                            className={`text-[10px] h-4 px-1.5 transition-all duration-150 ${isOver ? 'bg-primary text-primary-foreground scale-110' : ''}`}
-                          >
+                          <span className={`text-[10px] font-bold tabular-nums transition-colors duration-100 ${isOver ? 'text-primary' : 'text-muted-foreground/60'}`}>
                             {stageOTs.length}
-                          </Badge>
+                          </span>
                         </div>
 
-                        {/* Animated drop-zone strip */}
-                        <div className={`mx-2 mt-2 rounded-lg border-2 border-dashed text-center text-[10px] text-primary/70 font-medium
-                          transition-all duration-200 overflow-hidden
-                          ${isOver ? 'border-primary/50 bg-primary/5 py-2.5 opacity-100' : 'border-transparent py-0 opacity-0 h-0'}`}>
-                          Soltar en <strong>{stInfo.labelEs}</strong>
-                        </div>
-
-                        {/* OT cards */}
-                        <div className="p-2 space-y-2 min-h-[110px] flex-1">
-                          {stageOTs.length === 0 && !isOver ? (
-                            <div className="flex items-center justify-center h-[72px] text-muted-foreground/30 text-xs select-none">—</div>
-                          ) : (
-                            stageOTs.map(ot => {
-                              const nextSt    = getAllNextStatuses(ot.status);
-                              const isDragging = draggingId === ot.id;
-
-                              return (
-                                <Card
-                                  key={ot.id}
-                                  draggable
-                                  onDragStart={(e) => onDragStart(e, ot)}
-                                  onDragEnd={onDragEnd}
-                                  className={[
-                                    'bg-card border-border p-2.5 select-none',
-                                    'transition-all duration-150',
-                                    'cursor-grab active:cursor-grabbing',
-                                    'hover:border-primary/50 hover:shadow-md hover:-translate-y-0.5',
-                                    isDragging ? `opacity-30 scale-95 rotate-1 ring-2 ${getPriorityRing(ot.priority)}` : '',
-                                    !isDragging ? `hover:ring-1 ${getPriorityRing(ot.priority)}` : '',
-                                  ].join(' ')}
-                                  onClick={() => { if (!isDragging) onOTSelect(ot); }}
-                                >
-                                  {/* drag handle + title */}
-                                  <div className="flex items-start gap-1.5 mb-1">
-                                    <GripVertical className="w-3 h-3 text-muted-foreground/40 mt-0.5 shrink-0" />
-                                    <div className="flex-1 min-w-0">
-                                      <div className="font-bold text-foreground text-xs truncate">{ot.ot_number}</div>
-                                      <div className="flex items-center gap-1 text-[10px] text-muted-foreground mt-0.5">
-                                        <User className="w-2.5 h-2.5" />
-                                        <span className="truncate">{ot.client_name}</span>
-                                      </div>
-                                    </div>
-                                    <Button
-                                      size="sm"
-                                      variant="ghost"
-                                      className="h-5 w-5 p-0 hover:bg-muted shrink-0"
-                                      onClick={(e) => { e.stopPropagation(); setEditingOT(ot); setShowEditDialog(true); }}
-                                    >
-                                      <Edit2 className="h-2.5 w-2.5 text-muted-foreground" />
-                                    </Button>
-                                  </div>
-
-                                  {/* meta */}
-                                  <div className="flex items-center gap-2 mb-1.5 pl-4">
-                                    <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
-                                      <Package className="w-2.5 h-2.5" />
-                                      <span>{ot.quantity.toLocaleString()}</span>
-                                    </div>
-                                    {ot.deadline && (
-                                      <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
-                                        <Clock className="w-2.5 h-2.5" />
-                                        <span>{new Date(ot.deadline).toLocaleDateString('es', { day: '2-digit', month: 'short' })}</span>
-                                      </div>
-                                    )}
-                                    <Badge className={`${getPriorityColor(ot.priority)} text-[9px] h-3.5 px-1 ml-auto`}>
-                                      P{ot.priority}
-                                    </Badge>
-                                  </div>
-
-                                  {/* budget button */}
-                                  {(ot.status === 'pre_press' || ot.status === 'visto_bueno') && (
-                                    <Button
-                                      size="sm" variant="outline"
-                                      className="w-full h-6 text-[10px] mb-1 border-amber-500/40 text-amber-500 hover:bg-amber-500 hover:text-white"
-                                      onClick={(e) => { e.stopPropagation(); setBudgetEditOT(ot); }}
-                                    >
-                                      <DollarSign className="w-2.5 h-2.5 mr-1" />Presupuesto
-                                    </Button>
-                                  )}
-
-                                  {/* advance buttons */}
-                                  {nextSt.length === 1 && (
-                                    <Button
-                                      size="sm" variant="outline"
-                                      className="w-full h-6 text-[10px] border-primary/40 text-primary hover:bg-primary hover:text-primary-foreground"
-                                      onClick={(e) => { e.stopPropagation(); requestAdvance(ot, nextSt[0].key, nextSt[0].labelEs); }}
-                                    >
-                                      <ArrowRight className="w-2.5 h-2.5 mr-1" />{nextSt[0].labelEs}
-                                    </Button>
-                                  )}
-                                  {nextSt.length > 1 && (
-                                    <div className="space-y-1">
-                                      {nextSt.map(ns => (
-                                        <Button
-                                          key={ns.key} size="sm" variant="outline"
-                                          className={`w-full h-6 text-[10px] ${(ns as any).optional
-                                            ? 'border-muted-foreground/40 text-muted-foreground hover:bg-muted'
-                                            : 'border-primary/40 text-primary hover:bg-primary hover:text-primary-foreground'}`}
-                                          onClick={(e) => { e.stopPropagation(); requestAdvance(ot, ns.key, ns.labelEs); }}
-                                        >
-                                          <ArrowRight className="w-2.5 h-2.5 mr-1" />{ns.labelEs}
-                                        </Button>
-                                      ))}
-                                    </div>
-                                  )}
-                                </Card>
-                              );
-                            })
+                        {/* Cards */}
+                        <div className={`p-1 space-y-1 flex-1 ${
+                          stageOTs.length === 0 && !isOver ? 'min-h-[28px]' : 'min-h-[28px]'
+                        }`}>
+                          {/* drop hint shown only while dragging over empty col */}
+                          {isOver && stageOTs.length === 0 && (
+                            <div className="border border-dashed border-primary/40 rounded text-center text-[9px] text-primary/60 py-1.5">
+                              ↓ {stInfo.labelEs}
+                            </div>
                           )}
+
+                          {stageOTs.map(ot => {
+                            const nextSt     = getAllNextStatuses(ot.status);
+                            const isDragging  = draggingId === ot.id;
+                            const hasBudget   = ot.status === 'pre_press' || ot.status === 'visto_bueno';
+
+                            return (
+                              // group/hover pattern — actions revealed on hover
+                              <div
+                                key={ot.id}
+                                draggable
+                                onDragStart={(e) => onDragStart(e, ot)}
+                                onDragEnd={onDragEnd}
+                                className={[
+                                  'group relative rounded border bg-card select-none',
+                                  'transition-all duration-100 cursor-grab active:cursor-grabbing',
+                                  'hover:shadow-sm hover:-translate-y-px',
+                                  isDragging
+                                    ? `opacity-30 scale-95 rotate-[0.5deg] border-primary/30`
+                                    : `border-border/60 hover:border-primary/40`,
+                                ].join(' ')}
+                                onClick={() => { if (!isDragging) onOTSelect(ot); }}
+                              >
+                                {/* Priority left-bar */}
+                                <div className={`absolute left-0 top-0 bottom-0 w-[3px] rounded-l ${
+                                  ot.priority >= 8 ? 'bg-red-500' : ot.priority >= 5 ? 'bg-amber-500' : 'bg-blue-400'
+                                }`} />
+
+                                {/* Main card row */}
+                                <div className="pl-2.5 pr-1 py-1 flex items-center gap-1.5">
+                                  <GripVertical className="w-2.5 h-2.5 text-muted-foreground/25 shrink-0" />
+                                  <div className="flex-1 min-w-0">
+                                    <div className="font-semibold text-foreground text-[11px] truncate leading-tight">{ot.ot_number}</div>
+                                    <div className="text-[9px] text-muted-foreground/70 truncate leading-tight">{ot.client_name}</div>
+                                  </div>
+                                  {/* meta inline */}
+                                  <div className="flex items-center gap-1 shrink-0">
+                                    {ot.deadline && (
+                                      <span className="text-[9px] text-muted-foreground/50 tabular-nums">
+                                        {new Date(ot.deadline).toLocaleDateString('es', { day: '2-digit', month: 'short' })}
+                                      </span>
+                                    )}
+                                    <span className={`text-[9px] font-bold px-1 py-0 rounded ${
+                                      ot.priority >= 8 ? 'text-red-400' : ot.priority >= 5 ? 'text-amber-400' : 'text-blue-400'
+                                    }`}>P{ot.priority}</span>
+                                  </div>
+                                  {/* edit icon — visible on hover */}
+                                  <Button
+                                    size="sm" variant="ghost"
+                                    className="h-4 w-4 p-0 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+                                    onClick={(e) => { e.stopPropagation(); setEditingOT(ot); setShowEditDialog(true); }}
+                                  >
+                                    <Edit2 className="h-2.5 w-2.5 text-muted-foreground" />
+                                  </Button>
+                                </div>
+
+                                {/* Hover-reveal action row */}
+                                <div className="overflow-hidden max-h-0 group-hover:max-h-20 transition-all duration-200 px-1.5 pb-0 group-hover:pb-1">
+                                  <div className="flex flex-wrap gap-1 pt-0.5 border-t border-border/40">
+                                    {hasBudget && (
+                                      <button
+                                        className="flex items-center gap-0.5 text-[9px] text-amber-500 hover:text-amber-400 font-medium"
+                                        onClick={(e) => { e.stopPropagation(); setBudgetEditOT(ot); }}
+                                      >
+                                        <DollarSign className="w-2.5 h-2.5" />Presup.
+                                      </button>
+                                    )}
+                                    {nextSt.map(ns => (
+                                      <button
+                                        key={ns.key}
+                                        className={`flex items-center gap-0.5 text-[9px] font-medium ${
+                                          (ns as any).optional
+                                            ? 'text-muted-foreground hover:text-foreground'
+                                            : 'text-primary hover:text-primary/70'
+                                        }`}
+                                        onClick={(e) => { e.stopPropagation(); requestAdvance(ot, ns.key, ns.labelEs); }}
+                                      >
+                                        <ArrowRight className="w-2.5 h-2.5" />{ns.labelEs}
+                                      </button>
+                                    ))}
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
                         </div>
                       </div>
                     );
                   })}
                 </div>
               )}
-            </Card>
+            </div>
           );
         })}
       </div>
