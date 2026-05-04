@@ -1,13 +1,14 @@
 'use client';
-import { useEffect, useMemo, useState } from "react";
-import { useTheme } from "@/contexts/ThemeContext";
+import { useMemo, useRef, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useOTs } from "@/hooks/use-workflow-queries";
-import { Plus, ArrowRight, Edit2, Info, Package, Clock, User, DollarSign } from "lucide-react";
+import {
+  Plus, ArrowRight, Edit2, Package, Clock, User, DollarSign,
+  ChevronDown, ChevronRight, GripVertical, Search,
+} from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { UnifiedOTWizard } from "./UnifiedOTWizard";
 import { EditBudgetWizard } from "./EditBudgetWizard";
@@ -19,449 +20,375 @@ interface OTManagementProps {
 }
 
 const STATUS_FLOW = [
-  { key: 'pre_press',           label: 'Pre-Press',      labelEs: 'Pre-Prensa',     color: 'bg-violet-500',  rgb: '139 92 246',  description: 'Design & Modeling' },
-  { key: 'visto_bueno',         label: 'Approval',       labelEs: 'Visto Bueno',    color: 'bg-amber-500',   rgb: '245 158 11',  description: 'Customer Confirmation' },
-  { key: 'paper_purchase',      label: 'Paper Purchase', labelEs: 'Compra Papel',   color: 'bg-slate-500',   rgb: '100 116 139', description: 'Ordering materials' },
-  { key: 'in_storage',          label: 'In Storage',     labelEs: 'En Bodega',      color: 'bg-cyan-500',    rgb: '6 182 212',   description: 'Ready for production' },
-  { key: 'guillotine_first_cut',label: 'First Cut',      labelEs: 'Primer Corte',   color: 'bg-orange-500',  rgb: '249 115 22',  description: 'Guillotine initial cut' },
-  { key: 'offset_printing',     label: 'Printing',       labelEs: 'Impresión',      color: 'bg-purple-500',  rgb: '168 85 247',  description: 'Offset printing' },
-  { key: 'die_cutting',         label: 'Die Cutting',    labelEs: 'Troquelado',     color: 'bg-pink-500',    rgb: '236 72 153',  description: 'Die cutting process' },
-  { key: 'guillotine_final_cut',label: 'Final Cut',      labelEs: 'Corte Final',    color: 'bg-red-500',     rgb: '239 68 68',   description: 'Final guillotine cut' },
-  { key: 'workshop',            label: 'Workshop',       labelEs: 'Taller',         color: 'bg-indigo-500',  rgb: '99 102 241',  description: 'Internal workshop', optional: true },
-  { key: 'outsourced',          label: 'Outsourced',     labelEs: 'Tercerizado',    color: 'bg-yellow-500',  rgb: '234 179 8',   description: 'External processing', optional: true },
-  { key: 'workshop_revision',   label: 'Revision',       labelEs: 'Revisión',       color: 'bg-emerald-500', rgb: '16 185 129',  description: 'Quality check & packaging' },
-  { key: 'ready_for_delivery',  label: 'Ready',          labelEs: 'Listo',          color: 'bg-green-500',   rgb: '34 197 94',   description: 'Ready for delivery' },
-  { key: 'in_delivery',         label: 'In Delivery',    labelEs: 'En Entrega',     color: 'bg-teal-500',    rgb: '20 184 166',  description: 'Out for delivery' },
-  { key: 'completed',           label: 'Completed',      labelEs: 'Completado',     color: 'bg-gray-500',    rgb: '107 114 128', description: 'Order finished' },
+  { key: 'pre_press',           label: 'Pre-Press',      labelEs: 'Pre-Prensa',   color: 'bg-violet-500',  rgb: '139 92 246',  description: 'Diseño y modelado' },
+  { key: 'visto_bueno',         label: 'Approval',       labelEs: 'Visto Bueno',  color: 'bg-amber-500',   rgb: '245 158 11',  description: 'Confirmación del cliente' },
+  { key: 'paper_purchase',      label: 'Paper Purchase', labelEs: 'Compra Papel', color: 'bg-slate-500',   rgb: '100 116 139', description: 'Pedido de materiales' },
+  { key: 'in_storage',          label: 'In Storage',     labelEs: 'En Bodega',    color: 'bg-cyan-500',    rgb: '6 182 212',   description: 'Listo para producción' },
+  { key: 'guillotine_first_cut',label: 'First Cut',      labelEs: 'Primer Corte', color: 'bg-orange-500',  rgb: '249 115 22',  description: 'Corte inicial guillotina' },
+  { key: 'offset_printing',     label: 'Printing',       labelEs: 'Impresión',    color: 'bg-purple-500',  rgb: '168 85 247',  description: 'Impresión offset' },
+  { key: 'die_cutting',         label: 'Die Cutting',    labelEs: 'Troquelado',   color: 'bg-pink-500',    rgb: '236 72 153',  description: 'Proceso de troquelado' },
+  { key: 'guillotine_final_cut',label: 'Final Cut',      labelEs: 'Corte Final',  color: 'bg-red-500',     rgb: '239 68 68',   description: 'Corte guillotina final' },
+  { key: 'workshop',            label: 'Workshop',       labelEs: 'Taller',       color: 'bg-indigo-500',  rgb: '99 102 241',  description: 'Taller interno', optional: true },
+  { key: 'outsourced',          label: 'Outsourced',     labelEs: 'Tercerizado',  color: 'bg-yellow-500',  rgb: '234 179 8',   description: 'Procesado externo', optional: true },
+  { key: 'workshop_revision',   label: 'Revision',       labelEs: 'Revisión',     color: 'bg-emerald-500', rgb: '16 185 129',  description: 'Control de calidad' },
+  { key: 'ready_for_delivery',  label: 'Ready',          labelEs: 'Listo',        color: 'bg-green-500',   rgb: '34 197 94',   description: 'Listo para despacho' },
+  { key: 'in_delivery',         label: 'In Delivery',    labelEs: 'En Entrega',   color: 'bg-teal-500',    rgb: '20 184 166',  description: 'En camino' },
+  { key: 'completed',           label: 'Completed',      labelEs: 'Completado',   color: 'bg-gray-500',    rgb: '107 114 128', description: 'Orden finalizada' },
 ] satisfies { key: string; label: string; labelEs: string; color: string; rgb: string; description: string; optional?: boolean }[];
+
+const KANBAN_GROUPS = [
+  { id: 'diseno',      label: 'Diseño',           colorClass: 'bg-violet-600', borderColor: 'border-violet-500/40', bgColor: 'bg-violet-500/5',  stages: ['pre_press', 'visto_bueno'] },
+  { id: 'compras',     label: 'Compras & Bodega', colorClass: 'bg-cyan-600',   borderColor: 'border-cyan-500/40',   bgColor: 'bg-cyan-500/5',    stages: ['paper_purchase', 'in_storage'] },
+  { id: 'corte',       label: 'Corte Inicial',    colorClass: 'bg-orange-600', borderColor: 'border-orange-500/40', bgColor: 'bg-orange-500/5',  stages: ['guillotine_first_cut'] },
+  { id: 'impresion',   label: 'Impresión',        colorClass: 'bg-purple-600', borderColor: 'border-purple-500/40', bgColor: 'bg-purple-500/5',  stages: ['offset_printing'] },
+  { id: 'acabados',    label: 'Acabados',         colorClass: 'bg-pink-600',   borderColor: 'border-pink-500/40',   bgColor: 'bg-pink-500/5',    stages: ['die_cutting', 'guillotine_final_cut'] },
+  { id: 'terminacion', label: 'Terminación',      colorClass: 'bg-indigo-600', borderColor: 'border-indigo-500/40', bgColor: 'bg-indigo-500/5',  stages: ['workshop', 'outsourced', 'workshop_revision'] },
+  { id: 'despacho',    label: 'Despacho',         colorClass: 'bg-green-600',  borderColor: 'border-green-500/40',  bgColor: 'bg-green-500/5',   stages: ['ready_for_delivery', 'in_delivery', 'completed'] },
+] as const;
+
+function getPriorityColor(p: number) {
+  if (p >= 8) return 'bg-red-500/20 text-red-400 border-red-500/40';
+  if (p >= 5) return 'bg-amber-500/20 text-amber-400 border-amber-500/40';
+  return 'bg-blue-500/20 text-blue-400 border-blue-500/40';
+}
+function getPriorityRing(p: number) {
+  if (p >= 8) return 'ring-red-500/50';
+  if (p >= 5) return 'ring-amber-500/50';
+  return 'ring-blue-500/30';
+}
+function getStatusInfo(key: string) { return STATUS_FLOW.find(s => s.key === key) ?? STATUS_FLOW[0]; }
+function getAllNextStatuses(currentStatus: string) {
+  const idx = STATUS_FLOW.findIndex(s => s.key === currentStatus);
+  if (idx < 0 || idx >= STATUS_FLOW.length - 1) return [];
+  if (currentStatus === 'guillotine_final_cut')
+    return STATUS_FLOW.filter(s => ['workshop','outsourced','workshop_revision'].includes(s.key));
+  if (currentStatus === 'workshop' || currentStatus === 'outsourced')
+    return STATUS_FLOW.filter(s => s.key === 'workshop_revision');
+  const next = STATUS_FLOW[idx + 1];
+  if (next && (next.key === 'workshop' || next.key === 'outsourced'))
+    return STATUS_FLOW.filter(s => s.key === 'workshop_revision');
+  return next ? [next] : [];
+}
 
 export function OTManagement({ onOTSelect }: OTManagementProps) {
   const { data: ots = [], refetch: refetchOTs } = useOTs();
-  const [activeStage, setActiveStage] = useState<string>(STATUS_FLOW[0].key);
-  const [createFlow, setCreateFlow] = useState<'none' | 'wizard'>('none');
-  const [showEditDialog, setShowEditDialog] = useState(false);
-  const [editingOT, setEditingOT] = useState<any>(null);
-  const [budgetEditOT, setBudgetEditOT] = useState<any>(null);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [costEntryOT, setCostEntryOT] = useState<any>(null);
-  const [costEntryTarget, setCostEntryTarget] = useState<{ key: string; label: string } | null>(null);
   const { toast } = useToast();
 
+  const [createFlow,      setCreateFlow]      = useState<'none' | 'wizard'>('none');
+  const [showEditDialog,  setShowEditDialog]  = useState(false);
+  const [editingOT,       setEditingOT]       = useState<any>(null);
+  const [budgetEditOT,    setBudgetEditOT]    = useState<any>(null);
+  const [costEntryOT,     setCostEntryOT]     = useState<any>(null);
+  const [costEntryTarget, setCostEntryTarget] = useState<{ key: string; label: string } | null>(null);
+  const [searchTerm,      setSearchTerm]      = useState("");
+  const [collapsed,       setCollapsed]       = useState<Record<string, boolean>>({});
+  const [draggedOT,       setDraggedOT]       = useState<any>(null);
+  const [dragOverCol,     setDragOverCol]     = useState<string | null>(null);
+  const [draggingId,      setDraggingId]      = useState<string | null>(null);
+  const dragCounter = useRef<Record<string, number>>({});
+
   const updateOTStatus = async (otId: string, newStatus: string) => {
-    const response = await fetch(`/api/ots/${otId}/transition`, {
+    const res = await fetch(`/api/ots/${otId}/transition`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        to_status: newStatus,
-        reason: 'kanban_advance',
-      }),
+      body: JSON.stringify({ to_status: newStatus, reason: 'kanban_advance' }),
     });
-
-    if (!response.ok) {
-      const errorBody = await response.json().catch(() => null);
-      toast({
-        title: "Error al actualizar estado",
-        description: errorBody?.error || 'Request failed',
-        variant: "destructive",
-      });
+    if (!res.ok) {
+      const body = await res.json().catch(() => null);
+      toast({ title: "Error al actualizar estado", description: body?.error ?? 'Request failed', variant: "destructive" });
       return;
     }
-    
-    toast({ title: "OT avanzada a la siguiente estación" });
+    toast({ title: "OT movida", description: `→ ${getStatusInfo(newStatus).labelEs}` });
     refetchOTs();
   };
 
-  const filteredOTs = ots.filter(ot => 
+  const requestAdvance = (ot: any, key: string, label: string) => {
+    setCostEntryOT(ot); setCostEntryTarget({ key, label });
+  };
+  const confirmAdvance = () => {
+    if (costEntryOT && costEntryTarget) updateOTStatus(costEntryOT.id, costEntryTarget.key);
+    setCostEntryOT(null); setCostEntryTarget(null);
+  };
+
+  const filteredOTs = ots.filter(ot =>
     ot.ot_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
     ot.client_name.toLowerCase().includes(searchTerm.toLowerCase())
   );
-
-  const { theme } = useTheme();
-  const isDark = theme === 'dark';
-
-  const stageStats = useMemo(
-    () => STATUS_FLOW.map((stage) => ({
-      ...stage,
-      count: filteredOTs.filter((ot) => ot.status === stage.key).length,
-    })),
-    [filteredOTs]
-  );
-
-  const getOTsByStatus = (statusKey: string) => {
-    return filteredOTs
-      .filter(ot => ot.status === statusKey)
-      .sort((a, b) => b.priority - a.priority);
-  };
-
-  const getStatusInfo = (status: string) => {
-    return STATUS_FLOW.find(s => s.key === status) || STATUS_FLOW[0];
-  };
-
-  useEffect(() => {
-    if (!STATUS_FLOW.some((stage) => stage.key === activeStage)) {
-      setActiveStage(STATUS_FLOW[0].key);
-      return;
-    }
-
-    const currentStageCount = stageStats.find((stage) => stage.key === activeStage)?.count ?? 0;
-    if (currentStageCount === 0) {
-      const firstWithOrders = stageStats.find((stage) => stage.count > 0);
-      if (firstWithOrders) setActiveStage(firstWithOrders.key);
-    }
-  }, [activeStage, stageStats]);
-
-  const getNextStatuses = (currentStatus: string) => {
-    const currentIndex = STATUS_FLOW.findIndex(s => s.key === currentStatus);
-    if (currentIndex >= STATUS_FLOW.length - 1) return [];
-
-    // From guillotine_final_cut: offer Workshop, Outsourced, or skip to Revision
-    if (currentStatus === 'guillotine_final_cut') {
-      return STATUS_FLOW.filter(s => 
-        s.key === 'workshop' || s.key === 'outsourced' || s.key === 'workshop_revision'
-      );
-    }
-
-    // From workshop or outsourced: go to Revision
-    if (currentStatus === 'workshop' || currentStatus === 'outsourced') {
-      return STATUS_FLOW.filter(s => s.key === 'workshop_revision');
-    }
-
-    // Default: next step in flow (skip optional steps)
-    const next = STATUS_FLOW[currentIndex + 1];
-    if (next && (next.key === 'workshop' || next.key === 'outsourced')) {
-      return STATUS_FLOW.filter(s => s.key === 'workshop_revision');
-    }
-
-    return next ? [next] : [];
-  };
-
-  const handleEditOT = (ot: any, e: React.MouseEvent) => {
-    e.stopPropagation();
-    setEditingOT(ot);
-    setShowEditDialog(true);
-  };
-
-  /** Open the real-cost dialog before advancing an OT */
-  const requestAdvance = (ot: any, targetStatusKey: string, targetStatusLabel: string) => {
-    setCostEntryOT(ot);
-    setCostEntryTarget({ key: targetStatusKey, label: targetStatusLabel });
-  };
-
-  /** Actually advance (called from the dialog after costs are saved or skipped) */
-  const confirmAdvance = () => {
-    if (costEntryOT && costEntryTarget) {
-      updateOTStatus(costEntryOT.id, costEntryTarget.key);
-    }
-    setCostEntryOT(null);
-    setCostEntryTarget(null);
-  };
+  const getByStatus = (key: string) =>
+    filteredOTs.filter(ot => ot.status === key).sort((a, b) => b.priority - a.priority);
 
   const activeOTsCount = filteredOTs.filter(ot => ot.status !== 'completed').length;
-  const activeStageInfo = getStatusInfo(activeStage);
-  const activeStageOTs = getOTsByStatus(activeStage);
 
-  const getPriorityColor = (priority: number) => {
-    if (priority >= 8) return 'bg-red-500/20 text-red-400 border-red-500/40';
-    if (priority >= 5) return 'bg-amber-500/20 text-amber-400 border-amber-500/40';
-    return 'bg-blue-500/20 text-blue-400 border-blue-500/40';
+  const groupCounts = useMemo(() =>
+    Object.fromEntries(KANBAN_GROUPS.map(g => [
+      g.id, g.stages.reduce((s, k) => s + getByStatus(k).length, 0),
+    ])), [filteredOTs]);
+
+  // ── drag handlers ────────────────────────────────────────────────────────
+  const onDragStart = (e: React.DragEvent, ot: any) => {
+    setDraggedOT(ot);
+    setDraggingId(ot.id);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', ot.id);
+    const ghost = document.createElement('div');
+    ghost.textContent = ot.ot_number;
+    ghost.style.cssText = 'padding:6px 14px;background:#6366f1;color:#fff;border-radius:8px;font-size:12px;font-weight:700;position:fixed;top:-999px;left:-999px;';
+    document.body.appendChild(ghost);
+    e.dataTransfer.setDragImage(ghost, 40, 16);
+    requestAnimationFrame(() => document.body.removeChild(ghost));
+  };
+
+  const onDragEnd = () => {
+    setDraggedOT(null); setDraggingId(null); setDragOverCol(null);
+    dragCounter.current = {};
+  };
+
+  const onColEnter = (e: React.DragEvent, key: string) => {
+    e.preventDefault();
+    dragCounter.current[key] = (dragCounter.current[key] ?? 0) + 1;
+    setDragOverCol(key);
+  };
+  const onColLeave = (e: React.DragEvent, key: string) => {
+    dragCounter.current[key] = Math.max(0, (dragCounter.current[key] ?? 1) - 1);
+    if (dragCounter.current[key] === 0) setDragOverCol(p => p === key ? null : p);
+  };
+  const onColOver  = (e: React.DragEvent) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; };
+  const onColDrop  = (e: React.DragEvent, key: string) => {
+    e.preventDefault();
+    dragCounter.current[key] = 0; setDragOverCol(null);
+    if (!draggedOT || draggedOT.status === key) return;
+    requestAdvance(draggedOT, key, getStatusInfo(key).labelEs);
+    setDraggedOT(null); setDraggingId(null);
   };
 
   return (
     <div className="space-y-4">
-      {/* Instructions */}
-      <Alert className="bg-card/60 border border-border">
-        <Info className="h-4 w-4 text-primary" />
-        <AlertDescription className="text-sm text-muted-foreground">
-          Las OTs avanzan de izquierda a derecha por estación. Use <strong className="text-foreground">Avanzar</strong> para mover al siguiente paso.
-        </AlertDescription>
-      </Alert>
-
-      {/* Header — title + controls + mini process map side-by-side */}
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        {/* Left: title, search, new button */}
-        <div className="flex flex-col gap-2">
-          <div>
-            <h2 className="text-xl font-bold text-foreground">Órdenes de Trabajo</h2>
-            <p className="text-sm text-muted-foreground">{activeOTsCount} activas</p>
-          </div>
-          <div className="flex items-center gap-2">
+      {/* Header */}
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div>
+          <h2 className="text-xl font-bold text-foreground">Órdenes de Trabajo</h2>
+          <p className="text-sm text-muted-foreground">{activeOTsCount} activas</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="relative">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
             <Input
               placeholder="Buscar OT o cliente..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="bg-input border-border placeholder:text-muted-foreground w-52"
+              className="bg-input border-border placeholder:text-muted-foreground w-52 pl-8"
             />
-            <Button
-              onClick={() => setCreateFlow('wizard')}
-              className="bg-primary hover:bg-primary/90"
-            >
-              <Plus className="w-4 h-4 mr-1" />
-              Nueva OT
-            </Button>
           </div>
+          <Button onClick={() => setCreateFlow('wizard')} className="bg-primary hover:bg-primary/90">
+            <Plus className="w-4 h-4 mr-1" />Nueva OT
+          </Button>
         </div>
+      </div>
 
-        {/* Right: compact honeycomb process map */}
-        {(() => {
-          const HEX_CLIP = 'polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)';
-          const HW = 108;   // hex width px
-          const HH = 96;    // hex height px
-          const GAP = 5;    // gap between hexes px
-          const COL_STEP = HW + GAP;              // 113 px
-          const V_STEP   = Math.round(HH * 0.76); // 73 px — rows overlap ¼
+      {/* Floating drag hint */}
+      {draggingId && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-foreground text-background text-xs font-semibold px-4 py-2 rounded-full shadow-xl pointer-events-none select-none">
+          Arrastra a cualquier columna para mover la OT
+        </div>
+      )}
 
-          // [5, 5, 4] honeycomb — 3 rows fit all 14 stages
-          const ROWS = [
-            stageStats.slice(0, 5),    // row 0 — no offset
-            stageStats.slice(5, 10),   // row 1 — offset right
-            stageStats.slice(10, 14),  // row 2 — no offset
-          ];
-
-          const containerW = 5 * COL_STEP + Math.round(COL_STEP / 2) + 4; // ≈ 622 px
-          const containerH = HH + 2 * V_STEP + 10;                         // ≈ 252 px
+      {/* 7 Kanban groups */}
+      <div className="space-y-3">
+        {KANBAN_GROUPS.map(group => {
+          const count      = groupCounts[group.id];
+          const isCollapsed = collapsed[group.id];
 
           return (
-            <div className="flex flex-col items-end gap-1 shrink-0">
-              <span className="text-[10px] font-medium text-muted-foreground tracking-wide uppercase">Mapa de Proceso</span>
-              <div style={{ position: 'relative', width: containerW, height: containerH }}>
-                {ROWS.map((row, rowIdx) => {
-                  const isOffsetRow = rowIdx % 2 === 1;
-                  const xBase = isOffsetRow ? Math.round(COL_STEP / 2) : 0;
-                  const y = rowIdx * V_STEP;
-                  return row.map((stage, colIdx) => {
-                    const x = xBase + colIdx * COL_STEP;
-                    const isActive = stage.key === activeStage;
-                    const activeFill   = isDark ? { c: 0.88, m: 0.50, e: 0.70 } : { c: 0.78, m: 0.50, e: 0.66 };
-                    const inactiveFill = isDark ? { c: 0.55, m: 0.22, e: 0.40 } : { c: 0.68, m: 0.38, e: 0.54 };
-                    const fill         = isActive ? activeFill : inactiveFill;
-                    const shadowActive = isDark ? 0.80 : 0.50;
-                    const shadowIdle   = isDark ? 0.30 : 0.20;
-                    const labelColor   = isDark ? '#fff' : `rgb(${stage.rgb})`;
-                    const labelFilter  = isDark ? 'none' : 'brightness(0.5)';
+            <Card key={group.id} className={`border ${group.borderColor} overflow-hidden`}>
+              {/* Collapsible group header */}
+              <button
+                type="button"
+                className={`w-full ${group.colorClass} px-4 py-2 flex items-center justify-between hover:brightness-110 transition-all duration-150 focus:outline-none`}
+                onClick={() => setCollapsed(p => ({ ...p, [group.id]: !p[group.id] }))}
+              >
+                <div className="flex items-center gap-2">
+                  {isCollapsed
+                    ? <ChevronRight className="w-4 h-4 text-white/80" />
+                    : <ChevronDown  className="w-4 h-4 text-white/80" />}
+                  <span className="font-bold text-white text-sm tracking-wide">{group.label}</span>
+                </div>
+                {count > 0 && (
+                  <Badge className="bg-white/20 text-white border-0 text-xs">{count} OT</Badge>
+                )}
+              </button>
+
+              {/* Stage columns */}
+              {!isCollapsed && (
+                <div className={`${group.bgColor} flex gap-0 divide-x divide-border/60 overflow-x-auto`}>
+                  {group.stages.map(stageKey => {
+                    const stInfo   = getStatusInfo(stageKey);
+                    const stageOTs = getByStatus(stageKey);
+                    const isOpt    = 'optional' in stInfo && stInfo.optional;
+                    const isOver   = dragOverCol === stageKey && !!draggingId;
+
                     return (
                       <div
-                        key={stage.key}
-                        title={`${stage.labelEs}${stage.count > 0 ? ` — ${stage.count} OT` : ''}`}
-                        onClick={() => setActiveStage(stage.key)}
-                        style={{
-                          position: 'absolute', left: x, top: y,
-                          width: HW, height: HH, cursor: 'pointer',
-                          filter: isActive
-                            ? `drop-shadow(0 4px 10px rgb(${stage.rgb} / ${shadowActive}))`
-                            : `drop-shadow(0 2px 5px rgb(${stage.rgb} / ${shadowIdle}))`,
-                          transform: isActive ? 'scale(1.15)' : 'scale(1)',
-                          transition: 'filter 0.18s, transform 0.18s',
-                          zIndex: isActive ? 2 : 1,
-                        }}
-                        onMouseEnter={e => {
-                          if (!isActive) {
-                            (e.currentTarget as HTMLDivElement).style.filter = `drop-shadow(0 3px 8px rgb(${stage.rgb} / 0.55))`;
-                            (e.currentTarget as HTMLDivElement).style.transform = 'scale(1.08)';
-                          }
-                        }}
-                        onMouseLeave={e => {
-                          if (!isActive) {
-                            (e.currentTarget as HTMLDivElement).style.filter = `drop-shadow(0 2px 5px rgb(${stage.rgb} / ${shadowIdle}))`;
-                            (e.currentTarget as HTMLDivElement).style.transform = 'scale(1)';
-                          }
-                        }}
+                        key={stageKey}
+                        className={`flex-1 min-w-[190px] flex flex-col transition-colors duration-150
+                          ${isOver ? 'ring-2 ring-inset ring-primary/60 bg-primary/5' : ''}`}
+                        onDragEnter={(e) => onColEnter(e, stageKey)}
+                        onDragLeave={(e) => onColLeave(e, stageKey)}
+                        onDragOver={onColOver}
+                        onDrop={(e) => onColDrop(e, stageKey)}
                       >
-                        <div style={{
-                          width: '100%', height: '100%', clipPath: HEX_CLIP, position: 'relative',
-                          background: `radial-gradient(ellipse 65% 60% at 38% 28%, rgb(${stage.rgb} / ${fill.c}) 0%, rgb(${stage.rgb} / ${fill.m}) 55%, rgb(${stage.rgb} / ${fill.e}) 100%)`,
-                          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 1,
-                        }}>
-                          {/* Gleam */}
-                          <div style={{
-                            position: 'absolute', inset: 0, clipPath: HEX_CLIP, pointerEvents: 'none',
-                            background: `radial-gradient(ellipse 50% 38% at 30% 20%, rgba(255,255,255,${isDark ? 0.20 : 0.32}) 0%, transparent 65%)`,
-                          }} />
-                          <span style={{ fontSize: 13, fontWeight: 700, color: labelColor, filter: labelFilter, textAlign: 'center', lineHeight: 1.25, maxWidth: '86%', zIndex: 1 }}>
-                              {stage.labelEs}
-                            </span>
-                          {stage.count > 0 && (
-                            <span style={{
-                              fontSize: 15, fontWeight: 800, lineHeight: 1, zIndex: 1,
-                              color: `rgb(${stage.rgb})`,
-                              filter: isDark ? 'brightness(1.9)' : 'brightness(0.6)',
-                            }}>
-                              {stage.count}
-                            </span>
+                        {/* Column header */}
+                        <div className="px-3 py-2 border-b border-border/60 flex items-center justify-between bg-card/40">
+                          <div className="flex items-center gap-2">
+                            <div className={`w-2 h-2 rounded-full ${stInfo.color} ${isOver ? 'animate-pulse' : ''}`} />
+                            <span className="text-xs font-semibold text-foreground">{stInfo.labelEs}</span>
+                            {isOpt && <span className="text-[10px] text-muted-foreground italic">opt</span>}
+                          </div>
+                          <Badge
+                            variant="secondary"
+                            className={`text-[10px] h-4 px-1.5 transition-all duration-150 ${isOver ? 'bg-primary text-primary-foreground scale-110' : ''}`}
+                          >
+                            {stageOTs.length}
+                          </Badge>
+                        </div>
+
+                        {/* Animated drop-zone strip */}
+                        <div className={`mx-2 mt-2 rounded-lg border-2 border-dashed text-center text-[10px] text-primary/70 font-medium
+                          transition-all duration-200 overflow-hidden
+                          ${isOver ? 'border-primary/50 bg-primary/5 py-2.5 opacity-100' : 'border-transparent py-0 opacity-0 h-0'}`}>
+                          Soltar en <strong>{stInfo.labelEs}</strong>
+                        </div>
+
+                        {/* OT cards */}
+                        <div className="p-2 space-y-2 min-h-[110px] flex-1">
+                          {stageOTs.length === 0 && !isOver ? (
+                            <div className="flex items-center justify-center h-[72px] text-muted-foreground/30 text-xs select-none">—</div>
+                          ) : (
+                            stageOTs.map(ot => {
+                              const nextSt    = getAllNextStatuses(ot.status);
+                              const isDragging = draggingId === ot.id;
+
+                              return (
+                                <Card
+                                  key={ot.id}
+                                  draggable
+                                  onDragStart={(e) => onDragStart(e, ot)}
+                                  onDragEnd={onDragEnd}
+                                  className={[
+                                    'bg-card border-border p-2.5 select-none',
+                                    'transition-all duration-150',
+                                    'cursor-grab active:cursor-grabbing',
+                                    'hover:border-primary/50 hover:shadow-md hover:-translate-y-0.5',
+                                    isDragging ? `opacity-30 scale-95 rotate-1 ring-2 ${getPriorityRing(ot.priority)}` : '',
+                                    !isDragging ? `hover:ring-1 ${getPriorityRing(ot.priority)}` : '',
+                                  ].join(' ')}
+                                  onClick={() => { if (!isDragging) onOTSelect(ot); }}
+                                >
+                                  {/* drag handle + title */}
+                                  <div className="flex items-start gap-1.5 mb-1">
+                                    <GripVertical className="w-3 h-3 text-muted-foreground/40 mt-0.5 shrink-0" />
+                                    <div className="flex-1 min-w-0">
+                                      <div className="font-bold text-foreground text-xs truncate">{ot.ot_number}</div>
+                                      <div className="flex items-center gap-1 text-[10px] text-muted-foreground mt-0.5">
+                                        <User className="w-2.5 h-2.5" />
+                                        <span className="truncate">{ot.client_name}</span>
+                                      </div>
+                                    </div>
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      className="h-5 w-5 p-0 hover:bg-muted shrink-0"
+                                      onClick={(e) => { e.stopPropagation(); setEditingOT(ot); setShowEditDialog(true); }}
+                                    >
+                                      <Edit2 className="h-2.5 w-2.5 text-muted-foreground" />
+                                    </Button>
+                                  </div>
+
+                                  {/* meta */}
+                                  <div className="flex items-center gap-2 mb-1.5 pl-4">
+                                    <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                                      <Package className="w-2.5 h-2.5" />
+                                      <span>{ot.quantity.toLocaleString()}</span>
+                                    </div>
+                                    {ot.deadline && (
+                                      <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                                        <Clock className="w-2.5 h-2.5" />
+                                        <span>{new Date(ot.deadline).toLocaleDateString('es', { day: '2-digit', month: 'short' })}</span>
+                                      </div>
+                                    )}
+                                    <Badge className={`${getPriorityColor(ot.priority)} text-[9px] h-3.5 px-1 ml-auto`}>
+                                      P{ot.priority}
+                                    </Badge>
+                                  </div>
+
+                                  {/* budget button */}
+                                  {(ot.status === 'pre_press' || ot.status === 'visto_bueno') && (
+                                    <Button
+                                      size="sm" variant="outline"
+                                      className="w-full h-6 text-[10px] mb-1 border-amber-500/40 text-amber-500 hover:bg-amber-500 hover:text-white"
+                                      onClick={(e) => { e.stopPropagation(); setBudgetEditOT(ot); }}
+                                    >
+                                      <DollarSign className="w-2.5 h-2.5 mr-1" />Presupuesto
+                                    </Button>
+                                  )}
+
+                                  {/* advance buttons */}
+                                  {nextSt.length === 1 && (
+                                    <Button
+                                      size="sm" variant="outline"
+                                      className="w-full h-6 text-[10px] border-primary/40 text-primary hover:bg-primary hover:text-primary-foreground"
+                                      onClick={(e) => { e.stopPropagation(); requestAdvance(ot, nextSt[0].key, nextSt[0].labelEs); }}
+                                    >
+                                      <ArrowRight className="w-2.5 h-2.5 mr-1" />{nextSt[0].labelEs}
+                                    </Button>
+                                  )}
+                                  {nextSt.length > 1 && (
+                                    <div className="space-y-1">
+                                      {nextSt.map(ns => (
+                                        <Button
+                                          key={ns.key} size="sm" variant="outline"
+                                          className={`w-full h-6 text-[10px] ${(ns as any).optional
+                                            ? 'border-muted-foreground/40 text-muted-foreground hover:bg-muted'
+                                            : 'border-primary/40 text-primary hover:bg-primary hover:text-primary-foreground'}`}
+                                          onClick={(e) => { e.stopPropagation(); requestAdvance(ot, ns.key, ns.labelEs); }}
+                                        >
+                                          <ArrowRight className="w-2.5 h-2.5 mr-1" />{ns.labelEs}
+                                        </Button>
+                                      ))}
+                                    </div>
+                                  )}
+                                </Card>
+                              );
+                            })
                           )}
                         </div>
                       </div>
                     );
-                  });
-                })}
-              </div>
-            </div>
+                  })}
+                </div>
+              )}
+            </Card>
           );
-        })()}
+        })}
       </div>
 
-      {/* Focused stage board */}
-      <div className="space-y-4">
-        <div className="w-full">
-          <div className={`${activeStageInfo.color} rounded-t-lg p-3`}>
-            <div className="flex items-center justify-between">
-              <h3 className="font-bold text-white text-sm">{activeStageInfo.labelEs}</h3>
-              <Badge variant="secondary" className="bg-white/20 text-white border-0">{activeStageOTs.length}</Badge>
-            </div>
-            <p className="text-white/70 text-xs mt-1">{activeStageInfo.description}</p>
-          </div>
-
-          <div className="bg-muted/30 border border-t-0 border-border rounded-b-lg min-h-[420px] max-h-[70vh] overflow-y-auto p-2 space-y-2">
-            {activeStageOTs.length === 0 ? (
-              <div className="flex items-center justify-center h-32 text-muted-foreground text-xs">Sin órdenes</div>
-            ) : (
-              activeStageOTs.map((ot) => {
-                const nextStatuses = getNextStatuses(ot.status);
-
-                return (
-                  <Card
-                    key={ot.id}
-                    className="bg-card border-border p-3 hover:border-primary/50 transition-all cursor-pointer"
-                    onClick={() => onOTSelect(ot)}
-                  >
-                    <div className="flex items-start justify-between gap-2 mb-2">
-                      <div className="flex-1 min-w-0">
-                        <h4 className="font-bold text-foreground text-sm truncate">{ot.ot_number}</h4>
-                        <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                          <User className="w-3 h-3" />
-                          <span className="truncate">{ot.client_name}</span>
-                        </div>
-                      </div>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="h-6 w-6 p-0 hover:bg-muted flex-shrink-0"
-                        onClick={(e) => handleEditOT(ot, e)}
-                      >
-                        <Edit2 className="h-3 w-3 text-muted-foreground" />
-                      </Button>
-                    </div>
-
-                    <div className="flex items-center gap-2 mb-2">
-                      <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                        <Package className="w-3 h-3" />
-                        <span>{ot.quantity.toLocaleString()}</span>
-                      </div>
-                      {ot.deadline && (
-                        <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                          <Clock className="w-3 h-3" />
-                          <span>{new Date(ot.deadline).toLocaleDateString()}</span>
-                        </div>
-                      )}
-                    </div>
-
-                    <Badge className={`${getPriorityColor(ot.priority)} text-xs mb-2`}>P{ot.priority}</Badge>
-
-                    {(ot.status === 'pre_press' || ot.status === 'visto_bueno') && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="w-full h-7 text-xs mb-1 border-amber-500/40 text-amber-400 hover:bg-amber-500 hover:text-white"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setBudgetEditOT(ot);
-                        }}
-                      >
-                        <DollarSign className="w-3 h-3 mr-1" />
-                        Modificar Presupuesto
-                      </Button>
-                    )}
-
-                    {nextStatuses.length === 1 && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="w-full h-7 text-xs border-primary/40 text-primary hover:bg-primary hover:text-primary-foreground"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          requestAdvance(ot, nextStatuses[0].key, nextStatuses[0].labelEs);
-                        }}
-                      >
-                        <ArrowRight className="w-3 h-3 mr-1" />
-                        {nextStatuses[0].labelEs}
-                      </Button>
-                    )}
-                    {nextStatuses.length > 1 && (
-                      <div className="space-y-1">
-                        {nextStatuses.map((ns) => (
-                          <Button
-                            key={ns.key}
-                            size="sm"
-                            variant="outline"
-                            className={`w-full h-7 text-xs ${
-                              ns.optional
-                                ? 'border-muted-foreground/40 text-muted-foreground hover:bg-muted hover:text-foreground'
-                                : 'border-primary/40 text-primary hover:bg-primary hover:text-primary-foreground'
-                            }`}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              requestAdvance(ot, ns.key, ns.labelEs);
-                            }}
-                          >
-                            <ArrowRight className="w-3 h-3 mr-1" />
-                            {ns.labelEs}
-                          </Button>
-                        ))}
-                      </div>
-                    )}
-                  </Card>
-                );
-              })
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Unified creation wizard */}
+      {/* Dialogs */}
       {createFlow === 'wizard' && (
         <div className="fixed inset-0 z-50 bg-background overflow-y-auto">
-          <UnifiedOTWizard
-            onClose={() => setCreateFlow('none')}
-            onSuccess={() => {
-              refetchOTs();
-              setCreateFlow('none');
-            }}
-          />
+          <UnifiedOTWizard onClose={() => setCreateFlow('none')} onSuccess={() => { refetchOTs(); setCreateFlow('none'); }} />
         </div>
       )}
-
-      {/* Budget edit wizard (full-screen) */}
       {budgetEditOT && (
         <div className="fixed inset-0 z-50 bg-background overflow-y-auto">
-          <EditBudgetWizard
-            ot={budgetEditOT}
-            onClose={() => setBudgetEditOT(null)}
-            onSuccess={() => {
-              refetchOTs();
-              setBudgetEditOT(null);
-            }}
-          />
+          <EditBudgetWizard ot={budgetEditOT} onClose={() => setBudgetEditOT(null)} onSuccess={() => { refetchOTs(); setBudgetEditOT(null); }} />
         </div>
       )}
-
       {editingOT && (
-        <EditOTDialog
-          ot={editingOT}
-          open={showEditDialog}
-          onOpenChange={setShowEditDialog}
-          onSuccess={refetchOTs}
-        />
+        <EditOTDialog ot={editingOT} open={showEditDialog} onOpenChange={setShowEditDialog} onSuccess={refetchOTs} />
       )}
-
-      {/* Real Cost Entry Dialog (before advancing) */}
       {costEntryOT && costEntryTarget && (
         <RealCostEntryDialog
           open={!!costEntryOT}
-          onOpenChange={(open) => {
-            if (!open) {
-              setCostEntryOT(null);
-              setCostEntryTarget(null);
-            }
-          }}
+          onOpenChange={(open) => { if (!open) { setCostEntryOT(null); setCostEntryTarget(null); } }}
           ot={costEntryOT}
           targetStatus={costEntryTarget.key}
           targetStatusLabel={costEntryTarget.label}
