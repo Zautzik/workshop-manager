@@ -24,8 +24,9 @@ const STATUS_FLOW = [
   { key: 'visto_bueno',         label: 'Approval',       labelEs: 'Visto Bueno',  color: 'bg-amber-500',   rgb: '245 158 11',  description: 'Confirmación del cliente' },
   { key: 'paper_purchase',      label: 'Paper Purchase', labelEs: 'Compra Papel', color: 'bg-slate-500',   rgb: '100 116 139', description: 'Pedido de materiales' },
   { key: 'in_storage',          label: 'In Storage',     labelEs: 'En Bodega',    color: 'bg-cyan-500',    rgb: '6 182 212',   description: 'Listo para producción' },
-  { key: 'guillotine_first_cut',label: 'First Cut',      labelEs: 'Primer Corte', color: 'bg-orange-500',  rgb: '249 115 22',  description: 'Corte inicial guillotina' },
-  { key: 'offset_printing',     label: 'Printing',       labelEs: 'Impresión',    color: 'bg-purple-500',  rgb: '168 85 247',  description: 'Impresión offset' },
+  { key: 'guillotine_first_cut',label: 'First Cut',       labelEs: 'Primer Corte',     color: 'bg-orange-500',  rgb: '249 115 22',  description: 'Corte inicial guillotina' },
+  { key: 'offset_printing',     label: 'Offset Print',    labelEs: 'Impresión Offset', color: 'bg-purple-500',  rgb: '168 85 247',  description: 'Impresión offset' },
+  { key: 'digital_printing',    label: 'Digital Print',   labelEs: 'Impresión Digital',color: 'bg-fuchsia-500', rgb: '217 70 239',  description: 'Impresión digital' },
   { key: 'die_cutting',         label: 'Die Cutting',    labelEs: 'Troquelado',   color: 'bg-pink-500',    rgb: '236 72 153',  description: 'Proceso de troquelado' },
   { key: 'guillotine_final_cut',label: 'Final Cut',      labelEs: 'Corte Final',  color: 'bg-red-500',     rgb: '239 68 68',   description: 'Corte guillotina final' },
   { key: 'workshop',            label: 'Workshop',       labelEs: 'Taller',       color: 'bg-indigo-500',  rgb: '99 102 241',  description: 'Taller interno', optional: true },
@@ -39,8 +40,7 @@ const STATUS_FLOW = [
 const KANBAN_GROUPS = [
   { id: 'diseno',      label: 'Diseño',           colorClass: 'bg-violet-600', borderColor: 'border-violet-500/40', bgColor: 'bg-violet-500/5',  stages: ['pre_press', 'visto_bueno'] },
   { id: 'compras',     label: 'Compras & Bodega', colorClass: 'bg-cyan-600',   borderColor: 'border-cyan-500/40',   bgColor: 'bg-cyan-500/5',    stages: ['paper_purchase', 'in_storage'] },
-  { id: 'corte',       label: 'Corte Inicial',    colorClass: 'bg-orange-600', borderColor: 'border-orange-500/40', bgColor: 'bg-orange-500/5',  stages: ['guillotine_first_cut'] },
-  { id: 'impresion',   label: 'Impresión',        colorClass: 'bg-purple-600', borderColor: 'border-purple-500/40', bgColor: 'bg-purple-500/5',  stages: ['offset_printing'] },
+  { id: 'produccion',  label: 'Corte & Impresión',colorClass: 'bg-orange-600', borderColor: 'border-orange-500/40', bgColor: 'bg-orange-500/5',  stages: ['guillotine_first_cut', 'offset_printing', 'digital_printing'] },
   { id: 'acabados',    label: 'Acabados',         colorClass: 'bg-pink-600',   borderColor: 'border-pink-500/40',   bgColor: 'bg-pink-500/5',    stages: ['die_cutting', 'guillotine_final_cut'] },
   { id: 'terminacion', label: 'Terminación',      colorClass: 'bg-indigo-600', borderColor: 'border-indigo-500/40', bgColor: 'bg-indigo-500/5',  stages: ['workshop', 'outsourced', 'workshop_revision'] },
   { id: 'despacho',    label: 'Despacho',         colorClass: 'bg-green-600',  borderColor: 'border-green-500/40',  bgColor: 'bg-green-500/5',   stages: ['ready_for_delivery', 'in_delivery', 'completed'] },
@@ -60,12 +60,19 @@ function getStatusInfo(key: string) { return STATUS_FLOW.find(s => s.key === key
 function getAllNextStatuses(currentStatus: string) {
   const idx = STATUS_FLOW.findIndex(s => s.key === currentStatus);
   if (idx < 0 || idx >= STATUS_FLOW.length - 1) return [];
+  // from first cut: offer both offset AND digital printing
+  if (currentStatus === 'guillotine_first_cut')
+    return STATUS_FLOW.filter(s => s.key === 'offset_printing' || s.key === 'digital_printing');
+  // both printing types lead to die_cutting
+  if (currentStatus === 'offset_printing' || currentStatus === 'digital_printing')
+    return STATUS_FLOW.filter(s => s.key === 'die_cutting');
   if (currentStatus === 'guillotine_final_cut')
     return STATUS_FLOW.filter(s => ['workshop','outsourced','workshop_revision'].includes(s.key));
   if (currentStatus === 'workshop' || currentStatus === 'outsourced')
     return STATUS_FLOW.filter(s => s.key === 'workshop_revision');
   const next = STATUS_FLOW[idx + 1];
-  if (next && (next.key === 'workshop' || next.key === 'outsourced'))
+  // skip digital_printing in default flow (it's a fork, not linear)
+  if (next && (next.key === 'digital_printing' || next.key === 'workshop' || next.key === 'outsourced'))
     return STATUS_FLOW.filter(s => s.key === 'workshop_revision');
   return next ? [next] : [];
 }

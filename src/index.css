@@ -39,12 +39,12 @@
  */
 @layer base {
   :root {
-    /* ── Canvas — pure white like the painting's bright white areas ── */
-    --background: 0 0% 98%;             /* clean white — let the wash blobs provide the color */
+    /* ── Canvas — warm peachy parchment, clearly not pure white ── */
+    --background: 28 42% 95%;           /* soft warm cream — the painting's lightest zone */
     --foreground: 225 28% 14%;          /* deep blue-ink near-black */
 
-    /* ── Surface cards — pure white so content is crisp ─────────── */
-    --card: 0 0% 100%;
+    /* ── Surface cards — very slightly warm, will be frosted via CSS ── */
+    --card: 30 18% 99%;
     --card-foreground: 225 28% 14%;
 
     --popover: 0 0% 100%;
@@ -76,8 +76,8 @@
     --destructive-foreground: 0 0% 100%;
 
     /* ── Structure ───────────────────────────────────────────────── */
-    --border: 220 16% 86%;              /* cool light grey border */
-    --input: 220 18% 92%;
+    --border: 24 22% 82%;               /* warm sand border */
+    --input: 26 22% 91%;
     --ring: 188 82% 36%;
 
     --radius: 0.5rem;
@@ -145,21 +145,35 @@
      so UI elements read clearly on top                                   */
   :root body {
     background-image:
-      /* vivid orange-coral flood — bottom left (dominant warm zone) */
-      radial-gradient(ellipse 70% 60% at 0%   92%,  hsl(20  100% 65% / 0.55) 0%, transparent 55%),
-      /* coral-red — left side bleed */
-      radial-gradient(ellipse 42% 60% at 0%   52%,  hsl(6   88%  58% / 0.40) 0%, transparent 55%),
+      /* golden sunrise — top-left corner */
+      radial-gradient(ellipse 55% 48% at 0%    0%,   hsl(42  96%  66% / 0.72) 0%, transparent 58%),
+      /* vivid orange-coral flood — bottom left */
+      radial-gradient(ellipse 72% 62% at 0%   96%,   hsl(18 100%  63% / 0.78) 0%, transparent 56%),
+      /* coral-red left bleed */
+      radial-gradient(ellipse 40% 58% at 0%   52%,   hsl(6   90%  56% / 0.52) 0%, transparent 54%),
       /* hot magenta-pink — lower center */
-      radial-gradient(ellipse 52% 44% at 40%  68%,  hsl(338 90%  62% / 0.35) 0%, transparent 50%),
+      radial-gradient(ellipse 54% 46% at 40%  72%,   hsl(338 92%  60% / 0.58) 0%, transparent 52%),
       /* soft purple-lavender — upper center */
-      radial-gradient(ellipse 58% 52% at 52%  16%,  hsl(272 72%  70% / 0.38) 0%, transparent 55%),
+      radial-gradient(ellipse 60% 54% at 54%  12%,   hsl(272 74%  68% / 0.60) 0%, transparent 56%),
       /* electric teal — top right corner */
-      radial-gradient(ellipse 55% 58% at 100% 5%,   hsl(188 92%  58% / 0.48) 0%, transparent 55%),
+      radial-gradient(ellipse 58% 60% at 100%  4%,   hsl(188 94%  56% / 0.72) 0%, transparent 56%),
       /* sky blue — right center */
-      radial-gradient(ellipse 40% 52% at 100% 50%,  hsl(208 86%  60% / 0.38) 0%, transparent 52%),
+      radial-gradient(ellipse 42% 54% at 100% 52%,   hsl(208 88%  58% / 0.60) 0%, transparent 52%),
       /* teal-green — bottom right */
-      radial-gradient(ellipse 48% 42% at 88%  92%,  hsl(168 78%  56% / 0.40) 0%, transparent 50%);
+      radial-gradient(ellipse 50% 44% at 90%  96%,   hsl(168 80%  54% / 0.65) 0%, transparent 52%);
     background-attachment: fixed;
+  }
+
+  /* ── Frosted-glass cards — let the watercolor bleed through ── */
+  html:not(.dark) .bg-card {
+    background-color: rgb(255 252 248 / 0.72) !important;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+  html:not(.dark) .bg-popover {
+    background-color: rgb(255 253 250 / 0.92) !important;
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
   }
 
   /* ── Dark mode watercolor wash ───────────────────────────────────────
