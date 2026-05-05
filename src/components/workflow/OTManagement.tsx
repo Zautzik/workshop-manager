@@ -2,7 +2,6 @@
 import { useMemo, useRef, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { useOTs } from "@/hooks/use-workflow-queries";
 import {
@@ -38,12 +37,12 @@ const STATUS_FLOW = [
 ] satisfies { key: string; label: string; labelEs: string; color: string; rgb: string; description: string; optional?: boolean }[];
 
 const KANBAN_GROUPS = [
-  { id: 'diseno',      label: 'Diseño',           colorClass: 'bg-violet-600', borderColor: 'border-violet-500/40', bgColor: 'bg-violet-500/5',  stages: ['pre_press', 'visto_bueno'] },
-  { id: 'compras',     label: 'Compras & Bodega', colorClass: 'bg-cyan-600',   borderColor: 'border-cyan-500/40',   bgColor: 'bg-cyan-500/5',    stages: ['paper_purchase', 'in_storage'] },
-  { id: 'produccion',  label: 'Corte & Impresión',colorClass: 'bg-orange-600', borderColor: 'border-orange-500/40', bgColor: 'bg-orange-500/5',  stages: ['guillotine_first_cut', 'offset_printing', 'digital_printing'] },
-  { id: 'acabados',    label: 'Acabados',         colorClass: 'bg-pink-600',   borderColor: 'border-pink-500/40',   bgColor: 'bg-pink-500/5',    stages: ['die_cutting', 'guillotine_final_cut'] },
-  { id: 'terminacion', label: 'Terminación',      colorClass: 'bg-indigo-600', borderColor: 'border-indigo-500/40', bgColor: 'bg-indigo-500/5',  stages: ['workshop', 'outsourced', 'workshop_revision'] },
-  { id: 'despacho',    label: 'Despacho',         colorClass: 'bg-green-600',  borderColor: 'border-green-500/40',  bgColor: 'bg-green-500/5',   stages: ['ready_for_delivery', 'in_delivery', 'completed'] },
+  { id: 'diseno',      label: 'Diseño',           rgb: '139 92 246', borderColor: 'border-violet-500/30', bgColor: 'bg-violet-500/5',  stages: ['pre_press', 'visto_bueno'] },
+  { id: 'compras',     label: 'Compras & Bodega', rgb: '6 182 212',  borderColor: 'border-cyan-500/30',   bgColor: 'bg-cyan-500/5',    stages: ['paper_purchase', 'in_storage'] },
+  { id: 'produccion',  label: 'Corte & Impresión',rgb: '249 115 22', borderColor: 'border-orange-500/30', bgColor: 'bg-orange-500/5',  stages: ['guillotine_first_cut', 'offset_printing', 'digital_printing'] },
+  { id: 'acabados',    label: 'Acabados',         rgb: '236 72 153', borderColor: 'border-pink-500/30',   bgColor: 'bg-pink-500/5',    stages: ['die_cutting', 'guillotine_final_cut'] },
+  { id: 'terminacion', label: 'Terminación',      rgb: '99 102 241', borderColor: 'border-indigo-500/30', bgColor: 'bg-indigo-500/5',  stages: ['workshop', 'outsourced', 'workshop_revision'] },
+  { id: 'despacho',    label: 'Despacho',         rgb: '34 197 94',  borderColor: 'border-green-500/30',  bgColor: 'bg-green-500/5',   stages: ['ready_for_delivery', 'in_delivery', 'completed'] },
 ] as const;
 
 function getPriorityColor(p: number) {
@@ -199,150 +198,187 @@ export function OTManagement({ onOTSelect }: OTManagementProps) {
         </div>
       )}
 
-      {/* 7 Kanban groups */}
-      <div className="space-y-1.5">
-        {KANBAN_GROUPS.map(group => {
-          const count      = groupCounts[group.id];
-          const isCollapsed = collapsed[group.id];
+      {/* Honeycomb Kanban groups — 3-col grid, middle item in each row offset down */}
+      {(() => {
+        const HEX_CLIP = 'polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)';
+        return (
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(3, 1fr)',
+              gap: '12px',
+              paddingTop: '44px', // room for protruding hex badges
+            }}
+          >
+            {KANBAN_GROUPS.map((group, idx) => {
+              const count      = groupCounts[group.id];
+              const isCollapsed = collapsed[group.id];
+              const isOffset   = idx % 3 === 1; // middle column shifts down
 
-          return (
-            <div key={group.id} className={`rounded border ${group.borderColor} overflow-hidden`}>
-              {/* Slim collapsible group header */}
-              <button
-                type="button"
-                className={`w-full ${group.colorClass} px-3 py-[5px] flex items-center justify-between hover:brightness-110 transition-all duration-150 focus:outline-none`}
-                onClick={() => setCollapsed(p => ({ ...p, [group.id]: !p[group.id] }))}
-              >
-                <div className="flex items-center gap-1.5">
-                  {isCollapsed
-                    ? <ChevronRight className="w-3 h-3 text-white/70" />
-                    : <ChevronDown  className="w-3 h-3 text-white/70" />}
-                  <span className="font-semibold text-white text-[11px] tracking-wide uppercase">{group.label}</span>
-                </div>
-                <Badge className="bg-white/25 text-white border-0 text-[10px] h-4 px-1.5">{count}</Badge>
-              </button>
+              return (
+                <div key={group.id} style={{ marginTop: isOffset ? 32 : 0, position: 'relative' }}>
 
-              {/* Stage columns */}
-              {!isCollapsed && (
-                <div className={`${group.bgColor} flex divide-x divide-border/50 overflow-x-auto`}>
-                  {group.stages.map(stageKey => {
-                    const stInfo   = getStatusInfo(stageKey);
-                    const stageOTs = getByStatus(stageKey);
-                    const isOpt    = 'optional' in stInfo && stInfo.optional;
-                    const isOver   = dragOverCol === stageKey && !!draggingId;
+                  {/* ── Protruding hex badge (same style as WorkflowDashboard nav) ── */}
+                  <button
+                    type="button"
+                    style={{
+                      position: 'absolute', top: -40, left: '50%',
+                      transform: 'translateX(-50%)',
+                      width: 80, height: 70,
+                      border: 'none', padding: 0, background: 'none',
+                      cursor: 'pointer', zIndex: 10,
+                      filter: `drop-shadow(0 4px 10px rgb(${group.rgb} / 0.55))`,
+                      transition: 'filter 0.15s, transform 0.15s',
+                    }}
+                    onMouseEnter={e => {
+                      (e.currentTarget as HTMLButtonElement).style.filter = `drop-shadow(0 6px 14px rgb(${group.rgb} / 0.75))`;
+                      (e.currentTarget as HTMLButtonElement).style.transform = 'translateX(-50%) scale(1.10)';
+                    }}
+                    onMouseLeave={e => {
+                      (e.currentTarget as HTMLButtonElement).style.filter = `drop-shadow(0 4px 10px rgb(${group.rgb} / 0.55))`;
+                      (e.currentTarget as HTMLButtonElement).style.transform = 'translateX(-50%) scale(1)';
+                    }}
+                    onClick={() => setCollapsed(p => ({ ...p, [group.id]: !p[group.id] }))}
+                  >
+                    <div style={{
+                      width: '100%', height: '100%', clipPath: HEX_CLIP, position: 'relative',
+                      background: `radial-gradient(ellipse 65% 60% at 38% 28%,
+                        rgb(${group.rgb} / 0.88) 0%,
+                        rgb(${group.rgb} / 0.52) 55%,
+                        rgb(${group.rgb} / 0.68) 100%)`,
+                      display: 'flex', flexDirection: 'column',
+                      alignItems: 'center', justifyContent: 'center', gap: 2,
+                    }}>
+                      {/* Gleam */}
+                      <div style={{
+                        position: 'absolute', inset: 0, clipPath: HEX_CLIP, pointerEvents: 'none',
+                        background: 'radial-gradient(ellipse 50% 40% at 30% 20%, rgba(255,255,255,0.22) 0%, transparent 70%)',
+                      }} />
+                      {isCollapsed
+                        ? <ChevronRight style={{ width: 10, height: 10, color: 'rgba(255,255,255,0.7)', zIndex: 1 }} />
+                        : <ChevronDown  style={{ width: 10, height: 10, color: 'rgba(255,255,255,0.7)', zIndex: 1 }} />}
+                      <span style={{ fontSize: 9, fontWeight: 700, color: '#fff', textAlign: 'center', lineHeight: 1.2, maxWidth: '82%', zIndex: 1 }}>
+                        {group.label}
+                      </span>
+                      {count > 0 && (
+                        <span style={{ fontSize: 13, fontWeight: 800, color: '#fff', lineHeight: 1, zIndex: 1 }}>
+                          {count}
+                        </span>
+                      )}
+                    </div>
+                  </button>
 
-                    return (
-                      <div
-                        key={stageKey}
-                        className={`flex-1 min-w-[80px] flex flex-col transition-colors duration-100
-                          ${isOver ? 'ring-2 ring-inset ring-primary/50 bg-primary/5' : ''}`}
-                        onDragEnter={(e) => onColEnter(e, stageKey)}
-                        onDragLeave={(e) => onColLeave(e, stageKey)}
-                        onDragOver={onColOver}
-                        onDrop={(e) => onColDrop(e, stageKey)}
-                      >
-                        {/* Column header */}
-                        <div className="px-1.5 py-0.5 border-b border-border/50 flex items-center justify-between bg-card/30">
-                          <div className="flex items-center gap-1 min-w-0">
-                            <div className={`w-1 h-1 rounded-full ${stInfo.color} shrink-0 ${isOver ? 'animate-pulse' : ''}`} />
-                            <span className="text-[9px] font-semibold text-foreground/80 truncate">{stInfo.labelEs}{isOpt ? <span className="text-muted-foreground/50"> opt</span> : null}</span>
-                          </div>
-                          <span className={`text-[9px] font-bold tabular-nums ml-1 shrink-0 transition-colors duration-100 ${isOver ? 'text-primary' : 'text-muted-foreground/50'}`}>
-                            {stageOTs.length}
-                          </span>
-                        </div>
+                  {/* ── Card body ── */}
+                  <div className={`rounded-xl border ${group.borderColor} overflow-hidden`}
+                    style={{ paddingTop: '44px' }}>
+                    {!isCollapsed ? (
+                      <div className={`${group.bgColor} flex divide-x divide-border/50 overflow-x-auto`}>
+                        {group.stages.map(stageKey => {
+                          const stInfo   = getStatusInfo(stageKey);
+                          const stageOTs = getByStatus(stageKey);
+                          const isOpt    = 'optional' in stInfo && stInfo.optional;
+                          const isOver   = dragOverCol === stageKey && !!draggingId;
 
-                        {/* Cards */}
-                        <div className="p-0.5 space-y-0.5 flex-1 min-h-[20px]">
-                          {isOver && stageOTs.length === 0 && (
-                            <div className="border border-dashed border-primary/40 rounded text-center text-[8px] text-primary/60 py-1">
-                              ↓
-                            </div>
-                          )}
-
-                          {stageOTs.map(ot => {
-                            const nextSt    = getAllNextStatuses(ot.status);
-                            const isDragging = draggingId === ot.id;
-                            const hasBudget  = ot.status === 'pre_press' || ot.status === 'visto_bueno';
-
-                            return (
-                              <div
-                                key={ot.id}
-                                draggable
-                                onDragStart={(e) => onDragStart(e, ot)}
-                                onDragEnd={onDragEnd}
-                                className={[
-                                  'group relative rounded border bg-card select-none',
-                                  'transition-all duration-100 cursor-grab active:cursor-grabbing',
-                                  'hover:shadow-sm hover:-translate-y-px',
-                                  isDragging
-                                    ? 'opacity-30 scale-95 border-primary/30'
-                                    : 'border-border/60 hover:border-primary/40',
-                                ].join(' ')}
-                                onClick={() => { if (!isDragging) onOTSelect(ot); }}
-                              >
-                                {/* Priority left-bar */}
-                                <div className={`absolute left-0 top-0 bottom-0 w-[2px] rounded-l ${
-                                  ot.priority >= 8 ? 'bg-red-500' : ot.priority >= 5 ? 'bg-amber-500' : 'bg-blue-400'
-                                }`} />
-
-                                {/* Single-line card row */}
-                                <div className="pl-1.5 pr-1 py-0.5 flex items-center gap-1">
-                                  <GripVertical className="w-2 h-2 text-muted-foreground/20 shrink-0" />
-                                  <div className="flex-1 min-w-0">
-                                    <div className="font-semibold text-foreground text-[10px] truncate leading-tight">{ot.ot_number}</div>
-                                    <div className="text-[8px] text-muted-foreground/60 truncate leading-tight">{ot.client_name}</div>
-                                  </div>
-                                  <span className={`text-[8px] font-bold shrink-0 ${
-                                    ot.priority >= 8 ? 'text-red-400' : ot.priority >= 5 ? 'text-amber-400' : 'text-blue-400'
-                                  }`}>P{ot.priority}</span>
+                          return (
+                            <div
+                              key={stageKey}
+                              className={`flex-1 min-w-[80px] flex flex-col transition-colors duration-100
+                                ${isOver ? 'ring-2 ring-inset ring-primary/50 bg-primary/5' : ''}`}
+                              onDragEnter={(e) => onColEnter(e, stageKey)}
+                              onDragLeave={(e) => onColLeave(e, stageKey)}
+                              onDragOver={onColOver}
+                              onDrop={(e) => onColDrop(e, stageKey)}
+                            >
+                              {/* Column header */}
+                              <div className="px-1.5 py-0.5 border-b border-border/50 flex items-center justify-between bg-card/30">
+                                <div className="flex items-center gap-1 min-w-0">
+                                  <div className={`w-1 h-1 rounded-full ${stInfo.color} shrink-0 ${isOver ? 'animate-pulse' : ''}`} />
+                                  <span className="text-[9px] font-semibold text-foreground/80 truncate">
+                                    {stInfo.labelEs}{isOpt ? <span className="text-muted-foreground/50"> opt</span> : null}
+                                  </span>
                                 </div>
-
-                                {/* Hover-reveal actions */}
-                                <div className="overflow-hidden max-h-0 group-hover:max-h-16 transition-all duration-150 px-1 pb-0 group-hover:pb-0.5">
-                                  <div className="flex flex-col gap-0.5 pt-0.5 border-t border-border/40">
-                                    {hasBudget && (
-                                      <button
-                                        className="flex items-center gap-0.5 text-[8px] text-amber-500 hover:text-amber-400 font-medium truncate"
-                                        onClick={(e) => { e.stopPropagation(); setBudgetEditOT(ot); }}
-                                      >
-                                        <DollarSign className="w-2 h-2 shrink-0" />Presup.
-                                      </button>
-                                    )}
-                                    {nextSt.map(ns => (
-                                      <button
-                                        key={ns.key}
-                                        className={`flex items-center gap-0.5 text-[8px] font-medium truncate ${
-                                          (ns as any).optional
-                                            ? 'text-muted-foreground hover:text-foreground'
-                                            : 'text-primary hover:text-primary/70'
-                                        }`}
-                                        onClick={(e) => { e.stopPropagation(); requestAdvance(ot, ns.key, ns.labelEs); }}
-                                      >
-                                        <ArrowRight className="w-2 h-2 shrink-0" />{ns.labelEs}
-                                      </button>
-                                    ))}
-                                    <button
-                                      className="flex items-center gap-0.5 text-[8px] text-muted-foreground hover:text-foreground font-medium"
-                                      onClick={(e) => { e.stopPropagation(); setEditingOT(ot); setShowEditDialog(true); }}
-                                    >
-                                      <Edit2 className="w-2 h-2 shrink-0" />Editar
-                                    </button>
-                                  </div>
-                                </div>
+                                <span className={`text-[9px] font-bold tabular-nums ml-1 shrink-0 transition-colors duration-100 ${isOver ? 'text-primary' : 'text-muted-foreground/50'}`}>
+                                  {stageOTs.length}
+                                </span>
                               </div>
-                            );
-                          })}
-                        </div>
+
+                              {/* Cards */}
+                              <div className="p-0.5 space-y-0.5 flex-1 min-h-[20px]">
+                                {isOver && stageOTs.length === 0 && (
+                                  <div className="border border-dashed border-primary/40 rounded text-center text-[8px] text-primary/60 py-1">↓</div>
+                                )}
+                                {stageOTs.map(ot => {
+                                  const nextSt    = getAllNextStatuses(ot.status);
+                                  const isDragging = draggingId === ot.id;
+                                  const hasBudget  = ot.status === 'pre_press' || ot.status === 'visto_bueno';
+                                  return (
+                                    <div
+                                      key={ot.id}
+                                      draggable
+                                      onDragStart={(e) => onDragStart(e, ot)}
+                                      onDragEnd={onDragEnd}
+                                      className={[
+                                        'group relative rounded border bg-card select-none',
+                                        'transition-all duration-100 cursor-grab active:cursor-grabbing',
+                                        'hover:shadow-sm hover:-translate-y-px',
+                                        isDragging ? 'opacity-30 scale-95 border-primary/30' : 'border-border/60 hover:border-primary/40',
+                                      ].join(' ')}
+                                      onClick={() => { if (!isDragging) onOTSelect(ot); }}
+                                    >
+                                      <div className={`absolute left-0 top-0 bottom-0 w-[2px] rounded-l ${
+                                        ot.priority >= 8 ? 'bg-red-500' : ot.priority >= 5 ? 'bg-amber-500' : 'bg-blue-400'
+                                      }`} />
+                                      <div className="pl-1.5 pr-1 py-0.5 flex items-center gap-1">
+                                        <GripVertical className="w-2 h-2 text-muted-foreground/20 shrink-0" />
+                                        <div className="flex-1 min-w-0">
+                                          <div className="font-semibold text-foreground text-[10px] truncate leading-tight">{ot.ot_number}</div>
+                                          <div className="text-[8px] text-muted-foreground/60 truncate leading-tight">{ot.client_name}</div>
+                                        </div>
+                                        <span className={`text-[8px] font-bold shrink-0 ${
+                                          ot.priority >= 8 ? 'text-red-400' : ot.priority >= 5 ? 'text-amber-400' : 'text-blue-400'
+                                        }`}>P{ot.priority}</span>
+                                      </div>
+                                      <div className="overflow-hidden max-h-0 group-hover:max-h-16 transition-all duration-150 px-1 pb-0 group-hover:pb-0.5">
+                                        <div className="flex flex-col gap-0.5 pt-0.5 border-t border-border/40">
+                                          {hasBudget && (
+                                            <button className="flex items-center gap-0.5 text-[8px] text-amber-500 hover:text-amber-400 font-medium"
+                                              onClick={(e) => { e.stopPropagation(); setBudgetEditOT(ot); }}>
+                                              <DollarSign className="w-2 h-2 shrink-0" />Presup.
+                                            </button>
+                                          )}
+                                          {nextSt.map(ns => (
+                                            <button key={ns.key}
+                                              className={`flex items-center gap-0.5 text-[8px] font-medium ${
+                                                (ns as any).optional ? 'text-muted-foreground hover:text-foreground' : 'text-primary hover:text-primary/70'
+                                              }`}
+                                              onClick={(e) => { e.stopPropagation(); requestAdvance(ot, ns.key, ns.labelEs); }}>
+                                              <ArrowRight className="w-2 h-2 shrink-0" />{ns.labelEs}
+                                            </button>
+                                          ))}
+                                          <button className="flex items-center gap-0.5 text-[8px] text-muted-foreground hover:text-foreground font-medium"
+                                            onClick={(e) => { e.stopPropagation(); setEditingOT(ot); setShowEditDialog(true); }}>
+                                            <Edit2 className="w-2 h-2 shrink-0" />Editar
+                                          </button>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          );
+                        })}
                       </div>
-                    );
-                  })}
+                    ) : (
+                      <div className={`${group.bgColor} h-3`} />
+                    )}
+                  </div>
                 </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
+              );
+            })}
+          </div>
+        );
+      })()}
 
       {/* Dialogs */}
       {createFlow === 'wizard' && (
