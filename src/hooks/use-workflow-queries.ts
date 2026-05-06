@@ -79,9 +79,22 @@ export function useMachines() {
   return useQuery({
     queryKey: ['machines'],
     queryFn: async () => {
-      const { data, error } = await supabase.from('machines').select('*').order('name');
-      if (error) throw error;
-      return data ?? [];
+      const response = await fetch('/api/machines', {
+        credentials: 'include',
+      });
+
+      let payload: any = null;
+      try {
+        payload = await response.json();
+      } catch {
+        payload = null;
+      }
+
+      if (!response.ok) {
+        throw new Error(payload?.error || 'Failed to fetch machines');
+      }
+
+      return payload ?? [];
     },
   });
 }

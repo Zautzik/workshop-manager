@@ -176,7 +176,7 @@ function DroppableWorkstation({
 					{getWorkstationIcon(station.type)}
 					<div className='min-w-0'>
 						<h3 className='font-bold text-foreground text-lg leading-tight truncate'>
-							{station.display_name ?? station.machine?.name ?? station.name}
+							{station.machine?.name ?? station.display_name ?? station.name}
 						</h3>
 						{station.machine?.brand || station.machine?.model ? (
 							<p className='text-xs text-muted-foreground truncate'>

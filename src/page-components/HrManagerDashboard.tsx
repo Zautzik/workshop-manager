@@ -480,6 +480,9 @@ const HrManagerDashboard = () => {
     if (employeeForm.id) {
       queryClient.invalidateQueries({ queryKey: hrQueryKeys.employee(employeeForm.id) });
     }
+    queryClient.invalidateQueries({ queryKey: ['workers', 'rating'] });
+    queryClient.invalidateQueries({ queryKey: ['monthlyPayroll'] });
+    queryClient.invalidateQueries({ queryKey: ['orderLaborMargin'] });
     toast({ title: 'Employee saved', description: `${data.full_name} is up to date.` });
     setEmployeeDialogOpen(false);
     resetEmployeeForm();
@@ -573,6 +576,9 @@ const HrManagerDashboard = () => {
       current.map((item) => (item.id === optimisticId ? data : item)),
     );
     queryClient.invalidateQueries({ queryKey: listKey });
+    queryClient.invalidateQueries({ queryKey: ['compensationRates'] });
+    queryClient.invalidateQueries({ queryKey: ['monthlyPayroll'] });
+    queryClient.invalidateQueries({ queryKey: ['orderLaborMargin'] });
     toast({ title: 'Rate added', description: 'Compensation rate is live.' });
     setCompDialogOpen(false);
     setCompensationForm({

@@ -146,14 +146,23 @@ export function useMachines(activeOnly = false) {
   return useQuery<Machine[]>({
     queryKey: [...Q.list, { activeOnly }],
     queryFn: async () => {
-      let q = supabase
-        .from('machines')
-        .select('*')
-        .order('name');
-      if (activeOnly) q = q.eq('is_active', true);
-      const { data, error } = await q;
-      if (error) throw error;
-      return dedupeMachines((data ?? []) as Machine[]);
+      const response = await fetch('/api/machines', {
+        credentials: 'include',
+      });
+
+      let payload: any = null;
+      try {
+        payload = await response.json();
+      } catch {
+        payload = null;
+      }
+
+      if (!response.ok) {
+        throw new Error(payload?.error || 'Failed to fetch machines');
+      }
+
+      const machines = dedupeMachines((payload ?? []) as Machine[]);
+      return activeOnly ? machines.filter((machine) => machine.is_active) : machines;
     },
   });
 }
@@ -164,13 +173,26 @@ export function useMachine(id: string | undefined | null) {
     queryKey: Q.detail(id ?? ''),
     enabled: Boolean(id),
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('machines')
-        .select('*, machine_supply_requirements(*, inventory_items(id, name, unit, category))')
-        .eq('id', id!)
-        .maybeSingle();
-      if (error) throw error;
-      return data as Machine | null;
+      const response = await fetch(`/api/machines/${id!}`, {
+        credentials: 'include',
+      });
+
+      if (response.status === 404) {
+        return null;
+      }
+
+      let payload: any = null;
+      try {
+        payload = await response.json();
+      } catch {
+        payload = null;
+      }
+
+      if (!response.ok) {
+        throw new Error(payload?.error || 'Failed to fetch machine');
+      }
+
+      return payload as Machine | null;
     },
   });
 }

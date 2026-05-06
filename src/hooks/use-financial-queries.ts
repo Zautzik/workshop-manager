@@ -14,6 +14,30 @@ const queryKeys = {
     ['orderLaborMargin', { otId, startDate, endDate }] as const,
 };
 
+function resolveAssignmentEmployeeId(
+  assignment: any,
+  employeeById: Map<string, any>,
+  employeeByLegacyId: Map<string, any>
+) {
+  if (!assignment) return null;
+
+  const directId = assignment.employee_id ? String(assignment.employee_id) : null;
+  if (directId && employeeById.has(directId)) return directId;
+
+  const workerId = assignment.worker_id ? String(assignment.worker_id) : null;
+  if (workerId && employeeByLegacyId.has(workerId)) {
+    const employee = employeeByLegacyId.get(workerId);
+    return String(employee.id);
+  }
+
+  if (directId && employeeByLegacyId.has(directId)) {
+    const employee = employeeByLegacyId.get(directId);
+    return String(employee.id);
+  }
+
+  return null;
+}
+
 export function useMachineCosts() {
   return useQuery({
     queryKey: queryKeys.machineCosts,
@@ -104,7 +128,7 @@ export function useMonthlyPayroll(year: number, month: number) {
       employees.forEach((employee: any) => {
         if (employee?.id) employeeById.set(employee.id, employee);
         if (employee?.worker_legacy_id) {
-          employeeByLegacyId.set(employee.worker_legacy_id, employee);
+          employeeByLegacyId.set(String(employee.worker_legacy_id), employee);
         }
       });
 
@@ -158,18 +182,25 @@ export function useMonthlyPayroll(year: number, month: number) {
       };
 
       const rowsByEmployee = new Map<string, any>();
+      const unresolvedAssignments: string[] = [];
+      const assignmentsMissingRate: string[] = [];
 
       assignments.forEach((assignment: any) => {
-        const employee = assignment?.employee_id
-          ? employeeById.get(assignment.employee_id)
-          : assignment?.worker_id
-            ? employeeByLegacyId.get(assignment.worker_id)
-            : null;
-        const employeeId = employee?.id;
-        if (!employeeId || !assignment?.date) return;
+        const employeeId = resolveAssignmentEmployeeId(assignment, employeeById, employeeByLegacyId);
+        if (!employeeId || !assignment?.date) {
+          unresolvedAssignments.push(
+            `${assignment?.date || 'unknown-date'}|emp:${assignment?.employee_id || 'null'}|worker:${assignment?.worker_id || 'null'}`
+          );
+          return;
+        }
+
+        const employee = employeeById.get(employeeId);
 
         const activeRate = findRateForDate(employeeId, String(assignment.date));
-        if (!activeRate) return;
+        if (!activeRate) {
+          assignmentsMissingRate.push(`${assignment.date}|emp:${employeeId}`);
+          return;
+        }
 
         const hours = getShiftHours(assignment.shift);
         const overtime = String(assignment?.role || '').toLowerCase().includes('overtime');
@@ -218,6 +249,18 @@ export function useMonthlyPayroll(year: number, month: number) {
         existing.currency_code = existing.currency_code || currencyCode;
         rowsByEmployee.set(employeeId, existing);
       });
+
+      if (unresolvedAssignments.length > 0) {
+        throw new Error(
+          `Payroll calculation aborted: ${unresolvedAssignments.length} assignment(s) could not be mapped to an employee. Example: ${unresolvedAssignments[0]}`
+        );
+      }
+
+      if (assignmentsMissingRate.length > 0) {
+        throw new Error(
+          `Payroll calculation aborted: ${assignmentsMissingRate.length} assignment(s) have no active compensation rate. Example: ${assignmentsMissingRate[0]}`
+        );
+      }
 
       incentives.forEach((incentive: any) => {
         const employeeId = incentive?.employee_id;
@@ -430,10 +473,14 @@ export function useOrderLaborMargin(otId?: string, startDate?: string, endDate?:
       const compensationRates = compensationRes.data ?? [];
       const incentives = incentivesRes.data ?? [];
 
-      const employeeByLegacyId = new Map<string, string>();
+      const employeeById = new Map<string, any>();
+      const employeeByLegacyId = new Map<string, any>();
       employees.forEach((employee: any) => {
+        if (employee?.id) {
+          employeeById.set(String(employee.id), employee);
+        }
         if (employee?.worker_legacy_id && employee?.id) {
-          employeeByLegacyId.set(employee.worker_legacy_id, employee.id);
+          employeeByLegacyId.set(String(employee.worker_legacy_id), employee);
         }
       });
 
@@ -504,15 +551,26 @@ export function useOrderLaborMargin(otId?: string, startDate?: string, endDate?:
       >();
 
       const incentiveAppliedPerOtEmployeeDate = new Set<string>();
+      const unresolvedAssignments: string[] = [];
+      const assignmentsMissingRate: string[] = [];
 
       assignments.forEach((assignment: any) => {
         const orderId = assignment?.ot_id;
         if (!orderId) return;
 
-        const employeeId = assignment?.employee_id || (assignment?.worker_id ? employeeByLegacyId.get(assignment.worker_id) : null);
-        if (!employeeId || !assignment?.date) return;
+        const employeeId = resolveAssignmentEmployeeId(assignment, employeeById, employeeByLegacyId);
+        if (!employeeId || !assignment?.date) {
+          unresolvedAssignments.push(
+            `${orderId}|${assignment?.date || 'unknown-date'}|emp:${assignment?.employee_id || 'null'}|worker:${assignment?.worker_id || 'null'}`
+          );
+          return;
+        }
 
         const rate = findRateForDate(employeeId, String(assignment.date));
+        if (!rate) {
+          assignmentsMissingRate.push(`${orderId}|${assignment.date}|emp:${employeeId}`);
+          return;
+        }
         const hourlyRate = Number(rate?.hourly_rate || 0);
         const overtimeMultiplier50 = Number(rate?.overtime_multiplier_50 || 1.5);
         const overtimeMultiplier100 = Number(rate?.overtime_multiplier_100 || 2);
@@ -560,6 +618,18 @@ export function useOrderLaborMargin(otId?: string, startDate?: string, endDate?:
 
         rowsByOt.set(orderId, existing);
       });
+
+      if (unresolvedAssignments.length > 0) {
+        throw new Error(
+          `Order labor margin aborted: ${unresolvedAssignments.length} assignment(s) could not be mapped to an employee. Example: ${unresolvedAssignments[0]}`
+        );
+      }
+
+      if (assignmentsMissingRate.length > 0) {
+        throw new Error(
+          `Order labor margin aborted: ${assignmentsMissingRate.length} assignment(s) have no active compensation rate. Example: ${assignmentsMissingRate[0]}`
+        );
+      }
 
       return filteredOts
         .map((ot: any) => {
