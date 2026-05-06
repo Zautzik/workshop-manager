@@ -244,26 +244,56 @@ export function useWorkstations() {
         .order('name');
       if (workstationError) throw workstationError;
 
-      const { data: machineData, error: machineError } = await supabase
-        .from('machines')
-        .select('id, name, brand, model, type, status, colors, power_kw, nominal_speed_sheets_hr, location, photo_url, workstation_id, is_active')
-        .eq('is_active', true);
-      if (machineError) throw machineError;
+      const machineRes = await fetch('/api/machines', {
+        credentials: 'include',
+      });
 
-      const machines = machineData ?? [];
-      const machinesById = new Map(machines.map((machine: any) => [machine.id, machine]));
-      const machinesByWorkstationId = new Map(
-        machines
-          .filter((machine: any) => machine.workstation_id)
-          .map((machine: any) => [machine.workstation_id, machine])
-      );
+      let machinePayload: any = null;
+      try {
+        machinePayload = await machineRes.json();
+      } catch {
+        machinePayload = null;
+      }
+
+      if (!machineRes.ok) {
+        throw new Error(machinePayload?.error || 'Failed to fetch machines');
+      }
+
+      const machines = Array.isArray(machinePayload) ? machinePayload : [];
+      const machinesById = new Map(machines.map((machine: any) => [String(machine.id), machine]));
+      const machinesByWorkstationId = new Map<string, any[]>();
+
+      machines.forEach((machine: any) => {
+        const wsId = machine?.workstation_id ? String(machine.workstation_id) : null;
+        if (!wsId) return;
+        const bucket = machinesByWorkstationId.get(wsId) || [];
+        bucket.push(machine);
+        machinesByWorkstationId.set(wsId, bucket);
+      });
+
+      const sortByFreshness = (a: any, b: any) => {
+        const aTs = Date.parse(String(a?.updated_at || a?.created_at || '1970-01-01'));
+        const bTs = Date.parse(String(b?.updated_at || b?.created_at || '1970-01-01'));
+        return bTs - aTs;
+      };
+
+      const chooseMachineForWorkstation = (workstation: any) => {
+        const explicitMachineId = workstation?.machine_id ? String(workstation.machine_id) : null;
+        if (explicitMachineId) {
+          const explicit = machinesById.get(explicitMachineId);
+          if (explicit) return explicit;
+        }
+
+        const linked = (machinesByWorkstationId.get(String(workstation.id)) || []).slice().sort(sortByFreshness);
+        if (linked.length === 0) return null;
+
+        const active = linked.find((machine: any) => machine?.is_active === true);
+        return active ?? linked[0] ?? null;
+      };
 
       return (workstationData ?? []).map((workstation: any) => ({
         ...workstation,
-        machine:
-          (workstation.machine_id ? machinesById.get(workstation.machine_id) : null) ??
-          machinesByWorkstationId.get(workstation.id) ??
-          null,
+        machine: chooseMachineForWorkstation(workstation),
       }));
     },
   });
