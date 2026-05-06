@@ -1,5 +1,5 @@
 'use client';
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -10,6 +10,7 @@ import {
 	Wrench,
 	Layers,
 	Hand,
+	ChevronRight,
 	X,
 	Zap,
 	GaugeCircle,
@@ -36,6 +37,8 @@ interface WorkstationLayoutProps {
 	onUnassignWorker: (assignmentId?: string, workerName?: string) => void;
 	onAssignmentChange: () => void;
 }
+
+const QUICK_GUIDE_SESSION_KEY = 'workflow_planta_quick_guide_seen';
 
 function DraggableWorker({
 	worker,
@@ -332,6 +335,13 @@ export function WorkstationLayout({
 }: WorkstationLayoutProps) {
 	const { toast } = useToast();
 	const [showOnlyOvertime, setShowOnlyOvertime] = useState(false);
+	const [showQuickGuide, setShowQuickGuide] = useState(false);
+	const [guideOpenedOnce, setGuideOpenedOnce] = useState(false);
+
+	useEffect(() => {
+		const hasSeenGuide = sessionStorage.getItem(QUICK_GUIDE_SESSION_KEY) === '1';
+		setShowQuickGuide(!hasSeenGuide);
+	}, []);
 
 	const getWorkstationIcon = (type: string) => {
 		switch (type) {
@@ -662,23 +672,44 @@ export function WorkstationLayout({
 	return (
 		<div className='space-y-6'>
 			{/* Enhanced Instructions */}
-			<Alert className='bg-card/80 border-2 border-border backdrop-blur-sm shadow-lg'>
-				<Hand className='h-5 w-5 text-primary' />
-				<AlertDescription className='text-foreground'>
-					<strong className='text-primary text-lg'>Guía rápida:</strong>
-					<ol className='mt-2 space-y-1 text-sm'>
-						<li>
-							1. <strong>Toma</strong> la tarjeta de un operario desde la sección &quot;Operarios Disponibles&quot;
-						</li>
-						<li>
-							2. <strong>Arrastra</strong> al operario sobre la máquina (el cuadro brilla cuando está listo)
-						</li>
-						<li>
-							3. <strong>Suelta</strong> para asignar. También puedes mover operarios entre máquinas
-						</li>
-					</ol>
-				</AlertDescription>
-			</Alert>
+			{showQuickGuide && (
+				<Alert className='bg-card/35 border border-border/50 backdrop-blur-sm shadow-sm py-1.5 px-2.5'>
+					<AlertDescription className='text-muted-foreground w-full'>
+						<details
+							className='group'
+							onToggle={(event) => {
+								const isOpen = (event.currentTarget as HTMLDetailsElement).open;
+								if (isOpen) {
+									setGuideOpenedOnce(true);
+									return;
+								}
+								if (guideOpenedOnce) {
+									sessionStorage.setItem(QUICK_GUIDE_SESSION_KEY, '1');
+									setShowQuickGuide(false);
+								}
+							}}
+						>
+							<summary className='list-none cursor-pointer select-none flex items-center gap-1.5 text-[11px] leading-none'>
+								<Hand className='h-3.5 w-3.5 text-primary/65 shrink-0' />
+								<span className='font-semibold text-primary/80 uppercase tracking-wide'>Guía rápida</span>
+								<span className='text-muted-foreground/80'>arrastrar y soltar operarios</span>
+								<ChevronRight className='ml-auto h-3 w-3 text-muted-foreground transition-transform group-open:rotate-90' />
+							</summary>
+							<ol className='mt-2 pl-5 space-y-0.5 text-[11px] leading-snug list-decimal'>
+								<li>
+									<strong>Toma</strong> la tarjeta de un operario desde la sección &quot;Operarios Disponibles&quot;
+								</li>
+								<li>
+									<strong>Arrastra</strong> al operario sobre la máquina (el cuadro brilla cuando está listo)
+								</li>
+								<li>
+									<strong>Suelta</strong> para asignar. También puedes mover operarios entre máquinas
+								</li>
+							</ol>
+						</details>
+					</AlertDescription>
+				</Alert>
+			)}
 
 			{/* Workshop Floor - Grouped by Machine Type - MOVED BEFORE WORKERS */}
 			<div className='space-y-6'>

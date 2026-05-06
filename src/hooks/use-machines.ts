@@ -264,6 +264,7 @@ export function useUpsertMachine() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: Q.all });
       qc.invalidateQueries({ queryKey: Q.planta });
+      qc.invalidateQueries({ queryKey: ['workstations'] });
     },
   });
 }
@@ -293,6 +294,7 @@ export function useDeleteMachine() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: Q.all });
       qc.invalidateQueries({ queryKey: Q.planta });
+      qc.invalidateQueries({ queryKey: ['workstations'] });
     },
   });
 }
@@ -310,6 +312,7 @@ export function useUpdateMachineStatus() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: Q.all });
       qc.invalidateQueries({ queryKey: Q.planta });
+      qc.invalidateQueries({ queryKey: ['workstations'] });
     },
   });
 }
@@ -387,7 +390,7 @@ export function useUpsertMachineCost() {
 
 export const MACHINE_TYPE_LABELS: Record<MachineType, string> = {
   offset_printer:   'Offset / Prensa',
-  die_cutter:       'Troqueladota',
+  die_cutter:       'Troqueladora',
   guillotine:       'Guillotina',
   digital_printer:  'Digital / Inkjet',
   pre_press:        'Pre-prensa',

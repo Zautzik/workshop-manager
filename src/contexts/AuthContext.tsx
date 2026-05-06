@@ -5,8 +5,6 @@ import { useSession, signIn as nextAuthSignIn, signOut as nextAuthSignOut } from
 import { supabase } from '@/integrations/supabase/client';
 import type { AppRole } from '@/types/app-role';
 
-const DEV_BYPASS = process.env.NEXT_PUBLIC_DEV_BYPASS_AUTH === 'true';
-
 interface User {
 	id: string;
 	email: string;
@@ -25,26 +23,7 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-	// ── Dev bypass ──────────────────────────────────────────────────────────
-	if (DEV_BYPASS) {
-		const mockUser = { id: 'dev-user', email: 'dev@local.dev', name: 'Dev Admin' };
-		const mockRole: AppRole = 'admin';
-		return (
-			<AuthContext.Provider
-				value={{
-					user: mockUser,
-					session: null,
-					role: mockRole,
-					loading: false,
-					signIn: async () => ({ error: null }),
-					signOut: async () => {},
-				}}
-			>
-				{children}
-			</AuthContext.Provider>
-		);
-	}
-	// ── Normal auth ─────────────────────────────────────────────────────────
+	// ── Normal auth ──────────────────────────────────────────────────────
 	const { data: session, status } = useSession();
 	const loading = status === 'loading';
 

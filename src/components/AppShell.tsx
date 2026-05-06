@@ -137,8 +137,17 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const { theme, setTheme } = useTheme();
   const router = useRouter();
   const pathname = usePathname();
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(true);
   const [mobileOpen, setMobileOpen] = useState(false);
+
+  // Persist sidebar collapsed preference
+  useEffect(() => {
+    const stored = localStorage.getItem('sidebar_collapsed');
+    if (stored !== null) setCollapsed(stored === 'true');
+  }, []);
+  useEffect(() => {
+    localStorage.setItem('sidebar_collapsed', String(collapsed));
+  }, [collapsed]);
 
   // Close mobile menu on route change
   useEffect(() => {
@@ -223,8 +232,19 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
             return (
               <div key={group}>
-                {gi > 0 && <Separator className="my-2.5 opacity-40" />}
-                {!collapsed && (
+                {gi > 0 && <Separator className="my-1.5 opacity-30" />}
+                {collapsed ? (
+                  <Tooltip delayDuration={0}>
+                    <TooltipTrigger asChild>
+                      <div className="flex justify-center py-0.5 cursor-default">
+                        <span className={cn("w-2 h-2 rounded-full shrink-0", meta.dot)} />
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent side="right" className="font-semibold text-xs">
+                      {language === 'es' ? meta.es : meta.en}
+                    </TooltipContent>
+                  </Tooltip>
+                ) : (
                   <div className="flex items-center gap-1.5 px-3 pt-2 pb-1">
                     <span className={cn("w-1.5 h-1.5 rounded-full shrink-0", meta.dot)} />
                     <p className={cn("text-[10px] font-bold uppercase tracking-widest", meta.text)}>
