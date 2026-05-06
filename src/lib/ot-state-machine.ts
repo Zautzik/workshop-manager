@@ -51,6 +51,7 @@ export interface TransitionValidationInput {
   role: AppRole;
   hasApprovedApproval: boolean;
   hasAnyRealCosts: boolean;
+  rollback?: boolean;
 }
 
 export interface TransitionValidationResult {
@@ -68,7 +69,22 @@ export function getAllowedNextStatuses(current: OTWorkflowStatus): OTWorkflowSta
 }
 
 export function validateTransition(input: TransitionValidationInput): TransitionValidationResult {
-  const { fromStatus, toStatus, role, hasApprovedApproval, hasAnyRealCosts } = input;
+  const { fromStatus, toStatus, role, hasApprovedApproval, hasAnyRealCosts, rollback } = input;
+
+  // Rollback: only admin/supervisor can move backwards; skip forward-only and cost/approval guards
+  if (rollback) {
+    if (role !== 'admin' && role !== 'supervisor') {
+      return {
+        ok: false,
+        code: 'ROLE_FORBIDDEN',
+        message: 'Solo administradores y supervisores pueden hacer retrocesos.',
+      };
+    }
+    if (!isValidStatus(toStatus)) {
+      return { ok: false, code: 'INVALID_TRANSITION', message: 'Estado destino inválido.' };
+    }
+    return { ok: true };
+  }
 
   const roleAllowedStatuses = ROLE_ACCESS[role] ?? [];
   if (!roleAllowedStatuses.includes(toStatus)) {

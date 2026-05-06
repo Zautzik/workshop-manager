@@ -86,6 +86,7 @@ export function OTManagement({ onOTSelect }: OTManagementProps) {
   const [budgetEditOT,    setBudgetEditOT]    = useState<any>(null);
   const [costEntryOT,     setCostEntryOT]     = useState<any>(null);
   const [costEntryTarget, setCostEntryTarget] = useState<{ key: string; label: string } | null>(null);
+  const [rollbackTarget,  setRollbackTarget]  = useState<{ ot: any; key: string; labelEs: string; fromLabelEs: string } | null>(null);
   const [searchTerm,      setSearchTerm]      = useState("");
   const [collapsed,       setCollapsed]       = useState<Record<string, boolean>>({});
   const [draggedOT,       setDraggedOT]       = useState<any>(null);
@@ -93,18 +94,18 @@ export function OTManagement({ onOTSelect }: OTManagementProps) {
   const [draggingId,      setDraggingId]      = useState<string | null>(null);
   const dragCounter = useRef<Record<string, number>>({});
 
-  const updateOTStatus = async (otId: string, newStatus: string) => {
+  const updateOTStatus = async (otId: string, newStatus: string, rollback = false) => {
     const res = await fetch(`/api/ots/${otId}/transition`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ to_status: newStatus, reason: 'kanban_advance' }),
+      body: JSON.stringify({ to_status: newStatus, reason: rollback ? 'kanban_rollback' : 'kanban_advance', rollback }),
     });
     if (!res.ok) {
       const body = await res.json().catch(() => null);
       toast({ title: "Error al actualizar estado", description: body?.error ?? 'Request failed', variant: "destructive" });
       return;
     }
-    toast({ title: "OT movida", description: `→ ${getStatusInfo(newStatus).labelEs}` });
+    toast({ title: rollback ? "OT retrocedida" : "OT avanzada", description: `→ ${getStatusInfo(newStatus).labelEs}` });
     refetchOTs();
   };
 
@@ -114,6 +115,10 @@ export function OTManagement({ onOTSelect }: OTManagementProps) {
   const confirmAdvance = () => {
     if (costEntryOT && costEntryTarget) updateOTStatus(costEntryOT.id, costEntryTarget.key);
     setCostEntryOT(null); setCostEntryTarget(null);
+  };
+  const confirmRollback = () => {
+    if (rollbackTarget) updateOTStatus(rollbackTarget.ot.id, rollbackTarget.key, true);
+    setRollbackTarget(null);
   };
 
   const filteredOTs = ots.filter(ot =>
@@ -163,7 +168,19 @@ export function OTManagement({ onOTSelect }: OTManagementProps) {
     e.preventDefault();
     dragCounter.current[key] = 0; setDragOverCol(null);
     if (!draggedOT || draggedOT.status === key) return;
-    requestAdvance(draggedOT, key, getStatusInfo(key).labelEs);
+    const fromIdx = STATUS_FLOW.findIndex(s => s.key === draggedOT.status);
+    const toIdx   = STATUS_FLOW.findIndex(s => s.key === key);
+    const isBackward = toIdx < fromIdx;
+    if (isBackward) {
+      setRollbackTarget({
+        ot: draggedOT,
+        key,
+        labelEs: getStatusInfo(key).labelEs,
+        fromLabelEs: getStatusInfo(draggedOT.status).labelEs,
+      });
+    } else {
+      requestAdvance(draggedOT, key, getStatusInfo(key).labelEs);
+    }
     setDraggedOT(null); setDraggingId(null);
   };
 
@@ -194,170 +211,178 @@ export function OTManagement({ onOTSelect }: OTManagementProps) {
       {/* Floating drag hint */}
       {draggingId && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-foreground text-background text-xs font-semibold px-4 py-2 rounded-full shadow-xl pointer-events-none select-none">
-          Arrastra a cualquier columna para mover la OT
+          Arrastra adelante para avanzar · Arrastra atrás para retroceder (preserva costos)
         </div>
       )}
 
-      {/* Honeycomb Kanban groups — 3-col grid, middle item in each row offset down */}
+      {/* ── Honeycomb Beehive Kanban ──
+          Pointy-top hex: flat left/right sides, pointed top/bottom.
+          clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)
+          2-1-2-1 formation with true edge-sharing geometry:
+            y-step between interlocked rows = 0.75 * HEX_H
+          Formation:
+            [Diseño]   [Compras]
+               [Producción]
+            [Acabados] [Terminación]
+               [Despacho]
+      ── */}
       {(() => {
         const HEX_CLIP = 'polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)';
+        const HEX_W = 290;
+        const HEX_H = 280;
+        const Y_STEP = HEX_H * 0.75; // 210 — ensures edge-sharing between rows
+
+        // Usable content rect: skip the pointed tips (26% inset top/bottom)
+        const INSET_Y = Math.round(HEX_H * 0.26); // 73px
+        const INSET_X = Math.round(HEX_W * 0.05); // 14px
+
+        const POSITIONS = [
+          { x: 0,         y: 0 },
+          { x: HEX_W,     y: 0 },
+          { x: HEX_W / 2, y: Y_STEP },
+          { x: 0,         y: Y_STEP * 2 },
+          { x: HEX_W,     y: Y_STEP * 2 },
+          { x: HEX_W / 2, y: Y_STEP * 3 },
+        ];
+        const CANVAS_W = HEX_W * 2;
+        const CANVAS_H = Math.ceil(Y_STEP * 3 + HEX_H);
+
         return (
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(3, 1fr)',
-              gap: '12px',
-              paddingTop: '44px', // room for protruding hex badges
-            }}
-          >
-            {KANBAN_GROUPS.map((group, idx) => {
-              const count      = groupCounts[group.id];
-              const isCollapsed = collapsed[group.id];
-              const isOffset   = idx % 3 === 1; // middle column shifts down
+          <div style={{ overflowX: 'auto', paddingBottom: 8 }}>
+            <div style={{ position: 'relative', width: CANVAS_W, height: CANVAS_H, margin: '0 auto' }}>
+              {KANBAN_GROUPS.map((group, idx) => {
+                const { x, y } = POSITIONS[idx];
+                const count = groupCounts[group.id];
+                const isCollapsed = collapsed[group.id];
 
-              return (
-                <div key={group.id} style={{ marginTop: isOffset ? 32 : 0, position: 'relative' }}>
-
-                  {/* ── Protruding hex badge (same style as WorkflowDashboard nav) ── */}
-                  <button
-                    type="button"
+                return (
+                  <div
+                    key={group.id}
                     style={{
-                      position: 'absolute', top: -40, left: '50%',
-                      transform: 'translateX(-50%)',
-                      width: 80, height: 70,
-                      border: 'none', padding: 0, background: 'none',
-                      cursor: 'pointer', zIndex: 10,
-                      filter: `drop-shadow(0 4px 10px rgb(${group.rgb} / 0.55))`,
-                      transition: 'filter 0.15s, transform 0.15s',
+                      position: 'absolute', left: x, top: y,
+                      width: HEX_W, height: HEX_H,
+                      filter: `drop-shadow(0 4px 16px rgb(${group.rgb} / 0.42))`,
+                      transition: 'filter 0.18s',
                     }}
-                    onMouseEnter={e => {
-                      (e.currentTarget as HTMLButtonElement).style.filter = `drop-shadow(0 6px 14px rgb(${group.rgb} / 0.75))`;
-                      (e.currentTarget as HTMLButtonElement).style.transform = 'translateX(-50%) scale(1.10)';
-                    }}
-                    onMouseLeave={e => {
-                      (e.currentTarget as HTMLButtonElement).style.filter = `drop-shadow(0 4px 10px rgb(${group.rgb} / 0.55))`;
-                      (e.currentTarget as HTMLButtonElement).style.transform = 'translateX(-50%) scale(1)';
-                    }}
-                    onClick={() => setCollapsed(p => ({ ...p, [group.id]: !p[group.id] }))}
+                    onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.filter = `drop-shadow(0 6px 22px rgb(${group.rgb} / 0.68))`; }}
+                    onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.filter = `drop-shadow(0 4px 16px rgb(${group.rgb} / 0.42))`; }}
                   >
+                    {/* ── Hex shell: fill + gleam + content all clipped to hex shape ── */}
                     <div style={{
-                      width: '100%', height: '100%', clipPath: HEX_CLIP, position: 'relative',
-                      background: `radial-gradient(ellipse 65% 60% at 38% 28%,
-                        rgb(${group.rgb} / 0.88) 0%,
-                        rgb(${group.rgb} / 0.52) 55%,
-                        rgb(${group.rgb} / 0.68) 100%)`,
-                      display: 'flex', flexDirection: 'column',
-                      alignItems: 'center', justifyContent: 'center', gap: 2,
+                      position: 'absolute', inset: 0,
+                      clipPath: HEX_CLIP,
+                      background: `radial-gradient(ellipse 90% 70% at 50% 30%,
+                        rgb(${group.rgb} / 0.78) 0%,
+                        rgb(${group.rgb} / 0.48) 55%,
+                        rgb(${group.rgb} / 0.65) 100%)`,
                     }}>
-                      {/* Gleam */}
                       <div style={{
-                        position: 'absolute', inset: 0, clipPath: HEX_CLIP, pointerEvents: 'none',
-                        background: 'radial-gradient(ellipse 50% 40% at 30% 20%, rgba(255,255,255,0.22) 0%, transparent 70%)',
+                        position: 'absolute', inset: 0, pointerEvents: 'none',
+                        background: 'radial-gradient(ellipse 70% 50% at 50% 22%, rgba(255,255,255,0.30) 0%, transparent 58%)',
                       }} />
-                      {isCollapsed
-                        ? <ChevronRight style={{ width: 10, height: 10, color: 'rgba(255,255,255,0.7)', zIndex: 1 }} />
-                        : <ChevronDown  style={{ width: 10, height: 10, color: 'rgba(255,255,255,0.7)', zIndex: 1 }} />}
-                      <span style={{ fontSize: 9, fontWeight: 700, color: '#fff', textAlign: 'center', lineHeight: 1.2, maxWidth: '82%', zIndex: 1 }}>
-                        {group.label}
-                      </span>
-                      {count > 0 && (
-                        <span style={{ fontSize: 13, fontWeight: 800, color: '#fff', lineHeight: 1, zIndex: 1 }}>
-                          {count}
+                    {/* ── Content: directly inside hex clip — no inner rectangle ── */}
+                    <div style={{
+                      position: 'absolute',
+                      left: INSET_X, right: INSET_X,
+                      top: INSET_Y, bottom: INSET_Y,
+                      display: 'flex', flexDirection: 'column',
+                      overflow: 'hidden',
+                    }}>
+                      {/* Group title bar */}
+                      <div style={{
+                        flexShrink: 0,
+                        background: `rgb(${group.rgb} / 0.35)`,
+                        borderBottom: '1px solid rgba(255,255,255,0.32)',
+                        padding: '4px 6px',
+                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                      }}>
+                        <span style={{ fontSize: 10, fontWeight: 800, color: '#fff', lineHeight: 1, textShadow: '0 1px 4px rgba(0,0,0,0.55)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {group.label}
                         </span>
-                      )}
-                    </div>
-                  </button>
+                        <span style={{ fontSize: 8.5, fontWeight: 700, color: 'rgba(255,255,255,0.78)', whiteSpace: 'nowrap', marginLeft: 4 }}>
+                          {count} OTs
+                        </span>
+                      </div>
 
-                  {/* ── Card body ── */}
-                  <div className={`rounded-xl border ${group.borderColor} overflow-hidden`}
-                    style={{ paddingTop: '44px' }}>
-                    {!isCollapsed ? (
-                      <div className={`${group.bgColor} flex divide-x divide-border/50 overflow-x-auto`}>
-                        {group.stages.map(stageKey => {
+                      {/* Stage columns — side by side with vertical dividers */}
+                      <div style={{ flex: 1, display: 'flex', flexDirection: 'row', overflow: 'hidden' }}>
+                        {(group.stages as readonly string[]).map((stageKey, sIdx) => {
                           const stInfo   = getStatusInfo(stageKey);
                           const stageOTs = getByStatus(stageKey);
-                          const isOpt    = 'optional' in stInfo && stInfo.optional;
                           const isOver   = dragOverCol === stageKey && !!draggingId;
-
                           return (
                             <div
                               key={stageKey}
-                              className={`flex-1 min-w-[80px] flex flex-col transition-colors duration-100
-                                ${isOver ? 'ring-2 ring-inset ring-primary/50 bg-primary/5' : ''}`}
-                              onDragEnter={(e) => onColEnter(e, stageKey)}
-                              onDragLeave={(e) => onColLeave(e, stageKey)}
+                              style={{
+                                flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0,
+                                borderLeft: sIdx > 0 ? '1px solid rgba(255,255,255,0.28)' : 'none',
+                                background: isOver ? 'rgba(255,255,255,0.14)' : 'transparent',
+                                transition: 'background 0.1s',
+                              }}
+                              onDragEnter={e => onColEnter(e, stageKey)}
+                              onDragLeave={e => onColLeave(e, stageKey)}
                               onDragOver={onColOver}
-                              onDrop={(e) => onColDrop(e, stageKey)}
+                              onDrop={e => onColDrop(e, stageKey)}
                             >
-                              {/* Column header */}
-                              <div className="px-1.5 py-0.5 border-b border-border/50 flex items-center justify-between bg-card/30">
-                                <div className="flex items-center gap-1 min-w-0">
-                                  <div className={`w-1 h-1 rounded-full ${stInfo.color} shrink-0 ${isOver ? 'animate-pulse' : ''}`} />
-                                  <span className="text-[9px] font-semibold text-foreground/80 truncate">
-                                    {stInfo.labelEs}{isOpt ? <span className="text-muted-foreground/50"> opt</span> : null}
-                                  </span>
+                              {/* Stage label + count */}
+                              <div style={{ flexShrink: 0, padding: '2px 3px', borderBottom: '1px solid rgba(255,255,255,0.20)', textAlign: 'center' }}>
+                                <div style={{ fontSize: 7, fontWeight: 700, color: 'rgba(255,255,255,0.88)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: 1.3 }}>
+                                  {stInfo.labelEs}
                                 </div>
-                                <span className={`text-[9px] font-bold tabular-nums ml-1 shrink-0 transition-colors duration-100 ${isOver ? 'text-primary' : 'text-muted-foreground/50'}`}>
+                                <div style={{ fontSize: 6.5, fontWeight: 600, color: 'rgba(255,255,255,0.50)', lineHeight: 1 }}>
                                   {stageOTs.length}
-                                </span>
+                                </div>
                               </div>
-
-                              {/* Cards */}
-                              <div className="p-0.5 space-y-0.5 flex-1 min-h-[20px]">
+                              {/* OT cards stacked in this column */}
+                              <div style={{ flex: 1, overflowY: 'auto', padding: '1px 2px', display: 'flex', flexDirection: 'column', gap: 1 }}>
                                 {isOver && stageOTs.length === 0 && (
-                                  <div className="border border-dashed border-primary/40 rounded text-center text-[8px] text-primary/60 py-1">↓</div>
+                                  <div style={{ border: '1px dashed rgba(255,255,255,0.40)', borderRadius: 2, textAlign: 'center', fontSize: 6.5, color: 'rgba(255,255,255,0.65)', padding: '2px 0', marginTop: 1 }}>↓</div>
                                 )}
                                 {stageOTs.map(ot => {
-                                  const nextSt    = getAllNextStatuses(ot.status);
-                                  const isDragging = draggingId === ot.id;
-                                  const hasBudget  = ot.status === 'pre_press' || ot.status === 'visto_bueno';
+                                  const nextSt     = getAllNextStatuses(ot.status);
+                                  const isDragging  = draggingId === ot.id;
+                                  const hasBudget   = ot.status === 'pre_press' || ot.status === 'visto_bueno';
+                                  const priDot      = ot.priority >= 8 ? '#fca5a5' : ot.priority >= 5 ? '#fcd34d' : '#93c5fd';
                                   return (
                                     <div
                                       key={ot.id}
+                                      className="group"
                                       draggable
-                                      onDragStart={(e) => onDragStart(e, ot)}
+                                      onDragStart={e => onDragStart(e, ot)}
                                       onDragEnd={onDragEnd}
-                                      className={[
-                                        'group relative rounded border bg-card select-none',
-                                        'transition-all duration-100 cursor-grab active:cursor-grabbing',
-                                        'hover:shadow-sm hover:-translate-y-px',
-                                        isDragging ? 'opacity-30 scale-95 border-primary/30' : 'border-border/60 hover:border-primary/40',
-                                      ].join(' ')}
+                                      style={{
+                                        background: isDragging ? 'rgba(255,255,255,0.05)' : 'rgba(255,255,255,0.18)',
+                                        border: `1px solid rgba(255,255,255,${isDragging ? '0.08' : '0.24'})`,
+                                        borderRadius: 3, padding: '2px 3px',
+                                        cursor: 'grab', opacity: isDragging ? 0.30 : 1,
+                                        transition: 'opacity 0.1s',
+                                      }}
                                       onClick={() => { if (!isDragging) onOTSelect(ot); }}
                                     >
-                                      <div className={`absolute left-0 top-0 bottom-0 w-[2px] rounded-l ${
-                                        ot.priority >= 8 ? 'bg-red-500' : ot.priority >= 5 ? 'bg-amber-500' : 'bg-blue-400'
-                                      }`} />
-                                      <div className="pl-1.5 pr-1 py-0.5 flex items-center gap-1">
-                                        <GripVertical className="w-2 h-2 text-muted-foreground/20 shrink-0" />
-                                        <div className="flex-1 min-w-0">
-                                          <div className="font-semibold text-foreground text-[10px] truncate leading-tight">{ot.ot_number}</div>
-                                          <div className="text-[8px] text-muted-foreground/60 truncate leading-tight">{ot.client_name}</div>
-                                        </div>
-                                        <span className={`text-[8px] font-bold shrink-0 ${
-                                          ot.priority >= 8 ? 'text-red-400' : ot.priority >= 5 ? 'text-amber-400' : 'text-blue-400'
-                                        }`}>P{ot.priority}</span>
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                                        <div style={{ width: 4, height: 4, borderRadius: '50%', background: priDot, flexShrink: 0 }} />
+                                        <span style={{ fontSize: 8, fontWeight: 700, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, lineHeight: 1.2, textShadow: '0 1px 2px rgba(0,0,0,0.40)' }}>
+                                          {ot.ot_number}
+                                        </span>
                                       </div>
-                                      <div className="overflow-hidden max-h-0 group-hover:max-h-16 transition-all duration-150 px-1 pb-0 group-hover:pb-0.5">
-                                        <div className="flex flex-col gap-0.5 pt-0.5 border-t border-border/40">
+                                      <div className="overflow-hidden max-h-0 group-hover:max-h-16 transition-all duration-150">
+                                        <div style={{ paddingTop: 1, borderTop: '1px solid rgba(255,255,255,0.14)', marginTop: 1, display: 'flex', flexDirection: 'column', gap: 1 }}>
                                           {hasBudget && (
-                                            <button className="flex items-center gap-0.5 text-[8px] text-amber-500 hover:text-amber-400 font-medium"
-                                              onClick={(e) => { e.stopPropagation(); setBudgetEditOT(ot); }}>
-                                              <DollarSign className="w-2 h-2 shrink-0" />Presup.
+                                            <button style={{ fontSize: 6.5, fontWeight: 600, color: '#fcd34d', background: 'none', border: 'none', cursor: 'pointer', padding: 0, textAlign: 'left' }}
+                                              onClick={e => { e.stopPropagation(); setBudgetEditOT(ot); }}>
+                                              $ Presupuesto
                                             </button>
                                           )}
-                                          {nextSt.map(ns => (
+                                          {nextSt.slice(0, 2).map(ns => (
                                             <button key={ns.key}
-                                              className={`flex items-center gap-0.5 text-[8px] font-medium ${
-                                                (ns as any).optional ? 'text-muted-foreground hover:text-foreground' : 'text-primary hover:text-primary/70'
-                                              }`}
-                                              onClick={(e) => { e.stopPropagation(); requestAdvance(ot, ns.key, ns.labelEs); }}>
-                                              <ArrowRight className="w-2 h-2 shrink-0" />{ns.labelEs}
+                                              style={{ fontSize: 6.5, fontWeight: 600, color: '#93c5fd', background: 'none', border: 'none', cursor: 'pointer', padding: 0, textAlign: 'left' }}
+                                              onClick={e => { e.stopPropagation(); requestAdvance(ot, ns.key, ns.labelEs); }}>
+                                              → {ns.labelEs}
                                             </button>
                                           ))}
-                                          <button className="flex items-center gap-0.5 text-[8px] text-muted-foreground hover:text-foreground font-medium"
-                                            onClick={(e) => { e.stopPropagation(); setEditingOT(ot); setShowEditDialog(true); }}>
-                                            <Edit2 className="w-2 h-2 shrink-0" />Editar
+                                          <button style={{ fontSize: 6.5, fontWeight: 600, color: 'rgba(255,255,255,0.45)', background: 'none', border: 'none', cursor: 'pointer', padding: 0, textAlign: 'left' }}
+                                            onClick={e => { e.stopPropagation(); setEditingOT(ot); setShowEditDialog(true); }}>
+                                            ✎ Editar
                                           </button>
                                         </div>
                                       </div>
@@ -369,17 +394,103 @@ export function OTManagement({ onOTSelect }: OTManagementProps) {
                           );
                         })}
                       </div>
-                    ) : (
-                      <div className={`${group.bgColor} h-3`} />
-                    )}
+                    </div>
+                    </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
         );
       })()}
 
+      {/* ── Fast Lane: Urgent OTs ── */}
+      {(() => {
+        const urgentOTs = filteredOTs.filter(ot => ot.priority >= 8 && ot.status !== 'completed');
+        const LANE_W = 580;
+        return (
+          <div style={{ width: LANE_W, margin: '10px auto 0' }}>
+            <div style={{
+              background: 'linear-gradient(90deg, rgba(239,68,68,0.13) 0%, rgba(234,179,8,0.10) 100%)',
+              border: '1.5px solid rgba(239,68,68,0.50)',
+              borderRadius: 10, padding: '6px 12px',
+            }}>
+              <div style={{ fontSize: 10, fontWeight: 800, color: '#fca5a5', letterSpacing: '0.07em', marginBottom: urgentOTs.length ? 6 : 0, display: 'flex', alignItems: 'center', gap: 5 }}>
+                ⚡ Fast Lane For Urgent OT's
+              </div>
+              {urgentOTs.length === 0 ? (
+                <span style={{ fontSize: 8.5, color: 'rgba(255,255,255,0.30)', fontStyle: 'italic' }}>Sin OTs urgentes</span>
+              ) : (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+                  {urgentOTs.map(ot => {
+                    const stInfo    = getStatusInfo(ot.status);
+                    const isDragging = draggingId === ot.id;
+                    return (
+                      <div
+                        key={ot.id}
+                        draggable
+                        onDragStart={e => onDragStart(e, ot)}
+                        onDragEnd={onDragEnd}
+                        style={{
+                          background: isDragging ? 'rgba(239,68,68,0.08)' : 'rgba(239,68,68,0.22)',
+                          border: '1px solid rgba(239,68,68,0.55)',
+                          borderRadius: 5, padding: '3px 8px', cursor: 'grab',
+                          opacity: isDragging ? 0.3 : 1,
+                          display: 'flex', alignItems: 'center', gap: 6,
+                        }}
+                        onClick={() => { if (!isDragging) onOTSelect(ot); }}
+                      >
+                        <span style={{ fontSize: 9, fontWeight: 800, color: '#fca5a5' }}>{ot.ot_number}</span>
+                        <span style={{ fontSize: 7.5, color: 'rgba(255,255,255,0.55)' }}>{stInfo.labelEs}</span>
+                        <span style={{ fontSize: 7.5, color: 'rgba(255,255,255,0.38)' }}>{ot.client_name}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Rollback confirmation dialog */}
+      {rollbackTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+          <div className="bg-card border border-amber-500/40 rounded-xl shadow-2xl p-5 max-w-sm w-full mx-4">
+            <div className="flex items-start gap-3 mb-4">
+              <div className="w-9 h-9 rounded-full bg-amber-500/15 border border-amber-500/40 flex items-center justify-center shrink-0">
+                <ArrowRight className="w-4 h-4 text-amber-400 rotate-180" />
+              </div>
+              <div>
+                <h3 className="font-bold text-foreground text-sm">Retroceder OT</h3>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  <span className="font-semibold text-foreground">{rollbackTarget.ot.ot_number}</span>
+                  {' '}—{' '}{rollbackTarget.ot.client_name}
+                </p>
+              </div>
+            </div>
+            <div className="bg-amber-500/8 border border-amber-500/25 rounded-lg p-3 mb-4 space-y-1.5">
+              <div className="flex items-center gap-2 text-xs">
+                <span className="text-muted-foreground">De:</span>
+                <span className="font-semibold text-foreground">{rollbackTarget.fromLabelEs}</span>
+                <ArrowRight className="w-3 h-3 text-amber-400 rotate-180" />
+                <span className="font-semibold text-amber-400">{rollbackTarget.labelEs}</span>
+              </div>
+              <p className="text-[11px] text-amber-600 dark:text-amber-400 leading-snug">
+                ⚠️ Los costos ya registrados en esta OT serán preservados. Solo se cambia el estado del proceso.
+              </p>
+            </div>
+            <div className="flex gap-2 justify-end">
+              <Button variant="outline" size="sm" onClick={() => setRollbackTarget(null)}>
+                Cancelar
+              </Button>
+              <Button size="sm" className="bg-amber-500 hover:bg-amber-600 text-white" onClick={confirmRollback}>
+                Confirmar Retroceso
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
       {/* Dialogs */}
       {createFlow === 'wizard' && (
         <div className="fixed inset-0 z-50 bg-background overflow-y-auto">

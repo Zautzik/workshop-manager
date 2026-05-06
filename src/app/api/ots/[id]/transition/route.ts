@@ -12,6 +12,7 @@ const TransitionSchema = z.object({
   to_status: z.string().min(1),
   reason: z.string().max(500).optional().nullable(),
   metadata: z.record(z.any()).optional(),
+  rollback: z.boolean().optional(),
 });
 
 // POST /api/ots/[id]/transition
@@ -72,6 +73,7 @@ export async function POST(
       role: auth.role!,
       hasApprovedApproval: (approvalResult.count ?? 0) > 0,
       hasAnyRealCosts: (costsResult.count ?? 0) > 0,
+      rollback: parsed.data.rollback ?? false,
     });
 
     if (!transitionCheck.ok) {
@@ -124,6 +126,7 @@ export async function POST(
           to_status: toStatus,
           by_role: auth.role,
           reason: parsed.data.reason ?? null,
+          rollback: parsed.data.rollback ?? false,
           transition_metadata: parsed.data.metadata ?? {},
         },
       }));
