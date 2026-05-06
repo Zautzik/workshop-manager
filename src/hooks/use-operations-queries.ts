@@ -76,7 +76,7 @@ export function useWorkerName(workerId?: string | null, enabled = true) {
 }
 
 export function useMachines() {
-  return useQuery({
+  return useQuery<any[]>({
     queryKey: queryKeys.machines,
     queryFn: async () => {
       const response = await fetch('/api/machines', {
@@ -94,7 +94,7 @@ export function useMachines() {
         throw new Error(payload?.error || 'Failed to fetch machines');
       }
 
-      return payload ?? [];
+      return (payload ?? []) as any[];
     },
   });
 }

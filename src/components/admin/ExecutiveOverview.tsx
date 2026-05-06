@@ -44,16 +44,22 @@ const ExecutiveOverview = () => {
     const statusCounts = ots.reduce((acc: Record<string, number>, ot: any) => {
       acc[ot.status] = (acc[ot.status] || 0) + 1;
       return acc;
-    }, {});
-    return Object.entries(statusCounts).map(([status, count]) => ({ status, count }));
+    }, {} as Record<string, number>);
+    return Object.entries(statusCounts).map(([status, count]) => ({
+      status,
+      count: Number(count),
+    }));
   }, [ots]);
 
   const machineStatus: MachineStatus[] = useMemo(() => {
     const statusCounts = machines.reduce((acc: Record<string, number>, machine: any) => {
       acc[machine.status] = (acc[machine.status] || 0) + 1;
       return acc;
-    }, {});
-    return Object.entries(statusCounts).map(([status, count]) => ({ status, count }));
+    }, {} as Record<string, number>);
+    return Object.entries(statusCounts).map(([status, count]) => ({
+      status,
+      count: Number(count),
+    }));
   }, [machines]);
 
   const workerPerformance: WorkerPerformance[] = useMemo(() => {
@@ -63,7 +69,7 @@ const ExecutiveOverview = () => {
       acc[dept].total += ((worker.quality_score || 75) + (worker.speed_score || 75)) / 2;
       acc[dept].count += 1;
       return acc;
-    }, {});
+    }, {} as Record<string, { total: number; count: number }>);
     return Object.entries(deptStats).map(([department, stats]) => ({
       department,
       avgEfficiency: Math.round(stats.total / stats.count),
