@@ -167,17 +167,17 @@ function DroppableWorkstation({
 			ref={setNodeRef}
 			className={`${getWorkstationColor(
 				station.type
-			)} border-3 p-3 transition-all duration-300 ${
+			)} border-3 p-2 transition-all duration-300 ${
 				isOver
 					? 'ring-2 ring-primary border-primary shadow-lg'
 					: 'hover:border-primary/40 hover:shadow-md'
 			}`}
 		>
-			<div className='flex items-center justify-between mb-2'>
-				<div className='flex items-center gap-2 flex-1 min-w-0'>
-					{getWorkstationIcon(station.type)}
-					<div className='min-w-0 flex-1'>
-						<h3 className='font-bold text-foreground text-base leading-tight break-words'>
+		<div className='flex items-center justify-between mb-1.5'>
+			<div className='flex items-center gap-1.5 flex-1 min-w-0'>
+				{getWorkstationIcon(station.type)}
+				<div className='min-w-0 flex-1'>
+					<h3 className='font-bold text-foreground text-sm leading-tight break-words'>
 							{station.machine?.name ?? station.display_name ?? station.name}
 						</h3>
 						{station.machine?.brand || station.machine?.model ? (
@@ -216,14 +216,14 @@ function DroppableWorkstation({
 				</div>
 			</div>
 
-			<div className='mb-2'>
-				<div className='flex items-center justify-between text-xs text-foreground mb-1'>
+		<div className='mb-1.5'>
+			<div className='flex items-center justify-between text-xs text-foreground mb-0.5'>
 					<span>Capacity</span>
 					<span className='font-bold'>
 						{occupancy}/{normalizedCapacity}
 					</span>
 				</div>
-				<div className='h-2 bg-muted rounded-full overflow-hidden'>
+				<div className='h-1.5 bg-muted rounded-full overflow-hidden'>
 					<div
 						className={`h-full ${
 							occupancy >= normalizedCapacity ? 'bg-destructive' : 'bg-primary'
@@ -233,8 +233,8 @@ function DroppableWorkstation({
 				</div>
 			</div>
 
-			<div
-				className={`space-y-2 mb-2 min-h-[96px] rounded-lg border-2 border-dashed p-2 transition-all duration-300 ${
+		<div
+			className={`space-y-1.5 mb-1.5 min-h-[64px] rounded-md border-2 border-dashed p-1.5 transition-all duration-300 ${
 					isOver ? 'border-primary bg-primary/10' : 'border-border bg-muted/30'
 				}`}
 			>
@@ -348,15 +348,15 @@ export function WorkstationLayout({
 	const getWorkstationIcon = (type: string) => {
 		switch (type) {
 			case 'offset_printer':
-				return <Printer className='w-6 h-6' />;
+				return <Printer className='w-4 h-4' />;
 			case 'guillotine':
-				return <Scissors className='w-6 h-6' />;
+				return <Scissors className='w-4 h-4' />;
 			case 'die_cutter':
-				return <Layers className='w-6 h-6' />;
+				return <Layers className='w-4 h-4' />;
 			case 'workshop':
-				return <Wrench className='w-6 h-6' />;
+				return <Wrench className='w-4 h-4' />;
 			default:
-				return <Wrench className='w-6 h-6' />;
+				return <Wrench className='w-4 h-4' />;
 		}
 	};
 
@@ -743,11 +743,11 @@ export function WorkstationLayout({
 						return (
 						<Card
 							key={type}
-							className={`${theme.sectionCard} backdrop-blur-sm p-4`}
+							className={`${theme.sectionCard} backdrop-blur-sm p-3`}
 						>
-							<div className='flex items-center gap-3 mb-4'>
+							<div className='flex items-center gap-2 mb-3'>
 								{getWorkstationIcon(type)}
-								<h3 className={`text-xl font-bold ${theme.title}`}>
+								<h3 className={`text-lg font-bold ${theme.title}`}>
 									{getTypeLabel(type)}
 								</h3>
 								<Badge className={theme.countBadge}>
@@ -756,8 +756,8 @@ export function WorkstationLayout({
 								</Badge>
 							</div>
 
-							<div className='grid grid-cols-1 2xl:grid-cols-5 gap-3'>
-								<div className='2xl:col-span-4 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3'>
+				<div className='grid grid-cols-1 lg:grid-cols-4 gap-3'>
+					<div className='lg:col-span-3 grid grid-cols-1 md:grid-cols-2 gap-3'>
 									{(stations as any[]).map(station => {
 										const assignedWorkers = getAssignedWorkers(station.id);
 										const occupancy = assignedWorkers.length;
@@ -786,12 +786,12 @@ export function WorkstationLayout({
 									})}
 								</div>
 
-								<Card className={`${theme.poolCard} p-3 2xl:sticky 2xl:top-4 self-start`}>
-									<div className='mb-3'>
-										<h4 className='text-sm font-semibold text-foreground'>
+								<Card className={`${theme.poolCard} p-2 lg:sticky lg:top-4 self-start`}>
+									<div className='mb-2'>
+										<h4 className='text-xs font-semibold text-foreground'>
 											Operarios disponibles — {getTypeLabel(type)}
 										</h4>
-										<p className='text-xs text-muted-foreground'>
+										<p className='text-[10px] text-muted-foreground leading-tight'>
 											Arrastra hacia una máquina para asignar. Usa la X para quitar.
 										</p>
 									</div>
@@ -832,7 +832,7 @@ export function WorkstationLayout({
 			{/* Workers without department-machine mapping */}
 			{visibleUncategorizedWorkers.length > 0 && (
 				<Card className='bg-card border-border p-6'>
-					<div className='flex items-center gap-3 mb-4'>
+					<div className='flex items-center gap-2 mb-3'>
 						<Hand className='w-5 h-5 text-primary' />
 						<div>
 							<h3 className='text-lg font-bold text-foreground'>
