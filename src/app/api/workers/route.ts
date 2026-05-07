@@ -16,10 +16,7 @@ export async function GET(_req: NextRequest) {
 	try {
 		const { data, error } = await supabaseAdmin
 			.from('employees')
-			.select(
-				'id, full_name, employee_number, department, status, hire_date, email, phone, worker_legacy_id, sheets_per_hour, teamwork_rating, overtime_availability, attendance_score, lateness_minutes, quality_score, speed_score, overall_rating, employee_skills(proficiency_level, certified, skill:skills(code, name, category))'
-			)
-			.or('status.eq.active,status.is.null')
+			.select('*')
 			.order('full_name', { ascending: true });
 
 		if (error) {
@@ -27,10 +24,17 @@ export async function GET(_req: NextRequest) {
 			return NextResponse.json({ error: 'Failed to fetch workers' }, { status: 500 });
 		}
 
-		const mapped = (data ?? []).map((employee) => ({
-			...employee,
-			name: employee.full_name,
-		}));
+		const mapped = (data ?? [])
+			.filter((employee: any) => {
+				const status = String(employee?.status ?? '').toLowerCase();
+				if (!status) return true;
+				return status !== 'terminated' && status !== 'inactive';
+			})
+			.map((employee: any) => ({
+				...employee,
+				name: employee.full_name,
+				employee_skills: Array.isArray(employee?.employee_skills) ? employee.employee_skills : [],
+			}));
 		return NextResponse.json(mapped);
 	} catch (error) {
 		console.error('Error fetching workers:', error);
