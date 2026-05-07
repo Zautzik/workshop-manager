@@ -16,7 +16,10 @@ export async function GET(_req: NextRequest) {
 	try {
 		const { data, error } = await supabaseAdmin
 			.from('employees')
-			.select('id, full_name, department, status')
+			.select(
+				'id, full_name, employee_number, department, status, hire_date, email, phone, worker_legacy_id, sheets_per_hour, teamwork_rating, overtime_availability, attendance_score, lateness_minutes, quality_score, speed_score, overall_rating, employee_skills(proficiency_level, certified, skill:skills(code, name, category))'
+			)
+			.or('status.eq.active,status.is.null')
 			.order('full_name', { ascending: true });
 
 		if (error) {

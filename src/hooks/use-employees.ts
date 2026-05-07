@@ -61,21 +61,29 @@ export const hrQueryKeys = {
  */
 export function useEmployees(department?: string) {
 	return useQuery({
-		queryKey: hrQueryKeys.employees(),
+		queryKey: [...hrQueryKeys.employees(), { department }],
 		queryFn: async () => {
-			let query = supabase
-				.from('employees')
-				.select('*')
-				.eq('status', 'active')
-				.order('full_name', { ascending: true });
+			const response = await fetch('/api/workers', {
+				credentials: 'include',
+			});
 
-			if (department) {
-				query = query.eq('department', department);
+			let payload: any = null;
+			try {
+				payload = await response.json();
+			} catch {
+				payload = null;
 			}
 
-			const { data, error } = await query;
-			if (error) throw error;
-			return data || [];
+			if (!response.ok) {
+				throw new Error(payload?.error || 'Failed to fetch employees');
+			}
+
+			const workers = Array.isArray(payload) ? payload : [];
+			if (!department) return workers;
+
+			return workers.filter(
+				(worker: any) => String(worker?.department || '') === String(department)
+			);
 		},
 		staleTime: 5 * 60 * 1000, // 5 minutes
 	});

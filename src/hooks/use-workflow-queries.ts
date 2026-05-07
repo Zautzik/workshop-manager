@@ -60,17 +60,25 @@ export function useWorkersByRating() {
   return useQuery({
     queryKey: queryKeys.workersByRating,
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('employees')
-        .select(
-          'id, full_name, department, sheets_per_hour, teamwork_rating, overtime_availability, attendance_score, lateness_minutes, quality_score, speed_score, overall_rating, employee_skills(proficiency_level, certified, skill:skills(code, name, category))'
-        )
-        .order('overall_rating', { ascending: false });
-      if (error) throw error;
-      return (data ?? []).map((employee: any) => ({
-        ...employee,
-        name: employee.full_name,
-      }));
+      const response = await fetch('/api/workers', {
+        credentials: 'include',
+      });
+
+      let payload: any = null;
+      try {
+        payload = await response.json();
+      } catch {
+        payload = null;
+      }
+
+      if (!response.ok) {
+        throw new Error(payload?.error || 'Failed to fetch workers');
+      }
+
+      const workers = Array.isArray(payload) ? payload : [];
+      return workers.sort(
+        (a: any, b: any) => Number(b?.overall_rating ?? 0) - Number(a?.overall_rating ?? 0)
+      );
     },
   });
 }
