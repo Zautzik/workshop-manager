@@ -172,10 +172,10 @@ function DroppableWorkstation({
 			}`}
 		>
 			<div className='flex items-center justify-between mb-3'>
-				<div className='flex items-center gap-2'>
+				<div className='flex items-center gap-2 flex-1 min-w-0'>
 					{getWorkstationIcon(station.type)}
-					<div className='min-w-0'>
-						<h3 className='font-bold text-foreground text-lg leading-tight truncate'>
+					<div className='min-w-0 flex-1'>
+						<h3 className='font-bold text-foreground text-lg leading-tight break-words'>
 							{station.machine?.name ?? station.display_name ?? station.name}
 						</h3>
 						{station.machine?.brand || station.machine?.model ? (
