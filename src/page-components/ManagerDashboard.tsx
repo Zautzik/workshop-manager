@@ -139,7 +139,7 @@ const ManagerDashboard = () => {
                       className="flex items-center justify-between p-3 rounded-lg bg-muted/50"
                     >
                       <div className="flex-1">
-                        <p className="font-medium truncate">{job.description}</p>
+                        <p className="font-medium break-words">{job.description}</p>
                         <p className="text-sm text-muted-foreground">
                           {job.machines?.name || t('machine')}
                         </p>

@@ -232,8 +232,8 @@ function MachineCard({
 
       <CardHeader className="pl-4 pb-2 pt-3 pr-3 flex-row items-start justify-between gap-2">
         <div className="flex-1 min-w-0">
-          <p className="font-semibold text-sm truncate">{machine.name}</p>
-          <p className="text-xs text-muted-foreground">{machine.brand} {machine.model}</p>
+          <p className="font-semibold text-sm break-words">{machine.name}</p>
+          <p className="text-xs text-muted-foreground break-words">{machine.brand} {machine.model}</p>
         </div>
         <div className="flex gap-1">
           <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => onEdit(machine)}>

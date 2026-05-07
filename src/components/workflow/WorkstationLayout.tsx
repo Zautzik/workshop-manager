@@ -111,7 +111,7 @@ function DraggableWorker({
 			}`}>
 				{worker.name.charAt(0)}
 			</div>
-			<span className='text-sm font-medium truncate'>{worker.name}</span>
+			<span className='text-sm font-medium break-words'>{worker.name}</span>
 			{isOvertime && (
 				<span className='ml-auto text-[10px] font-semibold text-amber-600 dark:text-amber-400 shrink-0'>OT</span>
 			)}
@@ -179,7 +179,7 @@ function DroppableWorkstation({
 							{station.machine?.name ?? station.display_name ?? station.name}
 						</h3>
 						{station.machine?.brand || station.machine?.model ? (
-							<p className='text-xs text-muted-foreground truncate'>
+							<p className='text-xs text-muted-foreground break-words'>
 								{[station.machine.brand, station.machine.model].filter(Boolean).join(' ')}
 								{station.machine.year_manufactured ? ` (${station.machine.year_manufactured})` : ''}
 							</p>
