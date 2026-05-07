@@ -159,23 +159,25 @@ function DroppableWorkstation({
 		id: station.id,
 		data: { workstation: station, selectedOT },
 	});
+	const normalizedCapacity = Math.max(1, Number(capacity || 0));
+	const openSlotCount = Math.max(0, normalizedCapacity - occupancy);
 
 	return (
 		<Card
 			ref={setNodeRef}
 			className={`${getWorkstationColor(
 				station.type
-			)} border-3 p-4 transition-all duration-300 ${
+			)} border-3 p-3 transition-all duration-300 ${
 				isOver
 					? 'ring-2 ring-primary border-primary shadow-lg'
 					: 'hover:border-primary/40 hover:shadow-md'
 			}`}
 		>
-			<div className='flex items-center justify-between mb-3'>
+			<div className='flex items-center justify-between mb-2'>
 				<div className='flex items-center gap-2 flex-1 min-w-0'>
 					{getWorkstationIcon(station.type)}
 					<div className='min-w-0 flex-1'>
-						<h3 className='font-bold text-foreground text-lg leading-tight break-words'>
+						<h3 className='font-bold text-foreground text-base leading-tight break-words'>
 							{station.machine?.name ?? station.display_name ?? station.name}
 						</h3>
 						{station.machine?.brand || station.machine?.model ? (
@@ -214,25 +216,25 @@ function DroppableWorkstation({
 				</div>
 			</div>
 
-			<div className='mb-3'>
+			<div className='mb-2'>
 				<div className='flex items-center justify-between text-xs text-foreground mb-1'>
 					<span>Capacity</span>
 					<span className='font-bold'>
-						{occupancy}/{capacity}
+						{occupancy}/{normalizedCapacity}
 					</span>
 				</div>
-				<div className='h-3 bg-muted rounded-full overflow-hidden'>
+				<div className='h-2 bg-muted rounded-full overflow-hidden'>
 					<div
 						className={`h-full ${
-							occupancy >= capacity ? 'bg-destructive' : 'bg-primary'
+							occupancy >= normalizedCapacity ? 'bg-destructive' : 'bg-primary'
 						} transition-all`}
-						style={{ width: `${(occupancy / capacity) * 100}%` }}
+						style={{ width: `${Math.min(100, (occupancy / normalizedCapacity) * 100)}%` }}
 					/>
 				</div>
 			</div>
 
 			<div
-				className={`space-y-2 mb-3 min-h-[140px] rounded-lg border-3 border-dashed p-3 transition-all duration-300 ${
+				className={`space-y-2 mb-2 min-h-[96px] rounded-lg border-2 border-dashed p-2 transition-all duration-300 ${
 					isOver ? 'border-primary bg-primary/10' : 'border-border bg-muted/30'
 				}`}
 			>
@@ -261,30 +263,30 @@ function DroppableWorkstation({
 							onUnassignWorker={onUnassignWorker}
 						/>
 					))
-				) : (
-					<div
-						className={`text-center py-8 transition-all ${
-							isOver ? 'text-primary' : 'text-muted-foreground'
-						}`}
-					>
-						<Users
-							className={`w-12 h-12 mx-auto mb-2 ${
-								isOver ? 'opacity-100 scale-110' : 'opacity-50'
-							}`}
-						/>
-						<p
-							className={`text-sm font-bold ${
-								isOver ? 'text-primary' : 'text-muted-foreground'
-							}`}
-						>
-							{isOver
-								? 'Release to assign'
-								: showOnlyOvertime
-									? 'No OT workers assigned in this station'
-									: 'Drop workers here'}
-						</p>
+				) : null}
+
+				{openSlotCount > 0 && (
+					<div className='grid grid-cols-1 sm:grid-cols-2 gap-2'>
+						{Array.from({ length: openSlotCount }).map((_, idx) => (
+							<div
+								key={`open-slot-${station.id}-${idx}`}
+								className={`rounded-md border border-dashed px-2 py-1.5 text-xs ${
+									isOver
+										? 'border-primary text-primary bg-primary/10'
+										: 'border-border text-muted-foreground bg-background/40'
+								}`}
+							>
+								{isOver ? 'Suelta aqui' : `Cupo libre ${occupancy + idx + 1}`}
+							</div>
+						))}
 					</div>
 				)}
+
+				{assignedWorkers.length === 0 && openSlotCount === 0 ? (
+					<div className='text-center py-2 text-xs text-muted-foreground'>
+						{showOnlyOvertime ? 'No OT workers assigned in this station' : 'No slots available'}
+					</div>
+				) : null}
 			</div>
 
 			{/* Machine location / energy pill */}
@@ -741,7 +743,7 @@ export function WorkstationLayout({
 						return (
 						<Card
 							key={type}
-							className={`${theme.sectionCard} backdrop-blur-sm p-6`}
+							className={`${theme.sectionCard} backdrop-blur-sm p-4`}
 						>
 							<div className='flex items-center gap-3 mb-4'>
 								{getWorkstationIcon(type)}
@@ -754,8 +756,8 @@ export function WorkstationLayout({
 								</Badge>
 							</div>
 
-							<div className='grid grid-cols-1 lg:grid-cols-4 gap-4'>
-								<div className='lg:col-span-3 grid grid-cols-1 lg:grid-cols-2 gap-4'>
+							<div className='grid grid-cols-1 2xl:grid-cols-5 gap-3'>
+								<div className='2xl:col-span-4 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3'>
 									{(stations as any[]).map(station => {
 										const assignedWorkers = getAssignedWorkers(station.id);
 										const occupancy = assignedWorkers.length;
@@ -784,7 +786,7 @@ export function WorkstationLayout({
 									})}
 								</div>
 
-								<Card className={`${theme.poolCard} p-4 lg:sticky lg:top-4 self-start`}>
+								<Card className={`${theme.poolCard} p-3 2xl:sticky 2xl:top-4 self-start`}>
 									<div className='mb-3'>
 										<h4 className='text-sm font-semibold text-foreground'>
 											Operarios disponibles — {getTypeLabel(type)}

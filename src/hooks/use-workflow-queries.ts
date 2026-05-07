@@ -262,6 +262,7 @@ export function useWorkstations() {
       const machines = Array.isArray(machinePayload) ? machinePayload : [];
       const machinesById = new Map(machines.map((machine: any) => [String(machine.id), machine]));
       const machinesByWorkstationId = new Map<string, any[]>();
+      const machinesByType = new Map<string, any[]>();
 
       machines.forEach((machine: any) => {
         const wsId = machine?.workstation_id ? String(machine.workstation_id) : null;
@@ -271,6 +272,32 @@ export function useWorkstations() {
         machinesByWorkstationId.set(wsId, bucket);
       });
 
+      const normalizeMachineType = (value: any) => {
+        const raw = String(value || '').toLowerCase().trim().replace(/[\s-]+/g, '_');
+        const aliases: Record<string, string> = {
+          offset: 'offset_printer',
+          offset_prensa: 'offset_printer',
+          prensa_offset: 'offset_printer',
+          diecut: 'die_cutter',
+          troqueladora: 'die_cutter',
+          troquelado: 'die_cutter',
+          guillotina: 'guillotine',
+          taller_manual: 'manual_workshop',
+          taller: 'workshop',
+          preprensa: 'pre_press',
+          pre_prensa: 'pre_press',
+        };
+        return aliases[raw] ?? raw;
+      };
+
+      machines.forEach((machine: any) => {
+        const typeKey = normalizeMachineType(machine?.type);
+        if (!typeKey) return;
+        const bucket = machinesByType.get(typeKey) || [];
+        bucket.push(machine);
+        machinesByType.set(typeKey, bucket);
+      });
+
       const sortByFreshness = (a: any, b: any) => {
         const aTs = Date.parse(String(a?.updated_at || a?.created_at || '1970-01-01'));
         const bTs = Date.parse(String(b?.updated_at || b?.created_at || '1970-01-01'));
@@ -278,6 +305,7 @@ export function useWorkstations() {
       };
 
       const chooseMachineForWorkstation = (workstation: any) => {
+        const stationType = normalizeMachineType(workstation?.type);
         const explicitMachineId = workstation?.machine_id ? String(workstation.machine_id) : null;
         if (explicitMachineId) {
           const explicit = machinesById.get(explicitMachineId);
@@ -285,16 +313,45 @@ export function useWorkstations() {
         }
 
         const linked = (machinesByWorkstationId.get(String(workstation.id)) || []).slice().sort(sortByFreshness);
-        if (linked.length === 0) return null;
+        if (linked.length > 0) {
+          const linkedTypeMatch = linked.find((machine: any) => normalizeMachineType(machine?.type) === stationType);
+          if (linkedTypeMatch) return linkedTypeMatch;
 
-        const active = linked.find((machine: any) => machine?.is_active === true);
-        return active ?? linked[0] ?? null;
+          const active = linked.find((machine: any) => machine?.is_active === true);
+          return active ?? linked[0] ?? null;
+        }
+
+        const byType = (machinesByType.get(stationType) || []).slice().sort(sortByFreshness);
+        const activeByType = byType.find((machine: any) => machine?.is_active === true);
+        return activeByType ?? byType[0] ?? null;
       };
 
-      return (workstationData ?? []).map((workstation: any) => ({
-        ...workstation,
-        machine: chooseMachineForWorkstation(workstation),
-      }));
+      const usedMachineIds = new Set<string>();
+
+      return (workstationData ?? []).map((workstation: any) => {
+        const preferred = chooseMachineForWorkstation(workstation);
+        const preferredId = preferred?.id ? String(preferred.id) : null;
+
+        if (preferredId && !usedMachineIds.has(preferredId)) {
+          usedMachineIds.add(preferredId);
+          return {
+            ...workstation,
+            machine: preferred,
+          };
+        }
+
+        const stationType = normalizeMachineType(workstation?.type);
+        const pool = (machinesByType.get(stationType) || []).slice().sort(sortByFreshness);
+        const unused = pool.find((machine: any) => !usedMachineIds.has(String(machine?.id)));
+        if (unused?.id) {
+          usedMachineIds.add(String(unused.id));
+        }
+
+        return {
+          ...workstation,
+          machine: unused ?? preferred ?? null,
+        };
+      });
     },
   });
 }
