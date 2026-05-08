@@ -42,13 +42,15 @@ const QUICK_GUIDE_SESSION_KEY = 'workflow_planta_quick_guide_seen';
 
 function DraggableWorker({
 	worker,
-	assignmentId,
+		assignmentId,
 	isOvertime = false,
 	onUnassignWorker,
+	compact = false,
 }: {
 	worker: any;
 	assignmentId?: string;
 	isOvertime?: boolean;
+	compact?: boolean;
 	monthlyOvertime?: { hours: number; shifts: number };
 	costInfo?: { hourlyRate?: number; currencyCode?: string; estimatedCost?: number };
 	planningScore?: number | null;
@@ -84,7 +86,7 @@ function DraggableWorker({
 			style={style}
 			{...listeners}
 			{...attributes}
-			className={`relative flex items-center gap-2 rounded-md border px-3 py-2 text-foreground shadow-sm transition-all cursor-grab active:cursor-grabbing ${
+			className={`relative flex items-center gap-1.5 rounded-md border text-foreground shadow-sm transition-all cursor-grab active:cursor-grabbing ${compact ? 'px-2 py-1' : 'px-3 py-2'} ${
 				isOvertime
 					? 'border-amber-500/60 bg-amber-500/10 hover:bg-amber-500/15'
 					: 'border-border bg-card hover:border-primary/40 hover:bg-accent/20'
@@ -104,14 +106,14 @@ function DraggableWorker({
 					<X className='w-3 h-3' />
 				</button>
 			)}
-			<div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${
+			<div className={`rounded-full flex items-center justify-center font-bold shrink-0 ${compact ? 'w-5 h-5 text-[10px]' : 'w-7 h-7 text-xs'} ${
 				isOvertime
 					? 'bg-amber-500/30 text-amber-700 dark:text-amber-300'
 					: 'bg-primary/20 text-primary'
 			}`}>
 				{worker.name.charAt(0)}
 			</div>
-			<span className='text-sm font-medium break-words'>{worker.name}</span>
+			<span className={`font-medium break-words min-w-0 ${compact ? 'text-[11px]' : 'text-sm'}`}>{worker.name}</span>
 			{isOvertime && (
 				<span className='ml-auto text-[10px] font-semibold text-amber-600 dark:text-amber-400 shrink-0'>OT</span>
 			)}
@@ -266,21 +268,21 @@ function DroppableWorkstation({
 				) : null}
 
 				{openSlotCount > 0 && (
-					<div className='grid grid-cols-1 sm:grid-cols-2 gap-2'>
-						{Array.from({ length: openSlotCount }).map((_, idx) => (
-							<div
-								key={`open-slot-${station.id}-${idx}`}
-								className={`rounded-md border border-dashed px-2 py-1.5 text-xs ${
-									isOver
-										? 'border-primary text-primary bg-primary/10'
-										: 'border-border text-muted-foreground bg-background/40'
-								}`}
-							>
-								{isOver ? 'Suelta aqui' : `Cupo libre ${occupancy + idx + 1}`}
-							</div>
-						))}
-					</div>
-				)}
+				<div className='space-y-1'>
+					{Array.from({ length: openSlotCount }).map((_, idx) => (
+						<div
+							key={`open-slot-${station.id}-${idx}`}
+							className={`rounded-md border border-dashed px-2 py-1 text-[10px] ${
+								isOver
+									? 'border-primary text-primary bg-primary/10'
+									: 'border-border text-muted-foreground bg-background/40'
+							}`}
+						>
+							{isOver ? 'Suelta aqui' : `Cupo libre ${occupancy + idx + 1}`}
+						</div>
+					))}
+				</div>
+			)}
 
 				{assignedWorkers.length === 0 && openSlotCount === 0 ? (
 					<div className='text-center py-2 text-xs text-muted-foreground'>
@@ -756,8 +758,8 @@ export function WorkstationLayout({
 								</Badge>
 							</div>
 
-				<div className='grid grid-cols-1 lg:grid-cols-4 gap-3'>
-					<div className='lg:col-span-3 grid grid-cols-1 md:grid-cols-2 gap-3'>
+				<div className='flex gap-2 items-start'>
+					<div className='flex-1 min-w-0 grid grid-cols-2 gap-2'>
 									{(stations as any[]).map(station => {
 										const assignedWorkers = getAssignedWorkers(station.id);
 										const occupancy = assignedWorkers.length;
@@ -786,7 +788,7 @@ export function WorkstationLayout({
 									})}
 								</div>
 
-								<Card className={`${theme.poolCard} p-2 lg:sticky lg:top-4 self-start`}>
+								<Card className={`${theme.poolCard} p-2 sticky top-4 self-start w-40 shrink-0`}>
 									<div className='mb-2'>
 										<h4 className='text-xs font-semibold text-foreground'>
 											Operarios disponibles — {getTypeLabel(type)}
@@ -805,6 +807,7 @@ export function WorkstationLayout({
 													<DraggableWorker
 														key={worker.id}
 														worker={worker}
+														compact
 														isOvertime={isOvertimeWorker(worker)}
 														monthlyOvertime={monthlyOvertimeByWorker?.[worker.id]}
 														costInfo={getWorkerCostInfo(worker, isOvertimeWorker(worker))}
