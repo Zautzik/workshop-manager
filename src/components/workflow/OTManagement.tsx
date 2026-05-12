@@ -121,7 +121,7 @@ export function OTManagement({ onOTSelect }: OTManagementProps) {
     setRollbackTarget(null);
   };
 
-  const filteredOTs = ots.filter(ot =>
+  const filteredOTs = (ots as any[]).filter((ot: any) =>
     ot.ot_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
     ot.client_name.toLowerCase().includes(searchTerm.toLowerCase())
   );
