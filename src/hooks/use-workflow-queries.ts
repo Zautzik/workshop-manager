@@ -111,13 +111,9 @@ export function useOTs() {
   return useQuery({
     queryKey: queryKeys.ots,
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('ots')
-        .select(OT_SELECT)
-        .order('priority', { ascending: false })
-        .order('created_at', { ascending: false });
-      if (error) throw error;
-      return data ?? [];
+      const res = await fetch('/api/ots');
+      if (!res.ok) throw new Error(`Failed to fetch OTs: ${res.status}`);
+      return res.json();
     },
   });
 }

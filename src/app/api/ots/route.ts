@@ -10,6 +10,7 @@ const OTStatusSchema = z.enum([
 	'in_storage',
 	'guillotine_first_cut',
 	'offset_printing',
+	'digital_printing',
 	'die_cutting',
 	'guillotine_final_cut',
 	'workshop',
@@ -122,7 +123,7 @@ export async function GET(_req: NextRequest) {
 	try {
 		const { data, error } = await supabaseAdmin
 			.from('ots')
-			.select('*, workstation:workstations(*)')
+			.select('*, workstation:workstations(*), machine:machines!assigned_machine_id(id,name,brand,model,type,status,location,colors,nominal_speed_sheets_hr,power_kw)')
 			.order('priority', { ascending: false })
 			.order('created_at', { ascending: false });
 

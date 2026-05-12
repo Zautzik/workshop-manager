@@ -7,6 +7,7 @@ export type OTWorkflowStatus =
   | 'in_storage'
   | 'guillotine_first_cut'
   | 'offset_printing'
+  | 'digital_printing'
   | 'die_cutting'
   | 'guillotine_final_cut'
   | 'workshop'
@@ -23,6 +24,7 @@ const STATUS_ORDER: OTWorkflowStatus[] = [
   'in_storage',
   'guillotine_first_cut',
   'offset_printing',
+  'digital_printing',
   'die_cutting',
   'guillotine_final_cut',
   'workshop',
@@ -42,7 +44,7 @@ const ROLE_ACCESS: Record<AppRole, OTWorkflowStatus[]> = {
   supervisor: STATUS_ORDER,
   manager: ['pre_press', 'visto_bueno', 'ready_for_delivery', 'in_delivery', 'completed'],
   hr_manager: ['pre_press', 'visto_bueno'],
-  technician: ['guillotine_first_cut', 'offset_printing', 'die_cutting', 'guillotine_final_cut', 'workshop', 'outsourced', 'workshop_revision'],
+  technician: ['guillotine_first_cut', 'offset_printing', 'digital_printing', 'die_cutting', 'guillotine_final_cut', 'workshop', 'outsourced', 'workshop_revision'],
 };
 
 export interface TransitionValidationInput {

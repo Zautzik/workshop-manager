@@ -218,13 +218,12 @@ export function OTManagement({ onOTSelect }: OTManagementProps) {
       {/* ── Honeycomb Beehive Kanban ──
           Pointy-top hex: flat left/right sides, pointed top/bottom.
           clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)
-          2-1-2-1 formation with true edge-sharing geometry:
+          3-2-1 compact formation with true edge-sharing geometry:
             y-step between interlocked rows = 0.75 * HEX_H
           Formation:
-            [Diseño]   [Compras]
-               [Producción]
-            [Acabados] [Terminación]
-               [Despacho]
+            [Diseño] [Compras] [Corte]
+              [Acabados] [Terminación]
+                  [Despacho]
       ── */}
       {(() => {
         const HEX_CLIP = 'polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)';
@@ -237,15 +236,15 @@ export function OTManagement({ onOTSelect }: OTManagementProps) {
         const INSET_X = Math.round(HEX_W * 0.05); // 14px
 
         const POSITIONS = [
-          { x: 0,         y: 0 },
-          { x: HEX_W,     y: 0 },
-          { x: HEX_W / 2, y: Y_STEP },
-          { x: 0,         y: Y_STEP * 2 },
-          { x: HEX_W,     y: Y_STEP * 2 },
-          { x: HEX_W / 2, y: Y_STEP * 3 },
+          { x: 0,             y: 0 },          // 0: Diseño
+          { x: HEX_W,         y: 0 },          // 1: Compras & Bodega
+          { x: HEX_W * 2,     y: 0 },          // 2: Corte & Impresión
+          { x: HEX_W * 0.5,   y: Y_STEP },     // 3: Acabados
+          { x: HEX_W * 1.5,   y: Y_STEP },     // 4: Terminación
+          { x: HEX_W,         y: Y_STEP * 2 }, // 5: Despacho
         ];
-        const CANVAS_W = HEX_W * 2;
-        const CANVAS_H = Math.ceil(Y_STEP * 3 + HEX_H);
+        const CANVAS_W = HEX_W * 3;
+        const CANVAS_H = Math.ceil(Y_STEP * 2 + HEX_H);
 
         return (
           <div style={{ overflowX: 'auto', paddingBottom: 8 }}>
@@ -407,7 +406,7 @@ export function OTManagement({ onOTSelect }: OTManagementProps) {
       {/* ── Fast Lane: Urgent OTs ── */}
       {(() => {
         const urgentOTs = filteredOTs.filter(ot => ot.priority >= 8 && ot.status !== 'completed');
-        const LANE_W = 580;
+        const LANE_W = 870;
         return (
           <div style={{ width: LANE_W, margin: '10px auto 0' }}>
             <div style={{
