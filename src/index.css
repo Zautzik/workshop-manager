@@ -78,6 +78,9 @@
     /* ── Structure ───────────────────────────────────────────────── */
     --border: 24 22% 82%;               /* warm sand border */
     --input: 26 22% 91%;
+
+    --hex-fill: #ffffff;
+    --hex-card: #ffffff;
     --ring: 188 82% 36%;
 
     --radius: 0.5rem;
@@ -123,6 +126,9 @@
     --border: 228 22% 18%;
     --input: 228 22% 16%;
     --ring: 183 92% 52%;
+
+    --hex-fill: #0f1525;
+    --hex-card: #1a2035;
 
     --sidebar-bg: 228 28% 9%;
     --sidebar-border: 228 22% 16%;

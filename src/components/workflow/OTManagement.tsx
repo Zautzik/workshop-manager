@@ -216,36 +216,38 @@ export function OTManagement({ onOTSelect }: OTManagementProps) {
       )}
 
       {/* ── Honeycomb Beehive Kanban ──
-          Pointy-top hex: flat left/right sides, pointed top/bottom.
-          clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)
-          2-1-2-1 formation with true edge-sharing geometry:
-            y-step between interlocked rows = 0.75 * HEX_H
-          Formation:
-            [Diseño]   [Compras]
-               [Corte & Impresión]
-            [Acabados] [Terminación]
-               [Despacho]
+          Flat-top hex: flat top/bottom sides, pointed left/right.
+          clip-path: polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%)
+          Column-based formation — 2 cols of 2 with staggered single between each:
+            same-column vertical step = HEX_H  (flat edges share directly)
+            staggered column: x += 0.75×W, y = 0.5×H  (interlocked centred)
+          Formation (left → right):
+            [Diseño]              [Acabados]
+                     [Corte]                [Despacho]
+            [Compras]             [Terminación]
       ── */}
       {(() => {
-        const HEX_CLIP = 'polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)';
-        const HEX_W = 290;
-        const HEX_H = 280;
-        const Y_STEP = HEX_H * 0.75; // 210 — ensures edge-sharing between rows
+        const HEX_CLIP = 'polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%)';
+        const HEX_W = 280;
+        const HEX_H = 240;
 
-        // Usable content rect: skip the pointed tips (26% inset top/bottom)
-        const INSET_Y = Math.round(HEX_H * 0.26); // 73px
-        const INSET_X = Math.round(HEX_W * 0.05); // 14px
+        // Flat-top: points are on left/right — inset more horizontally, less vertically
+        const INSET_X = Math.round(HEX_W * 0.16); // 45px — closer to edges for more content area
+        const INSET_Y = Math.round(HEX_H * 0.04); // 10px — flat top/bottom, minimal gap
+
+        const X_STEP = HEX_W * 0.75; // 210 — staggered column x offset
+        const Y_STEP = HEX_H * 0.5;  // 120 — staggered column y offset (midpoint)
 
         const POSITIONS = [
-          { x: 0,         y: 0 },          // 0: Diseño       (top-left)
-          { x: HEX_W,     y: 0 },          // 1: Compras      (top-right)
-          { x: HEX_W / 2, y: Y_STEP },     // 2: Corte        (middle-center)
-          { x: 0,         y: Y_STEP * 2 }, // 3: Acabados     (bottom-left)
-          { x: HEX_W,     y: Y_STEP * 2 }, // 4: Terminación  (bottom-right)
-          { x: HEX_W / 2, y: Y_STEP * 3 }, // 5: Despacho    (very-bottom-center)
+          { x: 0,            y: 0 },       // 0: Diseño       col-1 top
+          { x: 0,            y: HEX_H },   // 1: Compras      col-1 bottom (flat edge sharing)
+          { x: X_STEP,       y: Y_STEP },  // 2: Corte        staggered between col-1
+          { x: X_STEP * 2,   y: 0 },       // 3: Acabados     col-3 top
+          { x: X_STEP * 2,   y: HEX_H },   // 4: Terminación  col-3 bottom
+          { x: X_STEP * 3,   y: Y_STEP },  // 5: Despacho     staggered between col-3
         ];
-        const CANVAS_W = HEX_W * 2;
-        const CANVAS_H = Math.ceil(Y_STEP * 3 + HEX_H);
+        const CANVAS_W = X_STEP * 3 + HEX_W; // 910
+        const CANVAS_H = HEX_H * 2;           // 480
 
         return (
           <div style={{ overflowX: 'auto', paddingBottom: 8 }}>
@@ -267,44 +269,43 @@ export function OTManagement({ onOTSelect }: OTManagementProps) {
                     onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.filter = `drop-shadow(0 6px 22px rgb(${group.rgb} / 0.68))`; }}
                     onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.filter = `drop-shadow(0 4px 16px rgb(${group.rgb} / 0.42))`; }}
                   >
-                    {/* ── Hex shell: fill + gleam + content all clipped to hex shape ── */}
+                    {/* ── Hex border: outer hex = border color, inner hex = fill ── */}
                     <div style={{
                       position: 'absolute', inset: 0,
                       clipPath: HEX_CLIP,
-                      background: `radial-gradient(ellipse 90% 70% at 50% 30%,
-                        rgb(${group.rgb} / 0.78) 0%,
-                        rgb(${group.rgb} / 0.48) 55%,
-                        rgb(${group.rgb} / 0.65) 100%)`,
+                      background: `rgb(${group.rgb})`,
                     }}>
+                      {/* Inner hex fill — inset 8px to expose the outer as a border */}
                       <div style={{
-                        position: 'absolute', inset: 0, pointerEvents: 'none',
-                        background: 'radial-gradient(ellipse 70% 50% at 50% 22%, rgba(255,255,255,0.30) 0%, transparent 58%)',
-                      }} />
-                    {/* ── Content: directly inside hex clip — no inner rectangle ── */}
+                        position: 'absolute',
+                        inset: '8px',
+                        clipPath: HEX_CLIP,
+                        background: 'var(--hex-fill, #ffffff)',
+                      }}>
+                    {/* ── Content ── */}
                     <div style={{
                       position: 'absolute',
-                      left: INSET_X, right: INSET_X,
-                      top: INSET_Y, bottom: INSET_Y,
+                      left: INSET_X - 8, right: INSET_X - 8,
+                      top: INSET_Y - 8, bottom: INSET_Y - 8,
                       display: 'flex', flexDirection: 'column',
                       overflow: 'hidden',
                     }}>
-                      {/* Group title bar */}
+                      {/* Title + count — centered */}
                       <div style={{
                         flexShrink: 0,
-                        background: `rgb(${group.rgb} / 0.35)`,
-                        borderBottom: '1px solid rgba(255,255,255,0.32)',
-                        padding: '4px 6px',
-                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                        textAlign: 'center',
+                        padding: '5px 4px 3px',
+                        borderBottom: `3px solid rgb(${group.rgb})`,
                       }}>
-                        <span style={{ fontSize: 10, fontWeight: 800, color: '#fff', lineHeight: 1, textShadow: '0 1px 4px rgba(0,0,0,0.55)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        <div style={{ fontSize: 14, fontWeight: 900, color: `rgb(${group.rgb})`, lineHeight: 1.1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                           {group.label}
-                        </span>
-                        <span style={{ fontSize: 8.5, fontWeight: 700, color: 'rgba(255,255,255,0.78)', whiteSpace: 'nowrap', marginLeft: 4 }}>
-                          {count} OTs
-                        </span>
+                        </div>
+                        <div style={{ fontSize: 9, fontWeight: 600, color: `rgb(${group.rgb} / 0.70)`, lineHeight: 1.2, marginTop: 1 }}>
+                          {count} {count === 1 ? 'orden' : 'órdenes'}
+                        </div>
                       </div>
 
-                      {/* Stage columns — side by side with vertical dividers */}
+                      {/* Stage columns — colored header tab + white body */}
                       <div style={{ flex: 1, display: 'flex', flexDirection: 'row', overflow: 'hidden' }}>
                         {(group.stages as readonly string[]).map((stageKey, sIdx) => {
                           const stInfo   = getStatusInfo(stageKey);
@@ -315,8 +316,8 @@ export function OTManagement({ onOTSelect }: OTManagementProps) {
                               key={stageKey}
                               style={{
                                 flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0,
-                                borderLeft: sIdx > 0 ? '1px solid rgba(255,255,255,0.28)' : 'none',
-                                background: isOver ? 'rgba(255,255,255,0.14)' : 'transparent',
+                                borderLeft: sIdx > 0 ? `1px solid rgb(${group.rgb} / 0.25)` : 'none',
+                                background: isOver ? `rgb(${group.rgb} / 0.08)` : 'transparent',
                                 transition: 'background 0.1s',
                               }}
                               onDragEnter={e => onColEnter(e, stageKey)}
@@ -324,25 +325,29 @@ export function OTManagement({ onOTSelect }: OTManagementProps) {
                               onDragOver={onColOver}
                               onDrop={e => onColDrop(e, stageKey)}
                             >
-                              {/* Stage label + count */}
-                              <div style={{ flexShrink: 0, padding: '2px 3px', borderBottom: '1px solid rgba(255,255,255,0.20)', textAlign: 'center' }}>
-                                <div style={{ fontSize: 7, fontWeight: 700, color: 'rgba(255,255,255,0.88)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: 1.3 }}>
+                              {/* Colored tab header */}
+                              <div style={{
+                                flexShrink: 0, textAlign: 'center',
+                                background: `rgb(${group.rgb})`,
+                                padding: '2px 2px',
+                              }}>
+                                <div style={{ fontSize: 8, fontWeight: 700, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: 1.3 }}>
                                   {stInfo.labelEs}
                                 </div>
-                                <div style={{ fontSize: 6.5, fontWeight: 600, color: 'rgba(255,255,255,0.50)', lineHeight: 1 }}>
+                                <div style={{ fontSize: 7, fontWeight: 600, color: 'rgba(255,255,255,0.75)', lineHeight: 1 }}>
                                   {stageOTs.length}
                                 </div>
                               </div>
                               {/* OT cards stacked in this column */}
-                              <div style={{ flex: 1, overflowY: 'auto', padding: '1px 2px', display: 'flex', flexDirection: 'column', gap: 1 }}>
+                              <div style={{ flex: 1, overflowY: 'auto', padding: '2px 2px', display: 'flex', flexDirection: 'column', gap: 2 }}>
                                 {isOver && stageOTs.length === 0 && (
-                                  <div style={{ border: '1px dashed rgba(255,255,255,0.40)', borderRadius: 2, textAlign: 'center', fontSize: 6.5, color: 'rgba(255,255,255,0.65)', padding: '2px 0', marginTop: 1 }}>↓</div>
+                                  <div style={{ border: `1px dashed rgb(${group.rgb} / 0.5)`, borderRadius: 2, textAlign: 'center', fontSize: 7, color: `rgb(${group.rgb})`, padding: '2px 0', marginTop: 2 }}>↓</div>
                                 )}
                                 {stageOTs.map(ot => {
                                   const nextSt     = getAllNextStatuses(ot.status);
                                   const isDragging  = draggingId === ot.id;
                                   const hasBudget   = ot.status === 'pre_press' || ot.status === 'visto_bueno';
-                                  const priDot      = ot.priority >= 8 ? '#fca5a5' : ot.priority >= 5 ? '#fcd34d' : '#93c5fd';
+                                  const priDot      = ot.priority >= 8 ? '#ef4444' : ot.priority >= 5 ? '#f59e0b' : `rgb(${group.rgb})`;
                                   return (
                                     <div
                                       key={ot.id}
@@ -351,8 +356,8 @@ export function OTManagement({ onOTSelect }: OTManagementProps) {
                                       onDragStart={e => onDragStart(e, ot)}
                                       onDragEnd={onDragEnd}
                                       style={{
-                                        background: isDragging ? 'rgba(255,255,255,0.05)' : 'rgba(255,255,255,0.18)',
-                                        border: `1px solid rgba(255,255,255,${isDragging ? '0.08' : '0.24'})`,
+                                        background: isDragging ? 'rgba(128,128,128,0.06)' : 'var(--hex-card, #ffffff)',
+                                        border: `1px solid rgb(${group.rgb} / ${isDragging ? '0.15' : '0.40'})`,
                                         borderRadius: 3, padding: '2px 3px',
                                         cursor: 'grab', opacity: isDragging ? 0.30 : 1,
                                         transition: 'opacity 0.1s',
@@ -361,26 +366,26 @@ export function OTManagement({ onOTSelect }: OTManagementProps) {
                                     >
                                       <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                                         <div style={{ width: 4, height: 4, borderRadius: '50%', background: priDot, flexShrink: 0 }} />
-                                        <span style={{ fontSize: 8, fontWeight: 700, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, lineHeight: 1.2, textShadow: '0 1px 2px rgba(0,0,0,0.40)' }}>
+                                        <span style={{ fontSize: 8, fontWeight: 700, color: `rgb(${group.rgb})`, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, lineHeight: 1.2 }}>
                                           {ot.ot_number}
                                         </span>
                                       </div>
                                       <div className="overflow-hidden max-h-0 group-hover:max-h-16 transition-all duration-150">
-                                        <div style={{ paddingTop: 1, borderTop: '1px solid rgba(255,255,255,0.14)', marginTop: 1, display: 'flex', flexDirection: 'column', gap: 1 }}>
+                                        <div style={{ paddingTop: 1, borderTop: `1px solid rgb(${group.rgb} / 0.20)`, marginTop: 1, display: 'flex', flexDirection: 'column', gap: 1 }}>
                                           {hasBudget && (
-                                            <button style={{ fontSize: 6.5, fontWeight: 600, color: '#fcd34d', background: 'none', border: 'none', cursor: 'pointer', padding: 0, textAlign: 'left' }}
+                                            <button style={{ fontSize: 6.5, fontWeight: 600, color: '#f59e0b', background: 'none', border: 'none', cursor: 'pointer', padding: 0, textAlign: 'left' }}
                                               onClick={e => { e.stopPropagation(); setBudgetEditOT(ot); }}>
                                               $ Presupuesto
                                             </button>
                                           )}
                                           {nextSt.slice(0, 2).map(ns => (
                                             <button key={ns.key}
-                                              style={{ fontSize: 6.5, fontWeight: 600, color: '#93c5fd', background: 'none', border: 'none', cursor: 'pointer', padding: 0, textAlign: 'left' }}
+                                              style={{ fontSize: 6.5, fontWeight: 600, color: `rgb(${group.rgb})`, background: 'none', border: 'none', cursor: 'pointer', padding: 0, textAlign: 'left' }}
                                               onClick={e => { e.stopPropagation(); requestAdvance(ot, ns.key, ns.labelEs); }}>
                                               → {ns.labelEs}
                                             </button>
                                           ))}
-                                          <button style={{ fontSize: 6.5, fontWeight: 600, color: 'rgba(255,255,255,0.45)', background: 'none', border: 'none', cursor: 'pointer', padding: 0, textAlign: 'left' }}
+                                          <button style={{ fontSize: 6.5, fontWeight: 600, color: 'rgba(0,0,0,0.35)', background: 'none', border: 'none', cursor: 'pointer', padding: 0, textAlign: 'left' }}
                                             onClick={e => { e.stopPropagation(); setEditingOT(ot); setShowEditDialog(true); }}>
                                             ✎ Editar
                                           </button>
@@ -395,6 +400,7 @@ export function OTManagement({ onOTSelect }: OTManagementProps) {
                         })}
                       </div>
                     </div>
+                      </div>
                     </div>
                   </div>
                 );
@@ -407,7 +413,7 @@ export function OTManagement({ onOTSelect }: OTManagementProps) {
       {/* ── Fast Lane: Urgent OTs ── */}
       {(() => {
         const urgentOTs = filteredOTs.filter(ot => ot.priority >= 8 && ot.status !== 'completed');
-        const LANE_W = 580;
+        const LANE_W = 910;
         return (
           <div style={{ width: LANE_W, margin: '10px auto 0' }}>
             <div style={{
