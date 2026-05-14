@@ -28,24 +28,8 @@ import {
   Globe,
   ChevronLeft,
   ChevronRight,
-  ClipboardList,
-  CalendarDays,
-  LayoutDashboard,
-  LayoutList,
-  Package,
-  ShoppingCart,
-  UserCog,
   Menu,
-  MessageSquare,
-  Warehouse,
-  Bell,
-  Plug,
-  BookOpen,
-  Cpu,
-  FileSpreadsheet,
-  FileSearch,
   ShieldCheck,
-  GraduationCap,
 } from 'lucide-react';
 import { NotificationCenter } from '@/components/NotificationCenter';
 import { ReportingQuickActions } from '@/components/ReportingQuickActions';
@@ -55,70 +39,20 @@ interface NavItem {
   icon: React.ElementType;
   href: string;
   roles?: string[];
-  group: string;
+  dot: string;
+  activeBg: string;
+  activeIcon: string;
 }
 
-// ─── Sidebar — 6 modules matching the home honeycomb ─────────────────────────
 const navItems: NavItem[] = [
-  // ─ Inicio ──────────────────────────────────────────────────────────────────
-  { label: 'Inicio', icon: Home, href: '/home', group: 'main',
-    roles: ['admin', 'manager', 'supervisor', 'hr_manager', 'technician'] },
-
-  // ─ Operaciones ─────────────────────────────────────────────────────────────
-  { label: 'Operaciones',     icon: Factory,        href: '/workflow',                   group: 'operaciones', roles: ['admin', 'supervisor', 'manager'] },
-  { label: 'Kanban',          icon: ClipboardList,  href: '/workflow/kanban',            group: 'operaciones', roles: ['admin', 'supervisor', 'manager'] },
-  { label: 'En Proceso',      icon: LayoutList,     href: '/workflow/ordenes-en-proceso',group: 'operaciones', roles: ['admin', 'supervisor', 'manager'] },
-  { label: 'Planta',          icon: Factory,        href: '/workflow/planta',            group: 'operaciones', roles: ['admin', 'supervisor', 'manager'] },
-  { label: 'Plan Semanal',    icon: CalendarDays,   href: '/workflow/plan-semanal',      group: 'operaciones', roles: ['admin', 'supervisor', 'manager'] },
-  { label: 'Hoja Producción', icon: FileSpreadsheet,href: '/workflow/hoja-produccion',   group: 'operaciones', roles: ['admin', 'supervisor', 'manager'] },
-  { label: 'Clientes',        icon: Users,          href: '/workflow/clients',           group: 'operaciones', roles: ['admin', 'supervisor', 'manager'] },
-  { label: 'Archivo OT',      icon: FileSearch,     href: '/workflow/production',        group: 'operaciones', roles: ['admin', 'supervisor', 'manager'] },
-  { label: 'Bodega',          icon: Warehouse,      href: '/workflow/warehouse',         group: 'operaciones', roles: ['admin', 'supervisor', 'manager'] },
-  { label: 'WhatsApp',        icon: MessageSquare,  href: '/workflow/whatsapp',          group: 'operaciones', roles: ['admin', 'supervisor'] },
-  { label: 'Mis Reportes',    icon: MessageSquare,  href: '/workflow/whatsapp/operator', group: 'operaciones', roles: ['technician'] },
-
-  // ─ Personas ────────────────────────────────────────────────────────────────
-  { label: 'Personas',        icon: Users,          href: '/hr',                         group: 'personas', roles: ['admin', 'hr_manager', 'supervisor'] },
-
-  // ─ Máquinas ────────────────────────────────────────────────────────────────
-  { label: 'Máquinas',        icon: Cpu,            href: '/maintenance',                group: 'maquinas', roles: ['admin', 'technician', 'supervisor', 'manager'] },
-  { label: 'Checklists',      icon: Wrench,         href: '/maintenance/checklists',     group: 'maquinas', roles: ['admin', 'technician', 'supervisor', 'manager'] },
-
-  // ─ Finanzas ────────────────────────────────────────────────────────────────
-  { label: 'Finanzas',        icon: DollarSign,     href: '/financial',                  group: 'finanzas', roles: ['admin', 'manager'] },
-
-  // ─ Reportes ────────────────────────────────────────────────────────────────
-  { label: 'Reportes',        icon: BarChart3,      href: '/manager',                    group: 'reportes', roles: ['admin', 'manager'] },
-  { label: 'Vista Ejecutiva', icon: LayoutDashboard,href: '/admin/overview',             group: 'reportes', roles: ['admin', 'manager'] },
-
-  // ─ Administración ──────────────────────────────────────────────────────────
-  { label: 'Administración',  icon: ShieldCheck,    href: '/admin',                      group: 'admin', roles: ['admin'] },
-  { label: 'Usuarios',        icon: UserCog,        href: '/admin/users',                group: 'admin', roles: ['admin'] },
-  { label: 'Inventario',      icon: Package,        href: '/admin/inventory',            group: 'admin', roles: ['admin', 'manager'] },
-  { label: 'Compras',         icon: ShoppingCart,   href: '/admin/purchases',            group: 'admin', roles: ['admin', 'manager'] },
-  { label: 'Notificaciones',  icon: Bell,           href: '/admin/notifications',        group: 'admin', roles: ['admin'] },
-  { label: 'Integraciones',   icon: Plug,           href: '/admin/integrations',         group: 'admin', roles: ['admin'] },
-  { label: 'Capacitación',    icon: GraduationCap,  href: '/admin/training',             group: 'admin', roles: ['admin', 'hr_manager'] },
-  { label: 'Resumen',         icon: BookOpen,       href: '/admin/overview',             group: 'admin', roles: ['admin'] },
+  { label: 'Inicio',         icon: Home,       href: '/home',        roles: ['admin', 'manager', 'supervisor', 'hr_manager', 'technician'], dot: 'bg-slate-400',   activeBg: 'bg-slate-200 dark:bg-slate-500/20',   activeIcon: 'text-slate-600 dark:text-slate-300'  },
+  { label: 'Operaciones',    icon: Factory,    href: '/workflow',    roles: ['admin', 'supervisor', 'manager'],                             dot: 'bg-blue-500',    activeBg: 'bg-blue-100 dark:bg-blue-500/20',     activeIcon: 'text-blue-600 dark:text-blue-300'    },
+  { label: 'Personas',       icon: Users,      href: '/hr',          roles: ['admin', 'hr_manager', 'supervisor'],                          dot: 'bg-amber-500',   activeBg: 'bg-amber-100 dark:bg-amber-500/20',   activeIcon: 'text-amber-600 dark:text-amber-300'  },
+  { label: 'Máquinas',       icon: Wrench,     href: '/maintenance', roles: ['admin', 'technician', 'supervisor', 'manager'],               dot: 'bg-orange-500',  activeBg: 'bg-orange-100 dark:bg-orange-500/20', activeIcon: 'text-orange-600 dark:text-orange-300'},
+  { label: 'Finanzas',       icon: DollarSign, href: '/financial',   roles: ['admin', 'manager'],                                          dot: 'bg-green-500',   activeBg: 'bg-green-100 dark:bg-green-500/20',   activeIcon: 'text-green-600 dark:text-green-300'  },
+  { label: 'Reportes',       icon: BarChart3,  href: '/manager',     roles: ['admin', 'manager'],                                          dot: 'bg-indigo-500',  activeBg: 'bg-indigo-100 dark:bg-indigo-500/20', activeIcon: 'text-indigo-600 dark:text-indigo-300'},
+  { label: 'Administración', icon: ShieldCheck,href: '/admin',       roles: ['admin'],                                                     dot: 'bg-violet-500',  activeBg: 'bg-violet-100 dark:bg-violet-500/20', activeIcon: 'text-violet-600 dark:text-violet-300'},
 ];
-
-// Palette per group — light-mode active uses darker tints + coloured left-bar haze
-const groupMeta: Record<string, {
-  es: string; en: string;
-  dot: string;
-  haze: string;
-  active: string;
-  text: string;
-  activeText: string;
-}> = {
-  main:        { es: 'Inicio',         en: 'Home',           dot: 'bg-slate-400',   haze: 'bg-slate-500/8',   active: 'bg-slate-200 dark:bg-slate-500/20',   text: 'text-slate-600 dark:text-slate-400',   activeText: 'text-slate-800 dark:text-slate-200'  },
-  operaciones: { es: 'Operaciones',    en: 'Operations',     dot: 'bg-blue-500',    haze: 'bg-blue-500/8',    active: 'bg-blue-100 dark:bg-blue-500/20',     text: 'text-blue-700 dark:text-blue-400',     activeText: 'text-blue-900 dark:text-blue-200'    },
-  personas:    { es: 'Personas',       en: 'People',         dot: 'bg-amber-500',   haze: 'bg-amber-500/8',   active: 'bg-amber-100 dark:bg-amber-500/20',   text: 'text-amber-700 dark:text-amber-400',   activeText: 'text-amber-900 dark:text-amber-200'  },
-  maquinas:    { es: 'Máquinas',       en: 'Machines',       dot: 'bg-orange-500',  haze: 'bg-orange-500/8',  active: 'bg-orange-100 dark:bg-orange-500/20', text: 'text-orange-700 dark:text-orange-400', activeText: 'text-orange-900 dark:text-orange-200'},
-  finanzas:    { es: 'Finanzas',       en: 'Finance',        dot: 'bg-green-500',   haze: 'bg-green-500/8',   active: 'bg-green-100 dark:bg-green-500/20',   text: 'text-green-700 dark:text-green-400',   activeText: 'text-green-900 dark:text-green-200'  },
-  reportes:    { es: 'Reportes',       en: 'Reports',        dot: 'bg-indigo-500',  haze: 'bg-indigo-500/8',  active: 'bg-indigo-100 dark:bg-indigo-500/20', text: 'text-indigo-700 dark:text-indigo-400', activeText: 'text-indigo-900 dark:text-indigo-200'},
-  admin:       { es: 'Administración', en: 'Administration', dot: 'bg-violet-500',  haze: 'bg-violet-500/8',  active: 'bg-violet-100 dark:bg-violet-500/20', text: 'text-violet-700 dark:text-violet-400', activeText: 'text-violet-900 dark:text-violet-200'},
-};
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const { user, role, loading, signOut } = useAuth();
@@ -181,8 +115,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     (item) => !item.roles || item.roles.includes(role || '')
   );
 
-  const groups = [...new Set(filteredItems.map((item) => item.group))];
-
   const isActive = (href: string) => {
     // Exact match for home and admin landing (avoid matching all /admin/* as "home")
     if (href === '/home' || href === '/admin') return pathname === href;
@@ -206,86 +138,41 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       </div>
 
       {/* Nav */}
-      <ScrollArea className="flex-1 py-3">
-        <nav className="space-y-0.5 px-2">
-          {groups.map((group, gi) => {
-            const groupItems = filteredItems.filter((item) => item.group === group);
-            if (groupItems.length === 0) return null;
-            const meta = groupMeta[group] ?? {
-              es: group, en: group,
-              dot: 'bg-slate-500', haze: 'bg-slate-500/8',
-              active: 'bg-slate-200 dark:bg-slate-500/20',
-              text: 'text-slate-600 dark:text-slate-400',
-              activeText: 'text-slate-800 dark:text-slate-200',
-            };
+      <ScrollArea className="flex-1 py-4">
+        <nav className="space-y-1 px-2">
+          {filteredItems.map((item) => {
+            const Icon = item.icon;
+            const active = isActive(item.href);
 
-            return (
-              <div key={group}>
-                {gi > 0 && <Separator className="my-1.5 opacity-30" />}
-                {collapsed ? (
-                  <Tooltip delayDuration={0}>
-                    <TooltipTrigger asChild>
-                      <div className="flex justify-center py-0.5 cursor-default">
-                        <span className={cn("w-2 h-2 rounded-full shrink-0", meta.dot)} />
-                      </div>
-                    </TooltipTrigger>
-                    <TooltipContent side="right" className="font-semibold text-xs">
-                      {language === 'es' ? meta.es : meta.en}
-                    </TooltipContent>
-                  </Tooltip>
-                ) : (
-                  <div className="flex items-center gap-1.5 px-3 pt-2 pb-1">
-                    <span className={cn("w-1.5 h-1.5 rounded-full shrink-0", meta.dot)} />
-                    <p className={cn("text-[10px] font-bold uppercase tracking-widest", meta.text)}>
-                      {language === 'es' ? meta.es : meta.en}
-                    </p>
-                  </div>
+            const button = (
+              <button
+                key={item.href}
+                onClick={() => { router.push(item.href); setMobileOpen(false); }}
+                className={cn(
+                  "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all duration-150",
+                  active
+                    ? cn(item.activeBg, item.activeIcon, "font-semibold")
+                    : "text-foreground/40 hover:text-foreground/70 hover:bg-black/5 dark:hover:bg-white/5",
+                  collapsed && "justify-center px-0"
                 )}
-                {/* Subtle colour haze behind this group's items */}
-                <div className={cn("rounded-lg", !collapsed && meta.haze)}>
-                {groupItems.map((item) => {
-                  const Icon = item.icon;
-                  const active = isActive(item.href);
-
-                  const button = (
-                    <button
-                      key={item.href}
-                      onClick={() => {
-                        router.push(item.href);
-                        setMobileOpen(false);
-                      }}
-                      className={cn(
-                        "w-full flex items-center gap-2.5 px-3 py-1.5 rounded-lg text-sm transition-all duration-150",
-                        active
-                          ? cn(meta.active, meta.activeText, "font-semibold shadow-sm")
-                          : cn("text-foreground/60 dark:text-muted-foreground/80",
-                               "hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5"),
-                        collapsed && "justify-center px-2"
-                      )}
-                    >
-                      <Icon className={cn("w-4 h-4 shrink-0",
-                        active ? meta.text : "text-foreground/40 dark:opacity-60"
-                      )} />
-                      {!collapsed && <span className="truncate">{item.label}</span>}
-                    </button>
-                  );
-
-                  if (collapsed) {
-                    return (
-                      <Tooltip key={item.href} delayDuration={0}>
-                        <TooltipTrigger asChild>{button}</TooltipTrigger>
-                        <TooltipContent side="right" className="font-medium">
-                          {item.label}
-                        </TooltipContent>
-                      </Tooltip>
-                    );
-                  }
-
-                  return <React.Fragment key={item.href}>{button}</React.Fragment>;
-                })}
-                </div>
-              </div>
+              >
+                <span className="relative shrink-0">
+                  <Icon className="w-5 h-5" />
+                  <span className={cn("absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full border border-card", item.dot)} />
+                </span>
+                {!collapsed && <span className="truncate">{item.label}</span>}
+              </button>
             );
+
+            if (collapsed) {
+              return (
+                <Tooltip key={item.href} delayDuration={0}>
+                  <TooltipTrigger asChild>{button}</TooltipTrigger>
+                  <TooltipContent side="right" className="font-medium">{item.label}</TooltipContent>
+                </Tooltip>
+              );
+            }
+            return <React.Fragment key={item.href}>{button}</React.Fragment>;
           })}
         </nav>
       </ScrollArea>
