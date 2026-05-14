@@ -50,7 +50,7 @@ const Login = () => {
   useEffect(() => {
     if (didLogin && user) {
       // All roles go to the unified home dashboard
-      router.push('/admin');
+      router.push('/home');
     }
   }, [didLogin, user, role, router]);
 
@@ -90,7 +90,7 @@ const Login = () => {
           <div className="flex flex-col gap-2">
             <Button
               onClick={() => {
-                router.push('/admin');
+                router.push('/home');
               }}
             >
               Continue to Dashboard

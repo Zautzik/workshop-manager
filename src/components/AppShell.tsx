@@ -31,6 +31,7 @@ import {
   ClipboardList,
   CalendarDays,
   LayoutDashboard,
+  LayoutList,
   Package,
   ShoppingCart,
   UserCog,
@@ -41,11 +42,10 @@ import {
   Plug,
   BookOpen,
   Cpu,
-  LayoutGrid,
-  TrendingUp,
-  Settings2,
   FileSpreadsheet,
-  Printer,
+  FileSearch,
+  ShieldCheck,
+  GraduationCap,
 } from 'lucide-react';
 import { NotificationCenter } from '@/components/NotificationCenter';
 import { ReportingQuickActions } from '@/components/ReportingQuickActions';
@@ -58,77 +58,66 @@ interface NavItem {
   group: string;
 }
 
-// ─── Sidebar — mirroring the 7 Inicio modules, logically grouped ──────────────
+// ─── Sidebar — 6 modules matching the home honeycomb ─────────────────────────
 const navItems: NavItem[] = [
-  // ─ Inicio ─────────────────────────────────────────────────────────────────
-  { label: 'Inicio', icon: Home, href: '/admin', group: 'main',
+  // ─ Inicio ──────────────────────────────────────────────────────────────────
+  { label: 'Inicio', icon: Home, href: '/home', group: 'main',
     roles: ['admin', 'manager', 'supervisor', 'hr_manager', 'technician'] },
 
-  // ─ Flujo de Trabajo ───────────────────────────────────────────────────────
-  //   Floor orchestration: where people work, how shifts are arranged,
-  //   weekly planning. NOT about individual orders (that's Producción).
-  { label: 'Vista de Planta',     icon: Factory,       href: '/workflow/planta',           group: 'workflow', roles: ['admin', 'supervisor', 'manager'] },
-  { label: 'Planta Integrada',    icon: LayoutGrid,    href: '/workflow/planta-integrada', group: 'workflow', roles: ['admin', 'supervisor', 'manager'] },
-  { label: 'Plan Semanal',        icon: CalendarDays,  href: '/workflow/plan-semanal',     group: 'workflow', roles: ['admin', 'supervisor', 'manager'] },
-  { label: 'WhatsApp Producción', icon: MessageSquare, href: '/workflow/whatsapp',         group: 'workflow', roles: ['admin', 'supervisor', 'manager'] },
-  { label: 'Mis Reportes',        icon: MessageSquare, href: '/workflow/whatsapp/operator',group: 'workflow', roles: ['technician'] },
+  // ─ Operaciones ─────────────────────────────────────────────────────────────
+  { label: 'Operaciones',     icon: Factory,        href: '/workflow',                   group: 'operaciones', roles: ['admin', 'supervisor', 'manager'] },
+  { label: 'Kanban',          icon: ClipboardList,  href: '/workflow/kanban',            group: 'operaciones', roles: ['admin', 'supervisor', 'manager'] },
+  { label: 'En Proceso',      icon: LayoutList,     href: '/workflow/ordenes-en-proceso',group: 'operaciones', roles: ['admin', 'supervisor', 'manager'] },
+  { label: 'Planta',          icon: Factory,        href: '/workflow/planta',            group: 'operaciones', roles: ['admin', 'supervisor', 'manager'] },
+  { label: 'Plan Semanal',    icon: CalendarDays,   href: '/workflow/plan-semanal',      group: 'operaciones', roles: ['admin', 'supervisor', 'manager'] },
+  { label: 'Hoja Producción', icon: FileSpreadsheet,href: '/workflow/hoja-produccion',   group: 'operaciones', roles: ['admin', 'supervisor', 'manager'] },
+  { label: 'Clientes',        icon: Users,          href: '/workflow/clients',           group: 'operaciones', roles: ['admin', 'supervisor', 'manager'] },
+  { label: 'Archivo OT',      icon: FileSearch,     href: '/workflow/production',        group: 'operaciones', roles: ['admin', 'supervisor', 'manager'] },
+  { label: 'Bodega',          icon: Warehouse,      href: '/workflow/warehouse',         group: 'operaciones', roles: ['admin', 'supervisor', 'manager'] },
+  { label: 'WhatsApp',        icon: MessageSquare,  href: '/workflow/whatsapp',          group: 'operaciones', roles: ['admin', 'supervisor'] },
+  { label: 'Mis Reportes',    icon: MessageSquare,  href: '/workflow/whatsapp/operator', group: 'operaciones', roles: ['technician'] },
 
-  // ─ Producción ─────────────────────────────────────────────────────────────
-  //   OT lifecycle from creation to delivery: kanban board, order tracking,
-  //   production sheets, client management, archive.
-  { label: 'Kanban OTs',          icon: ClipboardList, href: '/workflow/kanban',           group: 'production', roles: ['admin', 'supervisor', 'manager'] },
-  { label: 'Órdenes en Proceso',  icon: TrendingUp,    href: '/workflow/ordenes-en-proceso',group: 'production', roles: ['admin', 'supervisor', 'manager'] },
-  { label: 'Hoja de Producción',  icon: FileSpreadsheet, href: '/workflow/hoja-produccion',group: 'production', roles: ['admin', 'supervisor', 'manager'] },
-  { label: 'Archivo OT',          icon: Printer,       href: '/workflow/production',       group: 'production', roles: ['admin', 'supervisor', 'manager'] },
-  { label: 'Clientes',            icon: Users,         href: '/workflow/clients',          group: 'production', roles: ['admin', 'supervisor', 'manager'] },
+  // ─ Personas ────────────────────────────────────────────────────────────────
+  { label: 'Personas',        icon: Users,          href: '/hr',                         group: 'personas', roles: ['admin', 'hr_manager', 'supervisor'] },
 
-  // ─ KPIs & Reportes ────────────────────────────────────────────────────────
-  { label: 'Resumen Ejecutivo',   icon: LayoutDashboard, href: '/admin/overview',          group: 'kpis', roles: ['admin', 'manager'] },
-  { label: 'KPIs & Reportes',     icon: BarChart3,       href: '/manager',                 group: 'kpis', roles: ['admin', 'manager'] },
-  { label: 'Notificaciones',      icon: Bell,            href: '/admin/notifications',     group: 'kpis', roles: ['admin', 'manager', 'supervisor', 'hr_manager', 'technician'] },
+  // ─ Máquinas ────────────────────────────────────────────────────────────────
+  { label: 'Máquinas',        icon: Cpu,            href: '/maintenance',                group: 'maquinas', roles: ['admin', 'technician', 'supervisor', 'manager'] },
+  { label: 'Checklists',      icon: Wrench,         href: '/maintenance/checklists',     group: 'maquinas', roles: ['admin', 'technician', 'supervisor', 'manager'] },
 
-  // ─ Finanzas ───────────────────────────────────────────────────────────────
-  { label: 'Finanzas', icon: DollarSign, href: '/financial', group: 'financial', roles: ['admin', 'manager'] },
+  // ─ Finanzas ────────────────────────────────────────────────────────────────
+  { label: 'Finanzas',        icon: DollarSign,     href: '/financial',                  group: 'finanzas', roles: ['admin', 'manager'] },
 
-  // ─ Recursos Humanos ───────────────────────────────────────────────────────
-  { label: 'Recursos Humanos', icon: Users, href: '/hr', group: 'hr', roles: ['admin', 'hr_manager'] },
+  // ─ Reportes ────────────────────────────────────────────────────────────────
+  { label: 'Reportes',        icon: BarChart3,      href: '/manager',                    group: 'reportes', roles: ['admin', 'manager'] },
+  { label: 'Vista Ejecutiva', icon: LayoutDashboard,href: '/admin/overview',             group: 'reportes', roles: ['admin', 'manager'] },
 
-  // ─ Máquinas ───────────────────────────────────────────────────────────────
-  { label: 'Máquinas',   icon: Cpu,     href: '/maintenance',            group: 'machines', roles: ['admin', 'technician', 'supervisor', 'manager'] },
-  { label: 'Checklists', icon: Wrench,  href: '/maintenance/checklists', group: 'machines', roles: ['admin', 'technician', 'supervisor', 'manager'] },
-
-  // ─ Inventario ─────────────────────────────────────────────────────────────
-  //   Bodega lives here: it's a warehouse/stock function, not a production tool.
-  { label: 'Inventario', icon: Package,      href: '/admin/inventory',    group: 'inventory', roles: ['admin', 'manager', 'supervisor'] },
-  { label: 'Compras',    icon: ShoppingCart, href: '/admin/purchases',    group: 'inventory', roles: ['admin', 'manager'] },
-  { label: 'Bodega',     icon: Warehouse,    href: '/workflow/warehouse', group: 'inventory', roles: ['admin', 'supervisor', 'manager'] },
-
-  // ─ Administración ─────────────────────────────────────────────────────────
-  { label: 'Usuarios',       icon: UserCog,   href: '/admin/users',        group: 'admin', roles: ['admin'] },
-  { label: 'Operarios',      icon: Users,     href: '/admin/workers',       group: 'admin', roles: ['admin'] },
-  { label: 'Integraciones',  icon: Plug,      href: '/admin/integrations',  group: 'admin', roles: ['admin', 'manager', 'supervisor'] },
-  { label: 'Knowledge Base', icon: BookOpen,  href: '/admin/training',      group: 'admin', roles: ['admin', 'manager', 'hr_manager'] },
-  { label: 'Configuración',  icon: Settings2, href: '/admin/settings',      group: 'admin', roles: ['admin'] },
+  // ─ Administración ──────────────────────────────────────────────────────────
+  { label: 'Administración',  icon: ShieldCheck,    href: '/admin',                      group: 'admin', roles: ['admin'] },
+  { label: 'Usuarios',        icon: UserCog,        href: '/admin/users',                group: 'admin', roles: ['admin'] },
+  { label: 'Inventario',      icon: Package,        href: '/admin/inventory',            group: 'admin', roles: ['admin', 'manager'] },
+  { label: 'Compras',         icon: ShoppingCart,   href: '/admin/purchases',            group: 'admin', roles: ['admin', 'manager'] },
+  { label: 'Notificaciones',  icon: Bell,           href: '/admin/notifications',        group: 'admin', roles: ['admin'] },
+  { label: 'Integraciones',   icon: Plug,           href: '/admin/integrations',         group: 'admin', roles: ['admin'] },
+  { label: 'Capacitación',    icon: GraduationCap,  href: '/admin/training',             group: 'admin', roles: ['admin', 'hr_manager'] },
+  { label: 'Resumen',         icon: BookOpen,       href: '/admin/overview',             group: 'admin', roles: ['admin'] },
 ];
 
 // Palette per group — light-mode active uses darker tints + coloured left-bar haze
 const groupMeta: Record<string, {
   es: string; en: string;
-  dot: string;        // dot indicator colour
-  haze: string;       // subtle bg haze for expanded items (light + dark)
-  active: string;     // active button bg + text
-  text: string;       // group label colour
-  activeText: string; // active button text (visible in both modes)
+  dot: string;
+  haze: string;
+  active: string;
+  text: string;
+  activeText: string;
 }> = {
-  main:       { es: 'Inicio',            en: 'Home',            dot: 'bg-slate-500',   haze: 'bg-slate-500/8',    active: 'bg-slate-200 dark:bg-slate-500/20',     text: 'text-slate-600 dark:text-slate-400',  activeText: 'text-slate-800 dark:text-slate-200' },
-  workflow:   { es: 'Flujo de Trabajo',  en: 'Workflow',        dot: 'bg-blue-500',    haze: 'bg-blue-500/8',     active: 'bg-blue-100 dark:bg-blue-500/20',       text: 'text-blue-700 dark:text-blue-400',    activeText: 'text-blue-900 dark:text-blue-200' },
-  production: { es: 'Producción',        en: 'Production',      dot: 'bg-emerald-500', haze: 'bg-emerald-500/8',  active: 'bg-emerald-100 dark:bg-emerald-500/20', text: 'text-emerald-700 dark:text-emerald-400', activeText: 'text-emerald-900 dark:text-emerald-200' },
-  kpis:       { es: 'KPIs & Reportes',  en: 'KPIs & Reports',  dot: 'bg-violet-500',  haze: 'bg-violet-500/8',   active: 'bg-violet-100 dark:bg-violet-500/20',   text: 'text-violet-700 dark:text-violet-400', activeText: 'text-violet-900 dark:text-violet-200' },
-  financial:  { es: 'Finanzas',          en: 'Finance',         dot: 'bg-green-600',   haze: 'bg-green-500/8',    active: 'bg-green-100 dark:bg-green-500/20',     text: 'text-green-700 dark:text-green-400',  activeText: 'text-green-900 dark:text-green-200' },
-  hr:         { es: 'Recursos Humanos',  en: 'Human Resources', dot: 'bg-amber-500',   haze: 'bg-amber-500/8',    active: 'bg-amber-100 dark:bg-amber-500/20',     text: 'text-amber-700 dark:text-amber-400',  activeText: 'text-amber-900 dark:text-amber-200' },
-  machines:   { es: 'Máquinas',          en: 'Machines',        dot: 'bg-orange-500',  haze: 'bg-orange-500/8',   active: 'bg-orange-100 dark:bg-orange-500/20',   text: 'text-orange-700 dark:text-orange-400', activeText: 'text-orange-900 dark:text-orange-200' },
-  inventory:  { es: 'Inventario',        en: 'Inventory',       dot: 'bg-cyan-600',    haze: 'bg-cyan-500/8',     active: 'bg-cyan-100 dark:bg-cyan-500/20',       text: 'text-cyan-700 dark:text-cyan-400',    activeText: 'text-cyan-900 dark:text-cyan-200' },
-  admin:      { es: 'Administración',    en: 'Administration',  dot: 'bg-rose-500',    haze: 'bg-rose-500/8',     active: 'bg-rose-100 dark:bg-rose-500/20',       text: 'text-rose-700 dark:text-rose-400',    activeText: 'text-rose-900 dark:text-rose-200' },
+  main:        { es: 'Inicio',         en: 'Home',           dot: 'bg-slate-400',   haze: 'bg-slate-500/8',   active: 'bg-slate-200 dark:bg-slate-500/20',   text: 'text-slate-600 dark:text-slate-400',   activeText: 'text-slate-800 dark:text-slate-200'  },
+  operaciones: { es: 'Operaciones',    en: 'Operations',     dot: 'bg-blue-500',    haze: 'bg-blue-500/8',    active: 'bg-blue-100 dark:bg-blue-500/20',     text: 'text-blue-700 dark:text-blue-400',     activeText: 'text-blue-900 dark:text-blue-200'    },
+  personas:    { es: 'Personas',       en: 'People',         dot: 'bg-amber-500',   haze: 'bg-amber-500/8',   active: 'bg-amber-100 dark:bg-amber-500/20',   text: 'text-amber-700 dark:text-amber-400',   activeText: 'text-amber-900 dark:text-amber-200'  },
+  maquinas:    { es: 'Máquinas',       en: 'Machines',       dot: 'bg-orange-500',  haze: 'bg-orange-500/8',  active: 'bg-orange-100 dark:bg-orange-500/20', text: 'text-orange-700 dark:text-orange-400', activeText: 'text-orange-900 dark:text-orange-200'},
+  finanzas:    { es: 'Finanzas',       en: 'Finance',        dot: 'bg-green-500',   haze: 'bg-green-500/8',   active: 'bg-green-100 dark:bg-green-500/20',   text: 'text-green-700 dark:text-green-400',   activeText: 'text-green-900 dark:text-green-200'  },
+  reportes:    { es: 'Reportes',       en: 'Reports',        dot: 'bg-indigo-500',  haze: 'bg-indigo-500/8',  active: 'bg-indigo-100 dark:bg-indigo-500/20', text: 'text-indigo-700 dark:text-indigo-400', activeText: 'text-indigo-900 dark:text-indigo-200'},
+  admin:       { es: 'Administración', en: 'Administration', dot: 'bg-violet-500',  haze: 'bg-violet-500/8',  active: 'bg-violet-100 dark:bg-violet-500/20', text: 'text-violet-700 dark:text-violet-400', activeText: 'text-violet-900 dark:text-violet-200'},
 };
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
@@ -195,8 +184,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const groups = [...new Set(filteredItems.map((item) => item.group))];
 
   const isActive = (href: string) => {
-    // Exact match for home
-    if (href === '/admin') return pathname === '/admin';
+    // Exact match for home and admin landing (avoid matching all /admin/* as "home")
+    if (href === '/home' || href === '/admin') return pathname === href;
     // For everything else, match exact or sub-paths
     return pathname === href || pathname.startsWith(href + '/');
   };

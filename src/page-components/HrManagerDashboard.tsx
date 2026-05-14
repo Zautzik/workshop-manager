@@ -75,7 +75,7 @@ const HrManagerDashboard = () => {
             <p className="text-sm text-muted-foreground mb-4">
               Esta sección está disponible solo para Admin, HR Manager o Supervisor.
             </p>
-            <Button variant="outline" onClick={() => router.push('/admin')}>
+            <Button variant="outline" onClick={() => router.push('/home')}>
               Volver
             </Button>
           </CardContent>

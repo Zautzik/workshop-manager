@@ -53,7 +53,7 @@ export default function ProtectedRoute({ children, allowedRoles }: ProtectedRout
             <p className="text-sm text-muted-foreground">
               Tu rol actual (<span className="font-medium capitalize">{role?.replace('_', ' ')}</span>) no tiene permiso para acceder a esta sección.
             </p>
-            <Button variant="outline" onClick={() => router.push('/admin')}>
+            <Button variant="outline" onClick={() => router.push('/home')}>
               Volver al Inicio
             </Button>
           </CardContent>
