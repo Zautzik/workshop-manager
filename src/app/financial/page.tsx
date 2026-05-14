@@ -17,17 +17,32 @@
  */
 'use client';
 
-import dynamic from 'next/dynamic';
 import ProtectedRoute from '@/components/ProtectedRoute';
+import ModuleLandingPage from '@/components/ModuleLandingPage';
+import {
+  BarChart3, DollarSign, Wrench, Users,
+  FileText, TrendingUp, PieChart, ClipboardCheck,
+} from 'lucide-react';
 
-const FinancialReport = dynamic(() => import('@/page-components/FinancialReport'), {
-  loading: () => <div className="p-8 text-muted-foreground text-sm">Cargando...</div>,
-});
+const sections = [
+  { label: 'Análisis de Costos',   description: 'Costos por OT y centros de costo',        icon: BarChart3,       href: '/financial/costos',       rgb: '34 197 94'   },
+  { label: 'Seguimiento OT',       description: 'Seguimiento financiero por orden',          icon: FileText,        href: '/financial/ots',          rgb: '16 185 129'  },
+  { label: 'Nómina',               description: 'Cálculo mensual de nómina',                 icon: Users,           href: '/financial/nomina',       rgb: '245 158 11'  },
+  { label: 'Costos Máquinas',      description: 'Análisis de costo por equipo',              icon: Wrench,          href: '/financial/maquinas',     rgb: '249 115 22'  },
+  { label: 'Inversión Equipos',    description: 'ROI y análisis de inversión',               icon: TrendingUp,      href: '/financial/inversion',    rgb: '6 182 212'   },
+  { label: 'Márgenes por OT',      description: 'Análisis de margen mano de obra',           icon: PieChart,        href: '/financial/margenes',     rgb: '139 92 246'  },
+  { label: 'KPIs & Reportes',      description: 'Analítica y rendimiento operativo',         icon: ClipboardCheck,  href: '/manager',                rgb: '99 102 241'  },
+  { label: 'Costos OT (Detalle)',  description: 'Reporte detallado de costos reales',        icon: DollarSign,      href: '/financial/costos-ot',    rgb: '217 70 239'  },
+];
 
 export default function FinancialPage() {
   return (
     <ProtectedRoute allowedRoles={['admin', 'manager']}>
-      <FinancialReport />
+      <ModuleLandingPage
+        title="Finanzas & KPIs"
+        subtitle="Control de costos, nómina, reportes y analítica gerencial"
+        sections={sections}
+      />
     </ProtectedRoute>
   );
 }

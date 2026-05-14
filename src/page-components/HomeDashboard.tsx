@@ -10,8 +10,7 @@ import {
   DollarSign,
   Users,
   Wrench,
-  ClipboardList,
-  Package,
+  ShieldCheck,
 } from 'lucide-react';
 
 interface QuickAction {
@@ -30,73 +29,63 @@ interface QuickAction {
 
 const quickActions: QuickAction[] = [
   {
-    label: 'Flujo de Trabajo',
-    description: 'Gestionar asignaciones, turnos y órdenes de trabajo',
+    label: 'Operaciones',
+    description: 'Kanban, turnos, planta y OTs en tiempo real',
     icon: Factory,
     href: '/workflow',
-    rgb: '59 130 246',       // blue-500
+    rgb: '59 130 246',
     textCls: 'text-blue-100',
     lightTextCls: 'text-blue-900',
-    roles: ['admin', 'supervisor', 'manager'],
+    roles: ['admin', 'supervisor', 'manager', 'technician'],
   },
   {
-    label: 'Producción',
-    description: 'Órdenes de trabajo y seguimiento de producción',
-    icon: ClipboardList,
-    href: '/workflow/production',
-    rgb: '16 185 129',       // emerald-500
-    textCls: 'text-emerald-100',
-    lightTextCls: 'text-emerald-900',
-    roles: ['admin', 'supervisor', 'manager'],
-  },
-  {
-    label: 'KPIs & Reportes',
-    description: 'Analítica, rendimiento y reportes gerenciales',
-    icon: BarChart3,
-    href: '/manager',
-    rgb: '139 92 246',       // violet-500
-    textCls: 'text-violet-100',
-    lightTextCls: 'text-violet-900',
-    roles: ['admin', 'manager'],
-  },
-  {
-    label: 'Finanzas',
-    description: 'Control de costos, nómina y análisis financiero',
-    icon: DollarSign,
-    href: '/financial',
-    rgb: '34 197 94',        // green-500
-    textCls: 'text-green-100',
-    lightTextCls: 'text-green-900',
-    roles: ['admin', 'manager'],
-  },
-  {
-    label: 'Recursos Humanos',
-    description: 'Empleados, contratos, licencias y certificaciones',
+    label: 'Personas',
+    description: 'Empleados, nómina, habilidades y contratos',
     icon: Users,
     href: '/hr',
-    rgb: '245 158 11',       // amber-500
+    rgb: '245 158 11',
     textCls: 'text-amber-100',
     lightTextCls: 'text-amber-900',
-    roles: ['admin', 'hr_manager'],
+    roles: ['admin', 'hr_manager', 'supervisor'],
   },
   {
     label: 'Máquinas',
-    description: 'Registro de máquinas, mantenimiento y órdenes de trabajo',
+    description: 'Mantenimiento, checklists y estado de equipos',
     icon: Wrench,
     href: '/maintenance',
-    rgb: '249 115 22',       // orange-500
+    rgb: '249 115 22',
     textCls: 'text-orange-100',
     lightTextCls: 'text-orange-900',
     roles: ['admin', 'technician', 'supervisor'],
   },
   {
-    label: 'Inventario',
-    description: 'Materiales, suministros y control de stock',
-    icon: Package,
-    href: '/admin/inventory',
-    rgb: '6 182 212',        // cyan-500
-    textCls: 'text-cyan-100',
-    lightTextCls: 'text-cyan-900',
+    label: 'Finanzas',
+    description: 'Costos por OT, nómina, márgenes e inversiones',
+    icon: DollarSign,
+    href: '/financial',
+    rgb: '34 197 94',
+    textCls: 'text-green-100',
+    lightTextCls: 'text-green-900',
+    roles: ['admin', 'manager'],
+  },
+  {
+    label: 'Reportes',
+    description: 'KPIs, trazabilidad y rendimiento del taller',
+    icon: BarChart3,
+    href: '/manager',
+    rgb: '99 102 241',
+    textCls: 'text-indigo-100',
+    lightTextCls: 'text-indigo-900',
+    roles: ['admin', 'manager'],
+  },
+  {
+    label: 'Administración',
+    description: 'Usuarios, inventario, compras e integraciones',
+    icon: ShieldCheck,
+    href: '/admin',
+    rgb: '139 92 246',
+    textCls: 'text-violet-100',
+    lightTextCls: 'text-violet-900',
     roles: ['admin'],
   },
 ];

@@ -16,13 +16,13 @@
  */
 'use client';
 
-import ProtectedRoute from '@/components/ProtectedRoute';
-import SupervisorDashboard from "@/page-components/SupervisorDashboard";
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 
+// Supervisors now work from the Workflow module.
+// This route is kept for backward-compatibility and redirects seamlessly.
 export default function SupervisorPage() {
-  return (
-    <ProtectedRoute allowedRoles={['admin', 'supervisor']}>
-      <SupervisorDashboard />
-    </ProtectedRoute>
-  );
+  const router = useRouter();
+  useEffect(() => { router.replace('/workflow'); }, [router]);
+  return null;
 }
