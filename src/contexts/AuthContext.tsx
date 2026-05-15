@@ -23,6 +23,29 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+	// ── Dev bypass — set NEXT_PUBLIC_DEV_BYPASS=true in .env.local ────────
+	const isDevBypass =
+		process.env.NODE_ENV === 'development' &&
+		process.env.NEXT_PUBLIC_DEV_BYPASS === 'true';
+
+	const DEV_USER: User = { id: 'dev', email: 'dev@local', name: 'Dev Admin' };
+	const DEV_ROLE: AppRole = 'admin';
+
+	if (isDevBypass) {
+		return (
+			<AuthContext.Provider value={{
+				user: DEV_USER,
+				session: null,
+				role: DEV_ROLE,
+				loading: false,
+				signIn: async () => ({ error: null }),
+				signOut: async () => {},
+			}}>
+				{children}
+			</AuthContext.Provider>
+		);
+	}
+
 	// ── Normal auth ──────────────────────────────────────────────────────
 	const { data: session, status } = useSession();
 	const loading = status === 'loading';

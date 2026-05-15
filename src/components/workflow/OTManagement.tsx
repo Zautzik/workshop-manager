@@ -13,6 +13,7 @@ import { UnifiedOTWizard } from "./UnifiedOTWizard";
 import { EditBudgetWizard } from "./EditBudgetWizard";
 import { EditOTDialog } from "./EditOTDialog";
 import { RealCostEntryDialog } from "./RealCostEntryDialog";
+import { OTHoverCard } from "./OTHoverCard";
 
 interface OTManagementProps {
   onOTSelect: (ot: any) => void;
@@ -92,6 +93,8 @@ export function OTManagement({ onOTSelect }: OTManagementProps) {
   const [draggedOT,       setDraggedOT]       = useState<any>(null);
   const [dragOverCol,     setDragOverCol]     = useState<string | null>(null);
   const [draggingId,      setDraggingId]      = useState<string | null>(null);
+  const [hoveredOT,       setHoveredOT]       = useState<{ ot: any; rect: DOMRect } | null>(null);
+  const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const dragCounter = useRef<Record<string, number>>({});
 
   const updateOTStatus = async (otId: string, newStatus: string, rollback = false) => {
@@ -338,59 +341,70 @@ export function OTManagement({ onOTSelect }: OTManagementProps) {
                                   {stageOTs.length}
                                 </div>
                               </div>
-                              {/* OT cards stacked in this column */}
-                              <div style={{ flex: 1, overflowY: 'auto', padding: '2px 2px', display: 'flex', flexDirection: 'column', gap: 2 }}>
+                              {/* OT cards hex grid in this column */}
+                              <div style={{ flex: 1, overflowY: 'auto', padding: '4px 3px', display: 'flex', flexWrap: 'wrap', gap: 3, alignContent: 'flex-start' }}>
                                 {isOver && stageOTs.length === 0 && (
                                   <div style={{ border: `1px dashed rgb(${group.rgb} / 0.5)`, borderRadius: 2, textAlign: 'center', fontSize: 7, color: `rgb(${group.rgb})`, padding: '2px 0', marginTop: 2 }}>↓</div>
                                 )}
                                 {stageOTs.map(ot => {
-                                  const nextSt     = getAllNextStatuses(ot.status);
                                   const isDragging  = draggingId === ot.id;
-                                  const hasBudget   = ot.status === 'pre_press' || ot.status === 'visto_bueno';
                                   const priDot      = ot.priority >= 8 ? '#ef4444' : ot.priority >= 5 ? '#f59e0b' : `rgb(${group.rgb})`;
+                                  const HEX_MINI_CLIP = 'polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%)';
+                                  const MINI_W = 48;
+                                  const MINI_H = 42;
                                   return (
                                     <div
                                       key={ot.id}
-                                      className="group"
                                       draggable
                                       onDragStart={e => onDragStart(e, ot)}
                                       onDragEnd={onDragEnd}
+                                      onMouseEnter={e => {
+                                        if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
+                                        const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                                        hoverTimerRef.current = setTimeout(() => setHoveredOT({ ot, rect }), 220);
+                                      }}
+                                      onMouseLeave={() => {
+                                        if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
+                                        hoverTimerRef.current = setTimeout(() => setHoveredOT(p => p?.ot.id === ot.id ? null : p), 80);
+                                      }}
                                       style={{
-                                        background: isDragging ? 'rgba(128,128,128,0.06)' : 'var(--hex-card, #ffffff)',
-                                        border: `1px solid rgb(${group.rgb} / ${isDragging ? '0.15' : '0.40'})`,
-                                        borderRadius: 3, padding: '2px 3px',
-                                        cursor: 'grab', opacity: isDragging ? 0.30 : 1,
-                                        transition: 'opacity 0.1s',
+                                        width: MINI_W, height: MINI_H,
+                                        clipPath: HEX_MINI_CLIP,
+                                        background: isDragging
+                                          ? `rgb(${group.rgb} / 0.10)`
+                                          : `rgb(${group.rgb} / 0.18)`,
+                                        cursor: 'grab',
+                                        opacity: isDragging ? 0.30 : 1,
+                                        transition: 'opacity 0.1s, transform 0.1s',
+                                        display: 'flex', flexDirection: 'column',
+                                        alignItems: 'center', justifyContent: 'center',
+                                        position: 'relative', flexShrink: 0,
                                       }}
                                       onClick={() => { if (!isDragging) onOTSelect(ot); }}
                                     >
-                                      <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                                        <div style={{ width: 4, height: 4, borderRadius: '50%', background: priDot, flexShrink: 0 }} />
-                                        <span style={{ fontSize: 8, fontWeight: 700, color: `rgb(${group.rgb})`, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, lineHeight: 1.2 }}>
-                                          {ot.ot_number}
-                                        </span>
-                                      </div>
-                                      <div className="overflow-hidden max-h-0 group-hover:max-h-16 transition-all duration-150">
-                                        <div style={{ paddingTop: 1, borderTop: `1px solid rgb(${group.rgb} / 0.20)`, marginTop: 1, display: 'flex', flexDirection: 'column', gap: 1 }}>
-                                          {hasBudget && (
-                                            <button style={{ fontSize: 6.5, fontWeight: 600, color: '#f59e0b', background: 'none', border: 'none', cursor: 'pointer', padding: 0, textAlign: 'left' }}
-                                              onClick={e => { e.stopPropagation(); setBudgetEditOT(ot); }}>
-                                              $ Presupuesto
-                                            </button>
-                                          )}
-                                          {nextSt.slice(0, 2).map(ns => (
-                                            <button key={ns.key}
-                                              style={{ fontSize: 6.5, fontWeight: 600, color: `rgb(${group.rgb})`, background: 'none', border: 'none', cursor: 'pointer', padding: 0, textAlign: 'left' }}
-                                              onClick={e => { e.stopPropagation(); requestAdvance(ot, ns.key, ns.labelEs); }}>
-                                              → {ns.labelEs}
-                                            </button>
-                                          ))}
-                                          <button style={{ fontSize: 6.5, fontWeight: 600, color: 'rgba(0,0,0,0.35)', background: 'none', border: 'none', cursor: 'pointer', padding: 0, textAlign: 'left' }}
-                                            onClick={e => { e.stopPropagation(); setEditingOT(ot); setShowEditDialog(true); }}>
-                                            ✎ Editar
-                                          </button>
-                                        </div>
-                                      </div>
+                                      {/* Priority dot top-center */}
+                                      <div style={{
+                                        position: 'absolute', top: 8, left: '50%', transform: 'translateX(-50%)',
+                                        width: 4, height: 4, borderRadius: '50%', background: priDot,
+                                      }} />
+                                      <span style={{
+                                        fontSize: 7.5, fontWeight: 800,
+                                        color: `rgb(${group.rgb})`,
+                                        textAlign: 'center', lineHeight: 1.1,
+                                        padding: '0 6px', marginTop: 4,
+                                        overflow: 'hidden', maxWidth: '100%',
+                                        wordBreak: 'break-all',
+                                      }}>
+                                        {ot.ot_number.replace(/^OT-?/i, '')}
+                                      </span>
+                                      {ot.product_image_url && (
+                                        <div style={{
+                                          position: 'absolute', inset: 0, clipPath: HEX_MINI_CLIP,
+                                          backgroundImage: `url(${ot.product_image_url})`,
+                                          backgroundSize: 'cover', backgroundPosition: 'center',
+                                          opacity: 0.18,
+                                        }} />
+                                      )}
                                     </div>
                                   );
                                 })}
@@ -519,6 +533,14 @@ export function OTManagement({ onOTSelect }: OTManagementProps) {
           targetStatus={costEntryTarget.key}
           targetStatusLabel={costEntryTarget.label}
           onConfirm={confirmAdvance}
+        />
+      )}
+      {/* OT Hover Card overlay */}
+      {hoveredOT && (
+        <OTHoverCard
+          ot={hoveredOT.ot}
+          anchorRect={hoveredOT.rect}
+          onClose={() => setHoveredOT(null)}
         />
       )}
     </div>

@@ -23,7 +23,7 @@ import {
 } from '@/components/ui/select';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Trash2, ArrowRight, DollarSign, AlertCircle, SkipForward } from 'lucide-react';
+import { Plus, Trash2, ArrowRight, DollarSign, AlertCircle, SkipForward, Upload, X, Image as ImageIcon } from 'lucide-react';
 import { OPERATION_CATEGORIES, type OTOperationCategory } from '@/types/ot';
 
 interface RealCostLine {
@@ -80,6 +80,10 @@ export function RealCostEntryDialog({
   const [lines, setLines] = useState<RealCostLine[]>([]);
   const [saving, setSaving] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const isVistoGood = ot.status === 'visto_bueno';
 
   // Load budgeted operations as reference
   useEffect(() => {
@@ -130,6 +134,8 @@ export function RealCostEntryDialog({
     if (!open) {
       setLoaded(false);
       setLines([]);
+      setImageFile(null);
+      setImagePreview(null);
     }
   }, [open]);
 
@@ -168,9 +174,27 @@ export function RealCostEntryDialog({
   const overallDev = estGrandTotal > 0 ? ((grandTotal - estGrandTotal) / estGrandTotal) * 100 : 0;
 
   const handleSkip = async () => {
-    // Skip cost entry, just advance
+    if (isVistoGood && imageFile) await uploadImage();
     onConfirm();
     onOpenChange(false);
+  };
+
+  const uploadImage = async () => {
+    if (!imageFile) return;
+    setUploadingImage(true);
+    try {
+      const form = new FormData();
+      form.append('file', imageFile);
+      const res = await fetch(`/api/ots/${ot.id}/image`, { method: 'POST', body: form });
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        toast({ title: 'Error al subir imagen', description: body?.error ?? 'Intente de nuevo', variant: 'destructive' });
+      }
+    } catch {
+      // non-blocking — image upload failure shouldn't block advance
+    } finally {
+      setUploadingImage(false);
+    }
   };
 
   const handleSaveAndAdvance = async () => {
@@ -218,6 +242,7 @@ export function RealCostEntryDialog({
       });
 
       // Now advance the OT
+      if (isVistoGood && imageFile) await uploadImage();
       onConfirm();
       onOpenChange(false);
     } catch (err: any) {
@@ -418,6 +443,48 @@ export function RealCostEntryDialog({
         </div>
 
         <DialogFooter className="gap-2">
+          {isVistoGood && (
+            <div className="flex-1 flex items-center gap-3 mr-2">
+              <label
+                htmlFor="ot-product-image"
+                className="flex items-center gap-1.5 cursor-pointer text-xs font-medium text-muted-foreground hover:text-foreground transition-colors border border-border rounded-md px-2.5 py-1.5 hover:border-primary/50"
+              >
+                {imagePreview ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={imagePreview} alt="preview" className="w-6 h-6 object-cover rounded" />
+                ) : (
+                  <ImageIcon className="w-4 h-4" />
+                )}
+                {imageFile ? imageFile.name.slice(0, 20) + (imageFile.name.length > 20 ? '…' : '') : 'Foto del producto'}
+              </label>
+              <input
+                id="ot-product-image"
+                type="file"
+                accept="image/jpeg,image/png,image/webp,image/gif"
+                className="hidden"
+                onChange={e => {
+                  const f = e.target.files?.[0] ?? null;
+                  setImageFile(f);
+                  if (f) {
+                    const reader = new FileReader();
+                    reader.onload = ev => setImagePreview(ev.target?.result as string);
+                    reader.readAsDataURL(f);
+                  } else {
+                    setImagePreview(null);
+                  }
+                }}
+              />
+              {imageFile && (
+                <button
+                  type="button"
+                  className="text-muted-foreground hover:text-red-400 transition-colors"
+                  onClick={() => { setImageFile(null); setImagePreview(null); }}
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+          )}
           <Button
             variant="ghost"
             onClick={handleSkip}
