@@ -8,12 +8,12 @@ const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const authResult = await requireAuth(request);
   if (isAuthError(authResult)) return authResult;
 
-  const otId = params.id;
+  const { id: otId } = await params;
   if (!otId) {
     return NextResponse.json({ error: 'OT id required' }, { status: 400 });
   }
@@ -85,12 +85,12 @@ export async function POST(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const authResult = await requireAuth(request);
   if (isAuthError(authResult)) return authResult;
 
-  const otId = params.id;
+  const { id: otId } = await params;
 
   // Try to remove all common extensions
   const exts = ['jpg', 'png', 'webp', 'gif'];
