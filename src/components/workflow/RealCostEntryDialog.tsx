@@ -62,10 +62,11 @@ interface RealCostEntryDialogProps {
     client_name: string;
     product_name?: string;
     status: string;
+    quantity?: number;
   };
   targetStatus: string;
   targetStatusLabel: string;
-  onConfirm: () => void; // called after costs saved + advance
+  onConfirm: (movedQuantity: number) => Promise<void> | void; // called after costs saved + advance/split
 }
 
 export function RealCostEntryDialog({
@@ -83,6 +84,8 @@ export function RealCostEntryDialog({
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [uploadingImage, setUploadingImage] = useState(false);
+  const totalQuantity = Math.max(1, Number(ot.quantity ?? 1));
+  const [movedQuantity, setMovedQuantity] = useState<number>(totalQuantity);
   const isVistoGood = ot.status === 'visto_bueno';
 
   // Load budgeted operations as reference
@@ -139,6 +142,12 @@ export function RealCostEntryDialog({
     }
   }, [open]);
 
+  useEffect(() => {
+    if (open) {
+      setMovedQuantity(totalQuantity);
+    }
+  }, [open, ot.id, totalQuantity]);
+
   const createEmptyLine = (idx: number): RealCostLine => ({
     operation_code: String(idx).padStart(5, '0'),
     description: '',
@@ -174,8 +183,16 @@ export function RealCostEntryDialog({
   const overallDev = estGrandTotal > 0 ? ((grandTotal - estGrandTotal) / estGrandTotal) * 100 : 0;
 
   const handleSkip = async () => {
+    if (movedQuantity < 1 || movedQuantity > totalQuantity) {
+      toast({
+        title: 'Cantidad inválida',
+        description: `La cantidad a mover debe estar entre 1 y ${totalQuantity}.`,
+        variant: 'destructive',
+      });
+      return;
+    }
     if (isVistoGood && imageFile) await uploadImage();
-    onConfirm();
+    await onConfirm(movedQuantity);
     onOpenChange(false);
   };
 
@@ -242,8 +259,11 @@ export function RealCostEntryDialog({
       });
 
       // Now advance the OT
+      if (movedQuantity < 1 || movedQuantity > totalQuantity) {
+        throw new Error(`La cantidad a mover debe estar entre 1 y ${totalQuantity}.`);
+      }
       if (isVistoGood && imageFile) await uploadImage();
-      onConfirm();
+      await onConfirm(movedQuantity);
       onOpenChange(false);
     } catch (err: any) {
       toast({
@@ -285,6 +305,34 @@ export function RealCostEntryDialog({
           <AlertCircle className="h-4 w-4 flex-shrink-0" />
           Registre los costos reales incurridos en esta etapa antes de avanzar la OT. Los valores
           presupuestados se muestran como referencia.
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-[1fr_220px] gap-3 p-3 rounded-md border border-border bg-muted/30">
+          <div className="text-sm">
+            <p className="font-medium text-foreground">Cantidad a mover al siguiente proceso</p>
+            <p className="text-xs text-muted-foreground mt-1">
+              Total OT: <span className="font-semibold text-foreground">{totalQuantity}</span> uds.
+              {' '}→{' '}
+              Mover: <span className="font-semibold text-primary">{movedQuantity}</span> uds.
+              {' '}→{' '}
+              Queda: <span className="font-semibold text-amber-500">{Math.max(0, totalQuantity - movedQuantity)}</span> uds.
+            </p>
+          </div>
+          <div>
+            <Label className="text-xs text-muted-foreground">Unidades que avanzan</Label>
+            <Input
+              type="number"
+              min={1}
+              max={totalQuantity}
+              value={movedQuantity}
+              onChange={(e) => {
+                const raw = Number(e.target.value);
+                if (Number.isNaN(raw)) return;
+                setMovedQuantity(Math.max(1, Math.min(totalQuantity, raw)));
+              }}
+              className="h-8 text-sm"
+            />
+          </div>
         </div>
 
         <ScrollArea className="flex-1 max-h-[50vh] pr-2">

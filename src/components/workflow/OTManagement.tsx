@@ -118,9 +118,39 @@ export function OTManagement({ onOTSelect }: OTManagementProps) {
   const requestAdvance = (ot: any, key: string, label: string) => {
     setCostEntryOT(ot); setCostEntryTarget({ key, label });
   };
-  const confirmAdvance = () => {
-    if (costEntryOT && costEntryTarget) updateOTStatus(costEntryOT.id, costEntryTarget.key);
-    setCostEntryOT(null); setCostEntryTarget(null);
+  const confirmAdvance = async (movedQuantity: number) => {
+    if (!costEntryOT || !costEntryTarget) return;
+
+    const totalQty = Number(costEntryOT.quantity ?? 0);
+    const shouldSplit = totalQty > 0 && movedQuantity > 0 && movedQuantity < totalQty;
+
+    if (shouldSplit) {
+      const res = await fetch(`/api/ots/${costEntryOT.id}/split`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          advance_quantity: movedQuantity,
+          target_status: costEntryTarget.key,
+        }),
+      });
+
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        toast({ title: 'Error al dividir OT', description: body?.error ?? 'Request failed', variant: 'destructive' });
+        return;
+      }
+
+      toast({
+        title: 'OT dividida y avanzada',
+        description: `${costEntryOT.ot_number}: ${movedQuantity} uds. → ${costEntryTarget.label}`,
+      });
+      refetchOTs();
+    } else {
+      await updateOTStatus(costEntryOT.id, costEntryTarget.key);
+    }
+
+    setCostEntryOT(null);
+    setCostEntryTarget(null);
   };
   const confirmRollback = () => {
     if (rollbackTarget) updateOTStatus(rollbackTarget.ot.id, rollbackTarget.key, true);
