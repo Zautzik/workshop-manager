@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
-import { ArrowRight, Calendar, Layers, Package, Ruler, DollarSign, Image as ImageIcon } from 'lucide-react';
+import { useRef } from 'react';
+import { ArrowRight, Calendar, Layers, Package, Ruler, DollarSign, Image as ImageIcon, Scissors, Edit2 } from 'lucide-react';
 
 const STATUS_FLOW_KEYS = [
   'pre_press', 'visto_bueno', 'paper_purchase', 'in_storage',
@@ -28,14 +28,18 @@ interface OTHoverCardProps {
   ot: any;
   anchorRect: DOMRect;
   onClose: () => void;
+  onAdvance?: (ot: any, key: string, label: string) => void;
+  onSplit?: (ot: any, key: string, label: string) => void;
+  onEdit?: (ot: any) => void;
+  nextStatuses?: { key: string; labelEs: string }[];
 }
 
-export function OTHoverCard({ ot, anchorRect, onClose }: OTHoverCardProps) {
+export function OTHoverCard({ ot, anchorRect, onClose, onAdvance, onSplit, onEdit, nextStatuses = [] }: OTHoverCardProps) {
   const ref = useRef<HTMLDivElement>(null);
 
   // Position: try right of anchor, fall back to left if near viewport edge
   const CARD_W = 300;
-  const CARD_H = 380;
+  const CARD_H = 420;
   const VP_W = typeof window !== 'undefined' ? window.innerWidth : 1200;
   const VP_H = typeof window !== 'undefined' ? window.innerHeight : 800;
 
@@ -76,10 +80,10 @@ export function OTHoverCard({ ot, anchorRect, onClose }: OTHoverCardProps) {
         top,
         width: CARD_W,
         zIndex: 9999,
-        background: 'var(--card, #1a1a2e)',
-        border: `1.5px solid ${statusColor}55`,
+        background: 'hsl(var(--card))',
+        border: `1.5px solid ${statusColor}88`,
         borderRadius: 12,
-        boxShadow: `0 8px 32px rgba(0,0,0,0.45), 0 0 0 1px ${statusColor}22`,
+        boxShadow: `0 12px 40px rgba(0,0,0,0.70), 0 0 0 1px ${statusColor}44`,
         overflow: 'hidden',
         pointerEvents: 'all',
         fontFamily: 'inherit',
@@ -93,11 +97,11 @@ export function OTHoverCard({ ot, anchorRect, onClose }: OTHoverCardProps) {
             P{ot.priority} · {priLabel}
           </span>
         </div>
-        <div style={{ fontSize: 11, color: 'var(--muted-foreground, #888)', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        <div style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {ot.client_name}
         </div>
         {ot.product_name && (
-          <div style={{ fontSize: 10, color: 'var(--muted-foreground, #888)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          <div style={{ fontSize: 10, color: 'hsl(var(--muted-foreground))', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {ot.product_name}
           </div>
         )}
@@ -113,9 +117,9 @@ export function OTHoverCard({ ot, anchorRect, onClose }: OTHoverCardProps) {
             style={{ width: '100%', height: '100%', objectFit: 'cover' }}
           />
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, opacity: 0.35 }}>
-            <ImageIcon size={28} color="var(--muted-foreground, #888)" />
-            <span style={{ fontSize: 9, color: 'var(--muted-foreground, #888)' }}>Sin imagen</span>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, opacity: 0.5 }}>
+            <ImageIcon size={28} color="hsl(var(--muted-foreground))" />
+            <span style={{ fontSize: 9, color: 'hsl(var(--muted-foreground))' }}>Sin imagen</span>
           </div>
         )}
       </div>
@@ -123,7 +127,7 @@ export function OTHoverCard({ ot, anchorRect, onClose }: OTHoverCardProps) {
       {/* Progress bar */}
       <div style={{ padding: '8px 12px 4px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
-          <span style={{ fontSize: 9, color: 'var(--muted-foreground, #888)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Progreso</span>
+          <span style={{ fontSize: 9, color: 'hsl(var(--muted-foreground))', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Progreso</span>
           <span style={{ fontSize: 9, color: statusColor, fontWeight: 700 }}>{progressPct}% · {STATUS_LABELS[ot.status] ?? ot.status}</span>
         </div>
         <div style={{ height: 5, background: '#ffffff18', borderRadius: 99, overflow: 'hidden' }}>
@@ -142,7 +146,7 @@ export function OTHoverCard({ ot, anchorRect, onClose }: OTHoverCardProps) {
       </div>
 
       {/* Key fields */}
-      <div style={{ padding: '6px 12px 10px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 8px' }}>
+      <div style={{ padding: '6px 12px 8px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 8px' }}>
         <Field icon={<Package size={9} />} label="Cantidad" value={fmt(ot.quantity)} />
         <Field icon={<Calendar size={9} />} label="Entrega" value={fmtDate(ot.deadline)} />
         <Field icon={<Ruler size={9} />} label="Medidas" value={ot.width_cm && ot.height_cm ? `${ot.width_cm}×${ot.height_cm} cm` : '—'} />
@@ -152,6 +156,54 @@ export function OTHoverCard({ ot, anchorRect, onClose }: OTHoverCardProps) {
           <Field icon={<span style={{ fontSize: 8 }}>🎨</span>} label="Colores" value={[ot.color_front, ot.color_back].filter(Boolean).join(' / ')} />
         )}
       </div>
+
+      {/* Action buttons */}
+      {(nextStatuses.length > 0 || onEdit) && (
+        <div style={{
+          padding: '6px 8px 8px',
+          borderTop: `1px solid ${statusColor}33`,
+          display: 'flex', flexWrap: 'wrap', gap: 4,
+        }}>
+          {nextStatuses.slice(0, 2).map(ns => (
+            <button
+              key={ns.key}
+              onClick={e => { e.stopPropagation(); onAdvance?.(ot, ns.key, ns.labelEs); onClose(); }}
+              style={{
+                fontSize: 9, fontWeight: 700, cursor: 'pointer', border: `1px solid ${statusColor}66`,
+                background: `${statusColor}22`, color: statusColor, borderRadius: 4,
+                padding: '2px 7px', display: 'flex', alignItems: 'center', gap: 3,
+              }}
+            >
+              <ArrowRight size={8} /> {ns.labelEs}
+            </button>
+          ))}
+          {nextStatuses.slice(0, 1).map(ns => (
+            <button
+              key={`split-${ns.key}`}
+              onClick={e => { e.stopPropagation(); onSplit?.(ot, ns.key, ns.labelEs); onClose(); }}
+              style={{
+                fontSize: 9, fontWeight: 700, cursor: 'pointer', border: '1px solid #f59e0b66',
+                background: '#f59e0b22', color: '#f59e0b', borderRadius: 4,
+                padding: '2px 7px', display: 'flex', alignItems: 'center', gap: 3,
+              }}
+            >
+              <Scissors size={8} /> Dividir
+            </button>
+          ))}
+          {onEdit && (
+            <button
+              onClick={e => { e.stopPropagation(); onEdit(ot); onClose(); }}
+              style={{
+                fontSize: 9, fontWeight: 700, cursor: 'pointer', border: '1px solid #6b728066',
+                background: '#6b728022', color: 'hsl(var(--muted-foreground))', borderRadius: 4,
+                padding: '2px 7px', display: 'flex', alignItems: 'center', gap: 3,
+              }}
+            >
+              <Edit2 size={8} /> Editar
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -159,11 +211,11 @@ export function OTHoverCard({ ot, anchorRect, onClose }: OTHoverCardProps) {
 function Field({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 3, color: 'var(--muted-foreground, #888)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 3, color: 'hsl(var(--muted-foreground))' }}>
         {icon}
         <span style={{ fontSize: 8, textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>{label}</span>
       </div>
-      <span style={{ fontSize: 10, fontWeight: 600, color: 'var(--foreground, #fff)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{value}</span>
+      <span style={{ fontSize: 10, fontWeight: 600, color: 'hsl(var(--foreground))', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{value}</span>
     </div>
   );
 }

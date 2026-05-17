@@ -14,6 +14,7 @@ import { EditBudgetWizard } from "./EditBudgetWizard";
 import { EditOTDialog } from "./EditOTDialog";
 import { RealCostEntryDialog } from "./RealCostEntryDialog";
 import { OTHoverCard } from "./OTHoverCard";
+import { SplitOTDialog } from "./SplitOTDialog";
 
 interface OTManagementProps {
   onOTSelect: (ot: any) => void;
@@ -87,6 +88,8 @@ export function OTManagement({ onOTSelect }: OTManagementProps) {
   const [budgetEditOT,    setBudgetEditOT]    = useState<any>(null);
   const [costEntryOT,     setCostEntryOT]     = useState<any>(null);
   const [costEntryTarget, setCostEntryTarget] = useState<{ key: string; label: string } | null>(null);
+  const [splitOT,         setSplitOT]         = useState<any>(null);
+  const [splitTarget,     setSplitTarget]     = useState<{ key: string; label: string } | null>(null);
   const [rollbackTarget,  setRollbackTarget]  = useState<{ ot: any; key: string; labelEs: string; fromLabelEs: string } | null>(null);
   const [searchTerm,      setSearchTerm]      = useState("");
   const [collapsed,       setCollapsed]       = useState<Record<string, boolean>>({});
@@ -348,6 +351,7 @@ export function OTManagement({ onOTSelect }: OTManagementProps) {
                                 )}
                                 {stageOTs.map(ot => {
                                   const isDragging  = draggingId === ot.id;
+                                  const isPartial   = !!ot.is_partial;
                                   const priDot      = ot.priority >= 8 ? '#ef4444' : ot.priority >= 5 ? '#f59e0b' : `rgb(${group.rgb})`;
                                   const HEX_MINI_CLIP = 'polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%)';
                                   const MINI_W = 48;
@@ -372,13 +376,16 @@ export function OTManagement({ onOTSelect }: OTManagementProps) {
                                         clipPath: HEX_MINI_CLIP,
                                         background: isDragging
                                           ? `rgb(${group.rgb} / 0.10)`
-                                          : `rgb(${group.rgb} / 0.18)`,
+                                          : isPartial
+                                            ? `rgb(${group.rgb} / 0.09)`
+                                            : `rgb(${group.rgb} / 0.18)`,
                                         cursor: 'grab',
-                                        opacity: isDragging ? 0.30 : 1,
+                                        opacity: isDragging ? 0.30 : isPartial ? 0.60 : 1,
                                         transition: 'opacity 0.1s, transform 0.1s',
                                         display: 'flex', flexDirection: 'column',
                                         alignItems: 'center', justifyContent: 'center',
                                         position: 'relative', flexShrink: 0,
+                                        outline: isPartial ? `1.5px dashed rgb(${group.rgb} / 0.55)` : 'none',
                                       }}
                                       onClick={() => { if (!isDragging) onOTSelect(ot); }}
                                     >
@@ -397,6 +404,11 @@ export function OTManagement({ onOTSelect }: OTManagementProps) {
                                       }}>
                                         {ot.ot_number.replace(/^OT-?/i, '')}
                                       </span>
+                                      {isPartial && (
+                                        <span style={{ fontSize: 6, fontWeight: 800, color: '#f59e0b', lineHeight: 1 }}>
+                                          ½
+                                        </span>
+                                      )}
                                       {ot.product_image_url && (
                                         <div style={{
                                           position: 'absolute', inset: 0, clipPath: HEX_MINI_CLIP,
@@ -541,6 +553,20 @@ export function OTManagement({ onOTSelect }: OTManagementProps) {
           ot={hoveredOT.ot}
           anchorRect={hoveredOT.rect}
           onClose={() => setHoveredOT(null)}
+          nextStatuses={getAllNextStatuses(hoveredOT.ot.status)}
+          onAdvance={(ot, key, label) => requestAdvance(ot, key, label)}
+          onSplit={(ot, key, label) => { setSplitOT(ot); setSplitTarget({ key, label }); }}
+          onEdit={(ot) => { setEditingOT(ot); setShowEditDialog(true); }}
+        />
+      )}
+      {splitOT && splitTarget && (
+        <SplitOTDialog
+          open={!!splitOT}
+          onOpenChange={(open) => { if (!open) { setSplitOT(null); setSplitTarget(null); } }}
+          ot={splitOT}
+          targetStatus={splitTarget.key}
+          targetStatusLabel={splitTarget.label}
+          onSuccess={() => { refetchOTs(); setSplitOT(null); setSplitTarget(null); }}
         />
       )}
     </div>
