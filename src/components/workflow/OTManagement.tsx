@@ -143,6 +143,7 @@ export function OTManagement({ onOTSelect }: OTManagementProps) {
 
   // ── drag handlers ────────────────────────────────────────────────────────
   const onDragStart = (e: React.DragEvent, ot: any) => {
+    setHoveredOT(null);
     setDraggedOT(ot);
     setDraggingId(ot.id);
     e.dataTransfer.effectAllowed = 'move';
@@ -548,7 +549,7 @@ export function OTManagement({ onOTSelect }: OTManagementProps) {
         />
       )}
       {/* OT Hover Card overlay */}
-      {hoveredOT && (
+      {hoveredOT && !draggingId && (
         <OTHoverCard
           ot={hoveredOT.ot}
           anchorRect={hoveredOT.rect}
