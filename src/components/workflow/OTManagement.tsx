@@ -26,7 +26,7 @@ const STATUS_FLOW = [
   { key: 'paper_purchase',      label: 'Paper Purchase', labelEs: 'Compra Papel', color: 'bg-slate-500',   rgb: '100 116 139', description: 'Pedido de materiales' },
   { key: 'in_storage',          label: 'In Storage',     labelEs: 'En Bodega',    color: 'bg-cyan-500',    rgb: '6 182 212',   description: 'Listo para producción' },
   { key: 'guillotine_first_cut',label: 'First Cut',       labelEs: 'Primer Corte',     color: 'bg-orange-500',  rgb: '249 115 22',  description: 'Corte inicial guillotina' },
-  { key: 'offset_printing',     label: 'Offset Print',    labelEs: 'Impresión Offset', color: 'bg-purple-500',  rgb: '168 85 247',  description: 'Impresión offset' },
+  { key: 'offset_printing',     label: 'Offset Print',    labelEs: 'Offset', color: 'bg-purple-500',  rgb: '168 85 247',  description: 'Impresión offset' },
   { key: 'digital_printing',    label: 'Digital Print',   labelEs: 'Impresión Digital',color: 'bg-fuchsia-500', rgb: '217 70 239',  description: 'Impresión digital' },
   { key: 'die_cutting',         label: 'Die Cutting',    labelEs: 'Troquelado',   color: 'bg-pink-500',    rgb: '236 72 153',  description: 'Proceso de troquelado' },
   { key: 'guillotine_final_cut',label: 'Final Cut',      labelEs: 'Corte Final',  color: 'bg-red-500',     rgb: '239 68 68',   description: 'Corte guillotina final' },
@@ -171,6 +171,15 @@ export function OTManagement({ onOTSelect }: OTManagementProps) {
       g.id, g.stages.reduce((s, k) => s + getByStatus(k).length, 0),
     ])), [filteredOTs]);
 
+  const splitGroupTotals = useMemo(() => {
+    const totals: Record<string, number> = {};
+    (ots as any[]).forEach((ot: any) => {
+      if (!ot?.split_group_id) return;
+      totals[ot.split_group_id] = (totals[ot.split_group_id] ?? 0) + Number(ot.quantity ?? 0);
+    });
+    return totals;
+  }, [ots]);
+
   // ── drag handlers ────────────────────────────────────────────────────────
   const onDragStart = (e: React.DragEvent, ot: any) => {
     setHoveredOT(null);
@@ -289,6 +298,57 @@ export function OTManagement({ onOTSelect }: OTManagementProps) {
         return (
           <div style={{ overflowX: 'auto', paddingBottom: 8 }}>
             <div style={{ position: 'relative', width: CANVAS_W, height: CANVAS_H, margin: '0 auto' }}>
+              {/* Flow arrows between process hexes */}
+              <svg
+                width={CANVAS_W}
+                height={CANVAS_H}
+                style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 1, opacity: 0.85 }}
+              >
+                <defs>
+                  <marker id="flowArrowHead" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+                    <polygon points="0 0, 6 3, 0 6" fill="rgba(148,163,184,0.8)" />
+                  </marker>
+                </defs>
+                {[
+                  [0, 2], // Diseño -> Corte
+                  [1, 2], // Compras -> Corte
+                  [2, 3], // Corte -> Acabados
+                  [2, 4], // Corte -> Terminación
+                  [3, 5], // Acabados -> Despacho
+                  [4, 5], // Terminación -> Despacho
+                ].map(([from, to], idx) => {
+                  const fromPos = POSITIONS[from as number];
+                  const toPos = POSITIONS[to as number];
+                  const x1 = fromPos.x + HEX_W / 2;
+                  const y1 = fromPos.y + HEX_H / 2;
+                  const x2 = toPos.x + HEX_W / 2;
+                  const y2 = toPos.y + HEX_H / 2;
+
+                  // Pull endpoints inward so arrows don't sit directly on top of labels
+                  const dx = x2 - x1;
+                  const dy = y2 - y1;
+                  const len = Math.hypot(dx, dy) || 1;
+                  const pad = 56;
+                  const sx = x1 + (dx / len) * pad;
+                  const sy = y1 + (dy / len) * pad;
+                  const ex = x2 - (dx / len) * pad;
+                  const ey = y2 - (dy / len) * pad;
+
+                  return (
+                    <line
+                      key={`flow-${idx}`}
+                      x1={sx}
+                      y1={sy}
+                      x2={ex}
+                      y2={ey}
+                      stroke="rgba(148,163,184,0.8)"
+                      strokeWidth="2.5"
+                      strokeDasharray="6 5"
+                      markerEnd="url(#flowArrowHead)"
+                    />
+                  );
+                })}
+              </svg>
               {KANBAN_GROUPS.map((group, idx) => {
                 const { x, y } = POSITIONS[idx];
                 const count = groupCounts[group.id];
@@ -300,6 +360,7 @@ export function OTManagement({ onOTSelect }: OTManagementProps) {
                     style={{
                       position: 'absolute', left: x, top: y,
                       width: HEX_W, height: HEX_H,
+                      zIndex: 2,
                       filter: `drop-shadow(0 4px 16px rgb(${group.rgb} / 0.42))`,
                       transition: 'filter 0.18s',
                     }}
@@ -383,6 +444,10 @@ export function OTManagement({ onOTSelect }: OTManagementProps) {
                                 {stageOTs.map(ot => {
                                   const isDragging  = draggingId === ot.id;
                                   const isPartial   = !!ot.is_partial;
+                                  const splitTotal = ot.split_group_id ? Number(splitGroupTotals[ot.split_group_id] ?? 0) : 0;
+                                  const splitPct = isPartial && splitTotal > 0
+                                    ? Math.max(1, Math.min(100, Math.round((Number(ot.quantity ?? 0) / splitTotal) * 100)))
+                                    : null;
                                   const priDot      = ot.priority >= 8 ? '#ef4444' : ot.priority >= 5 ? '#f59e0b' : `rgb(${group.rgb})`;
                                   const HEX_MINI_CLIP = 'polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%)';
                                   const MINI_W = 48;
@@ -437,7 +502,7 @@ export function OTManagement({ onOTSelect }: OTManagementProps) {
                                       </span>
                                       {isPartial && (
                                         <span style={{ fontSize: 6, fontWeight: 800, color: '#f59e0b', lineHeight: 1 }}>
-                                          ½
+                                          {splitPct !== null ? `${splitPct}%` : 'PAR'}
                                         </span>
                                       )}
                                       {ot.product_image_url && (
