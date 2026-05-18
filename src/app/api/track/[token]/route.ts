@@ -5,9 +5,9 @@ import { supabaseAdmin } from '@/integrations/supabase/server';
 // token = OT UUID (acts as an unguessable share token)
 export async function GET(
   _req: NextRequest,
-  { params }: { params: { token: string } }
+  { params }: { params: Promise<{ token: string }> }
 ) {
-  const { token } = params;
+  const { token } = await params;
 
   // Basic UUID format guard to prevent injection attempts
   const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
