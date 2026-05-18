@@ -19,7 +19,6 @@ import {
   Home,
   Factory,
   BarChart3,
-  DollarSign,
   Users,
   Wrench,
   LogOut,
@@ -30,9 +29,13 @@ import {
   ChevronRight,
   Menu,
   ShieldCheck,
+  TrendingUp,
+  Search,
 } from 'lucide-react';
 import { NotificationCenter } from '@/components/NotificationCenter';
 import { ReportingQuickActions } from '@/components/ReportingQuickActions';
+import { GlobalSearch } from '@/components/GlobalSearch';
+import { useCostOverrunAlerts } from '@/hooks/use-cost-overrun-alerts';
 
 interface NavItem {
   label: string;
@@ -45,13 +48,12 @@ interface NavItem {
 }
 
 const navItems: NavItem[] = [
-  { label: 'Inicio',         icon: Home,       href: '/home',        roles: ['admin', 'manager', 'supervisor', 'hr_manager', 'technician'], dot: 'bg-slate-400',   activeBg: 'bg-slate-200 dark:bg-slate-500/20',   activeIcon: 'text-slate-600 dark:text-slate-300'  },
-  { label: 'Operaciones',    icon: Factory,    href: '/workflow',    roles: ['admin', 'supervisor', 'manager'],                             dot: 'bg-blue-500',    activeBg: 'bg-blue-100 dark:bg-blue-500/20',     activeIcon: 'text-blue-600 dark:text-blue-300'    },
-  { label: 'Personas',       icon: Users,      href: '/hr',          roles: ['admin', 'hr_manager', 'supervisor'],                          dot: 'bg-amber-500',   activeBg: 'bg-amber-100 dark:bg-amber-500/20',   activeIcon: 'text-amber-600 dark:text-amber-300'  },
-  { label: 'Máquinas',       icon: Wrench,     href: '/maintenance', roles: ['admin', 'technician', 'supervisor', 'manager'],               dot: 'bg-orange-500',  activeBg: 'bg-orange-100 dark:bg-orange-500/20', activeIcon: 'text-orange-600 dark:text-orange-300'},
-  { label: 'Finanzas',       icon: DollarSign, href: '/financial',   roles: ['admin', 'manager'],                                          dot: 'bg-green-500',   activeBg: 'bg-green-100 dark:bg-green-500/20',   activeIcon: 'text-green-600 dark:text-green-300'  },
-  { label: 'Reportes',       icon: BarChart3,  href: '/manager',     roles: ['admin', 'manager'],                                          dot: 'bg-indigo-500',  activeBg: 'bg-indigo-100 dark:bg-indigo-500/20', activeIcon: 'text-indigo-600 dark:text-indigo-300'},
-  { label: 'Administración', icon: ShieldCheck,href: '/admin',       roles: ['admin'],                                                     dot: 'bg-violet-500',  activeBg: 'bg-violet-100 dark:bg-violet-500/20', activeIcon: 'text-violet-600 dark:text-violet-300'},
+  { label: 'Inicio',         icon: Home,        href: '/home',        roles: ['admin', 'manager', 'supervisor', 'hr_manager', 'technician'], dot: 'bg-slate-400',   activeBg: 'bg-slate-200 dark:bg-slate-500/20',   activeIcon: 'text-slate-600 dark:text-slate-300'  },
+  { label: 'Operaciones',    icon: Factory,     href: '/workflow',    roles: ['admin', 'supervisor', 'manager'],                             dot: 'bg-blue-500',    activeBg: 'bg-blue-100 dark:bg-blue-500/20',     activeIcon: 'text-blue-600 dark:text-blue-300'    },
+  { label: 'Personas',       icon: Users,       href: '/hr',          roles: ['admin', 'hr_manager', 'supervisor'],                          dot: 'bg-amber-500',   activeBg: 'bg-amber-100 dark:bg-amber-500/20',   activeIcon: 'text-amber-600 dark:text-amber-300'  },
+  { label: 'Equipos',        icon: Wrench,      href: '/maintenance', roles: ['admin', 'technician', 'supervisor', 'manager'],               dot: 'bg-orange-500',  activeBg: 'bg-orange-100 dark:bg-orange-500/20', activeIcon: 'text-orange-600 dark:text-orange-300'},
+  { label: 'Analítica',      icon: TrendingUp,  href: '/financial',   roles: ['admin', 'manager'],                                          dot: 'bg-green-500',   activeBg: 'bg-green-100 dark:bg-green-500/20',   activeIcon: 'text-green-600 dark:text-green-300'  },
+  { label: 'Administración', icon: ShieldCheck, href: '/admin',       roles: ['admin'],                                                     dot: 'bg-violet-500',  activeBg: 'bg-violet-100 dark:bg-violet-500/20', activeIcon: 'text-violet-600 dark:text-violet-300'},
 ];
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
@@ -62,6 +64,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(true);
   const [mobileOpen, setMobileOpen] = useState(false);
+
+  useCostOverrunAlerts();
 
   // Persist sidebar collapsed preference
   useEffect(() => {
@@ -79,6 +83,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
   // Public routes — no shell needed
   const isPublicRoute = pathname === '/' || pathname === '/login';
+  const isFullscreenRoute = pathname === '/workflow/floor' || pathname.startsWith('/track/');
 
   // While auth is loading, render children (Login/root) or show a spinner
   if (loading) {
@@ -103,6 +108,11 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
   // Authenticated user on login page — skip shell, Login component handles redirect
   if (isPublicRoute) {
+    return <>{children}</>;
+  }
+
+  // Fullscreen pages bypass the AppShell nav entirely
+  if (isFullscreenRoute) {
     return <>{children}</>;
   }
 
@@ -289,6 +299,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
       {/* Main content */}
       <main className="flex-1 flex flex-col overflow-hidden relative">
+        <GlobalSearch />
         {/* Mobile header */}
         <div className="md:hidden flex items-center gap-3 px-4 py-3 border-b border-border/50 bg-card/80 backdrop-blur-sm">
           <Button variant="ghost" size="icon" onClick={() => setMobileOpen(true)}>
@@ -296,12 +307,17 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           </Button>
           <ForgeHexLogo size={28} className="min-w-0" titleClassName="text-sm font-medium" />
           <div className="ml-auto flex items-center gap-1">
+            <button
+              onClick={() => { const e = new KeyboardEvent('keydown', { key: 'k', ctrlKey: true, bubbles: true }); window.dispatchEvent(e); }}
+              className="hidden sm:flex items-center gap-1.5 text-xs text-muted-foreground bg-muted/60 border border-border/50 rounded-lg px-2.5 py-1.5 hover:bg-muted transition-colors"
+            >
+              <Search className="h-3 w-3" />
+              <span>Buscar</span>
+              <kbd className="text-[10px] bg-background/60 px-1 py-0.5 rounded border">⌘K</kbd>
+            </button>
             <ReportingQuickActions isAdmin={role === 'admin'} />
             <NotificationCenter />
-          </div>
-        </div>
-
-        {/* Desktop header */}
+          </div>}}
         <div className="hidden md:flex items-center justify-between px-5 py-3 border-b border-border/50 bg-card/60 backdrop-blur-sm">
           <div className="text-sm text-muted-foreground">
             <ForgeHexLogo
@@ -312,6 +328,14 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             />
           </div>
           <div className="flex items-center gap-2">
+            <button
+              onClick={() => { const e = new KeyboardEvent('keydown', { key: 'k', ctrlKey: true, bubbles: true }); window.dispatchEvent(e); }}
+              className="flex items-center gap-1.5 text-xs text-muted-foreground bg-muted/60 border border-border/50 rounded-lg px-2.5 py-1.5 hover:bg-muted transition-colors"
+            >
+              <Search className="h-3 w-3" />
+              <span>Buscar</span>
+              <kbd className="text-[10px] bg-background/60 px-1 py-0.5 rounded border">Ctrl+K</kbd>
+            </button>
             <ReportingQuickActions isAdmin={role === 'admin'} />
             <NotificationCenter />
           </div>

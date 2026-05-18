@@ -22,19 +22,22 @@ import ModuleLandingPage from '@/components/ModuleLandingPage';
 import {
   LayoutList, ClipboardList, Users2, Factory,
   Clock, FileSearch, FileSpreadsheet, CalendarDays,
-  MessageSquare, Warehouse,
+  MessageSquare, Warehouse, Monitor, GanttChart,
 } from 'lucide-react';
 
 const sections = [
   { label: 'Kanban',        description: 'Pipeline visual de OTs por estado',         icon: ClipboardList,   href: '/workflow/kanban',             rgb: '6 182 212'   },
   { label: 'En Proceso',    description: 'Lista activa con seguimiento de avance',     icon: LayoutList,      href: '/workflow/ordenes-en-proceso', rgb: '14 165 233'  },
-  { label: 'Planta',        description: 'Piso: estaciones, turnos y equipo',          icon: Factory,         href: '/workflow/planta',             rgb: '16 185 129'  },
+  { label: 'Gantt',         description: 'Línea de tiempo de OTs activas (4 semanas)', icon: GanttChart,      href: '/workflow/gantt',              rgb: '139 92 246'  },
+  { label: 'Modo Planta',   description: 'Pantalla fullscreen para el piso de taller', icon: Monitor,         href: '/workflow/floor',              rgb: '16 185 129'  },
+  { label: 'Planta',        description: 'Piso: estaciones, turnos y equipo',          icon: Factory,         href: '/workflow/planta',             rgb: '34 197 94'   },
   { label: 'Turnos',        description: 'Asignación diaria de personal a máquinas',  icon: Clock,           href: '/workflow/shifts',             rgb: '245 158 11'  },
+  { label: 'Calendario',    description: 'OT deadlines, mantenimiento y licencias',    icon: CalendarDays,    href: '/workflow/calendar',           rgb: '6 182 212'   },
   { label: 'Plan Semanal',  description: 'Panorama y carga semanal de producción',    icon: CalendarDays,    href: '/workflow/plan-semanal',       rgb: '99 102 241'  },
   { label: 'Hoja de Prod.', description: 'Control operativo hoja por hoja',           icon: FileSpreadsheet, href: '/workflow/hoja-produccion',    rgb: '217 70 239'  },
   { label: 'Clientes',      description: 'Registro comercial y seguimiento',          icon: Users2,          href: '/workflow/clients',            rgb: '139 92 246'  },
   { label: 'Archivo OT',    description: 'Búsqueda y documentación de órdenes',      icon: FileSearch,      href: '/workflow/production',         rgb: '249 115 22'  },
-  { label: 'Bodega',        description: 'Materiales, entradas y salidas',            icon: Warehouse,       href: '/workflow/warehouse',          rgb: '34 197 94'   },
+  { label: 'Bodega',        description: 'Materiales, entradas y salidas',            icon: Warehouse,       href: '/workflow/warehouse',          rgb: '14 165 233'  },
   { label: 'WhatsApp',      description: 'Notificaciones en tiempo real a operarios', icon: MessageSquare,   href: '/workflow/whatsapp',           rgb: '16 185 129'  },
 ];
 

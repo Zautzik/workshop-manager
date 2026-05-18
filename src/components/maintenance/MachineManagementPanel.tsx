@@ -20,6 +20,7 @@ import {
   type MachineType,
 } from '@/hooks/use-machines';
 import { MachineProfileEditor } from './MachineProfileEditor';
+import { MachineQRButton } from './MachineQRButton';
 import {
   Plus,
   Search,
@@ -236,6 +237,7 @@ function MachineCard({
           <p className="text-xs text-muted-foreground break-words">{machine.brand} {machine.model}</p>
         </div>
         <div className="flex gap-1">
+          <MachineQRButton machineId={machine.id} machineName={machine.name} />
           <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => onEdit(machine)}>
             <Pencil className="h-3.5 w-3.5" />
           </Button>
