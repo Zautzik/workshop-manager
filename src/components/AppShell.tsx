@@ -317,7 +317,10 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             </button>
             <ReportingQuickActions isAdmin={role === 'admin'} />
             <NotificationCenter />
-          </div>}}
+          </div>
+        </div>
+
+        {/* Desktop header */}
         <div className="hidden md:flex items-center justify-between px-5 py-3 border-b border-border/50 bg-card/60 backdrop-blur-sm">
           <div className="text-sm text-muted-foreground">
             <ForgeHexLogo
