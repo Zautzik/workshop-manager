@@ -78,6 +78,7 @@ const operacionesChildren: SubGroup[] = [
       { label: 'Turnos',       href: '/workflow/shifts' },
       { label: 'Calendario',   href: '/workflow/calendar' },
       { label: 'Plan Semanal', href: '/workflow/plan-semanal' },
+      { label: 'WhatsApp',     href: '/workflow/whatsapp' },
     ],
   },
   {
@@ -92,7 +93,6 @@ const operacionesChildren: SubGroup[] = [
     group: 'Comercial',
     items: [
       { label: 'Clientes',  href: '/workflow/clients' },
-      { label: 'WhatsApp',  href: '/workflow/whatsapp' },
     ],
   },
 ];
