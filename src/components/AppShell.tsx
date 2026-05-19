@@ -31,12 +31,22 @@ import {
   ShieldCheck,
   TrendingUp,
   Search,
-  Package2,
+  ChevronDown,
 } from 'lucide-react';
 import { NotificationCenter } from '@/components/NotificationCenter';
 import { ReportingQuickActions } from '@/components/ReportingQuickActions';
 import { GlobalSearch } from '@/components/GlobalSearch';
 import { useCostOverrunAlerts } from '@/hooks/use-cost-overrun-alerts';
+
+interface SubItem {
+  label: string;
+  href: string;
+}
+
+interface SubGroup {
+  group: string;
+  items: SubItem[];
+}
 
 interface NavItem {
   label: string;
@@ -46,16 +56,54 @@ interface NavItem {
   dot: string;
   activeBg: string;
   activeIcon: string;
+  children?: SubGroup[];
 }
+
+const operacionesChildren: SubGroup[] = [
+  {
+    group: 'OTs',
+    items: [
+      { label: 'Kanban',        href: '/workflow/kanban' },
+      { label: 'En Proceso',    href: '/workflow/ordenes-en-proceso' },
+      { label: 'Gantt',         href: '/workflow/gantt' },
+      { label: 'Hoja de Prod.', href: '/workflow/hoja-produccion' },
+      { label: 'Archivo OT',    href: '/workflow/production' },
+    ],
+  },
+  {
+    group: 'Planta',
+    items: [
+      { label: 'Modo Planta',  href: '/workflow/floor' },
+      { label: 'Estaciones',   href: '/workflow/planta' },
+      { label: 'Turnos',       href: '/workflow/shifts' },
+      { label: 'Calendario',   href: '/workflow/calendar' },
+      { label: 'Plan Semanal', href: '/workflow/plan-semanal' },
+    ],
+  },
+  {
+    group: 'Abastecimiento',
+    items: [
+      { label: 'Inventario', href: '/admin/inventory' },
+      { label: 'Compras',    href: '/admin/purchases' },
+      { label: 'Bodega',     href: '/workflow/warehouse' },
+    ],
+  },
+  {
+    group: 'Comercial',
+    items: [
+      { label: 'Clientes',  href: '/workflow/clients' },
+      { label: 'WhatsApp',  href: '/workflow/whatsapp' },
+    ],
+  },
+];
 
 const navItems: NavItem[] = [
   { label: 'Inicio',         icon: Home,        href: '/home',        roles: ['admin', 'manager', 'supervisor', 'hr_manager', 'technician'], dot: 'bg-slate-400',   activeBg: 'bg-slate-200 dark:bg-slate-500/20',   activeIcon: 'text-slate-600 dark:text-slate-300'  },
-  { label: 'Operaciones',    icon: Factory,     href: '/workflow',    roles: ['admin', 'supervisor', 'manager'],                             dot: 'bg-blue-500',    activeBg: 'bg-blue-100 dark:bg-blue-500/20',     activeIcon: 'text-blue-600 dark:text-blue-300'    },
+  { label: 'Operaciones',    icon: Factory,     href: '/workflow',    roles: ['admin', 'supervisor', 'manager'],                             dot: 'bg-blue-500',    activeBg: 'bg-blue-100 dark:bg-blue-500/20',     activeIcon: 'text-blue-600 dark:text-blue-300',   children: operacionesChildren },
   { label: 'Personas',       icon: Users,       href: '/hr',          roles: ['admin', 'hr_manager', 'supervisor'],                          dot: 'bg-amber-500',   activeBg: 'bg-amber-100 dark:bg-amber-500/20',   activeIcon: 'text-amber-600 dark:text-amber-300'  },
   { label: 'Equipos',        icon: Wrench,      href: '/maintenance', roles: ['admin', 'technician', 'supervisor', 'manager'],               dot: 'bg-orange-500',  activeBg: 'bg-orange-100 dark:bg-orange-500/20', activeIcon: 'text-orange-600 dark:text-orange-300'},
-  { label: 'Analítica',       icon: TrendingUp,  href: '/financial',   roles: ['admin', 'manager'],                                          dot: 'bg-green-500',   activeBg: 'bg-green-100 dark:bg-green-500/20',   activeIcon: 'text-green-600 dark:text-green-300'  },
-  { label: 'Abastecimiento',  icon: Package2,    href: '/supply',      roles: ['admin', 'supervisor', 'manager'],                             dot: 'bg-cyan-500',    activeBg: 'bg-cyan-100 dark:bg-cyan-500/20',     activeIcon: 'text-cyan-600 dark:text-cyan-300'    },
-  { label: 'Administración',  icon: ShieldCheck, href: '/admin',       roles: ['admin'],                                                     dot: 'bg-violet-500',  activeBg: 'bg-violet-100 dark:bg-violet-500/20', activeIcon: 'text-violet-600 dark:text-violet-300'},
+  { label: 'Analítica',      icon: TrendingUp,  href: '/financial',   roles: ['admin', 'manager'],                                          dot: 'bg-green-500',   activeBg: 'bg-green-100 dark:bg-green-500/20',   activeIcon: 'text-green-600 dark:text-green-300'  },
+  { label: 'Administración', icon: ShieldCheck, href: '/admin',       roles: ['admin'],                                                     dot: 'bg-violet-500',  activeBg: 'bg-violet-100 dark:bg-violet-500/20', activeIcon: 'text-violet-600 dark:text-violet-300'},
 ];
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
@@ -66,6 +114,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(true);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [expandedNav, setExpandedNav] = useState<Record<string, boolean>>({});
+  const toggleExpanded = (href: string) =>
+    setExpandedNav(prev => ({ ...prev, [href]: !prev[href] }));
 
   useCostOverrunAlerts();
 
@@ -81,6 +132,12 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   // Close mobile menu on route change
   useEffect(() => {
     setMobileOpen(false);
+  }, [pathname]);
+
+  // Auto-expand parent nav when navigating to a child route
+  useEffect(() => {
+    const parent = navItems.find(i => i.children && pathname.startsWith(i.href + '/'));
+    if (parent) setExpandedNav(prev => ({ ...prev, [parent.href]: true }));
   }, [pathname]);
 
   // Public routes — no shell needed
@@ -151,18 +208,29 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
       {/* Nav */}
       <ScrollArea className="flex-1 py-4">
-        <nav className="space-y-1 px-2">
+        <nav className="space-y-0.5 px-2">
           {filteredItems.map((item) => {
             const Icon = item.icon;
             const active = isActive(item.href);
+            const hasChildren = !!item.children?.length;
+            const isExpanded = expandedNav[item.href] ?? false;
+            const childActive = hasChildren && item.children!.some(g => g.items.some(s => pathname === s.href || pathname.startsWith(s.href + '/')));
 
             const button = (
               <button
                 key={item.href}
-                onClick={() => { router.push(item.href); setMobileOpen(false); }}
+                onClick={() => {
+                  if (hasChildren) {
+                    toggleExpanded(item.href);
+                    if (!isExpanded) { router.push(item.href); }
+                  } else {
+                    router.push(item.href);
+                    setMobileOpen(false);
+                  }
+                }}
                 className={cn(
                   "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all duration-150",
-                  active
+                  active || childActive
                     ? cn(item.activeBg, item.activeIcon, "font-semibold")
                     : "text-foreground/40 hover:text-foreground/70 hover:bg-black/5 dark:hover:bg-white/5",
                   collapsed && "justify-center px-0"
@@ -172,9 +240,42 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                   <Icon className="w-5 h-5" />
                   <span className={cn("absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full border border-card", item.dot)} />
                 </span>
-                {!collapsed && <span className="truncate">{item.label}</span>}
+                {!collapsed && <span className="truncate flex-1 text-left">{item.label}</span>}
+                {!collapsed && hasChildren && (
+                  <ChevronDown className={cn("w-3.5 h-3.5 shrink-0 transition-transform duration-200 opacity-60", isExpanded && "rotate-180")} />
+                )}
               </button>
             );
+
+            const subMenu = hasChildren && isExpanded && !collapsed ? (
+              <div className="ml-3 pl-3 border-l border-border/40 space-y-3 py-1 mb-1">
+                {item.children!.map((group) => (
+                  <div key={group.group}>
+                    <p className="px-2 pb-0.5 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/40">
+                      {group.group}
+                    </p>
+                    {group.items.map((sub) => {
+                      const subActive = pathname === sub.href || pathname.startsWith(sub.href + '/');
+                      return (
+                        <button
+                          key={sub.href}
+                          onClick={() => { router.push(sub.href); setMobileOpen(false); }}
+                          className={cn(
+                            "w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs transition-colors",
+                            subActive
+                              ? cn(item.activeBg, item.activeIcon, "font-medium")
+                              : "text-foreground/40 hover:text-foreground/70 hover:bg-black/5 dark:hover:bg-white/5"
+                          )}
+                        >
+                          <span className={cn("w-1.5 h-1.5 rounded-full shrink-0", subActive ? item.dot : "bg-foreground/20")} />
+                          <span className="truncate">{sub.label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                ))}
+              </div>
+            ) : null;
 
             if (collapsed) {
               return (
@@ -184,7 +285,12 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                 </Tooltip>
               );
             }
-            return <React.Fragment key={item.href}>{button}</React.Fragment>;
+            return (
+              <React.Fragment key={item.href}>
+                {button}
+                {subMenu}
+              </React.Fragment>
+            );
           })}
         </nav>
       </ScrollArea>
