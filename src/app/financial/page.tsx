@@ -29,7 +29,7 @@ const sections = [
   { label: 'Tendencias',           description: 'Análisis de tendencias y proyecciones',        icon: BarChart3,       href: '/manager/tendencias',     rgb: '249 115 22'  },
   { label: 'Auditoría OT',         description: 'Historial detallado y estado de cada OT',     icon: FileSearch,      href: '/manager/auditoria',      rgb: '217 70 239'  },
   { label: 'Actividad',            description: 'Log de acciones y eventos del sistema',        icon: Activity,        href: '/manager/actividad',      rgb: '239 68 68'   },
-  { label: 'Resumen Ejecutivo',    description: 'Vista de alto nivel para dirección',           icon: LayoutDashboard, href: '/admin/overview',         rgb: '139 92 246'  },
+  { label: 'Vista Ejecutiva',      description: 'Vista de alto nivel para dirección',           icon: LayoutDashboard, href: '/admin/overview',         rgb: '139 92 246'  },
 ];
 
 export default function FinancialPage() {

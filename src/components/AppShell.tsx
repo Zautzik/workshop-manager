@@ -31,6 +31,7 @@ import {
   ShieldCheck,
   TrendingUp,
   Search,
+  Package2,
 } from 'lucide-react';
 import { NotificationCenter } from '@/components/NotificationCenter';
 import { ReportingQuickActions } from '@/components/ReportingQuickActions';
@@ -52,8 +53,9 @@ const navItems: NavItem[] = [
   { label: 'Operaciones',    icon: Factory,     href: '/workflow',    roles: ['admin', 'supervisor', 'manager'],                             dot: 'bg-blue-500',    activeBg: 'bg-blue-100 dark:bg-blue-500/20',     activeIcon: 'text-blue-600 dark:text-blue-300'    },
   { label: 'Personas',       icon: Users,       href: '/hr',          roles: ['admin', 'hr_manager', 'supervisor'],                          dot: 'bg-amber-500',   activeBg: 'bg-amber-100 dark:bg-amber-500/20',   activeIcon: 'text-amber-600 dark:text-amber-300'  },
   { label: 'Equipos',        icon: Wrench,      href: '/maintenance', roles: ['admin', 'technician', 'supervisor', 'manager'],               dot: 'bg-orange-500',  activeBg: 'bg-orange-100 dark:bg-orange-500/20', activeIcon: 'text-orange-600 dark:text-orange-300'},
-  { label: 'Analítica',      icon: TrendingUp,  href: '/financial',   roles: ['admin', 'manager'],                                          dot: 'bg-green-500',   activeBg: 'bg-green-100 dark:bg-green-500/20',   activeIcon: 'text-green-600 dark:text-green-300'  },
-  { label: 'Administración', icon: ShieldCheck, href: '/admin',       roles: ['admin'],                                                     dot: 'bg-violet-500',  activeBg: 'bg-violet-100 dark:bg-violet-500/20', activeIcon: 'text-violet-600 dark:text-violet-300'},
+  { label: 'Analítica',       icon: TrendingUp,  href: '/financial',   roles: ['admin', 'manager'],                                          dot: 'bg-green-500',   activeBg: 'bg-green-100 dark:bg-green-500/20',   activeIcon: 'text-green-600 dark:text-green-300'  },
+  { label: 'Abastecimiento',  icon: Package2,    href: '/supply',      roles: ['admin', 'supervisor', 'manager'],                             dot: 'bg-cyan-500',    activeBg: 'bg-cyan-100 dark:bg-cyan-500/20',     activeIcon: 'text-cyan-600 dark:text-cyan-300'    },
+  { label: 'Administración',  icon: ShieldCheck, href: '/admin',       roles: ['admin'],                                                     dot: 'bg-violet-500',  activeBg: 'bg-violet-100 dark:bg-violet-500/20', activeIcon: 'text-violet-600 dark:text-violet-300'},
 ];
 
 export default function AppShell({ children }: { children: React.ReactNode }) {

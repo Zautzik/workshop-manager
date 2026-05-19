@@ -7,10 +7,11 @@ import { useTheme } from '@/contexts/ThemeContext';
 import {
   Factory,
   BarChart3,
-  DollarSign,
+  TrendingUp,
   Users,
   Wrench,
   ShieldCheck,
+  Package2,
 } from 'lucide-react';
 
 interface QuickAction {
@@ -30,7 +31,7 @@ interface QuickAction {
 const quickActions: QuickAction[] = [
   {
     label: 'Operaciones',
-    description: 'Kanban, turnos, planta y OTs en tiempo real',
+    description: 'Kanban, turnos, Gantt y OTs en tiempo real',
     icon: Factory,
     href: '/workflow',
     rgb: '59 130 246',
@@ -49,8 +50,8 @@ const quickActions: QuickAction[] = [
     roles: ['admin', 'hr_manager', 'supervisor'],
   },
   {
-    label: 'Máquinas',
-    description: 'Mantenimiento, checklists y estado de equipos',
+    label: 'Equipos',
+    description: 'Mantenimiento, predictivo, checklists y QR',
     icon: Wrench,
     href: '/maintenance',
     rgb: '249 115 22',
@@ -59,9 +60,9 @@ const quickActions: QuickAction[] = [
     roles: ['admin', 'technician', 'supervisor'],
   },
   {
-    label: 'Finanzas',
-    description: 'Costos por OT, nómina, márgenes e inversiones',
-    icon: DollarSign,
+    label: 'Analítica',
+    description: 'Costos, KPIs, trazabilidad y reportes del taller',
+    icon: TrendingUp,
     href: '/financial',
     rgb: '34 197 94',
     textCls: 'text-green-100',
@@ -69,18 +70,18 @@ const quickActions: QuickAction[] = [
     roles: ['admin', 'manager'],
   },
   {
-    label: 'Reportes',
-    description: 'KPIs, trazabilidad y rendimiento del taller',
-    icon: BarChart3,
-    href: '/manager',
-    rgb: '99 102 241',
-    textCls: 'text-indigo-100',
-    lightTextCls: 'text-indigo-900',
-    roles: ['admin', 'manager'],
+    label: 'Abastecimiento',
+    description: 'Inventario, compras y bodega unificados',
+    icon: Package2,
+    href: '/supply',
+    rgb: '6 182 212',
+    textCls: 'text-cyan-100',
+    lightTextCls: 'text-cyan-900',
+    roles: ['admin', 'supervisor', 'manager'],
   },
   {
     label: 'Administración',
-    description: 'Usuarios, inventario, compras e integraciones',
+    description: 'Usuarios, integraciones y configuración',
     icon: ShieldCheck,
     href: '/admin',
     rgb: '139 92 246',

@@ -37,7 +37,7 @@ const sections = [
   { label: 'Hoja de Prod.', description: 'Control operativo hoja por hoja',           icon: FileSpreadsheet, href: '/workflow/hoja-produccion',    rgb: '217 70 239'  },
   { label: 'Clientes',      description: 'Registro comercial y seguimiento',          icon: Users2,          href: '/workflow/clients',            rgb: '139 92 246'  },
   { label: 'Archivo OT',    description: 'Búsqueda y documentación de órdenes',      icon: FileSearch,      href: '/workflow/production',         rgb: '249 115 22'  },
-  { label: 'Bodega',        description: 'Materiales, entradas y salidas',            icon: Warehouse,       href: '/workflow/warehouse',          rgb: '14 165 233'  },
+  { label: 'Bodega',         description: 'Materiales, entradas y salidas',            icon: Warehouse,       href: '/supply',              rgb: '14 165 233'  },
   { label: 'WhatsApp',      description: 'Notificaciones en tiempo real a operarios', icon: MessageSquare,   href: '/workflow/whatsapp',           rgb: '16 185 129'  },
 ];
 
