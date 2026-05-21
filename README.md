@@ -23,10 +23,11 @@ npx supabase db push
 npm run dev
 ```
 
-**Default Login (development seed data only — rotate before any deployment):**
+**First login:** seed your initial admin account with the offline script — no password is hardcoded in source control:
 
-- Admin: `admin@gonsadmin.app` / `admin123`
-- Supervisor: `supervisor@gonsadmin.app` / `supervisor123`
+```bash
+SEED_ADMIN_PASSWORD="<choose-a-strong-password>" npx tsx scripts/seed-admin.ts
+```
 
 ## 🛠️ Tech Stack
 

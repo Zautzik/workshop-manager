@@ -48,12 +48,13 @@ NEXTAUTH_SECRET="run: openssl rand -base64 32"
 npm run dev
 ```
 
-Visit `http://localhost:3000` and login with:
+Visit `http://localhost:3000`. Before you can log in, seed your first admin account:
 
-> **Warning:** The credentials below are seed data for local development only. Change all passwords before deploying to any shared or production environment.
+```bash
+SEED_ADMIN_PASSWORD="<choose-a-strong-password>" npx tsx scripts/seed-admin.ts
+```
 
-- **Admin:** admin@gonsadmin.app / admin123
-- **Supervisor:** supervisor@gonsadmin.app / supervisor123
+> **Note:** No default password exists in source control. You choose the password at seed time.
 
 ## 📚 Useful Commands
 
