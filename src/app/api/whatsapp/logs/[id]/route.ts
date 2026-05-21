@@ -95,10 +95,11 @@ export async function PATCH(
       .single();
 
     if (error) {
-      console.error('Error reviewing WA log:', error);
-      return NextResponse.json({ error: 'Failed to update review' }, { status: 500 });
-    }
-
+			if (error.code === 'PGRST116') return NextResponse.json({ error: 'Log not found' }, { status: 404 });
+			console.error('Error reviewing WA log:', error);
+			return NextResponse.json({ error: 'Failed to update review' }, { status: 500 });
+		}
+		if (!data) return NextResponse.json({ error: 'Log not found' }, { status: 404 });
     // If approved, feed costs into ot_real_costs
     if (action === 'approve' && data?.ot_id) {
       const { error: feedError } = await supabaseAdmin

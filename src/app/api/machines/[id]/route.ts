@@ -92,9 +92,11 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 			.single();
 
 		if (error) {
+			if (error.code === 'PGRST116') return NextResponse.json({ error: 'Machine not found' }, { status: 404 });
 			console.error('Error updating machine:', error);
 			return NextResponse.json({ error: 'Failed to update machine' }, { status: 500 });
 		}
+		if (!data) return NextResponse.json({ error: 'Machine not found' }, { status: 404 });
 
 		return NextResponse.json(data);
 	} catch (error) {

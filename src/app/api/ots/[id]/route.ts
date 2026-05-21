@@ -151,10 +151,11 @@ export async function PATCH(
 			.single();
 
 		if (error) {
+			if (error.code === 'PGRST116') return NextResponse.json({ error: 'OT not found' }, { status: 404 });
 			console.error('Error updating OT:', error);
 			return NextResponse.json({ error: 'Failed to update OT' }, { status: 500 });
 		}
-
+		if (!data) return NextResponse.json({ error: 'OT not found' }, { status: 404 });
 		// If operations were provided, replace them (delete old, insert new)
 		if (operations && operations.length > 0) {
 			const { error: delError } = await supabaseAdmin

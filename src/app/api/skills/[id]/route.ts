@@ -35,7 +35,7 @@ export async function GET(
         .from('skills')
         .select('id, code, name')
         .eq('id', skill.parent_skill_id)
-        .single();
+        .maybeSingle();
       parent = parentSkill;
     }
 

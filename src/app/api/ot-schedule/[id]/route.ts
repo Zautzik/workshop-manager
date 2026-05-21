@@ -50,9 +50,11 @@ export async function PATCH(
 		.single();
 
 	if (error) {
+		if (error.code === 'PGRST116') return NextResponse.json({ error: 'Schedule slot not found' }, { status: 404 });
 		console.error('Error updating schedule slot:', error);
 		return NextResponse.json({ error: 'Failed to update schedule slot' }, { status: 500 });
 	}
+	if (!data) return NextResponse.json({ error: 'Schedule slot not found' }, { status: 404 });
 
 	return NextResponse.json(data);
 }

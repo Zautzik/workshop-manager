@@ -68,14 +68,19 @@ export async function POST(
 				request_revision: 'revision_requested',
 			} as const;
 
-			// Check if there's a pending approval
-			const { data: pending } = await supabaseAdmin
+			// Check if there's a pending approval (.maybeSingle so 0 rows → null, not an error)
+			const { data: pending, error: pendingErr } = await supabaseAdmin
 				.from('ot_approvals')
 				.select('id')
 				.eq('ot_id', id)
 				.eq('status', 'pending')
 				.limit(1)
-				.single();
+				.maybeSingle();
+
+			if (pendingErr) {
+				console.error('Error checking pending approval:', pendingErr);
+				return NextResponse.json({ error: 'Failed to check pending approval' }, { status: 500 });
+			}
 
 			if (pending) {
 				// Update existing pending approval
@@ -95,6 +100,7 @@ export async function POST(
 					console.error('Error resolving approval:', error);
 					return NextResponse.json({ error: 'Failed to resolve approval' }, { status: 500 });
 				}
+				if (!data) return NextResponse.json({ error: 'Failed to resolve approval' }, { status: 500 });
 
 				return NextResponse.json(data);
 			}

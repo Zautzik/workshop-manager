@@ -83,9 +83,11 @@ export async function PATCH(
 			.single();
 
 		if (error) {
+			if (error.code === 'PGRST116') return NextResponse.json({ error: 'Client not found' }, { status: 404 });
 			console.error('Error updating client:', error);
 			return NextResponse.json({ error: 'Failed to update client' }, { status: 500 });
 		}
+		if (!data) return NextResponse.json({ error: 'Client not found' }, { status: 404 });
 
 		return NextResponse.json(data);
 	} catch (error) {

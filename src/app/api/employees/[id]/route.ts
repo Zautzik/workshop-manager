@@ -125,6 +125,7 @@ export async function GET(
 			.single();
 
 		if (error) {
+			if (error.code === 'PGRST116') return NextResponse.json({ error: 'Employee not found' }, { status: 404 });
 			return NextResponse.json({ error: error.message }, { status: 500 });
 		}
 
@@ -203,8 +204,10 @@ export async function PUT(
 			.single();
 
 		if (error) {
+			if (error.code === 'PGRST116') return NextResponse.json({ error: 'Employee not found' }, { status: 404 });
 			return NextResponse.json({ error: error.message }, { status: 500 });
 		}
+		if (!employee) return NextResponse.json({ error: 'Employee not found' }, { status: 404 });
 
 		return NextResponse.json({ success: true, data: employee });
 	} catch (error) {
@@ -236,8 +239,10 @@ export async function DELETE(
 			.single();
 
 		if (error) {
+			if (error.code === 'PGRST116') return NextResponse.json({ error: 'Employee not found' }, { status: 404 });
 			return NextResponse.json({ error: error.message }, { status: 500 });
 		}
+		if (!employee) return NextResponse.json({ error: 'Employee not found' }, { status: 404 });
 
 		return NextResponse.json({ success: true, data: employee, message: 'Employee archived' });
 	} catch (error) {

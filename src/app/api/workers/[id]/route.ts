@@ -44,9 +44,11 @@ export async function PATCH(
 			.single();
 
 		if (error) {
+			if (error.code === 'PGRST116') return NextResponse.json({ error: 'Worker not found' }, { status: 404 });
 			console.error('Error updating worker:', error);
 			return NextResponse.json({ error: 'Failed to update worker' }, { status: 500 });
 		}
+		if (!data) return NextResponse.json({ error: 'Worker not found' }, { status: 404 });
 
 		return NextResponse.json({
 			...data,
