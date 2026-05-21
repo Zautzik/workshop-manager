@@ -1,7 +1,11 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/integrations/supabase/server';
+import { requireAuth, isAuthError } from '@/lib/api-middleware';
 
 export async function GET() {
+	// Configuration state is sensitive — restrict to admins.
+	const auth = await requireAuth('admin');
+	if (isAuthError(auth)) return auth;
 	const checks: Record<string, string> = {};
 
 	// 1. Check env vars exist (don't leak values)

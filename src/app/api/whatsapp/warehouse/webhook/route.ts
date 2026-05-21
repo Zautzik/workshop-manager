@@ -35,7 +35,8 @@ const WebhookSchema = z.object({
 
 function verifySignature(rawBody: string, signature: string | null): boolean {
   const authToken = process.env.WHATSAPP_AUTH_TOKEN;
-  if (!authToken) return true; // dev mode
+  // Fail closed: a missing token is a misconfiguration, not a dev-mode pass.
+  if (!authToken) return false;
   if (!signature) return false;
 
   const hash = crypto
