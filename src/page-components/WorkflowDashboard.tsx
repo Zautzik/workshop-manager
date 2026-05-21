@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import dynamic from 'next/dynamic';
+import { useRouter } from 'next/navigation';
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -18,7 +19,10 @@ const ClientManager = dynamic(() => import('@/components/workflow/ClientManager'
 const OrdenesEnProceso = dynamic(() => import('@/components/workflow/OrdenesEnProceso').then((m) => m.OrdenesEnProceso));
 const HojaProduccion = dynamic(() => import('@/components/workflow/HojaProduccion').then((m) => m.HojaProduccion));
 const PlanSemanal = dynamic(() => import('@/components/workflow/PlanSemanal').then((m) => m.PlanSemanal));
-import { Users, Factory, Clock, ClipboardList, ChevronLeft, ChevronRight, CalendarDays, WandSparkles, Replace, Shuffle, UploadCloud, ShieldAlert, CheckCircle2, Copy, RotateCcw, Printer, LayoutList, FileSpreadsheet } from "lucide-react";
+const OTGanttBoard = dynamic(() => import('@/components/workflow/OTGanttBoard').then((m) => m.OTGanttBoard));
+const UnifiedCalendar = dynamic(() => import('@/components/UnifiedCalendar').then((m) => m.UnifiedCalendar));
+const WhatsAppDashboard = dynamic(() => import('@/components/workflow/WhatsAppDashboard'));
+import { Users, Factory, Clock, ClipboardList, ChevronLeft, ChevronRight, CalendarDays, WandSparkles, Replace, Shuffle, UploadCloud, ShieldAlert, CheckCircle2, Copy, RotateCcw, Printer, LayoutList, FileSpreadsheet, GanttChart, MessageSquare, Monitor } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCompensationRatesForDate, useSchedulingCostModel, useWorkerAssignments, useWorkerMonthlyOvertime, useWorkflowCertificationAlerts, useWorkflowContracts, useWorkflowIncentiveStatuses, useWorkflowLeaveStatuses, useWorkflowWeeklyHours, useWorkersByRating, useWorkstations, useShifts } from "@/hooks/use-workflow-queries";
@@ -26,7 +30,7 @@ import { DndContext, DragEndEvent, DragOverlay } from "@dnd-kit/core";
 import { useTranslation } from "react-i18next";
 import { isWorkerQualifiedForStation } from "@/lib/workstation-skills";
 
-type WorkflowTab = 'en_proceso' | 'ots' | 'clients' | 'layout' | 'shifts' | 'production' | 'hoja_prod' | 'plan_semanal';
+type WorkflowTab = 'en_proceso' | 'ots' | 'clients' | 'layout' | 'shifts' | 'production' | 'hoja_prod' | 'plan_semanal' | 'gantt' | 'calendar' | 'whatsapp';
 
 const workflowTabMeta: Array<{
   value: WorkflowTab;
@@ -43,6 +47,9 @@ const workflowTabMeta: Array<{
   { value: 'production',   label: 'Archivo OT',   subtitle: 'Documentos OT',       icon: Printer,       rgb: '249 115 22'  }, // orange-500
   { value: 'hoja_prod',    label: 'Hoja Prod.',   subtitle: 'Control operativo',   icon: FileSpreadsheet, rgb: '217 70 239' }, // fuchsia-500
   { value: 'plan_semanal', label: 'Plan Semanal', subtitle: 'Panorama semanal',    icon: CalendarDays,  rgb: '99 102 241'  }, // indigo-500
+  { value: 'gantt',        label: 'Gantt',        subtitle: '4 semanas',           icon: GanttChart,    rgb: '139 92 246'  }, // violet-500
+  { value: 'calendar',     label: 'Calendario',   subtitle: 'Vista unificada',     icon: CalendarDays,  rgb: '6 182 212'   }, // cyan-500
+  { value: 'whatsapp',     label: 'WhatsApp',     subtitle: 'Producción live',     icon: MessageSquare, rgb: '16 185 129'  }, // emerald-500
 ];
 
 interface WorkflowDashboardProps {
@@ -50,6 +57,7 @@ interface WorkflowDashboardProps {
 }
 
 export default function WorkflowDashboard({ initialTab = 'en_proceso' }: WorkflowDashboardProps) {
+  const router = useRouter();
   const getDateIso = (date: Date) => {
     const offset = date.getTimezoneOffset() * 60 * 1000;
     return new Date(date.getTime() - offset).toISOString().split("T")[0];
@@ -1105,6 +1113,14 @@ export default function WorkflowDashboard({ initialTab = 'en_proceso' }: Workflo
           <h1 className="text-sm font-semibold text-foreground">{t('workflow.title')}</h1>
           <span className="text-xs text-muted-foreground">{workers.length} op · {workstations.length} est</span>
           <div className="ml-auto flex items-center gap-0.5">
+            <button
+              onClick={() => router.push('/workflow/floor')}
+              title="Modo Planta (pantalla completa)"
+              className="w-7 h-7 rounded-md flex items-center justify-center transition-colors text-muted-foreground hover:text-foreground hover:bg-muted/60 mr-1"
+            >
+              <Monitor className="w-3.5 h-3.5" />
+            </button>
+            <div className="w-px h-4 bg-border mr-1" />
             {workflowTabMeta.map((tab) => {
               const Icon = tab.icon;
               const isActive = activeTab === tab.value;
@@ -1530,6 +1546,18 @@ export default function WorkflowDashboard({ initialTab = 'en_proceso' }: Workflo
 
           <TabsContent value="production" className="mt-4">
             <OTRetrievalSystem />
+          </TabsContent>
+
+          <TabsContent value="gantt" className="mt-4">
+            <OTGanttBoard />
+          </TabsContent>
+
+          <TabsContent value="calendar" className="mt-4">
+            <UnifiedCalendar />
+          </TabsContent>
+
+          <TabsContent value="whatsapp" className="mt-4">
+            <WhatsAppDashboard />
           </TabsContent>
         </Tabs>
 
