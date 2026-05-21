@@ -17,6 +17,15 @@ import type { Database } from './types';
  * inside API routes — that would create two competing auth systems.
  * If you want RLS as the primary mechanism, switch all routes to a
  * per-request client built from the user's JWT and remove requireAuth().
+ *
+ * Connection pooling note:
+ * This client communicates with Postgres exclusively via PostgREST (HTTP),
+ * so there are no direct TCP connections to Postgres from the app server.
+ * Connection pooling is managed by Supabase's own infrastructure.
+ * If you ever add a direct pg/postgres client (e.g. for migrations or
+ * raw SQL), use the Supabase pooler URL (port 6543, PgBouncer) instead
+ * of the direct URL (port 5432) to avoid exhausting connections under
+ * serverless/concurrent load.
  */
 
 const SUPABASE_URL =

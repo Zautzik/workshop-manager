@@ -1,35 +1,33 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/integrations/supabase/server';
-import { requireAuth, isAuthError } from '@/lib/api-middleware';
 
+export const runtime = 'nodejs';
+
+/**
+ * GET /api/health
+ *
+ * Unauthenticated liveness + readiness probe for load-balancers and uptime
+ * monitors. Verifies the Postgres connection by issuing a lightweight HEAD
+ * request (no rows transferred) via PostgREST.
+ *
+ * Returns HTTP 200 on success, 503 when the DB is unreachable.
+ * Does NOT expose env-var values or internal configuration.
+ */
 export async function GET() {
-	// Configuration state is sensitive — restrict to admins.
-	const auth = await requireAuth('admin');
-	if (isAuthError(auth)) return auth;
-	const checks: Record<string, string> = {};
+	const t0 = Date.now();
 
-	// 1. Check env vars exist (don't leak values)
-	checks.NEXT_PUBLIC_SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ? '✅ set' : '❌ missing';
-	checks.SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY ? '✅ set' : '❌ missing';
-	checks.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ? '✅ set' : '❌ missing';
-	checks.NEXTAUTH_SECRET = process.env.NEXTAUTH_SECRET ? '✅ set' : '❌ missing';
-	checks.NEXTAUTH_URL = process.env.NEXTAUTH_URL ?? '❌ missing';
+	const { error } = await supabaseAdmin
+		.from('employees')
+		.select('id', { count: 'exact', head: true });
 
-	// 2. Test Supabase connection
-	try {
-		const { data, error } = await supabaseAdmin
-			.from('clients')
-			.select('id')
-			.limit(1);
+	const latencyMs = Date.now() - t0;
 
-		if (error) {
-			checks.supabase_connection = `❌ ${error.message} (code: ${error.code})`;
-		} else {
-			checks.supabase_connection = `✅ OK (${data?.length ?? 0} row(s) returned)`;
-		}
-	} catch (e: any) {
-		checks.supabase_connection = `❌ Exception: ${e?.message ?? 'unknown'}`;
+	if (error) {
+		return NextResponse.json(
+			{ status: 'error', db: 'unreachable', error: error.message, latencyMs },
+			{ status: 503 }
+		);
 	}
 
-	return NextResponse.json(checks);
+	return NextResponse.json({ status: 'ok', db: 'ok', latencyMs });
 }
