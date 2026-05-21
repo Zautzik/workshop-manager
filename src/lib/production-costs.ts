@@ -51,7 +51,7 @@ function findCostItem(
 }
 
 function lineId(): string {
-  return crypto.randomUUID?.() ?? Date.now().toString() + Math.random().toString(36).slice(2);
+  return crypto.randomUUID();
 }
 
 function parseColorConfig(config: string): { front: number; back: number } {
