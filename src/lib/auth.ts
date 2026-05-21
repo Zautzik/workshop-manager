@@ -66,24 +66,22 @@ export const authOptions: NextAuthOptions = {
 				}
 
 				const authUser = authData.user;
-				const { data: profile } = await (supabaseAdmin as any)
-					.from('users')
-					.select('*')
-					.eq('id', authUser.id)
-					.single();
 
-				const { data: roleRow } = await (supabaseAdmin as any)
+				// Role is the only data we need from the DB; name comes from user_metadata
+				// which is set during user provisioning via supabaseAdmin.auth.admin.createUser.
+				// (There is no public.users profile table in this schema.)
+				const { data: roleRow } = await supabaseAdmin
 					.from('user_roles')
 					.select('role')
 					.eq('user_id', authUser.id)
 					.order('created_at', { ascending: false })
 					.maybeSingle();
 
-				const role = roleRow?.role ?? null;
+				// Narrow the DB result to AppRole so TypeScript catches
+				// field renames the moment real types are generated.
+				const role = (roleRow as { role: AppRole } | null)?.role ?? null;
 				const name =
-					profile?.name ??
-					(authUser.user_metadata?.name as string | undefined) ??
-					null;
+					(authUser.user_metadata?.name as string | undefined) ?? null;
 
 				return {
 					id: authUser.id,

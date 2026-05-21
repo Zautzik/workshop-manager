@@ -25,28 +25,41 @@ export async function GET(request: NextRequest) {
 		const page = parseInt(url.searchParams.get('page') || '1');
 		const perPage = parseInt(url.searchParams.get('per_page') || '50');
 
-		// Fetch users from the users table + roles
-		const { data: users, error } = await supabaseAdmin
-			.from('users' as any)
-			.select('id, email, name, created_at')
-			.order('created_at', { ascending: false })
-			.range((page - 1) * perPage, page * perPage - 1);
+		// Users live in Supabase Auth (auth.users), not a public profile table.
+		// listUsers returns paginated results; offset is page-based.
+		const { data: authList, error } = await supabaseAdmin.auth.admin.listUsers({
+			page,
+			perPage,
+		});
 
 		if (error) {
 			console.error('Error fetching users:', error);
 			return NextResponse.json({ error: 'Failed to fetch users' }, { status: 500 });
 		}
 
-		// Fetch roles for all users
-		const userIds = ((users || []) as any[]).map((u) => u.id);
+		const authUsers = authList?.users ?? [];
+
+		// Fetch roles for all returned users
+		const userIds = authUsers.map((u) => u.id);
 		const { data: roles } = await supabaseAdmin
 			.from('user_roles')
 			.select('*')
 			.in('user_id', userIds.length > 0 ? userIds : ['__none__']);
 
-		const usersWithRoles = (users || []).map((user: any) => {
-			const userRole = (roles || []).find((r: { user_id: string }) => r.user_id === user.id) as any;
-			return { ...user, role: userRole?.role ?? null, role_id: userRole?.id ?? null, department: userRole?.department ?? null, manager_domain: userRole?.manager_domain ?? null };
+		const usersWithRoles = authUsers.map((u) => {
+			const userRole = (roles ?? []).find((r: { user_id: string }) => r.user_id === u.id) as
+				| { role: AppRole; id: string; department?: string; manager_domain?: string }
+				| undefined;
+			return {
+				id: u.id,
+				email: u.email,
+				name: (u.user_metadata?.name as string | undefined) ?? null,
+				created_at: u.created_at,
+				role: userRole?.role ?? null,
+				role_id: userRole?.id ?? null,
+				department: userRole?.department ?? null,
+				manager_domain: userRole?.manager_domain ?? null,
+			};
 		});
 
 		return NextResponse.json({ users: usersWithRoles });
@@ -97,24 +110,8 @@ export async function POST(request: NextRequest) {
 
 		const authUser = authData.user;
 
-		// Sync a profile row so the rest of the app can join on users.id
-		const { data: newUser, error: profileError } = await supabaseAdmin
-			.from('users' as any)
-			.insert({
-				id: authUser.id,
-				email: authUser.email,
-				name: parsed.data.name || parsed.data.email.split('@')[0],
-			})
-			.select('id, email, name')
-			.single();
-
-		if (profileError) {
-			console.error('Error creating user profile:', profileError);
-			// Roll back the auth record to avoid an orphaned identity
-			await supabaseAdmin.auth.admin.deleteUser(authUser.id);
-			return NextResponse.json({ error: 'Failed to create user profile' }, { status: 500 });
-		}
-
+		// Name is stored in user_metadata during createUser above — no separate
+		// profile table exists in this schema.
 		// Assign role
 		const { error: roleError } = await supabaseAdmin
 			.from('user_roles')
@@ -127,14 +124,20 @@ export async function POST(request: NextRequest) {
 
 		if (roleError) {
 			console.error('Error creating user role:', roleError);
-			// Roll back profile and auth record
-			await supabaseAdmin.from('users' as any).delete().eq('id', authUser.id);
+			// Roll back the auth record to avoid an orphaned identity
 			await supabaseAdmin.auth.admin.deleteUser(authUser.id);
 			return NextResponse.json({ error: 'Failed to assign role' }, { status: 500 });
 		}
 
 		return NextResponse.json(
-			{ user: newUser, role: parsed.data.role },
+			{
+				user: {
+					id: authUser.id,
+					email: authUser.email,
+					name: (authUser.user_metadata?.name as string | undefined) ?? null,
+				},
+				role: parsed.data.role,
+			},
 			{ status: 201 }
 		);
 	} catch (error) {
@@ -163,17 +166,16 @@ export async function DELETE(request: NextRequest) {
 			return NextResponse.json({ error: 'Cannot delete your own account' }, { status: 400 });
 		}
 
-		// Delete role first (FK constraint), then profile row, then the auth identity
+		// Delete role first (FK constraint), then the auth identity
 		await supabaseAdmin.from('user_roles').delete().eq('user_id', userId);
-		const { error } = await supabaseAdmin.from('users' as any).delete().eq('id', userId);
+
+		// Remove the Supabase Auth record so the user can no longer sign in
+		const { error } = await supabaseAdmin.auth.admin.deleteUser(userId);
 
 		if (error) {
 			console.error('Error deleting user:', error);
 			return NextResponse.json({ error: 'Failed to delete user' }, { status: 500 });
 		}
-
-		// Remove the Supabase Auth record so the user can no longer sign in
-		await supabaseAdmin.auth.admin.deleteUser(userId);
 
 		return NextResponse.json({ success: true });
 	} catch (error) {
