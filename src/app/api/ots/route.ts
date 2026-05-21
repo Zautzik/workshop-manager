@@ -4,6 +4,9 @@ import { requireAuth, isAuthError } from '@/lib/api-middleware';
 import { supabaseAdmin } from '@/integrations/supabase/server';
 import { OTStatusSchema } from '@/lib/ot-state-machine';
 
+// OTs are mutable and auth-gated — never cache at the HTTP layer.
+export const dynamic = 'force-dynamic';
+
 const DeadlineSchema = z.preprocess((value) => {
 	if (value === null || value === undefined || value === '') {
 		return null;
@@ -99,23 +102,53 @@ const CreateOTSchema = z.object({
 	notes: z.string().max(5000).optional().nullable(),
 });
 
-export async function GET(_req: NextRequest) {
+// ── Pagination ──────────────────────────────────────────────────────────────
+// max:200 prevents full-table fetches; callers that need more should filter
+// by status/date on the server rather than fetching everything client-side.
+const PageSchema = z.object({
+	page:  z.coerce.number().int().min(1).default(1),
+	limit: z.coerce.number().int().min(1).max(200).default(50),
+});
+
+export async function GET(req: NextRequest) {
 	const auth = await requireAuth();
 	if (isAuthError(auth)) return auth;
 
+	const { searchParams } = new URL(req.url);
+	const pagination = PageSchema.safeParse(Object.fromEntries(searchParams));
+	if (!pagination.success) {
+		return NextResponse.json(
+			{ error: 'Invalid pagination params', details: pagination.error.flatten().fieldErrors },
+			{ status: 400 }
+		);
+	}
+	const { page, limit } = pagination.data;
+	const offset = (page - 1) * limit;
+
 	try {
-		const { data, error } = await supabaseAdmin
+		const { data, error, count } = await supabaseAdmin
 			.from('ots')
-			.select('*, workstation:workstations(*), machine:machines!assigned_machine_id(id,name,brand,model,type,status,location,colors,nominal_speed_sheets_hr,power_kw)')
+			.select(
+				'*, workstation:workstations(*), machine:machines!assigned_machine_id(id,name,brand,model,type,status,location,colors,nominal_speed_sheets_hr,power_kw)',
+				{ count: 'exact' }
+			)
 			.order('priority', { ascending: false })
-			.order('created_at', { ascending: false });
+			.order('created_at', { ascending: false })
+			.range(offset, offset + limit - 1);
 
 		if (error) {
 			console.error('Error fetching OTs:', error);
 			return NextResponse.json({ error: 'Failed to fetch OTs' }, { status: 500 });
 		}
 
-		return NextResponse.json(data ?? []);
+		const total = count ?? 0;
+		return NextResponse.json({
+			data: data ?? [],
+			total,
+			page,
+			limit,
+			totalPages: Math.ceil(total / limit),
+		});
 	} catch (error) {
 		console.error('Error fetching OTs:', error);
 		return NextResponse.json({ error: 'Failed to fetch OTs' }, { status: 500 });

@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/integrations/supabase/server';
 
 export const runtime = 'nodejs';
+// Health checks must always hit the DB live — never serve a cached result.
+export const dynamic = 'force-dynamic';
 
 /**
  * GET /api/health

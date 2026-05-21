@@ -3,28 +3,56 @@ import { z } from 'zod';
 import { requireAuth, isAuthError } from '@/lib/api-middleware';
 import { supabaseAdmin } from '@/integrations/supabase/server';
 
+// Jobs are mutable and auth-gated — never cache at the HTTP layer.
+export const dynamic = 'force-dynamic';
+
 const CreateJobSchema = z.object({
 	description: z.string().min(1).max(1000),
 	assignedMachineId: z.string().uuid().optional().nullable(),
 	status: z.enum(['pending', 'in_progress', 'completed', 'delivered']).optional(),
 });
 
-export async function GET(_req: NextRequest) {
+// ── Pagination ──────────────────────────────────────────────────────────────
+const PageSchema = z.object({
+	page:  z.coerce.number().int().min(1).default(1),
+	limit: z.coerce.number().int().min(1).max(200).default(50),
+});
+
+export async function GET(req: NextRequest) {
 	const auth = await requireAuth();
 	if (isAuthError(auth)) return auth;
 
+	const { searchParams } = new URL(req.url);
+	const pagination = PageSchema.safeParse(Object.fromEntries(searchParams));
+	if (!pagination.success) {
+		return NextResponse.json(
+			{ error: 'Invalid pagination params', details: pagination.error.flatten().fieldErrors },
+			{ status: 400 }
+		);
+	}
+	const { page, limit } = pagination.data;
+	const offset = (page - 1) * limit;
+
 	try {
-		const { data, error } = await supabaseAdmin
+		const { data, error, count } = await supabaseAdmin
 			.from('jobs')
-			.select('*')
-			.order('created_at', { ascending: false });
+			.select('*', { count: 'exact' })
+			.order('created_at', { ascending: false })
+			.range(offset, offset + limit - 1);
 
 		if (error) {
 			console.error('Error fetching jobs:', error);
 			return NextResponse.json({ error: 'Failed to fetch jobs' }, { status: 500 });
 		}
 
-		return NextResponse.json(data ?? []);
+		const total = count ?? 0;
+		return NextResponse.json({
+			data: data ?? [],
+			total,
+			page,
+			limit,
+			totalPages: Math.ceil(total / limit),
+		});
 	} catch (error) {
 		console.error('Error fetching jobs:', error);
 		return NextResponse.json({ error: 'Failed to fetch jobs' }, { status: 500 });

@@ -3,43 +3,69 @@ import { z } from 'zod';
 import { requireAuth, isAuthError } from '@/lib/api-middleware';
 import { supabaseAdmin } from '@/integrations/supabase/server';
 
+// Workers are mutable and auth-gated — never cache at the HTTP layer.
+export const dynamic = 'force-dynamic';
+
 const CreateWorkerSchema = z.object({
 	name: z.string().min(1).max(255),
 	department: z.string().min(1).max(100),
 	status: z.enum(['active', 'inactive', 'on_leave', 'terminated']).optional(),
 });
 
-export async function GET(_req: NextRequest) {
+// ── Pagination ──────────────────────────────────────────────────────────────
+const PageSchema = z.object({
+	page:  z.coerce.number().int().min(1).default(1),
+	limit: z.coerce.number().int().min(1).max(200).default(50),
+});
+
+export async function GET(req: NextRequest) {
 	const auth = await requireAuth();
 	if (isAuthError(auth)) return auth;
 
+	const { searchParams } = new URL(req.url);
+	const pagination = PageSchema.safeParse(Object.fromEntries(searchParams));
+	if (!pagination.success) {
+		return NextResponse.json(
+			{ error: 'Invalid pagination params', details: pagination.error.flatten().fieldErrors },
+			{ status: 400 }
+		);
+	}
+	const { page, limit } = pagination.data;
+	const offset = (page - 1) * limit;
+
 	try {
-		const { data: employeesData, error: employeesError } = await supabaseAdmin
+		// Filter terminated/inactive at DB level so count() is accurate for pagination.
+		// The OR handles rows where status is NULL (new hires before status is set).
+		const { data: employeesData, error: employeesError, count } = await supabaseAdmin
 			.from('employees')
-			.select('*')
-			.order('full_name', { ascending: true });
+			.select('*', { count: 'exact' })
+			.or('status.is.null,status.not.in.(terminated,inactive)')
+			.order('full_name', { ascending: true })
+			.range(offset, offset + limit - 1);
 
 		if (!employeesError) {
-			const mapped = (employeesData ?? [])
-				.filter((employee: any) => {
-					const status = String(employee?.status ?? '').toLowerCase();
-					if (!status) return true;
-					return status !== 'terminated' && status !== 'inactive';
-				})
-				.map((employee: any) => ({
-					...employee,
-					name: employee.full_name,
-					employee_skills: Array.isArray(employee?.employee_skills) ? employee.employee_skills : [],
-				}));
-			return NextResponse.json(mapped);
+			const total = count ?? 0;
+			const mapped = (employeesData ?? []).map((employee: any) => ({
+				...employee,
+				name: employee.full_name,
+				employee_skills: Array.isArray(employee?.employee_skills) ? employee.employee_skills : [],
+			}));
+			return NextResponse.json({
+				data: mapped,
+				total,
+				page,
+				limit,
+				totalPages: Math.ceil(total / limit),
+			});
 		}
 
 		console.warn('employees query failed in /api/workers, trying legacy workers fallback:', employeesError);
 
-		const { data: legacyWorkers, error: legacyError } = await supabaseAdmin
+		const { data: legacyWorkers, error: legacyError, count: legacyCount } = await supabaseAdmin
 			.from('workers' as any)
-			.select('*')
-			.order('name', { ascending: true });
+			.select('*', { count: 'exact' })
+			.order('name', { ascending: true })
+			.range(offset, offset + limit - 1);
 
 		if (legacyError) {
 			console.error('Error fetching workers from both employees and workers tables:', {
@@ -58,6 +84,7 @@ export async function GET(_req: NextRequest) {
 			);
 		}
 
+		const legacyTotal = legacyCount ?? 0;
 		const mappedLegacy = (legacyWorkers ?? []).map((worker: any) => ({
 			id: worker.id,
 			name: worker.name,
@@ -76,7 +103,13 @@ export async function GET(_req: NextRequest) {
 			updated_at: worker.updated_at,
 		}));
 
-		return NextResponse.json(mappedLegacy);
+		return NextResponse.json({
+			data: mappedLegacy,
+			total: legacyTotal,
+			page,
+			limit,
+			totalPages: Math.ceil(legacyTotal / limit),
+		});
 	} catch (error) {
 		console.error('Error fetching workers:', error);
 		return NextResponse.json({ error: 'Failed to fetch workers', details: String(error) }, { status: 500 });
