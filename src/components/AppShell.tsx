@@ -114,6 +114,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(true);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
   const [expandedNav, setExpandedNav] = useState<Record<string, boolean>>({});
   const toggleExpanded = (href: string) =>
     setExpandedNav(prev => ({ ...prev, [href]: !prev[href] }));
@@ -307,11 +309,11 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                 collapsed && "justify-center px-2"
               )}
             >
-              {theme === 'light' ? <Moon className="w-4 h-4 shrink-0" /> : <Sun className="w-4 h-4 shrink-0" />}
-              {!collapsed && <span>{theme === 'light' ? 'Modo Oscuro' : 'Modo Claro'}</span>}
+              {!mounted ? <Sun className="w-4 h-4 shrink-0" /> : theme === 'light' ? <Moon className="w-4 h-4 shrink-0" /> : <Sun className="w-4 h-4 shrink-0" />}
+              {!collapsed && <span>{!mounted ? '' : theme === 'light' ? 'Modo Oscuro' : 'Modo Claro'}</span>}
             </button>
           </TooltipTrigger>
-          {collapsed && (
+          {collapsed && mounted && (
             <TooltipContent side="right">{theme === 'light' ? 'Modo Oscuro' : 'Modo Claro'}</TooltipContent>
           )}
         </Tooltip>

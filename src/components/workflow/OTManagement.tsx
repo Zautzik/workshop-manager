@@ -1,9 +1,11 @@
 'use client';
 import { useMemo, useRef, useState } from "react";
+import { useQueryClient } from '@tanstack/react-query';
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useOTs } from "@/hooks/use-workflow-queries";
+import { queryKeys } from "@/hooks/use-workflow-queries";
 import {
   Plus, ArrowRight, Edit2, DollarSign,
   ChevronDown, ChevronRight, GripVertical, Search,
@@ -81,6 +83,7 @@ function getAllNextStatuses(currentStatus: string) {
 export function OTManagement({ onOTSelect }: OTManagementProps) {
   const { data: ots = [], refetch: refetchOTs } = useOTs();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   const [createFlow,      setCreateFlow]      = useState<'none' | 'wizard'>('none');
   const [showEditDialog,  setShowEditDialog]  = useState(false);
@@ -101,17 +104,30 @@ export function OTManagement({ onOTSelect }: OTManagementProps) {
   const dragCounter = useRef<Record<string, number>>({});
 
   const updateOTStatus = async (otId: string, newStatus: string, rollback = false) => {
+    // 1. Snapshot the current list before we touch anything.
+    const previousOTs = queryClient.getQueryData<any[]>(queryKeys.ots);
+
+    // 2. Move the card immediately — 0 ms perceived latency.
+    queryClient.setQueryData<any[]>(queryKeys.ots, (old = []) =>
+      old.map(ot => ot.id === otId ? { ...ot, status: newStatus } : ot)
+    );
+
     const res = await fetch(`/api/ots/${otId}/transition`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ to_status: newStatus, reason: rollback ? 'kanban_rollback' : 'kanban_advance', rollback }),
     });
+
     if (!res.ok) {
+      // 3. Server rejected the transition — snap back to the previous state.
+      queryClient.setQueryData(queryKeys.ots, previousOTs);
       const body = await res.json().catch(() => null);
       toast({ title: "Error al actualizar estado", description: body?.error ?? 'Request failed', variant: "destructive" });
       return;
     }
+
     toast({ title: rollback ? "OT retrocedida" : "OT avanzada", description: `→ ${getStatusInfo(newStatus).labelEs}` });
+    // 4. Background refetch to pull any server-computed fields (updated_at, etc.).
     refetchOTs();
   };
 

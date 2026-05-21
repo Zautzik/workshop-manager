@@ -5,11 +5,13 @@
  * Searches OTs, workers, and machines in real time.
  */
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Dialog,
   DialogContent,
+  DialogTitle,
+  DialogDescription,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -65,11 +67,13 @@ export function GlobalSearch() {
     if (open) {
       setQuery('');
       setSelected(0);
-      setTimeout(() => inputRef.current?.focus(), 50);
+      // requestAnimationFrame fires after the dialog finishes its enter
+      // animation — no artificial delay, zero perceptible lag.
+      requestAnimationFrame(() => inputRef.current?.focus());
     }
   }, [open]);
 
-  const results: ResultItem[] = useCallback(() => {
+  const results: ResultItem[] = useMemo(() => {
     const q = normalize(query.trim());
     if (!q) return [];
 
@@ -119,7 +123,7 @@ export function GlobalSearch() {
     });
 
     return items.slice(0, 8);
-  }, [query, otsRaw, workers, machines])();
+  }, [query, otsRaw, workers, machines]);
 
   // Keyboard navigation
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -144,6 +148,9 @@ export function GlobalSearch() {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogContent className="p-0 gap-0 max-w-md overflow-hidden">
+        {/* Screen-reader-only title — Radix Dialog requires one for a11y */}
+        <DialogTitle className="sr-only">Búsqueda global</DialogTitle>
+        <DialogDescription className="sr-only">Busca OTs, empleados y equipos</DialogDescription>
         <div className="flex items-center gap-2 border-b border-border px-3 py-2.5">
           <Search className="h-4 w-4 text-muted-foreground shrink-0" />
           <Input
@@ -191,7 +198,7 @@ export function GlobalSearch() {
         <div className="border-t border-border px-3 py-1.5 flex items-center gap-3 text-[10px] text-muted-foreground">
           <span><kbd className="bg-muted px-1 py-0.5 rounded border">↑↓</kbd> navegar</span>
           <span><kbd className="bg-muted px-1 py-0.5 rounded border">↵</kbd> abrir</span>
-          <span><kbd className="bg-muted px-1 py-0.5 rounded border">Ctrl+K</kbd> cerrar</span>
+          <span><kbd className="bg-muted px-1 py-0.5 rounded border">Ctrl+K</kbd> paleta</span>
         </div>
       </DialogContent>
     </Dialog>

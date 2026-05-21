@@ -21,7 +21,7 @@ export const ThemeProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   return (
     <NextThemesProvider
       attribute="class"
-      defaultTheme="light"
+      defaultTheme="system"
       enableSystem
       storageKey="theme"
     >

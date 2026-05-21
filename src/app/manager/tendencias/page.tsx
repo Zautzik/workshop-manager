@@ -3,11 +3,17 @@ import ProtectedRoute from '@/components/ProtectedRoute';
 import { useOTs } from '@/hooks/use-operations-queries';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
+import {
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+  type ChartConfig,
+} from '@/components/ui/chart';
 import { useMemo } from 'react';
 import { TrendingUp, BarChart3 } from 'lucide-react';
 import {
-  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
-  ResponsiveContainer, BarChart, Bar, Legend,
+  AreaChart, Area, XAxis, YAxis, CartesianGrid, Legend,
+  BarChart, Bar,
 } from 'recharts';
 import { format, parseISO, startOfMonth, isValid } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -16,6 +22,16 @@ const STATUS_LABELS: Record<string, string> = {
   pending: 'Pendiente', in_progress: 'En proceso',
   completed: 'Completada', cancelled: 'Cancelada',
 };
+
+// ── Chart colour configs — referenced as var(--color-<key>) inside SVG ──────
+const areaConfig: ChartConfig = {
+  total:     { label: 'Creadas',     color: 'hsl(243 75% 59%)' },
+  completed: { label: 'Completadas', color: 'hsl(142 71% 45%)' },
+} satisfies ChartConfig;
+
+const barConfig: ChartConfig = {
+  value: { label: 'OTs', color: 'hsl(243 75% 59%)' },
+} satisfies ChartConfig;
 
 function TrendsDashboard() {
   const { data: ots = [], isLoading } = useOTs();
@@ -37,42 +53,129 @@ function TrendsDashboard() {
   const statusData = useMemo(() => {
     const counts: Record<string, number> = {};
     for (const ot of ots as any[]) counts[ot.status] = (counts[ot.status] || 0) + 1;
-    return Object.entries(counts).map(([status, count]) => ({ name: STATUS_LABELS[status] ?? status, value: count }));
+    return Object.entries(counts).map(([status, count]) => ({
+      name: STATUS_LABELS[status] ?? status,
+      value: count,
+    }));
   }, [ots]);
-
-  if (isLoading) return <div className="space-y-4">{[...Array(3)].map((_, i) => <Skeleton key={i} className="h-64 w-full" />)}</div>;
 
   return (
     <div className="space-y-6">
+      {/* ── Area chart — always rendered, skeleton swaps content not wrapper ── */}
       <Card>
-        <CardHeader><CardTitle className="text-base flex items-center gap-2"><TrendingUp className="h-4 w-4" />OTs creadas vs completadas por mes</CardTitle></CardHeader>
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <TrendingUp className="h-4 w-4" />OTs creadas vs completadas por mes
+          </CardTitle>
+        </CardHeader>
         <CardContent>
-          <ResponsiveContainer width="100%" height={260}>
-            <AreaChart data={monthlyData} margin={{ top: 4, right: 12, left: -20, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-              <XAxis dataKey="month" tick={{ fontSize: 11 }} />
-              <YAxis tick={{ fontSize: 11 }} />
-              <Tooltip />
-              <Legend />
-              <Area type="monotone" dataKey="total"     name="Creadas"     stroke="#6366f1" fill="#6366f130" strokeWidth={2} />
-              <Area type="monotone" dataKey="completed" name="Completadas"  stroke="#22c55e" fill="#22c55e30" strokeWidth={2} />
-            </AreaChart>
-          </ResponsiveContainer>
+          {isLoading ? (
+            <Skeleton className="h-[260px] w-full rounded-lg" />
+          ) : (
+            <ChartContainer config={areaConfig} className="h-[260px] w-full">
+              <AreaChart data={monthlyData} margin={{ top: 8, right: 16, left: 0, bottom: 0 }}>
+                <defs>
+                  {/* Gradient fills that fade to transparent — the "breathing" effect */}
+                  <linearGradient id="gradTotal" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%"  stopColor="var(--color-total)"     stopOpacity={0.35} />
+                    <stop offset="95%" stopColor="var(--color-total)"     stopOpacity={0}    />
+                  </linearGradient>
+                  <linearGradient id="gradCompleted" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%"  stopColor="var(--color-completed)" stopOpacity={0.35} />
+                    <stop offset="95%" stopColor="var(--color-completed)" stopOpacity={0}    />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  stroke="currentColor"
+                  strokeOpacity={0.08}
+                  vertical={false}
+                />
+                <XAxis
+                  dataKey="month"
+                  tick={{ fontSize: 11 }}
+                  tickLine={false}
+                  axisLine={false}
+                />
+                <YAxis
+                  tick={{ fontSize: 11 }}
+                  tickLine={false}
+                  axisLine={false}
+                  width={28}
+                />
+                <ChartTooltip content={<ChartTooltipContent />} />
+                <Legend />
+                <Area
+                  type="monotone"
+                  dataKey="total"
+                  name="total"
+                  stroke="var(--color-total)"
+                  fill="url(#gradTotal)"
+                  strokeWidth={2}
+                  dot={false}
+                  animationDuration={400}
+                  animationEasing="ease-out"
+                />
+                <Area
+                  type="monotone"
+                  dataKey="completed"
+                  name="completed"
+                  stroke="var(--color-completed)"
+                  fill="url(#gradCompleted)"
+                  strokeWidth={2}
+                  dot={false}
+                  animationDuration={400}
+                  animationEasing="ease-out"
+                />
+              </AreaChart>
+            </ChartContainer>
+          )}
         </CardContent>
       </Card>
 
+      {/* ── Bar chart ── */}
       <Card>
-        <CardHeader><CardTitle className="text-base flex items-center gap-2"><BarChart3 className="h-4 w-4" />Distribución por estado</CardTitle></CardHeader>
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <BarChart3 className="h-4 w-4" />Distribución por estado
+          </CardTitle>
+        </CardHeader>
         <CardContent>
-          <ResponsiveContainer width="100%" height={200}>
-            <BarChart data={statusData} margin={{ top: 4, right: 12, left: -20, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-              <XAxis dataKey="name" tick={{ fontSize: 11 }} />
-              <YAxis tick={{ fontSize: 11 }} />
-              <Tooltip />
-              <Bar dataKey="value" name="OTs" fill="#6366f1" radius={[4, 4, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
+          {isLoading ? (
+            <Skeleton className="h-[200px] w-full rounded-lg" />
+          ) : (
+            <ChartContainer config={barConfig} className="h-[200px] w-full">
+              <BarChart data={statusData} margin={{ top: 8, right: 16, left: 0, bottom: 0 }}>
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  stroke="currentColor"
+                  strokeOpacity={0.08}
+                  vertical={false}
+                />
+                <XAxis
+                  dataKey="name"
+                  tick={{ fontSize: 11 }}
+                  tickLine={false}
+                  axisLine={false}
+                />
+                <YAxis
+                  tick={{ fontSize: 11 }}
+                  tickLine={false}
+                  axisLine={false}
+                  width={28}
+                />
+                <ChartTooltip content={<ChartTooltipContent />} />
+                <Bar
+                  dataKey="value"
+                  name="value"
+                  fill="var(--color-value)"
+                  radius={[4, 4, 0, 0]}
+                  animationDuration={400}
+                  animationEasing="ease-out"
+                />
+              </BarChart>
+            </ChartContainer>
+          )}
         </CardContent>
       </Card>
     </div>

@@ -60,7 +60,7 @@ export function useWorkersByRating() {
   return useQuery({
     queryKey: queryKeys.workersByRating,
     queryFn: async () => {
-      const response = await fetch('/api/workers', {
+      const response = await fetch('/api/workers?limit=200', {
         credentials: 'include',
       });
 
@@ -75,7 +75,8 @@ export function useWorkersByRating() {
         throw new Error(payload?.error || 'Failed to fetch workers');
       }
 
-      const workers = Array.isArray(payload) ? payload : [];
+      // Unwrap paginated envelope { data, total, ... }; fall back to plain array.
+      const workers = Array.isArray(payload) ? payload : (payload?.data ?? []);
       return workers.sort(
         (a: any, b: any) => Number(b?.overall_rating ?? 0) - Number(a?.overall_rating ?? 0)
       );
@@ -111,9 +112,13 @@ export function useOTs() {
   return useQuery({
     queryKey: queryKeys.ots,
     queryFn: async () => {
-      const res = await fetch('/api/ots');
+      // Fetch the most recent 200 OTs — covers any active workflow view.
+      // For full history or filtering use a dedicated paginated query.
+      const res = await fetch('/api/ots?limit=200');
       if (!res.ok) throw new Error(`Failed to fetch OTs: ${res.status}`);
-      return res.json();
+      const payload = await res.json();
+      // Unwrap paginated envelope { data, total, ... }; fall back to plain array.
+      return (Array.isArray(payload) ? payload : (payload?.data ?? [])) as any[];
     },
   });
 }

@@ -63,7 +63,7 @@ export function useEmployees(department?: string) {
 	return useQuery({
 		queryKey: [...hrQueryKeys.employees(), { department }],
 		queryFn: async () => {
-			const response = await fetch('/api/workers', {
+			const response = await fetch('/api/workers?limit=200', {
 				credentials: 'include',
 			});
 
@@ -78,7 +78,8 @@ export function useEmployees(department?: string) {
 				throw new Error(payload?.error || 'Failed to fetch employees');
 			}
 
-			const workers = Array.isArray(payload) ? payload : [];
+			// Unwrap paginated envelope { data, total, ... }; fall back to plain array.
+			const workers = Array.isArray(payload) ? payload : (payload?.data ?? []);
 			if (!department) return workers;
 
 			return workers.filter(
