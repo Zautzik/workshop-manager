@@ -2,24 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { requireAuth, isAuthError } from '@/lib/api-middleware';
 import { supabaseAdmin } from '@/integrations/supabase/server';
-
-const OTStatusSchema = z.enum([
-	'pre_press',
-	'visto_bueno',
-	'paper_purchase',
-	'in_storage',
-	'guillotine_first_cut',
-	'offset_printing',
-	'digital_printing',
-	'die_cutting',
-	'guillotine_final_cut',
-	'workshop',
-	'outsourced',
-	'workshop_revision',
-	'ready_for_delivery',
-	'in_delivery',
-	'completed',
-]);
+import { OTStatusSchema } from '@/lib/ot-state-machine';
 
 const DeadlineSchema = z.preprocess((value) => {
 	if (value === null || value === undefined || value === '') {

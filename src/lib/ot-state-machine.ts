@@ -1,23 +1,8 @@
+import { z } from 'zod';
 import type { AppRole } from '@/types/app-role';
 
-export type OTWorkflowStatus =
-  | 'pre_press'
-  | 'visto_bueno'
-  | 'paper_purchase'
-  | 'in_storage'
-  | 'guillotine_first_cut'
-  | 'offset_printing'
-  | 'digital_printing'
-  | 'die_cutting'
-  | 'guillotine_final_cut'
-  | 'workshop'
-  | 'outsourced'
-  | 'workshop_revision'
-  | 'ready_for_delivery'
-  | 'in_delivery'
-  | 'completed';
-
-const STATUS_ORDER: OTWorkflowStatus[] = [
+/** Single source of truth for all valid OT workflow statuses. */
+export const OTStatusSchema = z.enum([
   'pre_press',
   'visto_bueno',
   'paper_purchase',
@@ -33,7 +18,12 @@ const STATUS_ORDER: OTWorkflowStatus[] = [
   'ready_for_delivery',
   'in_delivery',
   'completed',
-];
+]);
+
+export type OTWorkflowStatus = z.infer<typeof OTStatusSchema>;
+
+/** Ordered list of statuses — derived from the schema so it never drifts. */
+const STATUS_ORDER: OTWorkflowStatus[] = OTStatusSchema.options;
 
 const FORWARD_TRANSITIONS = new Map<OTWorkflowStatus, OTWorkflowStatus[]>(
   STATUS_ORDER.map((status, index) => [status, STATUS_ORDER.slice(index + 1)])
@@ -63,7 +53,7 @@ export interface TransitionValidationResult {
 }
 
 export function isValidStatus(value: string): value is OTWorkflowStatus {
-  return STATUS_ORDER.includes(value as OTWorkflowStatus);
+  return OTStatusSchema.safeParse(value).success;
 }
 
 export function getAllowedNextStatuses(current: OTWorkflowStatus): OTWorkflowStatus[] {
