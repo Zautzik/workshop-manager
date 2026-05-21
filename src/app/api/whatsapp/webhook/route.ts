@@ -18,6 +18,7 @@ import crypto from 'crypto';
 import { supabaseAdmin } from '@/integrations/supabase/server';
 import { parseWhatsAppMessage } from '@/lib/whatsapp-parser';
 import { inferProductionCosts, type OTContext } from '@/lib/whatsapp-cost-inference';
+import { checkRateLimit, retryAfterSeconds } from '@/lib/rate-limiter';
 
 /* ─── Input Schema ───────────────────────────────────────────── */
 
@@ -99,6 +100,18 @@ export async function POST(req: NextRequest) {
     }
 
     const { from, body, timestamp, ProfileName } = parsed.data;
+
+    // ── Rate limit per sender (30 msg / min) ───────────────
+    // Keyed on the sender's phone number, not the Twilio relay IP, so a
+    // single noisy device can't flood the cost-inference pipeline.
+    const rl = checkRateLimit(`whatsapp:${from}`, 30, 60_000);
+    if (!rl.ok) {
+      return NextResponse.json(
+        { error: 'Rate limit exceeded' },
+        { status: 429, headers: { 'Retry-After': String(retryAfterSeconds(rl)) } },
+      );
+    }
+
     const messageTimestamp = timestamp || new Date().toISOString();
 
     // ── 1. Parse the message ───────────────────────────────

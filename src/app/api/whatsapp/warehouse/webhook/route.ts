@@ -18,6 +18,7 @@ import { z } from 'zod';
 import crypto from 'crypto';
 import { supabaseAdmin } from '@/integrations/supabase/server';
 import { parseWarehouseMessage } from '@/lib/warehouse-parser';
+import { checkRateLimit, retryAfterSeconds } from '@/lib/rate-limiter';
 
 /* ─── Input Schema ───────────────────────────────────────────── */
 
@@ -94,6 +95,16 @@ export async function POST(req: NextRequest) {
     }
 
     const { from, body, timestamp, ProfileName } = parsed.data;
+
+    // ── Rate limit per sender (30 msg / min) ───────────────
+    const rl = checkRateLimit(`whatsapp-warehouse:${from}`, 30, 60_000);
+    if (!rl.ok) {
+      return NextResponse.json(
+        { error: 'Rate limit exceeded' },
+        { status: 429, headers: { 'Retry-After': String(retryAfterSeconds(rl)) } },
+      );
+    }
+
     const messageTimestamp = timestamp || new Date().toISOString();
 
     // ── 1. Parse the message ───────────────────────────────
