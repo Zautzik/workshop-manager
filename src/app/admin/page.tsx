@@ -4,26 +4,32 @@
 'use client';
 
 import ProtectedRoute from '@/components/ProtectedRoute';
-import ModuleLandingPage from '@/components/ModuleLandingPage';
+import ModuleHexLanding from '@/components/ModuleHexLanding';
 import {
-  Users, Bell,
-  Plug, Settings,
+  Users, Bell, Settings,
 } from 'lucide-react';
 
-const sections = [
-  { label: 'Usuarios',        description: 'Cuentas, roles y permisos del sistema',    icon: Users,    href: '/admin/users',         rgb: '139 92 246'  },
-  { label: 'Notificaciones',  description: 'Configuración de alertas y avisos',         icon: Bell,     href: '/admin/notifications', rgb: '245 158 11'  },
-  { label: 'Integraciones',   description: 'APIs externas y webhooks',                  icon: Plug,     href: '/admin/integrations',  rgb: '249 115 22'  },
-  { label: 'Configuración',   description: 'Parámetros generales del sistema',          icon: Settings, href: '/admin/settings',      rgb: '239 68 68'   },
+const groups = [
+  {
+    label: 'Sistema',
+    color: 'from-violet-500/10 to-slate-500/5',
+    border: 'border-violet-500/20',
+    heading: 'text-violet-400',
+    items: [
+      { label: 'Usuarios',      description: 'Cuentas, roles y permisos del sistema',           icon: Users,    href: '/admin/users',         color: 'bg-violet-500/10 text-violet-400' },
+      { label: 'Notificaciones',description: 'Configuración de alertas y avisos',                icon: Bell,     href: '/admin/notifications', color: 'bg-amber-500/10 text-amber-400'   },
+      { label: 'Config. & APIs',description: 'Parámetros globales, webhooks y conexiones externas', icon: Settings, href: '/admin/settings',      color: 'bg-orange-500/10 text-orange-400' },
+    ],
+  },
 ];
 
 export default function AdminPage() {
   return (
     <ProtectedRoute allowedRoles={['admin']}>
-      <ModuleLandingPage
+      <ModuleHexLanding
         title="Administración"
         subtitle="Usuarios, integraciones y configuración del sistema"
-        sections={sections}
+        groups={groups}
       />
     </ProtectedRoute>
   );

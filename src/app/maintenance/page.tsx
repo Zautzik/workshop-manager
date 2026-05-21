@@ -18,31 +18,43 @@
 'use client';
 
 import ProtectedRoute from '@/components/ProtectedRoute';
-import ModuleLandingPage from '@/components/ModuleLandingPage';
+import ModuleHexLanding from '@/components/ModuleHexLanding';
 import {
-  Wrench, ClipboardList, Calendar, BarChart3,
-  Cpu, BookOpen, AlertCircle, CheckCircle, TrendingUp,
+  Cpu, ClipboardList, Wrench,
+  BarChart3, AlertCircle,
 } from 'lucide-react';
 
-const sections = [
-  { label: 'Máquinas',          description: 'Registro y estado de equipos',              icon: Cpu,           href: '/maintenance/maquinas',    rgb: '249 115 22'  },
-  { label: 'Órdenes de Trabajo',description: 'Creación y seguimiento de OTs',              icon: ClipboardList, href: '/maintenance/ordenes',     rgb: '239 68 68'   },
-  { label: 'Programa Semanal',  description: 'Planificación semanal de mantenimiento',    icon: Calendar,      href: '/maintenance/programa',    rgb: '6 182 212'   },
-  { label: 'Checklists',        description: 'Listas de verificación por equipo',          icon: CheckCircle,   href: '/maintenance/checklists',  rgb: '34 197 94'   },
-  { label: 'Historial',         description: 'Registro histórico de intervenciones',       icon: BookOpen,      href: '/maintenance/historial',   rgb: '99 102 241'  },
-  { label: 'Alertas',           description: 'Avisos de mantenimiento pendientes',         icon: AlertCircle,   href: '/maintenance/alertas',     rgb: '245 158 11'  },
-  { label: 'Estadísticas',      description: 'KPIs y métricas de mantenimiento',          icon: BarChart3,     href: '/maintenance/stats',       rgb: '139 92 246'  },
-  { label: 'Ejecución',         description: 'Ejecución de órdenes de trabajo',            icon: Wrench,        href: '/maintenance/ejecucion',   rgb: '217 70 239'  },
-  { label: 'Predictivo',        description: 'Carga acumulada y alertas de servicio',      icon: TrendingUp,    href: '/maintenance/predictive',  rgb: '16 185 129'  },
+const groups = [
+  {
+    label: 'Flota & Mantenimiento',
+    color: 'from-orange-500/10 to-rose-500/5',
+    border: 'border-orange-500/20',
+    heading: 'text-orange-400',
+    items: [
+      { label: 'Máquinas',     description: 'Registro, ficha técnica y estado de cada equipo',           icon: Cpu,         href: '/maintenance/maquinas',  color: 'bg-orange-500/10 text-orange-400'   },
+      { label: 'Plan & Órdenes',description: 'OTs de mantenimiento, programa semanal y checklists',      icon: ClipboardList,href: '/maintenance/ordenes',   color: 'bg-sky-500/10 text-sky-400'        },
+      { label: 'Ejecución',    description: 'Registro de intervenciones y trabajos realizados',           icon: Wrench,      href: '/maintenance/ejecucion', color: 'bg-fuchsia-500/10 text-fuchsia-400'},
+    ],
+  },
+  {
+    label: 'Análisis & Predictivo',
+    color: 'from-violet-500/10 to-indigo-500/5',
+    border: 'border-violet-500/20',
+    heading: 'text-violet-400',
+    items: [
+      { label: 'Historial & KPIs',    description: 'Registro histórico, MTBF, MTTR y métricas de flota',   icon: BarChart3,   href: '/maintenance/historial', color: 'bg-indigo-500/10 text-indigo-400'},
+      { label: 'Alertas & Predictivo',description: 'Avisos activos y mantenimiento preventivo/predictivo',  icon: AlertCircle, href: '/maintenance/alertas',   color: 'bg-amber-500/10 text-amber-400' },
+    ],
+  },
 ];
 
 export default function MaintenancePage() {
   return (
-    <ProtectedRoute allowedRoles={['admin', 'technician', 'supervisor']}>
-      <ModuleLandingPage
-        title="Máquinas"
-        subtitle="Mantenimiento, órdenes de trabajo y gestión de equipos"
-        sections={sections}
+    <ProtectedRoute allowedRoles={['admin', 'technician', 'supervisor', 'manager']}>
+      <ModuleHexLanding
+        title="Equipos"
+        subtitle="Mantenimiento, órdenes de trabajo y gestión de la flota"
+        groups={groups}
       />
     </ProtectedRoute>
   );

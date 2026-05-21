@@ -11,7 +11,6 @@ import {
   Users,
   Wrench,
   ShieldCheck,
-  Package2,
 } from 'lucide-react';
 
 interface QuickAction {
@@ -70,16 +69,6 @@ const quickActions: QuickAction[] = [
     roles: ['admin', 'manager'],
   },
   {
-    label: 'Abastecimiento',
-    description: 'Inventario, compras y bodega unificados',
-    icon: Package2,
-    href: '/supply',
-    rgb: '6 182 212',
-    textCls: 'text-cyan-100',
-    lightTextCls: 'text-cyan-900',
-    roles: ['admin', 'supervisor', 'manager'],
-  },
-  {
     label: 'Administración',
     description: 'Usuarios, integraciones y configuración',
     icon: ShieldCheck,
@@ -91,31 +80,13 @@ const quickActions: QuickAction[] = [
   },
 ];
 
-// ─── Honeycomb layout ────────────────────────────────────────────────────────
-// Pointy-top hexagon: clip-path polygon
-// Width : Height ≈ 1 : 1.1547  (= 2/√3)
-// Row-to-row vertical step  = height × 0.75   (rows overlap by ¼)
-// Odd rows shift right by    width × 0.5
-const HEX_W = 164;                            // px – bounding-box width
-const HEX_H = Math.round(HEX_W * 1.1547);    // 189 px
-const V_STEP = Math.round(HEX_H * 0.75);     // 142 px – row vertical step
-const GAP = 4;                                // px – tiny gap between cells
-
-// Build rows: [4, 3] fits 7 nicely; adapt to < 7 cards
-function buildRows<T>(items: T[]): T[][] {
-  const rows: T[][] = [];
-  let i = 0;
-  let wide = true;
-  while (i < items.length) {
-    const size = wide ? 4 : 3;
-    rows.push(items.slice(i, i + size));
-    i += size;
-    wide = !wide;
-  }
-  return rows;
-}
-
-const HEX_CLIP = 'polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)';
+// ─── Flat-top hex geometry ───────────────────────────────────────────────────
+// Flat edges at top/bottom, points at left/right
+// Width : Height = 2 : √3  →  Height = Width × √3/2 ≈ Width × 0.866
+const HEX_CLIP = 'polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%)';
+const HEX_W = 180;                                    // px – bounding-box width
+const HEX_H = Math.round(HEX_W * Math.sqrt(3) / 2); // 156 px – flat-top is wider than tall
+const COL_STEP = Math.round(HEX_W * 0.75);           // 135 px – column center-to-center (interlocking)
 
 interface HexCellProps {
   action: QuickAction;
@@ -182,7 +153,6 @@ function HexCell({ action, onClick, isDark }: HexCellProps) {
           style={{
             position: 'absolute',
             inset: 0,
-            clipPath: HEX_CLIP,
             background: `radial-gradient(
               ellipse 50% 40% at 30% 20%,
               rgba(255,255,255,${gleamOpacity}) 0%,
@@ -218,7 +188,7 @@ function HexCell({ action, onClick, isDark }: HexCellProps) {
         {/* Label */}
         <span
           className={`font-semibold text-center leading-tight ${labelCls}`}
-          style={{ fontSize: 11.5, maxWidth: '72%', lineHeight: 1.3 }}
+          style={{ fontSize: 15, maxWidth: '70%', lineHeight: 1.3 }}
         >
           {action.label}
         </span>
@@ -238,7 +208,15 @@ export default function HomeDashboard() {
     (action) => action.roles.includes(role || '')
   );
 
-  const rows = buildRows(visibleActions);
+  // Group items into columns with 2-1-2 pattern for balanced honeycomb
+  const colSizes = [2, 1, 2];
+  const columns: QuickAction[][] = [];
+  let colStart = 0;
+  for (const size of colSizes) {
+    if (colStart >= visibleActions.length) break;
+    columns.push(visibleActions.slice(colStart, colStart + size));
+    colStart += size;
+  }
 
   const getGreeting = () => {
     const hour = new Date().getHours();
@@ -249,14 +227,11 @@ export default function HomeDashboard() {
 
   const firstName = user?.name?.split(' ')[0] || user?.email?.split('@')[0] || '';
 
-  // Total height of the honeycomb block
-  const totalHeight = rows.length > 0
-    ? HEX_H + (rows.length - 1) * V_STEP + GAP * (rows.length - 1)
+  // Total dimensions for the absolute-positioned honeycomb block
+  const totalWidth = (columns.length - 1) * COL_STEP + HEX_W;
+  const totalHeight = columns.length > 0
+    ? Math.max(...columns.map((col, i) => (i % 2 === 1 ? Math.round(HEX_H / 2) : 0) + col.length * HEX_H))
     : 0;
-
-  // Total width = widest row × (HEX_W + GAP)
-  const maxRow = Math.max(...rows.map(r => r.length));
-  const totalWidth = maxRow * (HEX_W + GAP) - GAP;
 
   return (
     <div className="min-h-full flex flex-col">
@@ -286,15 +261,14 @@ export default function HomeDashboard() {
             height: totalHeight,
           }}
         >
-          {rows.map((rowItems, rowIdx) => {
-            // Odd rows (0-indexed) shift right by half a hex width
-            const isOffset = rowIdx % 2 === 1;
-            const xShift = isOffset ? (HEX_W + GAP) / 2 : 0;
-            const yBase = rowIdx * (V_STEP + GAP);
+          {columns.map((colItems, colIdx) => {
+            // Odd columns shift down by HEX_H/2 for honeycomb interlocking
+            const yOffset = colIdx % 2 === 1 ? Math.round(HEX_H / 2) : 0;
+            const xBase = colIdx * COL_STEP;
 
-            return rowItems.map((action, colIdx) => {
-              const x = xShift + colIdx * (HEX_W + GAP);
-              const y = yBase;
+            return colItems.map((action, rowIdx) => {
+              const x = xBase;
+              const y = yOffset + rowIdx * HEX_H;
               return (
                 <div
                   key={action.href}
