@@ -1,16 +1,32 @@
 <svg width="256" height="256" viewBox="0 0 256 256" fill="none" xmlns="http://www.w3.org/2000/svg">
   <defs>
-    <linearGradient id="bg" x1="32" y1="24" x2="224" y2="232" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#0F172A"/>
-      <stop offset="1" stop-color="#111827"/>
+    <linearGradient id="ga-bg" x1="0" y1="0" x2="256" y2="256" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#080D1A"/>
+      <stop offset="1" stop-color="#0F1520"/>
     </linearGradient>
-    <linearGradient id="accent" x1="74" y1="64" x2="182" y2="192" gradientUnits="userSpaceOnUse">
+    <linearGradient id="ga-mark" x1="28" y1="28" x2="228" y2="228" gradientUnits="userSpaceOnUse">
       <stop stop-color="#22D3EE"/>
-      <stop offset="1" stop-color="#F59E0B"/>
+      <stop offset="0.55" stop-color="#818CF8"/>
+      <stop offset="1" stop-color="#6366F1"/>
+    </linearGradient>
+    <linearGradient id="ga-border" x1="0" y1="0" x2="256" y2="256" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#22D3EE" stop-opacity="0.35"/>
+      <stop offset="1" stop-color="#6366F1" stop-opacity="0.15"/>
     </linearGradient>
   </defs>
-  <rect x="16" y="16" width="224" height="224" rx="52" fill="url(#bg)"/>
-  <path d="M128 48L185 81V147L128 180L71 147V81L128 48Z" stroke="url(#accent)" stroke-width="14" stroke-linejoin="round"/>
-  <path d="M83 103L104 152L128 112L152 152L173 103" stroke="#F8FAFC" stroke-width="16" stroke-linecap="round" stroke-linejoin="round"/>
-  <circle cx="128" cy="180" r="10" fill="#F59E0B"/>
+  <!-- Background -->
+  <rect width="256" height="256" rx="56" fill="url(#ga-bg)"/>
+  <!-- Border ring -->
+  <rect x="1.5" y="1.5" width="253" height="253" rx="55" stroke="url(#ga-border)" stroke-width="2"/>
+  <!-- G lettermark -->
+  <!-- Top bar -->
+  <rect x="28" y="28"  width="200" height="30" rx="3" fill="url(#ga-mark)"/>
+  <!-- Left bar -->
+  <rect x="28" y="28"  width="30"  height="200" rx="3" fill="url(#ga-mark)"/>
+  <!-- Bottom bar -->
+  <rect x="28" y="198" width="200" height="30"  rx="3" fill="url(#ga-mark)"/>
+  <!-- Crossbar -->
+  <rect x="78" y="113" width="150" height="30"  rx="3" fill="url(#ga-mark)"/>
+  <!-- Right bar (lower half) -->
+  <rect x="198" y="113" width="30"  height="115" rx="3" fill="url(#ga-mark)"/>
 </svg>

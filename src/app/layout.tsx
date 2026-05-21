@@ -20,8 +20,9 @@ export const metadata: Metadata = {
   title: "GonsAdmin",
   description: "Professional workshop operations platform for maintenance, workflow, HR, financial control, and production visibility.",
   icons: {
-    icon: '/favicon.svg',
+    icon: [{ url: '/favicon.svg', type: 'image/svg+xml' }],
     shortcut: '/favicon.svg',
+    apple: '/favicon.svg',
   },
 };
 
