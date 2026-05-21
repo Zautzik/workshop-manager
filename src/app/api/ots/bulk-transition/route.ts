@@ -58,37 +58,54 @@ export async function POST(req: NextRequest) {
     let failedCount = 0;
     const failures: Array<{ ot_id: string; error: string }> = [];
 
-    for (const otId of otIds) {
-      const { data: ot, error: otError } = await supabaseAdmin
+    // ── Batch pre-fetch: 3 queries regardless of how many OTs ─────────────
+    // Previously this loop did 3-4 queries per OT (N+1), timing out at ~50+ OTs.
+    const [otsResult, approvalsResult, costsResult] = await Promise.all([
+      supabaseAdmin
         .from('ots')
         .select('id, ot_number, status')
-        .eq('id', otId)
-        .single();
+        .in('id', otIds),
+      supabaseAdmin
+        .from('ot_approvals')
+        .select('ot_id')
+        .in('ot_id', otIds)
+        .eq('status', 'approved'),
+      supabaseAdmin
+        .from('ot_real_costs')
+        .select('ot_id')
+        .in('ot_id', otIds),
+    ]);
 
-      if (otError || !ot || !isValidStatus(ot.status)) {
+    // Index into Maps/Sets for O(1) lookup inside the validation loop.
+    type OTRow = { id: string; ot_number: string; status: string };
+    const otMap = new Map<string, OTRow>(
+      (otsResult.data ?? []).map((ot) => [ot.id, ot])
+    );
+    const approvedOtIds = new Set<string>(
+      (approvalsResult.data ?? []).map((a: { ot_id: string }) => a.ot_id)
+    );
+    const costsOtIds = new Set<string>(
+      (costsResult.data ?? []).map((c: { ot_id: string }) => c.ot_id)
+    );
+
+    // ── Validate transitions in JS (no DB calls) ──────────────────────────
+    const successIds: string[] = [];
+
+    for (const otId of otIds) {
+      const ot = otMap.get(otId);
+
+      if (!ot || !isValidStatus(ot.status)) {
         failedCount += 1;
         failures.push({ ot_id: otId, error: 'OT not found or invalid current status' });
         continue;
       }
 
-      const [approvalResult, costsResult] = await Promise.all([
-        supabaseAdmin
-          .from('ot_approvals')
-          .select('id', { count: 'exact', head: true })
-          .eq('ot_id', otId)
-          .eq('status', 'approved'),
-        supabaseAdmin
-          .from('ot_real_costs')
-          .select('id', { count: 'exact', head: true })
-          .eq('ot_id', otId),
-      ]);
-
       const check = validateTransition({
         fromStatus: ot.status as OTWorkflowStatus,
         toStatus,
         role: auth.role!,
-        hasApprovedApproval: (approvalResult.count ?? 0) > 0,
-        hasAnyRealCosts: (costsResult.count ?? 0) > 0,
+        hasApprovedApproval: approvedOtIds.has(otId),
+        hasAnyRealCosts: costsOtIds.has(otId),
       });
 
       if (!check.ok) {
@@ -97,20 +114,25 @@ export async function POST(req: NextRequest) {
         continue;
       }
 
-      const { data: updatedOt, error: updateError } = await supabaseAdmin
+      successIds.push(otId);
+    }
+
+    // ── Batch update: 1 query for all passing OTs ─────────────────────────
+    if (successIds.length > 0) {
+      const { error: updateError } = await supabaseAdmin
         .from('ots')
         .update({ status: toStatus, updated_at: nowIso })
-        .eq('id', otId)
-        .select('id, ot_number, status')
-        .single();
+        .in('id', successIds);
 
-      if (updateError || !updatedOt) {
-        failedCount += 1;
-        failures.push({ ot_id: otId, error: 'Failed to update OT status' });
-        continue;
+      if (updateError) {
+        // Treat all as failed if the batch update itself errors.
+        failedCount += successIds.length;
+        failures.push(
+          ...successIds.map((id) => ({ ot_id: id, error: 'Failed to update OT status' }))
+        );
+      } else {
+        successCount = successIds.length;
       }
-
-      successCount += 1;
     }
 
     if (job?.id) {
