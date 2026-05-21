@@ -13,6 +13,7 @@ import type {
   CostCategory,
 } from '@/types/work-category';
 import { DEFAULT_COST_CENTER } from '@/types/work-category';
+import { pesos } from '@/lib/format';
 
 /* ─── Constants ─────────────────────────────────────────────── */
 
@@ -101,7 +102,7 @@ export function computeProductionCosts(
       quantity: paperKg,
       unit: 'kg',
       unit_cost: unitCost,
-      total_cost: Number((paperKg * unitCost).toFixed(0)),
+      total_cost: pesos(paperKg, unitCost),
     });
   }
 
@@ -124,7 +125,7 @@ export function computeProductionCosts(
         quantity: inkKg,
         unit: 'kg',
         unit_cost: unitCost,
-        total_cost: Number((inkKg * unitCost).toFixed(0)),
+        total_cost: pesos(inkKg, unitCost),
       });
     }
   }
@@ -179,7 +180,7 @@ export function computeProductionCosts(
         quantity: totalSheets,
         unit: 'click',
         unit_cost: clickCost,
-        total_cost: Number((totalSheets * clickCost).toFixed(0)),
+        total_cost: pesos(totalSheets, clickCost),
       });
     } else {
       lines.push({
@@ -190,7 +191,7 @@ export function computeProductionCosts(
         quantity: Number(printHours.toFixed(2)),
         unit: 'hrs',
         unit_cost: unitCost,
-        total_cost: Number((printHours * unitCost).toFixed(0)),
+        total_cost: pesos(printHours, unitCost),
       });
     }
   }
@@ -211,7 +212,7 @@ export function computeProductionCosts(
         quantity: hours,
         unit: 'hrs',
         unit_cost: unitCost,
-        total_cost: Number((hours * unitCost).toFixed(0)),
+        total_cost: pesos(hours, unitCost),
       });
     }
 
@@ -227,7 +228,7 @@ export function computeProductionCosts(
         quantity: hours,
         unit: 'hrs',
         unit_cost: unitCost,
-        total_cost: Number((hours * unitCost).toFixed(0)),
+        total_cost: pesos(hours, unitCost),
       });
     }
   }
@@ -262,7 +263,7 @@ export function computeProductionCosts(
           quantity: hours,
           unit: 'hrs',
           unit_cost: unitCost,
-          total_cost: Number((hours * unitCost).toFixed(0)),
+          total_cost: pesos(hours, unitCost),
         });
       }
     }
@@ -318,7 +319,7 @@ export function computeProductionCosts(
         quantity: Number(pressHours.toFixed(2)),
         unit: 'hrs',
         unit_cost: unitCost,
-        total_cost: Number((pressHours * unitCost).toFixed(0)),
+        total_cost: pesos(pressHours, unitCost),
       });
     }
 
@@ -337,7 +338,7 @@ export function computeProductionCosts(
         quantity: Number(guillotineHours.toFixed(2)),
         unit: 'hrs',
         unit_cost: unitCost,
-        total_cost: Number((guillotineHours * unitCost).toFixed(0)),
+        total_cost: pesos(guillotineHours, unitCost),
       });
     }
 
@@ -356,7 +357,7 @@ export function computeProductionCosts(
         quantity: Number(finishHours.toFixed(2)),
         unit: 'hrs',
         unit_cost: unitCost,
-        total_cost: Number((finishHours * unitCost).toFixed(0)),
+        total_cost: pesos(finishHours, unitCost),
       });
     }
   }
@@ -378,7 +379,7 @@ export function computeProductionCosts(
         quantity: Number(machineHours.toFixed(2)),
         unit: 'hrs',
         unit_cost: unitCost,
-        total_cost: Number((machineHours * unitCost).toFixed(0)),
+        total_cost: pesos(machineHours, unitCost),
       });
     }
   }
@@ -388,7 +389,7 @@ export function computeProductionCosts(
     const subtotal = lines.reduce((sum, l) => sum + l.total_cost, 0);
     const cc = findCostItem(costCenter, 'overhead');
     const overheadPct = cc?.unit_cost ?? 8; // default 8%
-    const overheadAmount = Number(((subtotal * overheadPct) / 100).toFixed(0));
+    const overheadAmount = Math.round(subtotal * overheadPct / 100);
 
     if (overheadAmount > 0) {
       lines.push({

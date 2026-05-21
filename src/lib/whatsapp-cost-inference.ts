@@ -9,6 +9,7 @@
  */
 
 import type { ParsedProductionData, InferredCostData, InferredCostLine } from '@/types/whatsapp-production';
+import { pesos, formatCLP } from '@/lib/format';
 
 /* ─── Default Cost Rates (CLP) ───────────────────────────────── */
 
@@ -120,7 +121,7 @@ export function inferProductionCosts(
       quantity: paperKg,
       unit: 'kg',
       unit_cost: DEFAULT_RATES.paper_per_kg,
-      total_cost: Number((paperKg * DEFAULT_RATES.paper_per_kg).toFixed(0)),
+      total_cost: pesos(paperKg, DEFAULT_RATES.paper_per_kg),
       source: parsed.pliegos_produced !== null ? 'parsed' : 'inferred',
     });
   }
@@ -134,7 +135,7 @@ export function inferProductionCosts(
       quantity: inkKg,
       unit: 'kg',
       unit_cost: DEFAULT_RATES.ink_per_kg,
-      total_cost: Number((inkKg * DEFAULT_RATES.ink_per_kg).toFixed(0)),
+      total_cost: pesos(inkKg, DEFAULT_RATES.ink_per_kg),
       source: parsed.colors_mentioned ? 'parsed' : 'inferred',
     });
   }
@@ -154,7 +155,7 @@ export function inferProductionCosts(
         quantity: pliegos || 1,
         unit: 'click',
         unit_cost: DEFAULT_RATES.digital_per_click,
-        total_cost: Number(((pliegos || 1) * DEFAULT_RATES.digital_per_click).toFixed(0)),
+        total_cost: pesos(pliegos || 1, DEFAULT_RATES.digital_per_click),
         source: parsed.machine_mentioned ? 'parsed' : 'inferred',
       });
     } else {
@@ -164,7 +165,7 @@ export function inferProductionCosts(
         quantity: pressHours,
         unit: 'hrs',
         unit_cost: DEFAULT_RATES.offset_per_hour,
-        total_cost: Number((pressHours * DEFAULT_RATES.offset_per_hour).toFixed(0)),
+        total_cost: pesos(pressHours, DEFAULT_RATES.offset_per_hour),
         source: elapsedMinutes ? 'parsed' : 'inferred',
       });
     }
@@ -189,7 +190,7 @@ export function inferProductionCosts(
       quantity: hours,
       unit: 'hrs',
       unit_cost: DEFAULT_RATES.finishing_per_hour,
-      total_cost: Number((hours * DEFAULT_RATES.finishing_per_hour).toFixed(0)),
+      total_cost: pesos(hours, DEFAULT_RATES.finishing_per_hour),
       source: 'parsed',
     });
   }
@@ -210,7 +211,7 @@ export function inferProductionCosts(
       quantity: hours,
       unit: 'hrs',
       unit_cost: DEFAULT_RATES.guillotine_per_hour,
-      total_cost: Number((hours * DEFAULT_RATES.guillotine_per_hour).toFixed(0)),
+      total_cost: pesos(hours, DEFAULT_RATES.guillotine_per_hour),
       source: 'parsed',
     });
   }
@@ -226,7 +227,7 @@ export function inferProductionCosts(
         quantity: pressLine.quantity,
         unit: 'hrs',
         unit_cost: DEFAULT_RATES.operator_press_per_hour,
-        total_cost: Number((pressLine.quantity * DEFAULT_RATES.operator_press_per_hour).toFixed(0)),
+        total_cost: pesos(pressLine.quantity, DEFAULT_RATES.operator_press_per_hour),
         source: 'inferred',
       });
     }
@@ -239,7 +240,7 @@ export function inferProductionCosts(
         quantity: Number(finishingHours.toFixed(2)),
         unit: 'hrs',
         unit_cost: DEFAULT_RATES.operator_finishing_per_hour,
-        total_cost: Number((finishingHours * DEFAULT_RATES.operator_finishing_per_hour).toFixed(0)),
+        total_cost: pesos(finishingHours, DEFAULT_RATES.operator_finishing_per_hour),
         source: 'inferred',
       });
     }
@@ -258,7 +259,7 @@ export function inferProductionCosts(
         quantity: Number(machineHours.toFixed(2)),
         unit: 'hrs',
         unit_cost: DEFAULT_RATES.energy_per_hour,
-        total_cost: Number((machineHours * DEFAULT_RATES.energy_per_hour).toFixed(0)),
+        total_cost: pesos(machineHours, DEFAULT_RATES.energy_per_hour),
         source: 'inferred',
       });
     }
@@ -288,10 +289,9 @@ export function inferProductionCosts(
 
 /**
  * Format cost as Chilean Peso string.
+ * Re-exported from @/lib/format for consumers that import from this module.
  */
-export function formatCLP(amount: number): string {
-  return `$${amount.toLocaleString('es-CL')}`;
-}
+export { formatCLP };
 
 /**
  * Calculate confidence-weighted adjustment factor.

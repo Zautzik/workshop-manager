@@ -15,6 +15,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { formatCLP } from '@/lib/format';
 import {
   ArrowLeft,
   ArrowRight,
@@ -365,7 +366,7 @@ export function EditBudgetWizard({ ot, onClose, onSuccess }: Props) {
       toast({
         title: '✅ Presupuesto Actualizado',
         description: priceChanged
-          ? `${ot.ot_number} — Precio: $${originalPrice.toLocaleString()} → $${form.pricing.total_price.toLocaleString()}`
+          ? `${ot.ot_number} — Precio: ${formatCLP(originalPrice)} → ${formatCLP(form.pricing.total_price)}`
           : `${ot.ot_number} — Cambios guardados sin modificar el precio`,
       });
 
@@ -473,7 +474,7 @@ export function EditBudgetWizard({ ot, onClose, onSuccess }: Props) {
             <AlertTriangle className="h-4 w-4 text-amber-400 shrink-0" />
             <span className="text-sm text-amber-300">
               <strong>Precio modificado:</strong>{' '}
-              ${originalPrice.toLocaleString()} → ${form.pricing.total_price.toLocaleString()}{' '}
+              {formatCLP(originalPrice)} → {formatCLP(form.pricing.total_price)}{' '}
               <span className={priceDiff > 0 ? 'text-red-400' : 'text-green-400'}>
                 ({priceDiff > 0 ? '+' : ''}{Math.round(priceDiffPct)}%)
               </span>

@@ -2,6 +2,7 @@
 
 import { useRef } from 'react';
 import { ArrowRight, Calendar, Layers, Package, Ruler, DollarSign, Image as ImageIcon, Scissors, Edit2 } from 'lucide-react';
+import { formatCLP } from '@/lib/format';
 
 const STATUS_FLOW_KEYS = [
   'pre_press', 'visto_bueno', 'paper_purchase', 'in_storage',
@@ -62,7 +63,7 @@ export function OTHoverCard({ ot, anchorRect, onClose, onAdvance, onSplit, onEdi
   const priLabel = ot.priority >= 8 ? 'Urgente' : ot.priority >= 5 ? 'Media' : 'Normal';
 
   const fmt = (v: any) => (v !== null && v !== undefined && v !== '') ? v : '—';
-  const fmtPrice = (v: any) => typeof v === 'number' ? `$${v.toLocaleString('es-CL')}` : '—';
+  const fmtPrice = (v: any) => typeof v === 'number' ? formatCLP(v) : '—';
   const fmtDate = (v: any) => {
     if (!v) return '—';
     try { return new Date(v).toLocaleDateString('es-CL', { day: '2-digit', month: 'short', year: '2-digit' }); }
