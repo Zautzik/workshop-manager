@@ -36,8 +36,10 @@ const WebhookSchema = z.object({
 
 function verifyTwilioSignature(rawBody: string, signature: string | null): boolean {
   const authToken = process.env.WHATSAPP_AUTH_TOKEN;
-  // If no auth token configured, skip verification (dev mode)
-  if (!authToken) return true;
+  // Fail closed: if the token is not configured the endpoint is locked.
+  // Never bypass signature verification — a missing env var is a
+  // misconfiguration, not a signal to allow unauthenticated requests.
+  if (!authToken) return false;
   if (!signature) return false;
 
   const hash = crypto
