@@ -108,7 +108,7 @@ export function generateQuotePDF(
 <body>
   <div class="header">
     <div>
-      <div class="logo">Workshop Manager</div>
+      <div class="logo">GonsAdmin</div>
       <div style="font-size:11px;color:#666;margin-top:4px;">Cotización de Trabajo</div>
     </div>
     <div class="doc-info">
@@ -169,7 +169,7 @@ export function generateQuotePDF(
 
   <div class="footer">
     <p>Cotización válida por 15 días. Precios en pesos chilenos (CLP). IVA no incluido.</p>
-    <p>Generado por Workshop Manager — ${today}</p>
+    <p>Generado por GonsAdmin — ${today}</p>
   </div>
 </body>
 </html>

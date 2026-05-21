@@ -300,7 +300,7 @@ const UserManagement = ({ onUpdate }: UserManagementProps) => {
                     id="email"
                     name="email"
                     type="email"
-                    placeholder="user@workshopmanager.app"
+                    placeholder="user@gonsadmin.app"
                     value={formData.email}
                     onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                     required

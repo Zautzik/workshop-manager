@@ -1,11 +1,10 @@
-# Workshop Manager
+# GonsAdmin
 
-A comprehensive workshop management system built with Next.js, TypeScript, PostgreSQL, Supabase, and NextAuth.
+A comprehensive workshop operations platform built with Next.js, TypeScript, PostgreSQL, Supabase, and NextAuth.
 
 ## 📚 Documentation
 
 - **[SETUP.md](./SETUP.md)** - 5-minute quick start guide
-- **[CHECKLIST.md](./CHECKLIST.md)** - Complete setup checklist
 
 ## 🚀 Quick Start
 
@@ -17,23 +16,23 @@ npm install
 cp .env.example .env
 # Edit .env with your PostgreSQL credentials
 
-
+# 3. Apply database migrations
+npx supabase db push
 
 # 4. Start development server
 npm run dev
 ```
 
-**Default Login:**
+**Default Login (development seed data only — rotate before any deployment):**
 
-- Admin: `admin@workshopmanager.app` / `admin123`
-- Supervisor: `supervisor@workshopmanager.app` / `supervisor123`
+- Admin: `admin@gonsadmin.app` / `admin123`
+- Supervisor: `supervisor@gonsadmin.app` / `supervisor123`
 
 ## 🛠️ Tech Stack
 
 - **Framework**: Next.js 16 (App Router)
 - **Language**: TypeScript
-- **Database**: PostgreSQL
-- **Database**: Supabase (PostgreSQL)
+- **Database**: PostgreSQL via Supabase
 - **Authentication**: NextAuth.js
 - **UI Components**: Radix UI
 - **Styling**: Tailwind CSS
@@ -53,7 +52,7 @@ npm run lint             # Run ESLint
 ## 🏗️ Project Structure
 
 ```
-workshop-manager/
+gonsadmin/
 
 ├── src/
 │   ├── app/            # Next.js app router pages
@@ -64,7 +63,7 @@ workshop-manager/
 │   ├── types/          # TypeScript types
 │   └── i18n/           # Internationalization
 ├── public/             # Static assets
-└── supabase/           # (Legacy - kept for reference)
+└── supabase/           # Migrations, seeds, and edge functions
 ```
 
 ## 🎯 Features

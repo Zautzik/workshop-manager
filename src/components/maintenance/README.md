@@ -354,7 +354,7 @@ Potential improvements:
 
 ## 📝 License
 
-Part of Workshop Manager system.
+Part of GonsAdmin system.
 
 ---
 

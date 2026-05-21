@@ -17,7 +17,7 @@ import { Providers } from "./providers";
 import "@/index.css";
 
 export const metadata: Metadata = {
-  title: "Workshop Manager",
+  title: "GonsAdmin",
   description: "Professional workshop operations platform for maintenance, workflow, HR, financial control, and production visibility.",
   icons: {
     icon: '/favicon.svg',

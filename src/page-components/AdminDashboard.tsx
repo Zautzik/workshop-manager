@@ -74,7 +74,7 @@ const AdminDashboard = () => {
             <ForgeHexLogo size={48} showWordmark={false} />
             <div>
               <h1 className="text-2xl font-bold text-primary">{t('adminDashboard')}</h1>
-              <p className="text-xs text-muted-foreground">Workshop Manager • System Administration</p>
+              <p className="text-xs text-muted-foreground">GonsAdmin • System Administration</p>
             </div>
           </div>
           <nav aria-label="Main navigation" className="flex gap-2">

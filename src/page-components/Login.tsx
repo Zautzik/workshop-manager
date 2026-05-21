@@ -139,7 +139,7 @@ const Login = () => {
         <CardHeader className="text-center space-y-4">
           <ForgeHexLogo size={80} showWordmark={false} className="justify-center" />
           <CardTitle className="text-3xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
-            Workshop Manager
+            GonsAdmin
           </CardTitle>
           <CardDescription className="text-base">{t('login')}</CardDescription>
         </CardHeader>
@@ -157,7 +157,7 @@ const Login = () => {
                 aria-required="true"
                 autoComplete="email"
                 className="border-primary/30 focus:border-primary"
-                placeholder="user@workshopmanager.app"
+                placeholder="user@gonsadmin.app"
               />
             </div>
             <div className="space-y-2">

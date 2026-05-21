@@ -8,8 +8,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
-import { cookies } from 'next/headers';
+import { supabaseAdmin } from '@/integrations/supabase/server';
 import { hasRole, isAuthError, requireAuth } from '@/lib/api-middleware';
 
 const PERSONAL_EMPLOYEE_FIELDS = [
@@ -40,7 +39,7 @@ function hasAnyField(payload: Record<string, unknown>, fields: readonly string[]
 }
 
 async function logHrComplianceAccess(
-	supabase: ReturnType<typeof createRouteHandlerClient>,
+	supabase: typeof supabaseAdmin,
 	params: {
 		tableName: string;
 		recordId: string;
@@ -82,7 +81,7 @@ export async function GET(
 
 		const canAccessSensitive = hasRole(auth.role, ['admin', 'hr_manager']);
 		const { id } = await params;
-		const supabase = createRouteHandlerClient({ cookies: async () => cookies() });
+		const supabase = supabaseAdmin;
 
 		const { data: employee, error } = await supabase
 			.from('employees')
@@ -172,7 +171,7 @@ export async function PUT(
 
 		const canManageSensitive = hasRole(auth.role, ['admin', 'hr_manager']);
 		const { id } = await params;
-		const supabase = createRouteHandlerClient({ cookies: async () => cookies() });
+		const supabase = supabaseAdmin;
 
 		const body = await request.json();
 
@@ -227,7 +226,7 @@ export async function DELETE(
 		if (isAuthError(auth)) return auth;
 
 		const { id } = await params;
-		const supabase = createRouteHandlerClient({ cookies: async () => cookies() });
+		const supabase = supabaseAdmin;
 
 		const { data: employee, error } = await supabase
 			.from('employees')

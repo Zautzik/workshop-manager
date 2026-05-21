@@ -2,7 +2,7 @@
 
 ## Overview
 
-A fully customizable hierarchical skill management system with proficiency levels, dependencies, and machine qualification tracking has been implemented into the Workshop Manager. This system allows HR Managers to:
+A fully customizable hierarchical skill management system with proficiency levels, dependencies, and machine qualification tracking has been implemented into GonsAdmin. This system allows HR Managers to:
 
 - Build and customize a complete skill/tech tree hierarchy
 - Track worker proficiency levels (1-5 scale)

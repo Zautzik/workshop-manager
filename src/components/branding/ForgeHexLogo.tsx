@@ -21,7 +21,7 @@ export function ForgeHexLogo({
   className,
   size = 40,
   showWordmark = true,
-  title = 'Workshop Manager',
+  title = 'GonsAdmin',
   subtitle,
   titleClassName,
   subtitleClassName,
@@ -39,19 +39,37 @@ export function ForgeHexLogo({
         aria-label={`${title} logo`}
       >
         <defs>
-          <linearGradient id="forge-bg" x1="32" y1="24" x2="224" y2="232" gradientUnits="userSpaceOnUse">
-            <stop stopColor="#0F172A" />
-            <stop offset="1" stopColor="#111827" />
+          <linearGradient id="ga-bg" x1="0" y1="0" x2="256" y2="256" gradientUnits="userSpaceOnUse">
+            <stop stopColor="#080D1A" />
+            <stop offset="1" stopColor="#0F1520" />
           </linearGradient>
-          <linearGradient id="forge-accent" x1="74" y1="64" x2="182" y2="192" gradientUnits="userSpaceOnUse">
+          <linearGradient id="ga-mark" x1="28" y1="28" x2="228" y2="228" gradientUnits="userSpaceOnUse">
             <stop stopColor="#22D3EE" />
-            <stop offset="1" stopColor="#F59E0B" />
+            <stop offset="0.55" stopColor="#818CF8" />
+            <stop offset="1" stopColor="#6366F1" />
+          </linearGradient>
+          <linearGradient id="ga-border" x1="0" y1="0" x2="256" y2="256" gradientUnits="userSpaceOnUse">
+            <stop stopColor="#22D3EE" stopOpacity="0.35" />
+            <stop offset="1" stopColor="#6366F1" stopOpacity="0.15" />
           </linearGradient>
         </defs>
-        <rect x="16" y="16" width="224" height="224" rx="52" fill="url(#forge-bg)" />
-        <path d="M128 48L185 81V147L128 180L71 147V81L128 48Z" stroke="url(#forge-accent)" strokeWidth="14" strokeLinejoin="round" />
-        <path d="M83 103L104 152L128 112L152 152L173 103" stroke="#F8FAFC" strokeWidth="16" strokeLinecap="round" strokeLinejoin="round" />
-        <circle cx="128" cy="180" r="10" fill="#F59E0B" />
+
+        {/* Background */}
+        <rect width="256" height="256" rx="56" fill="url(#ga-bg)" />
+        {/* Subtle gradient border ring */}
+        <rect x="1.5" y="1.5" width="253" height="253" rx="55" stroke="url(#ga-border)" strokeWidth="2" />
+
+        {/* G lettermark — geometric bold sans */}
+        {/* Top bar */}
+        <rect x="28" y="28"  width="200" height="30" rx="3" fill="url(#ga-mark)" />
+        {/* Left bar */}
+        <rect x="28" y="28"  width="30"  height="200" rx="3" fill="url(#ga-mark)" />
+        {/* Bottom bar */}
+        <rect x="28" y="198" width="200" height="30"  rx="3" fill="url(#ga-mark)" />
+        {/* Crossbar — starts 20 px inset from inner left wall, leaving the G open */}
+        <rect x="78" y="113" width="150" height="30"  rx="3" fill="url(#ga-mark)" />
+        {/* Right bar — lower half only, defining the G opening */}
+        <rect x="198" y="113" width="30" height="115" rx="3" fill="url(#ga-mark)" />
       </svg>
 
       {showWordmark && (

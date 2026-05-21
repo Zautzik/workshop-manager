@@ -9,8 +9,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
-import { cookies } from 'next/headers';
+import { supabaseAdmin } from '@/integrations/supabase/server';
 import { hasRole, isAuthError, requireAuth } from '@/lib/api-middleware';
 
 const PERSONAL_EMPLOYEE_FIELDS = [
@@ -39,7 +38,7 @@ function hasAnyField(payload: Record<string, unknown>, fields: readonly string[]
 }
 
 async function logHrComplianceAccess(
-	supabase: ReturnType<typeof createRouteHandlerClient>,
+	supabase: typeof supabaseAdmin,
 	params: {
 		tableName: string;
 		accessType: 'SELECT' | 'VIEW_SENSITIVE' | 'EXPORT' | 'DOWNLOAD';
@@ -81,7 +80,7 @@ export async function GET(request: NextRequest) {
 		if (isAuthError(auth)) return auth;
 
 		const canAccessCompensation = hasRole(auth.role, ['admin', 'hr_manager']);
-		const supabase = createRouteHandlerClient({ cookies: async () => cookies() });
+		const supabase = supabaseAdmin;
 
 		// Get query parameters
 		const { searchParams } = new URL(request.url);
@@ -211,7 +210,7 @@ export async function POST(request: NextRequest) {
 		if (isAuthError(auth)) return auth;
 
 		const canManageSensitive = hasRole(auth.role, ['admin', 'hr_manager']);
-		const supabase = createRouteHandlerClient({ cookies: async () => cookies() });
+		const supabase = supabaseAdmin;
 
 		const body = await request.json();
 

@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { requireAuth, isAuthError } from '@/lib/api-middleware';
 import { supabaseAdmin } from '@/integrations/supabase/server';
-import bcrypt from 'bcryptjs';
 import type { AppRole } from '@/types/app-role';
 
 const CreateUserSchema = z.object({
@@ -58,7 +57,7 @@ export async function GET(request: NextRequest) {
 }
 
 /**
- * POST /api/admin/users — create a new user (server-side with bcrypt password)
+ * POST /api/admin/users — create a new user via Supabase Auth
  */
 export async function POST(request: NextRequest) {
 	const auth = await requireAuth('admin');
@@ -75,41 +74,52 @@ export async function POST(request: NextRequest) {
 			);
 		}
 
-		// Check if email already exists
-		const { data: existing } = await supabaseAdmin
-			.from('users' as any)
-			.select('id')
-			.eq('email', parsed.data.email)
-			.maybeSingle();
+		// Create the user in Supabase Auth — the canonical identity store that
+		// signInWithPassword authenticates against. email_confirm skips the
+		// verification email for admin-provisioned accounts.
+		const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
+			email: parsed.data.email,
+			password: parsed.data.password,
+			email_confirm: true,
+			user_metadata: {
+				name: parsed.data.name || parsed.data.email.split('@')[0],
+			},
+		});
 
-		if (existing) {
-			return NextResponse.json({ error: 'A user with this email already exists' }, { status: 409 });
+		if (authError) {
+			const msg = authError.message.toLowerCase();
+			if (msg.includes('already registered') || msg.includes('already exists')) {
+				return NextResponse.json({ error: 'A user with this email already exists' }, { status: 409 });
+			}
+			console.error('Error creating auth user:', authError);
+			return NextResponse.json({ error: 'Failed to create user' }, { status: 500 });
 		}
 
-		// Hash password
-		const hashedPassword = await bcrypt.hash(parsed.data.password, 12);
+		const authUser = authData.user;
 
-		// Create user in users table
-		const { data: newUser, error: userError } = await supabaseAdmin
+		// Sync a profile row so the rest of the app can join on users.id
+		const { data: newUser, error: profileError } = await supabaseAdmin
 			.from('users' as any)
 			.insert({
-				email: parsed.data.email,
-				password: hashedPassword,
+				id: authUser.id,
+				email: authUser.email,
 				name: parsed.data.name || parsed.data.email.split('@')[0],
 			})
 			.select('id, email, name')
 			.single();
 
-		if (userError) {
-			console.error('Error creating user:', userError);
-			return NextResponse.json({ error: 'Failed to create user' }, { status: 500 });
+		if (profileError) {
+			console.error('Error creating user profile:', profileError);
+			// Roll back the auth record to avoid an orphaned identity
+			await supabaseAdmin.auth.admin.deleteUser(authUser.id);
+			return NextResponse.json({ error: 'Failed to create user profile' }, { status: 500 });
 		}
 
-		// Create role assignment
+		// Assign role
 		const { error: roleError } = await supabaseAdmin
 			.from('user_roles')
 			.insert({
-				user_id: (newUser as any).id,
+				user_id: authUser.id,
 				role: parsed.data.role as AppRole,
 				department: parsed.data.department || null,
 				manager_domain: parsed.data.manager_domain || null,
@@ -117,8 +127,9 @@ export async function POST(request: NextRequest) {
 
 		if (roleError) {
 			console.error('Error creating user role:', roleError);
-			// Clean up the user we just created
-			await supabaseAdmin.from('users' as any).delete().eq('id', (newUser as any).id);
+			// Roll back profile and auth record
+			await supabaseAdmin.from('users' as any).delete().eq('id', authUser.id);
+			await supabaseAdmin.auth.admin.deleteUser(authUser.id);
 			return NextResponse.json({ error: 'Failed to assign role' }, { status: 500 });
 		}
 
@@ -152,7 +163,7 @@ export async function DELETE(request: NextRequest) {
 			return NextResponse.json({ error: 'Cannot delete your own account' }, { status: 400 });
 		}
 
-		// Delete role first (FK constraint), then user
+		// Delete role first (FK constraint), then profile row, then the auth identity
 		await supabaseAdmin.from('user_roles').delete().eq('user_id', userId);
 		const { error } = await supabaseAdmin.from('users' as any).delete().eq('id', userId);
 
@@ -160,6 +171,9 @@ export async function DELETE(request: NextRequest) {
 			console.error('Error deleting user:', error);
 			return NextResponse.json({ error: 'Failed to delete user' }, { status: 500 });
 		}
+
+		// Remove the Supabase Auth record so the user can no longer sign in
+		await supabaseAdmin.auth.admin.deleteUser(userId);
 
 		return NextResponse.json({ success: true });
 	} catch (error) {
