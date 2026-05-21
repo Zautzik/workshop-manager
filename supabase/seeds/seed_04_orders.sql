@@ -974,7 +974,7 @@ BEGIN
   -- TINKER TIP: Add a new row to ot_operations for an OT and watch
   -- the subtotal and margin auto-recalculate on the financial dashboard.
   INSERT INTO public.ot_operations (ot_id, category, name, unit, quantity, unit_cost, sort_order)
-  SELECT o.id, v.cat, v.name, v.unit, v.qty, v.uc, v.sort
+  SELECT o.id, v.cat::public.ot_operation_category, v.name, v.unit, v.qty, v.uc, v.sort
   FROM public.ots o
   CROSS JOIN (VALUES
     ('materiales',    'Sustrato / Papel',         'kg',     0.0, 1.80,  10),
@@ -1007,13 +1007,15 @@ BEGIN
     'Auto-calculado desde total_price de OT. Ajustar con costos reales via ot_real_costs.'
   FROM public.ots o
   WHERE o.ot_number LIKE 'OT-202%'
-  ON CONFLICT (ot_id) DO NOTHING;
+    AND NOT EXISTS (
+      SELECT 1 FROM public.ot_financials f WHERE f.ot_id = o.id
+    );
 
 END $$;
 
 -- ── OT State Transitions (audit trail) ───────────────────────
 -- Shows the workflow progression for a sample of OTs
-INSERT INTO ot_state_transitions (ot_id, from_status, to_status, notes, transitioned_at)
+INSERT INTO ot_state_transitions (ot_id, from_status, to_status, reason, created_at)
 SELECT o.id,
        'pre_press'::public.ot_status,
        'offset_printing'::public.ot_status,

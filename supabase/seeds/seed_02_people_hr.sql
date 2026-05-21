@@ -398,7 +398,7 @@ BEGIN
   -- TINKER TIP: Lower carlos proficiency on COLOR_MANAGEMENT and watch
   -- how the scheduling cost model penalises the assignment.
   IF s_press_adv IS NOT NULL THEN
-    INSERT INTO public.employee_skills (employee_id, skill_id, proficiency_level, certified_date)
+    INSERT INTO public.employee_skills (employee_id, skill_id, proficiency_level, last_assessed_on)
     VALUES
       (e_carlos,   s_press_adv, 5, '2022-01-15'),
       (e_jorge,    s_press_adv, 4, '2022-06-01'),
@@ -408,7 +408,7 @@ BEGIN
   END IF;
 
   IF s_gui_adv IS NOT NULL THEN
-    INSERT INTO public.employee_skills (employee_id, skill_id, proficiency_level, certified_date)
+    INSERT INTO public.employee_skills (employee_id, skill_id, proficiency_level, last_assessed_on)
     VALUES
       (e_roberto,  s_gui_adv, 5, '2021-11-01'),
       (e_felipe,   s_gui_adv, 3, '2022-06-01'),
@@ -418,7 +418,7 @@ BEGIN
   END IF;
 
   IF s_die IS NOT NULL THEN
-    INSERT INTO public.employee_skills (employee_id, skill_id, proficiency_level, certified_date)
+    INSERT INTO public.employee_skills (employee_id, skill_id, proficiency_level, last_assessed_on)
     VALUES
       (e_miguel,   s_die, 5, '2021-04-15'),
       (e_roberto,  s_die, 3, '2022-01-01')
@@ -426,7 +426,7 @@ BEGIN
   END IF;
 
   IF s_prepress IS NOT NULL THEN
-    INSERT INTO public.employee_skills (employee_id, skill_id, proficiency_level, certified_date)
+    INSERT INTO public.employee_skills (employee_id, skill_id, proficiency_level, last_assessed_on)
     VALUES
       (e_patricia, s_prepress, 5, '2020-09-01'),
       (e_andrea,   s_prepress, 4, '2022-02-01')
@@ -434,7 +434,7 @@ BEGIN
   END IF;
 
   IF s_color IS NOT NULL THEN
-    INSERT INTO public.employee_skills (employee_id, skill_id, proficiency_level, certified_date)
+    INSERT INTO public.employee_skills (employee_id, skill_id, proficiency_level, last_assessed_on)
     VALUES
       (e_carlos,   s_color, 5, '2021-03-01'),
       (e_patricia, s_color, 5, '2020-09-01'),
@@ -444,7 +444,7 @@ BEGIN
   END IF;
 
   IF s_manual IS NOT NULL THEN
-    INSERT INTO public.employee_skills (employee_id, skill_id, proficiency_level, certified_date)
+    INSERT INTO public.employee_skills (employee_id, skill_id, proficiency_level, last_assessed_on)
     VALUES
       (e_maria,    s_manual, 5, '2020-06-01'),
       (e_ana,      s_manual, 4, '2021-09-01'),
@@ -456,7 +456,7 @@ BEGIN
   END IF;
 
   IF s_leadership IS NOT NULL THEN
-    INSERT INTO public.employee_skills (employee_id, skill_id, proficiency_level, certified_date)
+    INSERT INTO public.employee_skills (employee_id, skill_id, proficiency_level, last_assessed_on)
     VALUES
       (e_eduardo,  s_leadership, 5, '2021-01-01'),
       (e_valentina,s_leadership, 5, '2020-07-15'),
@@ -466,7 +466,7 @@ BEGIN
   END IF;
 
   IF s_forklift IS NOT NULL THEN
-    INSERT INTO public.employee_skills (employee_id, skill_id, proficiency_level, certified_date)
+    INSERT INTO public.employee_skills (employee_id, skill_id, proficiency_level, last_assessed_on)
     VALUES
       (e_ricardo,  s_forklift, 5, '2020-10-15'),
       (e_pablo,    s_forklift, 4, '2021-09-01')
@@ -474,7 +474,7 @@ BEGIN
   END IF;
 
   IF s_maintenance IS NOT NULL THEN
-    INSERT INTO public.employee_skills (employee_id, skill_id, proficiency_level, certified_date)
+    INSERT INTO public.employee_skills (employee_id, skill_id, proficiency_level, last_assessed_on)
     VALUES
       (e_carlos,   s_maintenance, 4, '2021-01-01'),
       (e_jorge,    s_maintenance, 4, '2021-01-01'),
