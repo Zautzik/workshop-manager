@@ -220,7 +220,9 @@ const LanguageContext = createContext<LanguageContextType | undefined>(undefined
 export const LanguageProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const { t: i18nT } = useTranslation();
 
-  const language = (i18n.language?.startsWith('es') ? 'es' : 'en') as Language;
+  // Default to Spanish when i18n.language is undefined (SSR) or unrecognised.
+  // Only fall back to English when explicitly set to 'en'.
+  const language = (i18n.language === 'en' ? 'en' : 'es') as Language;
 
   const setLanguage = useCallback((lang: Language) => {
     i18n.changeLanguage(lang);
