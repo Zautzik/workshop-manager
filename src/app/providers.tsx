@@ -36,7 +36,24 @@ import { ReactNode, useState } from 'react';
  * Establishes the context layer that all pages and components depend on
  */
 export function Providers({ children }: { children: ReactNode }) {
-	const [queryClient] = useState(() => new QueryClient());
+	const [queryClient] = useState(
+		() =>
+			new QueryClient({
+				defaultOptions: {
+					queries: {
+						// Data is fresh for 1 minute — avoids redundant refetches when
+						// multiple components mount and request the same key.
+						staleTime: 60_000,
+						// One automatic retry is enough; the default of 3 delays error
+						// surfaces by several seconds on genuinely broken endpoints.
+						retry: 1,
+						// This app is used on a single focused tab. Window-focus
+						// refetches add noise without benefit.
+						refetchOnWindowFocus: false,
+					},
+				},
+			})
+	);
 
 	return (
 		<SessionProvider>
