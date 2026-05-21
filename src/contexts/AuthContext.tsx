@@ -75,29 +75,36 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
 	const role: AppRole | null = (session?.user?.role as AppRole) ?? null;
 
-	const signIn = async (email: string, password: string) => {
-		// 1. Sign into Supabase Auth first so the client-side Supabase
-		//    client has a valid JWT and auth.uid() works for RLS policies.
+	const signIn = async (email: string, password: string): Promise<{ error: Error | null }> => {
+		// Step 1: NextAuth — establishes the authoritative server-side session
+		// and verifies credentials via CredentialsProvider.
+		// Do this FIRST so that if it fails nothing has been persisted anywhere.
+		let result: Awaited<ReturnType<typeof nextAuthSignIn>>;
+		try {
+			result = await nextAuthSignIn('credentials', {
+				email,
+				password,
+				redirect: false,
+			});
+		} catch (err) {
+			return { error: err instanceof Error ? err : new Error('Sign-in failed') };
+		}
+
+		if (result?.error) {
+			return { error: new Error(result.error) };
+		}
+
+		// Step 2: Establish a client-side Supabase session so components that
+		// call supabase (client) directly have a valid JWT.
+		// Non-fatal: API routes use requireAuth / supabaseAdmin, so the app
+		// works even if the client session cannot be established.
 		const { error: supabaseError } = await supabase.auth.signInWithPassword({
 			email,
 			password,
 		});
 
 		if (supabaseError) {
-			return { error: new Error(supabaseError.message) };
-		}
-
-		// 2. Sign into NextAuth for server-side session / role info.
-		const result = await nextAuthSignIn('credentials', {
-			email,
-			password,
-			redirect: false,
-		});
-
-		if (result?.error) {
-			// NextAuth failed — clean up the Supabase session
-			await supabase.auth.signOut();
-			return { error: new Error(result.error) };
+			console.warn('[auth] Client Supabase session not established:', supabaseError.message);
 		}
 
 		return { error: null };
