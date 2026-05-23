@@ -1,7 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useEffect, ReactNode } from 'react';
-import { useSession, signIn as nextAuthSignIn, signOut as nextAuthSignOut } from 'next-auth/react';
+import { useSession, signIn as nextAuthSignIn, signOut as nextAuthSignOut, getSession } from 'next-auth/react';
 import { supabase } from '@/integrations/supabase/client';
 import type { AppRole } from '@/types/app-role';
 
@@ -94,17 +94,22 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 			return { error: new Error(result.error) };
 		}
 
-		// Step 2: Establish a client-side Supabase session so components that
-		// call supabase (client) directly have a valid JWT.
-		// Non-fatal: API routes use requireAuth / supabaseAdmin, so the app
-		// works even if the client session cannot be established.
-		const { error: supabaseError } = await supabase.auth.signInWithPassword({
-			email,
-			password,
-		});
+		// Step 2: Seed the browser Supabase client with the tokens the server
+		// already verified — no second credential round-trip, no rate-limit hit.
+		const nextSession = await getSession();
+		const accessToken = nextSession?.supabaseAccessToken;
+		const refreshToken = nextSession?.supabaseRefreshToken;
 
-		if (supabaseError) {
-			console.warn('[auth] Client Supabase session not established:', supabaseError.message);
+		if (accessToken && refreshToken) {
+			const { error: setSessionError } = await supabase.auth.setSession({
+				access_token: accessToken,
+				refresh_token: refreshToken,
+			});
+			if (setSessionError) {
+				console.warn('[auth] Could not seed Supabase browser session:', setSessionError.message);
+			}
+		} else {
+			console.warn('[auth] Supabase tokens missing from NextAuth session — browser queries will run as anon');
 		}
 
 		return { error: null };

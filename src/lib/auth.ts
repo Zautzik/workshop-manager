@@ -88,6 +88,11 @@ export const authOptions: NextAuthOptions = {
 					email: authUser.email ?? credentials.email,
 					name,
 					role,
+					// Carry the tokens the server already verified so the browser
+					// Supabase client can be seeded via setSession() — no second
+					// signInWithPassword call needed, no extra rate-limit hit.
+					supabaseAccessToken: authData.session?.access_token,
+					supabaseRefreshToken: authData.session?.refresh_token,
 				};
 			},
 		}),
@@ -97,6 +102,10 @@ export const authOptions: NextAuthOptions = {
 			if (user) {
 				token.id = user.id;
 				token.role = user.role;
+				// Carry the Supabase tokens so the browser client can be seeded
+				// via setSession() — avoids a second signInWithPassword call.
+				token.supabaseAccessToken = user.supabaseAccessToken;
+				token.supabaseRefreshToken = user.supabaseRefreshToken;
 			}
 			return token;
 		},
@@ -104,6 +113,12 @@ export const authOptions: NextAuthOptions = {
 			if (session.user) {
 				session.user.id = token.id as string;
 				session.user.role = token.role as AppRole | null;
+			}
+			// Expose tokens to the browser so AuthContext.signIn() can call
+			// supabase.auth.setSession() without a second credential round-trip.
+			if (token.supabaseAccessToken) {
+				session.supabaseAccessToken = token.supabaseAccessToken;
+				session.supabaseRefreshToken = token.supabaseRefreshToken;
 			}
 			return session;
 		},

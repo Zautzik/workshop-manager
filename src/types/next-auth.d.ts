@@ -27,6 +27,11 @@ declare module 'next-auth' {
 		email: string;
 		name?: string | null;
 		role?: AppRole | null;
+		/** Supabase access_token from the authorize() sign-in — seeded into
+		 *  the browser client via setSession() so browser queries have a JWT. */
+		supabaseAccessToken?: string;
+		/** Supabase refresh_token — kept server-side only (JWT cookie). */
+		supabaseRefreshToken?: string;
 	}
 
 	interface Session {
@@ -36,6 +41,12 @@ declare module 'next-auth' {
 			name?: string | null;
 			role?: AppRole | null;
 		};
+		/** Exposed to the browser so AuthContext can call
+		 *  supabase.auth.setSession() without a second signInWithPassword. */
+		supabaseAccessToken?: string;
+		/** Supabase refresh_token — needed by setSession() so the browser
+		 *  client can auto-refresh without a new sign-in. */
+		supabaseRefreshToken?: string;
 	}
 }
 
@@ -43,5 +54,7 @@ declare module 'next-auth/jwt' {
 	interface JWT {
 		id: string;
 		role?: AppRole | null;
+		supabaseAccessToken?: string;
+		supabaseRefreshToken?: string;
 	}
 }
