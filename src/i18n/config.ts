@@ -2,24 +2,21 @@
 
 import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
-import LanguageDetector from 'i18next-browser-languagedetector';
 import en from './locales/en.json';
 import es from './locales/es.json';
 
+// Always initialise in Spanish so SSR and the first client render agree,
+// eliminating the React hydration mismatch. User preference is restored from
+// localStorage by LanguageProvider after mount.
 i18n
-	.use(LanguageDetector)
 	.use(initReactI18next)
 	.init({
 		resources: {
 			en: { translation: en },
 			es: { translation: es },
 		},
-		fallbackLng: 'es', // Default to Spanish for Chilean users
-		detection: {
-			order: ['localStorage', 'navigator', 'htmlTag'],
-			caches: ['localStorage'],
-			lookupLocalStorage: 'i18nextLng',
-		},
+		lng: 'es',
+		fallbackLng: 'es',
 		interpolation: {
 			escapeValue: false,
 		},

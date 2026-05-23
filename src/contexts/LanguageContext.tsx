@@ -7,7 +7,7 @@
  */
 'use client';
 
-import React, { createContext, useContext, useCallback, ReactNode } from 'react';
+import React, { createContext, useContext, useCallback, useEffect, ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import i18n from '@/i18n/config';
 
@@ -220,12 +220,20 @@ const LanguageContext = createContext<LanguageContextType | undefined>(undefined
 export const LanguageProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const { t: i18nT } = useTranslation();
 
-  // Default to Spanish when i18n.language is undefined (SSR) or unrecognised.
-  // Only fall back to English when explicitly set to 'en'.
+  // i18next is initialised to 'es', so SSR and the first client paint always
+  // agree. After mount we restore any language the user explicitly saved.
   const language = (i18n.language === 'en' ? 'en' : 'es') as Language;
+
+  useEffect(() => {
+    const stored = localStorage.getItem('i18nextLng') as Language | null;
+    if (stored === 'en' || stored === 'es') {
+      i18n.changeLanguage(stored);
+    }
+  }, []);
 
   const setLanguage = useCallback((lang: Language) => {
     i18n.changeLanguage(lang);
+    localStorage.setItem('i18nextLng', lang);
   }, []);
 
   const t = useCallback(
