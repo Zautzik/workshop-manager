@@ -2,7 +2,6 @@
  * @fileoverview Inventory Management Component
  * 
  * SYSTEM ROLE: Material & Supply Inventory Controller
- * ORGAN ANALOGY: The "Warehouse Manager" - Tracks all materials and supplies
  * 
  * Provides complete inventory management interface:
  * - Display list of all items in inventory table
@@ -427,7 +426,7 @@ const InventoryManagement = () => {
                   <div>
                     <p className="font-medium">{alert.name}</p>
                     <p className="text-xs text-muted-foreground">
-                      {getCategoryLabel(alert.category)} • Stock: {Number(alert.current_stock).toFixed(3)} / Min: {Number(alert.min_stock).toFixed(3)}
+                      {getCategoryLabel(alert.category)} â€¢ Stock: {Number(alert.current_stock).toFixed(3)} / Min: {Number(alert.min_stock).toFixed(3)}
                     </p>
                   </div>
                   <Badge variant="destructive">{String(alert.severity || 'medium').toUpperCase()}</Badge>

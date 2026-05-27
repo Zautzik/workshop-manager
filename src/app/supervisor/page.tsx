@@ -2,7 +2,6 @@
  * @fileoverview Supervisor Dashboard Page
  * 
  * SYSTEM ROLE: Supervisor Management Center
- * ORGAN ANALOGY: The "Foreman's Office" - Oversight hub for workshop supervisors
  * 
  * This page is accessible to supervisors and provides:
  * - Team performance monitoring

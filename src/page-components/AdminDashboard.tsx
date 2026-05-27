@@ -2,7 +2,6 @@
  * @fileoverview Admin Dashboard Page Component
  * 
  * SYSTEM ROLE: Admin Control Panel & System Management
- * ORGAN ANALOGY: The "Command Center" - Full system oversight and control
  * 
  * Provides comprehensive system administration features:
  * 
@@ -74,7 +73,7 @@ const AdminDashboard = () => {
             <ForgeHexLogo size={48} showWordmark={false} />
             <div>
               <h1 className="text-2xl font-bold text-primary">{t('adminDashboard')}</h1>
-              <p className="text-xs text-muted-foreground">GonsAdmin • System Administration</p>
+              <p className="text-xs text-muted-foreground">GonsAdmin â€¢ System Administration</p>
             </div>
           </div>
           <nav aria-label="Main navigation" className="flex gap-2">

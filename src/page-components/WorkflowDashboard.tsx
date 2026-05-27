@@ -792,12 +792,12 @@ export default function WorkflowDashboard({ initialTab = 'en_proceso' }: Workflo
 
         const candidates = workers
           .filter((worker: any) => !reservedWorkerIds.has(worker.id))
-          .map((worker: any) => {
+          .map((worker: any): { worker: any; isOvertime: boolean } => {
             const isOvertime = workersAssignedOtherShifts.has(worker.id);
             return { worker, isOvertime };
           })
-          .filter(({ worker, isOvertime }) => isWorkerEligibleForStation(worker, station, isOvertime))
-          .sort((a, b) => getWorkerSortScore(b.worker, station, b.isOvertime) - getWorkerSortScore(a.worker, station, a.isOvertime));
+          .filter(({ worker, isOvertime }: { worker: any; isOvertime: boolean }) => isWorkerEligibleForStation(worker, station, isOvertime))
+          .sort((a: { worker: any; isOvertime: boolean }, b: { worker: any; isOvertime: boolean }) => getWorkerSortScore(b.worker, station, b.isOvertime) - getWorkerSortScore(a.worker, station, a.isOvertime));
 
         for (const candidate of candidates.slice(0, capacityLeft)) {
           const role = candidate.isOvertime ? 'overtime_operator_50' : 'operator';
@@ -857,12 +857,12 @@ export default function WorkflowDashboard({ initialTab = 'en_proceso' }: Workflo
         const replacement = workers
           .filter((worker: any) => !reservedWorkerIds.has(worker.id) || worker.id === currentWorkerId)
           .filter((worker: any) => worker.id !== currentWorkerId)
-          .map((worker: any) => {
+          .map((worker: any): { worker: any; isOvertime: boolean } => {
             const isOvertime = workersAssignedOtherShifts.has(worker.id);
             return { worker, isOvertime };
           })
-          .filter(({ worker, isOvertime }) => isWorkerEligibleForStation(worker, station, isOvertime))
-          .sort((a, b) => getWorkerSortScore(b.worker, station, b.isOvertime) - getWorkerSortScore(a.worker, station, a.isOvertime))[0];
+          .filter(({ worker, isOvertime }: { worker: any; isOvertime: boolean }) => isWorkerEligibleForStation(worker, station, isOvertime))
+          .sort((a: { worker: any; isOvertime: boolean }, b: { worker: any; isOvertime: boolean }) => getWorkerSortScore(b.worker, station, b.isOvertime) - getWorkerSortScore(a.worker, station, a.isOvertime))[0];
 
         if (!replacement) {
           unresolved += 1;
@@ -920,9 +920,9 @@ export default function WorkflowDashboard({ initialTab = 'en_proceso' }: Workflo
         const replacement = workers
           .filter((worker: any) => !reservedWorkerIds.has(worker.id))
           .filter((worker: any) => !workersAssignedOtherShifts.has(worker.id))
-          .map((worker: any) => ({ worker, isOvertime: false }))
-          .filter(({ worker, isOvertime }) => isWorkerEligibleForStation(worker, station, isOvertime))
-          .sort((a, b) => getWorkerSortScore(b.worker, station, false) - getWorkerSortScore(a.worker, station, false))[0];
+          .map((worker: any): { worker: any; isOvertime: boolean } => ({ worker, isOvertime: false }))
+          .filter(({ worker, isOvertime }: { worker: any; isOvertime: boolean }) => isWorkerEligibleForStation(worker, station, isOvertime))
+          .sort((a: { worker: any; isOvertime: boolean }, b: { worker: any; isOvertime: boolean }) => getWorkerSortScore(b.worker, station, false) - getWorkerSortScore(a.worker, station, false))[0];
 
         if (!replacement) {
           remaining += 1;

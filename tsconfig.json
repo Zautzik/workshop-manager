@@ -3,7 +3,6 @@
    * @fileoverview TypeScript Configuration File
    * 
    * SYSTEM ROLE: TypeScript Compiler & Type System Configuration
-   * ORGAN ANALOGY: The "Brain" - Controls how TypeScript compiles and type-checks all code
    * 
    * This configuration defines:
    * - Target JavaScript version (ES2020)

@@ -2,7 +2,6 @@
  * @fileoverview Next.js Configuration File
  * 
  * SYSTEM ROLE: Build & Runtime Configuration
- * ORGAN ANALOGY: The "Skeleton" - Provides structural configuration for the entire application
  * 
  * This file configures Next.js behavior for:
  * - React strict mode (development safety checks)
@@ -15,28 +14,22 @@
  * @type {import('next').NextConfig}
  */
 // ---------------------------------------------------------------------------
-// Security headers applied to every response.
+// Static security headers â€” applied to every response via next.config.js.
 //
-// CSP notes:
-//  - 'unsafe-inline' for style-src is required by Tailwind's runtime class
-//    injection and shadcn/ui inline styles. Remove it once you adopt a
-//    CSS-in-JS solution that supports nonces, or switch to Tailwind's JIT
-//    build-time output only.
-//  - connect-src includes Supabase (wss: for Realtime) and NextAuth.
-//  - If you add a CDN, analytics service, or font host, extend the relevant
-//    directive rather than widening to '*'.
+// CSP is intentionally omitted here: it is injected per-request with a
+// cryptographic nonce by src/middleware.ts so that 'unsafe-inline' is never
+// needed for scripts.  Only non-nonce headers live here.
 // ---------------------------------------------------------------------------
 
-const SUPABASE_HOST = process.env.NEXT_PUBLIC_SUPABASE_URL
-	? new URL(process.env.NEXT_PUBLIC_SUPABASE_URL).host
-	: '*.supabase.co';
-
 const securityHeaders = [
-	// Prevent clickjacking — deny all framing.
+	// Prevent clickjacking â€” deny all framing.
 	{ key: 'X-Frame-Options', value: 'DENY' },
 
 	// Stop browsers sniffing the MIME type away from the declared Content-Type.
 	{ key: 'X-Content-Type-Options', value: 'nosniff' },
+
+	// Suppress DNS prefetch to avoid leaking navigation targets to third parties.
+	{ key: 'X-DNS-Prefetch-Control', value: 'off' },
 
 	// Don't send the full URL as Referer when navigating to external sites.
 	{ key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
@@ -47,56 +40,18 @@ const securityHeaders = [
 		value: 'camera=(), microphone=(), geolocation=(), interest-cohort=()',
 	},
 
-	// Force HTTPS for 1 year (including subdomains). Only active once the app
-	// is served over TLS; ignored by HTTP (localhost dev is unaffected).
+	// Force HTTPS for 2 years (preload-eligible). Ignored on HTTP/localhost.
 	{
 		key: 'Strict-Transport-Security',
-		value: 'max-age=31536000; includeSubDomains',
+		value: 'max-age=63072000; includeSubDomains; preload',
 	},
 
-	// Content Security Policy.
+	// Isolate this origin from cross-origin opener access (Spectre mitigation).
+	// 'same-origin-allow-popups' (not strict 'same-origin') because Supabase
+	// OAuth flows open popup windows that post messages back.
 	{
-		key: 'Content-Security-Policy',
-		value: [
-			// Only load documents from the same origin.
-			`default-src 'self'`,
-
-			// Scripts: same origin + Next.js inline bootstrap (needs 'unsafe-inline'
-			// in dev; in production Next uses nonces — switch to nonce-based CSP
-			// via middleware.ts when you add a deploy pipeline that supports it).
-			`script-src 'self' 'unsafe-inline' 'unsafe-eval'`,
-
-			// Styles: same origin + inline (required by Tailwind runtime & shadcn).
-			`style-src 'self' 'unsafe-inline'`,
-
-			// Images: same origin + data URIs (for base64 avatars / QR codes).
-			`img-src 'self' data: blob:`,
-
-			// Fonts: same origin only (no Google Fonts or CDN in use).
-			`font-src 'self'`,
-
-			// XHR / fetch / WebSocket: same origin + Supabase (REST + Realtime).
-			`connect-src 'self' https://${SUPABASE_HOST} wss://${SUPABASE_HOST}`,
-
-			// Media: same origin.
-			`media-src 'self'`,
-
-			// Workers & service workers: same origin only.
-			`worker-src 'self' blob:`,
-
-			// Disallow <object>, <embed>, <applet>.
-			`object-src 'none'`,
-
-			// Disallow <base> tag hijacking.
-			`base-uri 'self'`,
-
-			// All form submissions must go to the same origin.
-			`form-action 'self'`,
-
-			// Disallow embedding this app in any frame (belt-and-suspenders with
-			// X-Frame-Options above).
-			`frame-ancestors 'none'`,
-		].join('; '),
+		key: 'Cross-Origin-Opener-Policy',
+		value: 'same-origin-allow-popups',
 	},
 ];
 

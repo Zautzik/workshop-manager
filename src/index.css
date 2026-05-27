@@ -2,7 +2,6 @@
  * @fileoverview Global Styles & Design System (index.css)
  * 
  * SYSTEM ROLE: Design Tokens & Global CSS Variables
- * ORGAN ANALOGY: The "DNA/Genetic Code" - Defines all visual design throughout application
  * 
  * This file establishes:
  * 
@@ -32,50 +31,50 @@
 @tailwind utilities;
 
 /**
- * Design System — Watercolor Printing Theme
- * Inspired by flowing watercolor washes: warm coral/orange → magenta/lavender → electric teal/blue
+ * Design System â€” Watercolor Printing Theme
+ * Inspired by flowing watercolor washes: warm coral/orange â†’ magenta/lavender â†’ electric teal/blue
  * Light mode: creamy parchment canvas, rich pigment tones, translucent washes
  * Dark mode:  deep indigo canvas, jewel-bright pigments, luminous ink-on-dark feel
  */
 @layer base {
   :root {
-    /* ── Canvas — warm peachy parchment, clearly not pure white ── */
-    --background: 28 42% 95%;           /* soft warm cream — the painting's lightest zone */
+    /* â”€â”€ Canvas â€” warm peachy parchment, clearly not pure white â”€â”€ */
+    --background: 28 42% 95%;           /* soft warm cream â€” the painting's lightest zone */
     --foreground: 225 28% 14%;          /* deep blue-ink near-black */
 
-    /* ── Surface cards — very slightly warm, will be frosted via CSS ── */
+    /* â”€â”€ Surface cards â€” very slightly warm, will be frosted via CSS â”€â”€ */
     --card: 30 18% 99%;
     --card-foreground: 225 28% 14%;
 
     --popover: 0 0% 100%;
     --popover-foreground: 225 28% 14%;
 
-    /* ── Brand primary — deep teal (dominant blue of the painting) ── */
+    /* â”€â”€ Brand primary â€” deep teal (dominant blue of the painting) â”€â”€ */
     --primary: 188 82% 32%;             /* deep ocean teal */
     --primary-foreground: 0 0% 100%;
 
-    /* ── Roles ───────────────────────────────────────────────────── */
+    /* â”€â”€ Roles â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
     --supervisor: 158 62% 34%;
     --supervisor-foreground: 0 0% 100%;
 
     --manager: 225 48% 44%;             /* strong indigo-blue */
     --manager-foreground: 0 0% 100%;
 
-    /* ── Secondary / muted ───────────────────────────────────────── */
-    --secondary: 278 32% 92%;           /* soft lavender — pulled from painting */
+    /* â”€â”€ Secondary / muted â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+    --secondary: 278 32% 92%;           /* soft lavender â€” pulled from painting */
     --secondary-foreground: 225 28% 18%;
 
-    --muted: 210 18% 94%;               /* cool light grey — neutral, not yellow */
+    --muted: 210 18% 94%;               /* cool light grey â€” neutral, not yellow */
     --muted-foreground: 225 18% 38%;
 
-    /* ── Accent — hot coral-magenta from the painting's reds ──────── */
+    /* â”€â”€ Accent â€” hot coral-magenta from the painting's reds â”€â”€â”€â”€â”€â”€â”€â”€ */
     --accent: 340 80% 52%;              /* vivid magenta-coral */
     --accent-foreground: 0 0% 100%;
 
     --destructive: 4 78% 48%;
     --destructive-foreground: 0 0% 100%;
 
-    /* ── Structure ───────────────────────────────────────────────── */
+    /* â”€â”€ Structure â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
     --border: 24 22% 82%;               /* warm sand border */
     --input: 26 22% 91%;
 
@@ -86,12 +85,12 @@
     --radius: 0.5rem;
     --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 
-    /* ── Sidebar ─────────────────────────────────────────────────── */
+    /* â”€â”€ Sidebar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
     --sidebar-bg: 220 18% 97%;
     --sidebar-border: 220 16% 88%;
   }
 
-  /* ── Dark mode — deep indigo canvas, jewel pigments ─────────────── */
+  /* â”€â”€ Dark mode â€” deep indigo canvas, jewel pigments â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
   .dark {
     --background: 228 30% 7%;           /* very deep ink-indigo night */
     --foreground: 34 28% 93%;           /* warm ivory text, like lamplight on paper */
@@ -102,7 +101,7 @@
     --popover: 228 26% 10%;
     --popover-foreground: 34 28% 93%;
 
-    --primary: 183 92% 52%;             /* electric teal — luminous ink */
+    --primary: 183 92% 52%;             /* electric teal â€” luminous ink */
     --primary-foreground: 228 30% 7%;
 
     --supervisor: 155 70% 52%;
@@ -135,7 +134,7 @@
   }
 }
 
-/* ── Base element styles ─────────────────────────────────────────────── */
+/* â”€â”€ Base element styles â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 @layer base {
   * {
     @apply border-border;
@@ -145,32 +144,32 @@
     @apply bg-background text-foreground;
   }
 
-  /* ── Light mode watercolor wash ──────────────────────────────────────
+  /* â”€â”€ Light mode watercolor wash â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
      Mimics the painting: warm orange/coral bottom-left, cool blue top-right,
-     lavender center, teal top-right, pink middle — all at low opacity
+     lavender center, teal top-right, pink middle â€” all at low opacity
      so UI elements read clearly on top                                   */
   :root body {
     background-image:
-      /* golden sunrise — top-left corner */
+      /* golden sunrise â€” top-left corner */
       radial-gradient(ellipse 55% 48% at 0%    0%,   hsl(42  96%  66% / 0.72) 0%, transparent 58%),
-      /* vivid orange-coral flood — bottom left */
+      /* vivid orange-coral flood â€” bottom left */
       radial-gradient(ellipse 72% 62% at 0%   96%,   hsl(18 100%  63% / 0.78) 0%, transparent 56%),
       /* coral-red left bleed */
       radial-gradient(ellipse 40% 58% at 0%   52%,   hsl(6   90%  56% / 0.52) 0%, transparent 54%),
-      /* hot magenta-pink — lower center */
+      /* hot magenta-pink â€” lower center */
       radial-gradient(ellipse 54% 46% at 40%  72%,   hsl(338 92%  60% / 0.58) 0%, transparent 52%),
-      /* soft purple-lavender — upper center */
+      /* soft purple-lavender â€” upper center */
       radial-gradient(ellipse 60% 54% at 54%  12%,   hsl(272 74%  68% / 0.60) 0%, transparent 56%),
-      /* electric teal — top right corner */
+      /* electric teal â€” top right corner */
       radial-gradient(ellipse 58% 60% at 100%  4%,   hsl(188 94%  56% / 0.72) 0%, transparent 56%),
-      /* sky blue — right center */
+      /* sky blue â€” right center */
       radial-gradient(ellipse 42% 54% at 100% 52%,   hsl(208 88%  58% / 0.60) 0%, transparent 52%),
-      /* teal-green — bottom right */
+      /* teal-green â€” bottom right */
       radial-gradient(ellipse 50% 44% at 90%  96%,   hsl(168 80%  54% / 0.65) 0%, transparent 52%);
     background-attachment: fixed;
   }
 
-  /* ── Frosted-glass cards — let the watercolor bleed through ── */
+  /* â”€â”€ Frosted-glass cards â€” let the watercolor bleed through â”€â”€ */
   html:not(.dark) .bg-card {
     background-color: rgb(255 252 248 / 0.72) !important;
     backdrop-filter: blur(12px);
@@ -182,22 +181,22 @@
     -webkit-backdrop-filter: blur(16px);
   }
 
-  /* ── Dark mode watercolor wash ───────────────────────────────────────
-     Same composition but deeply saturated, very low opacity — jewel tones
+  /* â”€â”€ Dark mode watercolor wash â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+     Same composition but deeply saturated, very low opacity â€” jewel tones
      glowing in the dark, like looking at the painting under spotlights      */
   .dark body {
     background-image:
-      /* smouldering ember — bottom left */
+      /* smouldering ember â€” bottom left */
       radial-gradient(ellipse 60% 52% at 0%   92%,  hsl(20  95% 40% / 0.25) 0%, transparent 55%),
-      /* deep magenta — lower center */
+      /* deep magenta â€” lower center */
       radial-gradient(ellipse 48% 48% at 40%  62%,  hsl(338 85% 40% / 0.20) 0%, transparent 52%),
-      /* deep purple — upper center */
+      /* deep purple â€” upper center */
       radial-gradient(ellipse 52% 50% at 52%  14%,  hsl(268 68% 40% / 0.24) 0%, transparent 55%),
-      /* luminous teal — top right */
+      /* luminous teal â€” top right */
       radial-gradient(ellipse 52% 55% at 100% 5%,   hsl(188 92% 36% / 0.28) 0%, transparent 52%),
-      /* ocean blue — right */
+      /* ocean blue â€” right */
       radial-gradient(ellipse 38% 48% at 100% 50%,  hsl(210 88% 38% / 0.22) 0%, transparent 50%),
-      /* teal-green — bottom right */
+      /* teal-green â€” bottom right */
       radial-gradient(ellipse 45% 40% at 88%  92%,  hsl(168 80% 32% / 0.22) 0%, transparent 50%);
     background-attachment: fixed;
   }

@@ -2,7 +2,6 @@
  * @fileoverview Utility Functions - Class Name Merging
  * 
  * SYSTEM ROLE: CSS Class Utility Helper
- * ORGAN ANALOGY: The "Connective Tissue" - Seamlessly merges Tailwind CSS classes
  * 
  * Exports the `cn()` function that:
  * - Merges multiple CSS class name arguments intelligently

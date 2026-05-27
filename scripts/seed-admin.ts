@@ -19,12 +19,21 @@ if (!supabaseUrl || !serviceRoleKey) {
 
 const supabase = createClient(supabaseUrl, serviceRoleKey);
 
-const ADMIN_EMAIL = process.env.SEED_ADMIN_EMAIL ?? 'admin@printpress.com';
+const ADMIN_EMAIL = process.env.SEED_ADMIN_EMAIL;
 const ADMIN_PASSWORD = process.env.SEED_ADMIN_PASSWORD;
+
+if (!ADMIN_EMAIL) {
+  console.error(
+    'SEED_ADMIN_EMAIL is required — set it in your environment before running this script.\n' +
+    'Example: SEED_ADMIN_EMAIL="admin@yourcompany.com" SEED_ADMIN_PASSWORD="..." npx tsx scripts/seed-admin.ts',
+  );
+  process.exit(1);
+}
 
 if (!ADMIN_PASSWORD) {
   console.error(
-    'SEED_ADMIN_PASSWORD is required — set it in your environment before running this script.',
+    'SEED_ADMIN_PASSWORD is required — set it in your environment before running this script.\n' +
+    'Example: SEED_ADMIN_EMAIL="admin@yourcompany.com" SEED_ADMIN_PASSWORD="..." npx tsx scripts/seed-admin.ts',
   );
   process.exit(1);
 }
@@ -32,7 +41,7 @@ if (!ADMIN_PASSWORD) {
 async function main() {
   const { error: createError } = await supabase.auth.admin.createUser({
     email: ADMIN_EMAIL,
-    password: ADMIN_PASSWORD as string,
+    password: ADMIN_PASSWORD,
     email_confirm: true,
   });
 

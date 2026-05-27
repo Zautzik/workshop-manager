@@ -2,7 +2,6 @@
  * @fileoverview 404 Not Found Error Page Component
  * 
  * SYSTEM ROLE: Error Boundary / Invalid Route Handler
- * ORGAN ANALOGY: The "Lost & Found" - Helps users when they reach a dead end
  * 
  * Displays when users try to access a route that doesn't exist:
  * - Shows friendly 404 error message

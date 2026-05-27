@@ -128,7 +128,9 @@
     "idle": "Idle",
     "running": "Running",
     "maintenance": "Maintenance",
-    "offline": "Offline"
+    "offline": "Offline",
+    "setup": "Setting Up",
+    "breakdown": "Breakdown"
   },
   "jobStatus": {
     "pending": "Pending",

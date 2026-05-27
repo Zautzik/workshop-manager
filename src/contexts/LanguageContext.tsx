@@ -116,6 +116,8 @@ const keyMap: Record<string, string> = {
   running: 'machineStatus.running',
   maintenance: 'machineStatus.maintenance',
   offline: 'machineStatus.offline',
+  setup: 'machineStatus.setup',
+  breakdown: 'machineStatus.breakdown',
 
   // Job statuses
   pending: 'jobStatus.pending',

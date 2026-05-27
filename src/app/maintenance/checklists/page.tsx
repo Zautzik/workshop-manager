@@ -2,7 +2,6 @@
  * @fileoverview Maintenance Checklist Management Page
  * 
  * SYSTEM ROLE: Maintenance Planning Interface
- * ORGAN ANALOGY: The "Surgery Suite" - Where maintenance procedures are designed and prepared
  * 
  * Features:
  * - Full checklist CRUD operations

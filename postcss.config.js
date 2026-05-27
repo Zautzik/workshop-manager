@@ -2,7 +2,6 @@
  * @fileoverview PostCSS Configuration
  * 
  * SYSTEM ROLE: CSS Processing Pipeline
- * ORGAN ANALOGY: The "Circulatory System" - Processes and optimizes all CSS through the build pipeline
  * 
  * This configuration chains CSS processors:
  * - Tailwind CSS: Generates utility-first CSS from class names used in components

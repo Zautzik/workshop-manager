@@ -4,7 +4,6 @@ import type { Config } from "tailwindcss";
  * @fileoverview Tailwind CSS Configuration
  * 
  * SYSTEM ROLE: Styling System & Design Tokens
- * ORGAN ANALOGY: The "Skin & Appearance" - Defines the visual presentation and color scheme for entire UI
  * 
  * This configuration controls:
  * - Color palette for all components (primary, secondary, role-based colors for supervisor/manager)

@@ -2,16 +2,15 @@
  * @fileoverview Maintenance Checklist Editor Component
  * 
  * SYSTEM ROLE: Interactive Maintenance Task Creator & Manager
- * ORGAN ANALOGY: The "Surgery Planner" - Creates detailed step-by-step maintenance procedures
  * 
  * Features:
- * - ✅ Drag-and-drop reordering of checklist items
- * - 📝 Rich text input for detailed instructions
- * - ⏱️ Time estimates for each task
- * - 🎯 Priority levels and tool requirements
- * - 🔄 Duplicate checklist templates
- * - 💾 Save/preview functionality
- * - 📱 Fully responsive and mobile-friendly
+ * - âœ… Drag-and-drop reordering of checklist items
+ * - ðŸ“ Rich text input for detailed instructions
+ * - â±ï¸ Time estimates for each task
+ * - ðŸŽ¯ Priority levels and tool requirements
+ * - ðŸ”„ Duplicate checklist templates
+ * - ðŸ’¾ Save/preview functionality
+ * - ðŸ“± Fully responsive and mobile-friendly
  * 
  * Used by maintenance technicians and managers to plan equipment maintenance work.
  * 
@@ -463,7 +462,7 @@ export default function MaintenanceChecklistEditor() {
         );
       }
 
-      toast.success('Checklist saved successfully! 🎉');
+      toast.success('Checklist saved successfully! ðŸŽ‰');
     } catch (error) {
       console.error('Error saving checklist:', error);
       toast.error('Failed to save checklist');
@@ -632,7 +631,7 @@ export default function MaintenanceChecklistEditor() {
             <Card className="bg-blue-50 border-blue-200">
               <CardHeader>
                 <CardTitle className="text-base">
-                  {isEditingItem ? '✏️ Edit Checklist Item' : '➕ Add New Item'}
+                  {isEditingItem ? 'âœï¸ Edit Checklist Item' : 'âž• Add New Item'}
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -721,7 +720,7 @@ export default function MaintenanceChecklistEditor() {
                         className="cursor-pointer"
                         onClick={() => handleRemoveTool(tool)}
                       >
-                        {tool} ✕
+                        {tool} âœ•
                       </Badge>
                     ))}
                   </div>
@@ -877,7 +876,7 @@ export default function MaintenanceChecklistEditor() {
                 onClick={() => window.print()}
                 className="bg-blue-600 hover:bg-blue-700"
               >
-                🖨️ Print Checklist
+                ðŸ–¨ï¸ Print Checklist
               </Button>
               <Button
                 onClick={() => handleSaveChecklist()}

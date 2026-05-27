@@ -128,7 +128,9 @@
     "idle": "Inactiva",
     "running": "En Marcha",
     "maintenance": "En Mantenimiento",
-    "offline": "Fuera de Línea"
+    "offline": "Fuera de Línea",
+    "setup": "En Preparación",
+    "breakdown": "Avería"
   },
   "jobStatus": {
     "pending": "Pendiente",

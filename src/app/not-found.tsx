@@ -2,7 +2,6 @@
  * @fileoverview 404 Not Found Page
  * 
  * SYSTEM ROLE: Error Boundary / Fallback Page
- * ORGAN ANALOGY: The "Emergency Response System" - Handles broken/invalid routes
  * 
  * This page is displayed when users navigate to a route that doesn't exist.
  * It provides a user-friendly error message and navigation back to valid pages.

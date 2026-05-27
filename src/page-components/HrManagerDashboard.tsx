@@ -325,7 +325,7 @@ const HrManagerDashboard = () => {
       const { data, error } = await supabase
         .from('employee_skills')
         .select('id, proficiency_level, certified, skills(name, category)')
-        .eq('employee_id', selectedEmployeeId)
+        .eq('employee_id', selectedEmployeeId as string)
         .order('proficiency_level', { ascending: false });
       if (error) throw error;
       return data || [];
@@ -340,7 +340,7 @@ const HrManagerDashboard = () => {
       const { data, error } = await supabase
         .from('leave_balances')
         .select('id, leave_type, balance_hours, used_hours, accrued_hours')
-        .eq('employee_id', selectedEmployeeId)
+        .eq('employee_id', selectedEmployeeId as string)
         .order('leave_type', { ascending: true });
       if (error) throw error;
       return data || [];
@@ -442,7 +442,7 @@ const HrManagerDashboard = () => {
       full_name: employeeForm.full_name,
       department: employeeForm.department,
       hire_date: employeeForm.hire_date,
-      status: employeeForm.status,
+      status: employeeForm.status as any,
       email: employeeForm.email || null,
       phone: employeeForm.phone || null,
     };
@@ -636,7 +636,7 @@ const HrManagerDashboard = () => {
     const { data, error } = await supabase.from('leave_requests').insert([
       {
         employee_id: leaveForm.employee_id,
-        leave_type: leaveForm.leave_type,
+        leave_type: leaveForm.leave_type as any,
         start_date: leaveForm.start_date,
         end_date: leaveForm.end_date,
         hours_requested: Number(leaveForm.hours_requested || 0),
@@ -675,7 +675,7 @@ const HrManagerDashboard = () => {
     );
     const { error } = await supabase
       .from('leave_requests')
-      .update({ status })
+      .update({ status: status as any })
       .eq('id', requestId);
     if (error) {
       queryClient.setQueryData(listKey, previous);
@@ -806,7 +806,7 @@ const HrManagerDashboard = () => {
     const { data, error } = await supabase.from('incentive_rules').insert([
       {
         name: incentiveRuleForm.name,
-        incentive_type: incentiveRuleForm.incentive_type,
+        incentive_type: incentiveRuleForm.incentive_type as any,
         amount: Number(incentiveRuleForm.amount),
         currency_code: incentiveRuleForm.currency_code || 'USD',
         is_active: incentiveRuleForm.is_active,
@@ -923,7 +923,7 @@ const HrManagerDashboard = () => {
       {
         employee_id: documentForm.employee_id,
         title: documentForm.title,
-        doc_type: documentForm.doc_type,
+        doc_type: documentForm.doc_type as any,
         issuer: documentForm.issuer || null,
         issue_date: documentForm.issue_date || null,
         expires_on: documentForm.expires_on || null,
