@@ -2,7 +2,6 @@
  * @fileoverview Authentication Configuration (NextAuth.js)
  * 
  * SYSTEM ROLE: Authentication Engine & Session Management
- * ORGAN ANALOGY: The "Immune System" - Controls access and verifies user identity
  * 
  * This file sets up NextAuth.js authentication with:
  * - Credentials provider (email/password login)
@@ -21,6 +20,31 @@ import { createClient } from '@supabase/supabase-js';
 import { supabaseAdmin } from '@/integrations/supabase/server';
 import type { Database } from '@/integrations/supabase/types';
 import type { AppRole } from '@/types/app-role';
+
+// â”€â”€ NEXTAUTH_SECRET guard â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// Fail loudly at module-load time if the secret is missing or is the
+// .env.example placeholder.  An attacker who knows the secret can forge any
+// JWT session token and impersonate any user.
+//
+//   Generate a proper value with:  openssl rand -base64 32
+//   Then add it to .env.local:     NEXTAUTH_SECRET="<output>"
+//
+// This intentionally throws â€” a running server with a weak/missing secret is
+// worse than a server that refuses to start.
+const _PLACEHOLDER = '<generate-a-unique-secret-do-not-copy-this>';
+const _secret = process.env.NEXTAUTH_SECRET;
+if (!_secret || _secret.trim() === '' || _secret === _PLACEHOLDER) {
+	throw new Error(
+		'\n\n' +
+		'  [auth] NEXTAUTH_SECRET is not set or is still the example placeholder.\n' +
+		'  A missing or guessable secret lets anyone forge session tokens.\n\n' +
+		'  Fix:\n' +
+		'    1. Run:  openssl rand -base64 32\n' +
+		'    2. Add to .env.local:  NEXTAUTH_SECRET="<the output above>"\n\n',
+	);
+}
+// Narrowed to string from here â€” safe to pass directly to authOptions.secret.
+const NEXTAUTH_SECRET = _secret;
 
 const SUPABASE_URL =
 	process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
@@ -77,9 +101,8 @@ export const authOptions: NextAuthOptions = {
 					.order('created_at', { ascending: false })
 					.maybeSingle();
 
-				// Narrow the DB result to AppRole so TypeScript catches
-				// field renames the moment real types are generated.
-				const role = (roleRow as { role: AppRole } | null)?.role ?? null;
+				// roleRow is now typed via generated Database types â€” no cast needed.
+				const role = roleRow?.role ?? null;
 				const name =
 					(authUser.user_metadata?.name as string | undefined) ?? null;
 
@@ -89,7 +112,7 @@ export const authOptions: NextAuthOptions = {
 					name,
 					role,
 					// Carry the tokens the server already verified so the browser
-					// Supabase client can be seeded via setSession() — no second
+					// Supabase client can be seeded via setSession() â€” no second
 					// signInWithPassword call needed, no extra rate-limit hit.
 					supabaseAccessToken: authData.session?.access_token,
 					supabaseRefreshToken: authData.session?.refresh_token,
@@ -103,7 +126,7 @@ export const authOptions: NextAuthOptions = {
 				token.id = user.id;
 				token.role = user.role;
 				// Carry the Supabase tokens so the browser client can be seeded
-				// via setSession() — avoids a second signInWithPassword call.
+				// via setSession() â€” avoids a second signInWithPassword call.
 				token.supabaseAccessToken = user.supabaseAccessToken;
 				token.supabaseRefreshToken = user.supabaseRefreshToken;
 			}
@@ -129,5 +152,5 @@ export const authOptions: NextAuthOptions = {
 	session: {
 		strategy: 'jwt',
 	},
-	secret: process.env.NEXTAUTH_SECRET,
+	secret: NEXTAUTH_SECRET,
 };

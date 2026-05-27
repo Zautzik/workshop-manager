@@ -2,7 +2,6 @@
  * @fileoverview Login Page Component
  * 
  * SYSTEM ROLE: Authentication Entry Point
- * ORGAN ANALOGY: The "Front Gate" - First point of user interaction, checks credentials
  * 
  * This component provides:
  * - Email and password input fields
@@ -172,7 +171,7 @@ const Login = () => {
                 aria-required="true"
                 autoComplete="current-password"
                 className="border-primary/30 focus:border-primary"
-                placeholder="••••••••"
+                placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢"
               />
             </div>
             <Button 

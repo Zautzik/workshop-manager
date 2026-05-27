@@ -2,7 +2,6 @@
  * @fileoverview NextAuth.js Type Extensions
  * 
  * SYSTEM ROLE: Authentication Type Definitions
- * ORGAN ANALOGY: The "Passport System" - Extends NextAuth types with application-specific data
  * 
  * This module augments NextAuth.js's built-in types to include:
  * 
@@ -27,10 +26,10 @@ declare module 'next-auth' {
 		email: string;
 		name?: string | null;
 		role?: AppRole | null;
-		/** Supabase access_token from the authorize() sign-in — seeded into
+		/** Supabase access_token from the authorize() sign-in â€” seeded into
 		 *  the browser client via setSession() so browser queries have a JWT. */
 		supabaseAccessToken?: string;
-		/** Supabase refresh_token — kept server-side only (JWT cookie). */
+		/** Supabase refresh_token â€” kept server-side only (JWT cookie). */
 		supabaseRefreshToken?: string;
 	}
 
@@ -44,7 +43,7 @@ declare module 'next-auth' {
 		/** Exposed to the browser so AuthContext can call
 		 *  supabase.auth.setSession() without a second signInWithPassword. */
 		supabaseAccessToken?: string;
-		/** Supabase refresh_token — needed by setSession() so the browser
+		/** Supabase refresh_token â€” needed by setSession() so the browser
 		 *  client can auto-refresh without a new sign-in. */
 		supabaseRefreshToken?: string;
 	}

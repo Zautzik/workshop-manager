@@ -2,7 +2,6 @@
  * @fileoverview Global Providers Component
  * 
  * SYSTEM ROLE: State Management & Context Provider Layer
- * ORGAN ANALOGY: The "Nervous System" - Distributes state and context to entire app
  * 
  * This component wraps the entire application with multiple context providers:
  * 
@@ -41,7 +40,7 @@ export function Providers({ children }: { children: ReactNode }) {
 			new QueryClient({
 				defaultOptions: {
 					queries: {
-						// Data is fresh for 1 minute — avoids redundant refetches when
+						// Data is fresh for 1 minute â€” avoids redundant refetches when
 						// multiple components mount and request the same key.
 						staleTime: 60_000,
 						// One automatic retry is enough; the default of 3 delays error

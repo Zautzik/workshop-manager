@@ -2,7 +2,6 @@
  * @fileoverview Application Role Type Definition
  * 
  * SYSTEM ROLE: Role-Based Access Control (RBAC) Type Definition
- * ORGAN ANALOGY: The "Job Classification System" - Defines all user role types
  * 
  * This file defines the AppRole union type that represents all possible user roles in the system:
  * 
