@@ -41,18 +41,18 @@ DECLARE
   ot_034 UUID; ot_035 UUID; ot_036 UUID; ot_037 UUID;
   ot_011 UUID; ot_012 UUID; ot_013 UUID; ot_014 UUID;
 BEGIN
-  -- ── Resolve Employees ─────────────────────────────────────
-  SELECT id INTO e_carlos   FROM public.employees WHERE rut = '12.345.678-9' LIMIT 1;
-  SELECT id INTO e_jorge    FROM public.employees WHERE rut = '13.456.789-0' LIMIT 1;
-  SELECT id INTO e_miguel   FROM public.employees WHERE rut = '14.567.890-1' LIMIT 1;
-  SELECT id INTO e_ana      FROM public.employees WHERE rut = '15.678.901-2' LIMIT 1;
-  SELECT id INTO e_roberto  FROM public.employees WHERE rut = '16.789.012-3' LIMIT 1;
-  SELECT id INTO e_carmen   FROM public.employees WHERE rut = '17.890.123-4' LIMIT 1;
-  SELECT id INTO e_patricia FROM public.employees WHERE rut = '18.901.234-5' LIMIT 1;
-  SELECT id INTO e_andrea   FROM public.employees WHERE rut = '19.012.345-6' LIMIT 1;
-  SELECT id INTO e_luis     FROM public.employees WHERE rut = '20.123.456-7' LIMIT 1;
-  SELECT id INTO e_mario    FROM public.employees WHERE rut = '21.234.567-8' LIMIT 1;
-  SELECT id INTO e_supervisor FROM public.employees WHERE rut = '11.223.344-5' LIMIT 1;
+  -- ── Resolve Employees (by employee_code — no rut column on employees) ──
+  SELECT id INTO e_carlos     FROM public.employees WHERE employee_code = 'EMP-003' LIMIT 1;
+  SELECT id INTO e_jorge      FROM public.employees WHERE employee_code = 'EMP-004' LIMIT 1;
+  SELECT id INTO e_miguel     FROM public.employees WHERE employee_code = 'EMP-008' LIMIT 1;
+  SELECT id INTO e_ana        FROM public.employees WHERE employee_code = 'EMP-013' LIMIT 1;
+  SELECT id INTO e_roberto    FROM public.employees WHERE employee_code = 'EMP-009' LIMIT 1;
+  SELECT id INTO e_carmen     FROM public.employees WHERE employee_code = 'EMP-014' LIMIT 1;
+  SELECT id INTO e_patricia   FROM public.employees WHERE employee_code = 'EMP-006' LIMIT 1;
+  SELECT id INTO e_andrea     FROM public.employees WHERE employee_code = 'EMP-007' LIMIT 1;
+  SELECT id INTO e_luis       FROM public.employees WHERE employee_code = 'EMP-005' LIMIT 1;
+  -- e_mario: no dedicated die-cut #2 employee in seed_02; variable stays NULL (unused)
+  SELECT id INTO e_supervisor FROM public.employees WHERE employee_code = 'EMP-001' LIMIT 1;
 
   -- ── Resolve Machines ──────────────────────────────────────
   SELECT id INTO m_r1 FROM public.machines WHERE lower(name) = 'ryobi offset 524gs #1' LIMIT 1;
@@ -83,96 +83,87 @@ BEGIN
   -- ══════════════════════════════════════════════════════════
   -- SHIFTS
   -- Regular days + crunch periods (Aug, Nov, Mar)
+  -- shifts table: (id, name, start_time, end_time) only
   -- ══════════════════════════════════════════════════════════
 
   -- May 2025 sample (normal day shift)
-  INSERT INTO public.shifts (id, name, start_time, end_time, is_night_shift, date, notes)
+  INSERT INTO public.shifts (id, name, start_time, end_time)
   VALUES
-    (gen_random_uuid(), 'Turno Día — 12 May 2025',  '07:00', '15:00', false, '2025-05-12', NULL),
-    (gen_random_uuid(), 'Turno Día — 19 May 2025',  '07:00', '15:00', false, '2025-05-19', NULL),
-    (gen_random_uuid(), 'Turno Día — 26 May 2025',  '07:00', '15:00', false, '2025-05-26', NULL),
-    (gen_random_uuid(), 'Turno Día — 09 Jun 2025',  '07:00', '15:00', false, '2025-06-09', NULL),
-    (gen_random_uuid(), 'Turno Día — 16 Jun 2025',  '07:00', '15:00', false, '2025-06-16', NULL),
-    (gen_random_uuid(), 'Turno Día — 14 Jul 2025',  '07:00', '15:00', false, '2025-07-14', NULL),
-    (gen_random_uuid(), 'Turno Día — 21 Jul 2025',  '07:00', '15:00', false, '2025-07-21', NULL)
+    (gen_random_uuid(), 'Turno Día — 12 May 2025',  '07:00', '15:00'),
+    (gen_random_uuid(), 'Turno Día — 19 May 2025',  '07:00', '15:00'),
+    (gen_random_uuid(), 'Turno Día — 26 May 2025',  '07:00', '15:00'),
+    (gen_random_uuid(), 'Turno Día — 09 Jun 2025',  '07:00', '15:00'),
+    (gen_random_uuid(), 'Turno Día — 16 Jun 2025',  '07:00', '15:00'),
+    (gen_random_uuid(), 'Turno Día — 14 Jul 2025',  '07:00', '15:00'),
+    (gen_random_uuid(), 'Turno Día — 21 Jul 2025',  '07:00', '15:00')
   ON CONFLICT DO NOTHING;
 
   -- August 2025 CRUNCH — day shifts
-  INSERT INTO public.shifts (id, name, start_time, end_time, is_night_shift, date, notes)
+  INSERT INTO public.shifts (id, name, start_time, end_time)
   VALUES
-    (gen_random_uuid(), 'Turno Día CRUNCH — 11 Ago 2025', '07:00', '15:00', false, '2025-08-11',
-     '⚠️ Inicio semana crunch Q1. Tres clientes simultáneos.'),
-    (gen_random_uuid(), 'Turno Día CRUNCH — 12 Ago 2025', '07:00', '15:00', false, '2025-08-12', NULL),
-    (gen_random_uuid(), 'Turno Día CRUNCH — 13 Ago 2025', '07:00', '15:00', false, '2025-08-13', NULL),
-    (gen_random_uuid(), 'Turno Día CRUNCH — 14 Ago 2025', '07:00', '15:00', false, '2025-08-14', NULL),
-    (gen_random_uuid(), 'Turno Día CRUNCH — 15 Ago 2025', '07:00', '15:00', false, '2025-08-15', NULL),
-    (gen_random_uuid(), 'Turno Día CRUNCH — 18 Ago 2025', '07:00', '15:00', false, '2025-08-18', NULL),
-    (gen_random_uuid(), 'Turno Día CRUNCH — 19 Ago 2025', '07:00', '15:00', false, '2025-08-19', NULL),
-    (gen_random_uuid(), 'Turno Día CRUNCH — 20 Ago 2025', '07:00', '15:00', false, '2025-08-20', NULL),
-    (gen_random_uuid(), 'Turno Día CRUNCH — 21 Ago 2025', '07:00', '15:00', false, '2025-08-21', NULL),
-    (gen_random_uuid(), 'Turno Día CRUNCH — 22 Ago 2025', '07:00', '15:00', false, '2025-08-22', NULL)
+    (gen_random_uuid(), 'Turno Día CRUNCH — 11 Ago 2025',  '07:00', '15:00'),
+    (gen_random_uuid(), 'Turno Día CRUNCH — 12 Ago 2025',  '07:00', '15:00'),
+    (gen_random_uuid(), 'Turno Día CRUNCH — 13 Ago 2025',  '07:00', '15:00'),
+    (gen_random_uuid(), 'Turno Día CRUNCH — 14 Ago 2025',  '07:00', '15:00'),
+    (gen_random_uuid(), 'Turno Día CRUNCH — 15 Ago 2025',  '07:00', '15:00'),
+    (gen_random_uuid(), 'Turno Día CRUNCH — 18 Ago 2025',  '07:00', '15:00'),
+    (gen_random_uuid(), 'Turno Día CRUNCH — 19 Ago 2025',  '07:00', '15:00'),
+    (gen_random_uuid(), 'Turno Día CRUNCH — 20 Ago 2025',  '07:00', '15:00'),
+    (gen_random_uuid(), 'Turno Día CRUNCH — 21 Ago 2025',  '07:00', '15:00'),
+    (gen_random_uuid(), 'Turno Día CRUNCH — 22 Ago 2025',  '07:00', '15:00')
   ON CONFLICT DO NOTHING;
 
   -- August 2025 CRUNCH — NIGHT shifts (15:00–23:00)
-  INSERT INTO public.shifts (id, name, start_time, end_time, is_night_shift, date, notes)
+  INSERT INTO public.shifts (id, name, start_time, end_time)
   VALUES
-    (gen_random_uuid(), 'Turno Noche CRUNCH — 11 Ago 2025', '15:00', '23:00', true, '2025-08-11',
-     '⚠️ Turno noche activado. Solo Ryobi #2 (Distribuidora Global OT).'),
-    (gen_random_uuid(), 'Turno Noche CRUNCH — 12 Ago 2025', '15:00', '23:00', true, '2025-08-12', NULL),
-    (gen_random_uuid(), 'Turno Noche CRUNCH — 13 Ago 2025', '15:00', '23:00', true, '2025-08-13', NULL),
-    (gen_random_uuid(), 'Turno Noche CRUNCH — 14 Ago 2025', '15:00', '23:00', true, '2025-08-14', NULL),
-    (gen_random_uuid(), 'Turno Noche CRUNCH — 18 Ago 2025', '15:00', '23:00', true, '2025-08-18', NULL),
-    (gen_random_uuid(), 'Turno Noche CRUNCH — 19 Ago 2025', '15:00', '23:00', true, '2025-08-19', NULL),
-    (gen_random_uuid(), 'Turno Noche CRUNCH — 20 Ago 2025', '15:00', '23:00', true, '2025-08-20', NULL),
-    (gen_random_uuid(), 'Turno Noche CRUNCH — 21 Ago 2025', '15:00', '23:00', true, '2025-08-21', NULL),
-    (gen_random_uuid(), 'Turno Noche CRUNCH — 22 Ago 2025', '15:00', '23:00', true, '2025-08-22', NULL)
+    (gen_random_uuid(), 'Turno Noche CRUNCH — 11 Ago 2025', '15:00', '23:00'),
+    (gen_random_uuid(), 'Turno Noche CRUNCH — 12 Ago 2025', '15:00', '23:00'),
+    (gen_random_uuid(), 'Turno Noche CRUNCH — 13 Ago 2025', '15:00', '23:00'),
+    (gen_random_uuid(), 'Turno Noche CRUNCH — 14 Ago 2025', '15:00', '23:00'),
+    (gen_random_uuid(), 'Turno Noche CRUNCH — 18 Ago 2025', '15:00', '23:00'),
+    (gen_random_uuid(), 'Turno Noche CRUNCH — 19 Ago 2025', '15:00', '23:00'),
+    (gen_random_uuid(), 'Turno Noche CRUNCH — 20 Ago 2025', '15:00', '23:00'),
+    (gen_random_uuid(), 'Turno Noche CRUNCH — 21 Ago 2025', '15:00', '23:00'),
+    (gen_random_uuid(), 'Turno Noche CRUNCH — 22 Ago 2025', '15:00', '23:00')
   ON CONFLICT DO NOTHING;
 
   -- November 2025 CRUNCH — day + night shifts
-  INSERT INTO public.shifts (id, name, start_time, end_time, is_night_shift, date, notes)
+  INSERT INTO public.shifts (id, name, start_time, end_time)
   VALUES
-    (gen_random_uuid(), 'Turno Día CRUNCH — 10 Nov 2025', '07:00', '15:00', false, '2025-11-10',
-     '⚠️ Carlos en licencia médica (10–21 Nov). Jorge opera Ryobi #1.'),
-    (gen_random_uuid(), 'Turno Día CRUNCH — 11 Nov 2025', '07:00', '15:00', false, '2025-11-11', NULL),
-    (gen_random_uuid(), 'Turno Día CRUNCH — 12 Nov 2025', '07:00', '15:00', false, '2025-11-12', NULL),
-    (gen_random_uuid(), 'Turno Día CRUNCH — 13 Nov 2025', '07:00', '15:00', false, '2025-11-13', NULL),
-    (gen_random_uuid(), 'Turno Día CRUNCH — 14 Nov 2025', '07:00', '15:00', false, '2025-11-14', NULL),
-    (gen_random_uuid(), 'Turno Día CRUNCH — 17 Nov 2025', '07:00', '15:00', false, '2025-11-17', NULL),
-    (gen_random_uuid(), 'Turno Día CRUNCH — 18 Nov 2025', '07:00', '15:00', false, '2025-11-18', NULL),
-    (gen_random_uuid(), 'Turno Día CRUNCH — 19 Nov 2025', '07:00', '15:00', false, '2025-11-19', NULL),
-    (gen_random_uuid(), 'Turno Día CRUNCH — 20 Nov 2025', '07:00', '15:00', false, '2025-11-20', NULL),
-    (gen_random_uuid(), 'Turno Día CRUNCH — 21 Nov 2025', '07:00', '15:00', false, '2025-11-21',
-     'Carlos reintegra el 21. Jornada completa.'),
-    (gen_random_uuid(), 'Turno Noche CRUNCH — 17 Nov 2025', '15:00', '23:00', true, '2025-11-17',
-     'Distribuidora Global 6M — turno noche semana 17–21 Nov.'),
-    (gen_random_uuid(), 'Turno Noche CRUNCH — 18 Nov 2025', '15:00', '23:00', true, '2025-11-18', NULL),
-    (gen_random_uuid(), 'Turno Noche CRUNCH — 19 Nov 2025', '15:00', '23:00', true, '2025-11-19', NULL),
-    (gen_random_uuid(), 'Turno Noche CRUNCH — 20 Nov 2025', '15:00', '23:00', true, '2025-11-20', NULL),
-    (gen_random_uuid(), 'Turno Noche CRUNCH — 21 Nov 2025', '15:00', '23:00', true, '2025-11-21', NULL)
+    (gen_random_uuid(), 'Turno Día CRUNCH — 10 Nov 2025 (Carlos licencia)',   '07:00', '15:00'),
+    (gen_random_uuid(), 'Turno Día CRUNCH — 11 Nov 2025',                     '07:00', '15:00'),
+    (gen_random_uuid(), 'Turno Día CRUNCH — 12 Nov 2025',                     '07:00', '15:00'),
+    (gen_random_uuid(), 'Turno Día CRUNCH — 13 Nov 2025',                     '07:00', '15:00'),
+    (gen_random_uuid(), 'Turno Día CRUNCH — 14 Nov 2025',                     '07:00', '15:00'),
+    (gen_random_uuid(), 'Turno Día CRUNCH — 17 Nov 2025',                     '07:00', '15:00'),
+    (gen_random_uuid(), 'Turno Día CRUNCH — 18 Nov 2025',                     '07:00', '15:00'),
+    (gen_random_uuid(), 'Turno Día CRUNCH — 19 Nov 2025',                     '07:00', '15:00'),
+    (gen_random_uuid(), 'Turno Día CRUNCH — 20 Nov 2025',                     '07:00', '15:00'),
+    (gen_random_uuid(), 'Turno Día CRUNCH — 21 Nov 2025 (Carlos reintegra)',  '07:00', '15:00'),
+    (gen_random_uuid(), 'Turno Noche CRUNCH — 17 Nov 2025',                   '15:00', '23:00'),
+    (gen_random_uuid(), 'Turno Noche CRUNCH — 18 Nov 2025',                   '15:00', '23:00'),
+    (gen_random_uuid(), 'Turno Noche CRUNCH — 19 Nov 2025',                   '15:00', '23:00'),
+    (gen_random_uuid(), 'Turno Noche CRUNCH — 20 Nov 2025',                   '15:00', '23:00'),
+    (gen_random_uuid(), 'Turno Noche CRUNCH — 21 Nov 2025',                   '15:00', '23:00')
   ON CONFLICT DO NOTHING;
 
   -- March 2026 CRUNCH + RYOBI #1 BREAKDOWN
-  INSERT INTO public.shifts (id, name, start_time, end_time, is_night_shift, date, notes)
+  INSERT INTO public.shifts (id, name, start_time, end_time)
   VALUES
-    (gen_random_uuid(), 'Turno Día CRUNCH — 09 Mar 2026', '07:00', '15:00', false, '2026-03-09',
-     'Pre-crunch Q3. Carlos comienza NeuroCalm Q3 en Ryobi #1.'),
-    (gen_random_uuid(), 'Turno Día CRUNCH — 10 Mar 2026', '07:00', '15:00', false, '2026-03-10', NULL),
-    (gen_random_uuid(), 'Turno Día CRUNCH — 11 Mar 2026', '07:00', '15:00', false, '2026-03-11',
-     '⚠️ AVERÍA: Ryobi #1 falla cojinete principal a las 09:30. Carlos para máquina.'),
-    (gen_random_uuid(), 'Turno Día CRUNCH — 12 Mar 2026', '07:00', '15:00', false, '2026-03-12',
-     '⚠️ Ryobi #1 fuera de servicio. Jorge opera Ryobi #2. Técnico externo en #1.'),
-    (gen_random_uuid(), 'Turno Día CRUNCH — 13 Mar 2026', '07:00', '15:00', false, '2026-03-13',
-     '⚠️ Ryobi #1 regresa a servicio a las 14:00. Producción recuperada.'),
-    (gen_random_uuid(), 'Turno Día CRUNCH — 14 Mar 2026', '07:00', '15:00', false, '2026-03-14', NULL),
-    (gen_random_uuid(), 'Turno Día CRUNCH — 17 Mar 2026', '07:00', '15:00', false, '2026-03-17', NULL),
-    (gen_random_uuid(), 'Turno Día CRUNCH — 18 Mar 2026', '07:00', '15:00', false, '2026-03-18', NULL),
-    (gen_random_uuid(), 'Turno Día CRUNCH — 19 Mar 2026', '07:00', '15:00', false, '2026-03-19', NULL),
-    (gen_random_uuid(), 'Turno Día CRUNCH — 20 Mar 2026', '07:00', '15:00', false, '2026-03-20', NULL),
-    (gen_random_uuid(), 'Turno Noche CRUNCH — 17 Mar 2026', '15:00', '23:00', true, '2026-03-17',
-     'Distrib. Global OT: turno noche para recuperar días perdidos por avería.'),
-    (gen_random_uuid(), 'Turno Noche CRUNCH — 18 Mar 2026', '15:00', '23:00', true, '2026-03-18', NULL),
-    (gen_random_uuid(), 'Turno Noche CRUNCH — 19 Mar 2026', '15:00', '23:00', true, '2026-03-19', NULL),
-    (gen_random_uuid(), 'Turno Noche CRUNCH — 20 Mar 2026', '15:00', '23:00', true, '2026-03-20', NULL)
+    (gen_random_uuid(), 'Turno Día CRUNCH — 09 Mar 2026',                     '07:00', '15:00'),
+    (gen_random_uuid(), 'Turno Día CRUNCH — 10 Mar 2026',                     '07:00', '15:00'),
+    (gen_random_uuid(), 'Turno Día CRUNCH — 11 Mar 2026 (⚠ Avería Ryobi #1)', '07:00', '15:00'),
+    (gen_random_uuid(), 'Turno Día CRUNCH — 12 Mar 2026 (Ryobi #1 fuera)',    '07:00', '15:00'),
+    (gen_random_uuid(), 'Turno Día CRUNCH — 13 Mar 2026 (Ryobi #1 regresa)',  '07:00', '15:00'),
+    (gen_random_uuid(), 'Turno Día CRUNCH — 14 Mar 2026',                     '07:00', '15:00'),
+    (gen_random_uuid(), 'Turno Día CRUNCH — 17 Mar 2026',                     '07:00', '15:00'),
+    (gen_random_uuid(), 'Turno Día CRUNCH — 18 Mar 2026',                     '07:00', '15:00'),
+    (gen_random_uuid(), 'Turno Día CRUNCH — 19 Mar 2026',                     '07:00', '15:00'),
+    (gen_random_uuid(), 'Turno Día CRUNCH — 20 Mar 2026',                     '07:00', '15:00'),
+    (gen_random_uuid(), 'Turno Noche CRUNCH — 17 Mar 2026',                   '15:00', '23:00'),
+    (gen_random_uuid(), 'Turno Noche CRUNCH — 18 Mar 2026',                   '15:00', '23:00'),
+    (gen_random_uuid(), 'Turno Noche CRUNCH — 19 Mar 2026',                   '15:00', '23:00'),
+    (gen_random_uuid(), 'Turno Noche CRUNCH — 20 Mar 2026',                   '15:00', '23:00')
   ON CONFLICT DO NOTHING;
 
   -- ══════════════════════════════════════════════════════════
@@ -284,105 +275,105 @@ BEGIN
 
   INSERT INTO public.whatsapp_production_logs
     (ot_id, ot_number, operator_employee_id, operator_name, operator_phone,
-     message_type, raw_message, parsed_data, review_status, received_at)
+     message_type, raw_message, parsed_data, review_status, message_timestamp)
   VALUES
 
     -- Aug crunch — OT-018 (LabelCorp NeuroCalm)
     (ot_018, 'OT-2025-018', e_carlos, 'Carlos Mendoza', '+56912345678',
-     'turno_inicio',
+     'start',
      'OT-2025-018 | NeuroCalm | Turno inicio 07:10. Ryobi #1 calibrada. Tiro derecho primera pasada OK. Carlos M.',
      '{"ot":"OT-2025-018","machine":"Ryobi #1","operator":"Carlos Mendoza","event":"inicio_turno","time":"07:10","observations":"calibración OK"}',
-     'reviewed', '2025-08-11 07:10:00'),
+     'approved', '2025-08-11 07:10:00'),
 
     (ot_018, 'OT-2025-018', e_carlos, 'Carlos Mendoza', '+56912345678',
-     'avance',
+     'update',
      'OT-2025-018 | NeuroCalm | 12:45 — 180.000 etiquetas impresas. Sin incidencias. Tinta pantone 485 estable. Carlo M.',
      '{"ot":"OT-2025-018","printed":180000,"time":"12:45","ink_status":"estable","issues":null}',
-     'reviewed', '2025-08-11 12:45:00'),
+     'approved', '2025-08-11 12:45:00'),
 
     (ot_018, 'OT-2025-018', e_carlos, 'Carlos Mendoza', '+56912345678',
-     'fin_turno',
+     'end',
      'OT-2025-018 | NeuroCalm | Fin turno 15:00. Total día: 420.000 etiquetas. Registro papel OK. Carlos M.',
      '{"ot":"OT-2025-018","total_day":420000,"end_time":"15:00","paper_log":"OK"}',
-     'reviewed', '2025-08-11 15:00:00'),
+     'approved', '2025-08-11 15:00:00'),
 
     -- Aug crunch — OT-021 night shift (Distribuidora Global)
     (ot_021, 'OT-2025-021', e_luis, 'Luis Fernández', '+56923456789',
-     'turno_inicio',
+     'start',
      'OT-2025-021 | Promo Verano | Noche 15:05. Ryobi #2 lista. Arranque OK. Densidades calibradas. Luis F.',
      '{"ot":"OT-2025-021","machine":"Ryobi #2","shift":"noche","event":"inicio_turno","time":"15:05"}',
-     'reviewed', '2025-08-18 15:05:00'),
+     'approved', '2025-08-18 15:05:00'),
 
     (ot_021, 'OT-2025-021', e_luis, 'Luis Fernández', '+56923456789',
-     'problema',
+     'update',
      'OT-2025-021 | Promo Verano | 19:30 — STOP por rayaduras en 1.500 etiquetas. Revisando tintero. Luis F.',
      '{"ot":"OT-2025-021","event":"stop_calidad","time":"19:30","affected":1500,"cause":"rayaduras_tintero"}',
-     'reviewed', '2025-08-18 19:30:00'),
+     'approved', '2025-08-18 19:30:00'),
 
     (ot_021, 'OT-2025-021', e_luis, 'Luis Fernández', '+56923456789',
-     'reanudacion',
+     'update',
      'OT-2025-021 | Promo Verano | 20:10 — Reanudado. Tintero limpio. Muestra OK supervisor. Luis F.',
      '{"ot":"OT-2025-021","event":"reanudacion","time":"20:10","downtime_minutes":40,"resolution":"limpieza_tintero"}',
-     'reviewed', '2025-08-18 20:10:00'),
+     'approved', '2025-08-18 20:10:00'),
 
     -- Nov crunch — OT-034 (LabelCorp, Jorge en Ryobi #1 cubriendo a Carlos)
     (ot_034, 'OT-2025-034', e_jorge, 'Jorge Ríos', '+56934567890',
-     'turno_inicio',
+     'start',
      'OT-2025-034 | NeuroCalm Q2 | 07:20. Tomando máquina #1 por licencia Carlos. Calibración extendida 25min. Jorge R.',
      '{"ot":"OT-2025-034","machine":"Ryobi #1","operator":"Jorge Ríos","note":"cobertura_carlos","calibration_extra_min":25}',
-     'reviewed', '2025-11-10 07:20:00'),
+     'approved', '2025-11-10 07:20:00'),
 
     (ot_034, 'OT-2025-034', e_jorge, 'Jorge Ríos', '+56934567890',
-     'avance',
+     'update',
      'OT-2025-034 | NeuroCalm Q2 | 14:00 — 550.000 etiqtas. Pantone OK. Velocidad 80% (ajustando). Jorge R.',
      '{"ot":"OT-2025-034","printed":550000,"speed_pct":80,"ink_status":"OK","time":"14:00"}',
-     'reviewed', '2025-11-10 14:00:00'),
+     'approved', '2025-11-10 14:00:00'),
 
     -- Nov crunch — OT-037 night shift (Distribuidora 6M)
     (ot_037, 'OT-2025-037', e_luis, 'Luis Fernández', '+56923456789',
-     'turno_inicio',
+     'start',
      'OT-2025-037 | Promo Navidad | Noche 17 Nov 15:00. 6 millones de etiquetas. Vamos. Luis F.',
      '{"ot":"OT-2025-037","shift":"noche","date":"2025-11-17","target":6000000}',
-     'reviewed', '2025-11-17 15:00:00'),
+     'approved', '2025-11-17 15:00:00'),
 
     (ot_037, 'OT-2025-037', e_luis, 'Luis Fernández', '+56923456789',
-     'avance',
+     'update',
      'OT-2025-037 | Promo Navidad | 22:00 — 380.000 etiqtas noche de hoy. Acumulado 2.1M. Luis F.',
      '{"ot":"OT-2025-037","tonight":380000,"cumulative":2100000,"time":"22:00"}',
-     'reviewed', '2025-11-17 22:00:00'),
+     'approved', '2025-11-17 22:00:00'),
 
     -- Mar 2026 BREAKDOWN — OT-011
     (ot_011, 'OT-2026-011', e_carlos, 'Carlos Mendoza', '+56912345678',
-     'turno_inicio',
+     'start',
      'OT-2026-011 | NeuroCalm Q3 | 07:10. Inicio crunch Q3. Ryobi #1 excelente. Carlos M.',
      '{"ot":"OT-2026-011","event":"inicio_turno","machine":"Ryobi #1","status":"excelente"}',
-     'reviewed', '2026-03-09 07:10:00'),
+     'approved', '2026-03-09 07:10:00'),
 
     (ot_011, 'OT-2026-011', e_carlos, 'Carlos Mendoza', '+56912345678',
-     'problema',
-     'OT-2026-011 | NeuroCalm Q3 | 09:30 ⚠️ PARO MÁQUINA. Ruido anormal cojinete derecho. '
-     'Detengo Ryobi #1 para revisión. Carlos M.',
+     'update',
+     'OT-2026-011 | NeuroCalm Q3 | 09:30 PARO MAQUINA. Ruido anormal cojinete derecho. '
+     'Detengo Ryobi #1 para revision. Carlos M.',
      '{"ot":"OT-2026-011","event":"paro_emergencia","time":"09:30","cause":"ruido_cojinete","machine":"Ryobi #1","severity":"high"}',
-     'reviewed', '2026-03-11 09:30:00'),
+     'approved', '2026-03-11 09:30:00'),
 
     (ot_011, 'OT-2026-011', e_carlos, 'Carlos Mendoza', '+56912345678',
-     'avance',
-     'OT-2026-011 | NeuroCalm Q3 | 14:05 — Ryobi #1 operativa. Técnico Impresiones S.A. reemplazó '
-     'cojinete. Reanudo producción. 30% pendiente re-agendado en Ryobi #2 con Jorge. Carlos M.',
+     'update',
+     'OT-2026-011 | NeuroCalm Q3 | 14:05 — Ryobi #1 operativa. Tecnico Impresiones S.A. reemplazo '
+     'cojinete. Reanudo produccion. 30% pendiente re-agendado en Ryobi #2 con Jorge. Carlos M.',
      '{"ot":"OT-2026-011","event":"reanudacion","time":"14:05","repair":"cojinete_principal","technician":"Impresiones S.A.","pending_pct":30}',
-     'reviewed', '2026-03-13 14:05:00'),
+     'approved', '2026-03-13 14:05:00'),
 
     -- Mar 2026 — OT-013 night shift
     (ot_013, 'OT-2026-013', e_jorge, 'Jorge Ríos', '+56934567890',
-     'turno_inicio',
+     'start',
      'OT-2026-013 | HogarMax Q3 | Noche 14 Mar 15:05. 600K subcontratadas a Veloz. '
      'Nosotros 1.8M. Jorge R.',
      '{"ot":"OT-2026-013","shift":"noche","subcontract_units":600000,"in_house_units":1800000}',
-     'reviewed', '2026-03-14 15:05:00'),
+     'approved', '2026-03-14 15:05:00'),
 
     -- General quality log (unreviewed — simulates pending review state)
     (ot_014, 'OT-2026-014', e_luis, 'Luis Fernández', '+56923456789',
-     'avance',
+     'update',
      'OT-2026-014 | Promo Primavera | 21:45 — 750.000 etiqtas. Todo OK. Luis F.',
      '{"ot":"OT-2026-014","printed":750000,"time":"21:45"}',
      'pending', '2026-03-17 21:45:00')

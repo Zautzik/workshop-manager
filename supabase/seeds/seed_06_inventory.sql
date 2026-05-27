@@ -44,6 +44,13 @@ DECLARE
   i_box_small    UUID;  -- Cajas despacho pequeña
   i_box_large    UUID;  -- Cajas despacho grande
   i_stretch_wrap  UUID; -- Stretch wrap para pallets
+  -- lot IDs (needed as lot_id is required by the stock-transaction trigger)
+  l_adh80_2505a  UUID;  l_adh60_2505a  UUID;  l_car350_2505  UUID;
+  l_p485_2505    UUID;  l_p375_2505    UUID;  l_plt_2505     UUID;
+  l_blk_2505     UUID;  l_adh80_2507a  UUID;  l_adh60_2507a  UUID;
+  l_p485_2507    UUID;  l_adh80_2510a  UUID;  l_p485_2510    UUID;
+  l_adh80_2602a  UUID;  l_adh60_2602a  UUID;  l_p485_2602    UUID;
+  l_blk_2603     UUID;
   -- OT IDs
   ot_001 UUID; ot_003 UUID; ot_008 UUID; ot_018 UUID; ot_019 UUID;
   ot_020 UUID; ot_021 UUID; ot_034 UUID; ot_036 UUID; ot_037 UUID;
@@ -70,106 +77,81 @@ BEGIN
   -- ══════════════════════════════════════════════════════════
 
   INSERT INTO public.inventory_items
-    (id, sku, name, description, category, unit_of_measure,
-     unit_cost, reorder_point, reorder_quantity, is_active, notes)
+    (id, sku, name, category, unit,
+     min_stock, estimated_unit_cost, is_active, notes)
   VALUES
     -- SUBSTRATES
     (gen_random_uuid(), 'SUB-ADH-080', 'Couche adhesivo roll 80gsm',
-     'Papel couche autocopiante 80gsm en rollo para Ryobi. Farmacéutico/premium.',
-     'papel_sustrato', 'kg', 2.10, 500.0, 1500.0, true,
+     'product_input', 'kg', 500.0, 2.10, true,
      'Proveedor: PapelMax Ltda. Lead time: 3 días.'),
     (gen_random_uuid(), 'SUB-ADH-060', 'Couche adhesivo roll 60gsm',
-     'Papel couche autocopiante 60gsm en rollo. Economía, alto volumen.',
-     'papel_sustrato', 'kg', 1.80, 800.0, 2000.0, true,
+     'product_input', 'kg', 800.0, 1.80, true,
      'Proveedor: PapelMax Ltda. Lead time: 3 días.'),
     (gen_random_uuid(), 'SUB-COU-115', 'Couche sheet 115gsm',
-     'Pliego couche 115gsm para etiquetas alimentarias.',
-     'papel_sustrato', 'kg', 1.95, 300.0, 900.0, true,
+     'product_input', 'kg', 300.0, 1.95, true,
      'Proveedor: PapelMax Ltda.'),
     (gen_random_uuid(), 'SUB-COU-150', 'Couche sheet 150gsm',
-     'Pliego couche 150gsm premium para vinos y cosméticos.',
-     'papel_sustrato', 'kg', 2.50, 200.0, 600.0, true,
+     'product_input', 'kg', 200.0, 2.50, true,
      'Proveedor: GrafPaper S.A.'),
     (gen_random_uuid(), 'SUB-CAR-300', 'Cartulina C1S 300gsm',
-     'Cartulina blanca calandrada una cara 300gsm. Cajas plegadizas.',
-     'papel_sustrato', 'kg', 3.20, 400.0, 1200.0, true,
+     'product_input', 'kg', 400.0, 3.20, true,
      'Proveedor: GrafPaper S.A. Lead time: 5 días.'),
     (gen_random_uuid(), 'SUB-CAR-350', 'Cartulina C1S 350gsm',
-     'Cartulina blanca calandrada una cara 350gsm. Cajas premium.',
-     'papel_sustrato', 'kg', 3.60, 350.0, 1000.0, true,
+     'product_input', 'kg', 350.0, 3.60, true,
      'Proveedor: GrafPaper S.A. Lead time: 5 días.'),
     (gen_random_uuid(), 'SUB-CAR-400', 'Cartulina C1S 400gsm',
-     'Cartulina 400gsm para cajas regalo premium.',
-     'papel_sustrato', 'kg', 4.10, 150.0, 500.0, true,
+     'product_input', 'kg', 150.0, 4.10, true,
      'Proveedor: GrafPaper S.A.'),
     (gen_random_uuid(), 'SUB-BON-080', 'Bond 80gsm pliego',
-     'Bond 80gsm para pruebas, contratos, borradores internos.',
-     'papel_sustrato', 'resma', 3.50, 20.0, 50.0, true, NULL),
+     'supply', 'resma', 20.0, 3.50, true, NULL),
 
     -- INKS
     (gen_random_uuid(), 'INK-CMYK-C', 'Tinta Cyan CMYK offset',
-     'Tinta proceso Cyan para Ryobi 524GS. 2.5kg lata.',
-     'tinta', 'kg', 12.50, 5.0, 15.0, true,
+     'product_input', 'kg', 5.0, 12.50, true,
      'Proveedor: InkPro Chile. Renovar antes de 18 meses.'),
     (gen_random_uuid(), 'INK-CMYK-M', 'Tinta Magenta CMYK offset',
-     'Tinta proceso Magenta para Ryobi 524GS. 2.5kg lata.',
-     'tinta', 'kg', 12.50, 5.0, 15.0, true,
+     'product_input', 'kg', 5.0, 12.50, true,
      'Proveedor: InkPro Chile.'),
     (gen_random_uuid(), 'INK-CMYK-Y', 'Tinta Yellow CMYK offset',
-     'Tinta proceso Yellow para Ryobi 524GS. 2.5kg lata.',
-     'tinta', 'kg', 12.50, 5.0, 15.0, true,
+     'product_input', 'kg', 5.0, 12.50, true,
      'Proveedor: InkPro Chile.'),
     (gen_random_uuid(), 'INK-CMYK-K', 'Tinta Black CMYK offset',
-     'Tinta proceso Black para Ryobi 524GS. 2.5kg lata.',
-     'tinta', 'kg', 11.00, 6.0, 18.0, true,
+     'product_input', 'kg', 6.0, 11.00, true,
      'Proveedor: InkPro Chile.'),
     (gen_random_uuid(), 'INK-PAN-485C', 'Tinta Pantone 485C (rojo)',
-     'Pantone 485C especial. 1kg lata. Farmacéutico LabelCorp.',
-     'tinta', 'kg', 28.00, 1.5, 5.0, true,
+     'product_input', 'kg', 1.5, 28.00, true,
      'Exclusivo LabelCorp / Farmavida. Lote por pedido.'),
     (gen_random_uuid(), 'INK-PAN-300C', 'Tinta Pantone 300C (azul)',
-     'Pantone 300C especial. 1kg lata.',
-     'tinta', 'kg', 26.00, 1.5, 5.0, true,
+     'product_input', 'kg', 1.5, 26.00, true,
      'LabelCorp NeuroCalm / SeruNorm.'),
     (gen_random_uuid(), 'INK-PAN-375C', 'Tinta Pantone 375C (verde)',
-     'Pantone 375C. PackBrands ShineMax.',
-     'tinta', 'kg', 26.00, 1.0, 4.0, true, NULL),
+     'product_input', 'kg', 1.0, 26.00, true, NULL),
 
     -- PLATES & CONSUMABLES
     (gen_random_uuid(), 'PLT-CTP-4UP', 'Plancha CTP aluminio 4up',
-     'Plancha offset CTP aluminio 350×450mm (4up). Ryobi 524GS.',
-     'planchas', 'unit', 18.00, 20.0, 60.0, true,
+     'supply', 'unit', 20.0, 18.00, true,
      'Proveedor: PlanchaTech S.A. Lead time: 48h.'),
     (gen_random_uuid(), 'CON-BLK-OFF', 'Mantilla offset (blanket)',
-     'Mantilla offset para Ryobi 524GS. Cambio cada 200h aprox.',
-     'insumo_maquina', 'unit', 95.00, 2.0, 6.0, true,
+     'spare_part', 'unit', 2.0, 95.00, true,
      'Cambiar antes de crunch. Stock mínimo: 2 unidades.'),
     (gen_random_uuid(), 'CON-SOL-OFF', 'Solvente limpieza offset',
-     'Solvente no inflamable para limpieza de tinteros y mantillas. 20L bidón.',
-     'insumo_maquina', 'litro', 4.20, 40.0, 120.0, true, NULL),
+     'supply', 'litro', 40.0, 4.20, true, NULL),
     (gen_random_uuid(), 'FIN-ADH-TAPE', 'Cinta adhesiva doble cara 25mm',
-     'Cinta doble cara para terminaciones manuales y etiquetado.',
-     'terminaciones', 'rollo', 2.80, 10.0, 30.0, true, NULL),
+     'supply', 'rollo', 10.0, 2.80, true, NULL),
     (gen_random_uuid(), 'FIN-FILM-LAM', 'Film laminado biax BOPP roll',
-     'Film BOPP transparente para laminado brillo/mate. Roll 1050mm ancho.',
-     'terminaciones', 'kg', 6.50, 30.0, 100.0, true,
+     'product_input', 'kg', 30.0, 6.50, true,
      'Proveedor: Laminados Chile. Lead time: 5 días.'),
     (gen_random_uuid(), 'FIN-FOIL-GLD', 'Foil hot stamping dorado',
-     'Foil metalizado dorado para hot stamping troquelado premium.',
-     'terminaciones', 'm2', 8.50, 5.0, 20.0, true,
+     'supply', 'm2', 5.0, 8.50, true,
      'Inversiones del Sur / PackBrands ediciones especiales.'),
     (gen_random_uuid(), 'EMB-CORES', 'Tubos cores cartón 76mm',
-     'Tubos de cartón 76mm para armado de rollos. Largo 1050mm.',
-     'embalaje', 'unit', 0.85, 50.0, 200.0, true, NULL),
+     'supply', 'unit', 50.0, 0.85, true, NULL),
     (gen_random_uuid(), 'EMB-BOX-SM', 'Caja despacho pequeña 30×20×15cm',
-     'Caja corrugada para despacho de pedidos pequeños.',
-     'embalaje', 'unit', 0.55, 100.0, 300.0, true, NULL),
+     'supply', 'unit', 100.0, 0.55, true, NULL),
     (gen_random_uuid(), 'EMB-BOX-LG', 'Caja despacho grande 50×40×30cm',
-     'Caja corrugada para despacho pallets grandes.',
-     'embalaje', 'unit', 0.90, 80.0, 200.0, true, NULL),
+     'supply', 'unit', 80.0, 0.90, true, NULL),
     (gen_random_uuid(), 'EMB-STRETCH', 'Stretch wrap transparente 500mm',
-     'Film stretch para asegurar pallets antes de despacho.',
-     'embalaje', 'rollo', 5.20, 10.0, 30.0, true, NULL)
+     'supply', 'rollo', 10.0, 5.20, true, NULL)
   ON CONFLICT (sku) DO NOTHING;
 
   -- Resolve item IDs for use in lots & transactions
@@ -199,71 +181,74 @@ BEGIN
   -- ══════════════════════════════════════════════════════════
 
   INSERT INTO public.inventory_lots
-    (item_id, lot_number, supplier_name, purchase_date,
-     quantity_received, quantity_remaining, unit_cost, expiry_date, notes)
+    (item_id, lot_number, supplier_name, received_date,
+     quantity_received, quantity_available, unit_cost, certification_expires_on)
   VALUES
     -- Opening stock May 2025
-    (i_couche_80,  'LOT-ADH80-2505A', 'PapelMax Ltda.',   '2025-05-01', 3000.0, 220.0, 2.10, NULL,
-     'Stock apertura. Consumo estimado 350kg/mes en temporada normal.'),
-    (i_couche_60,  'LOT-ADH60-2505A', 'PapelMax Ltda.',   '2025-05-01', 4000.0, 380.0, 1.80, NULL,
-     'Stock apertura.'),
-    (i_couche_115, 'LOT-COU115-2505', 'PapelMax Ltda.',   '2025-05-01', 1500.0, 310.0, 1.95, NULL, NULL),
-    (i_couche_150, 'LOT-COU150-2505', 'GrafPaper S.A.',   '2025-05-01',  800.0, 420.0, 2.50, NULL, NULL),
-    (i_cartulina_300,'LOT-CAR300-2505','GrafPaper S.A.',  '2025-05-01', 2000.0, 490.0, 3.20, NULL, NULL),
-    (i_cartulina_350,'LOT-CAR350-2505','GrafPaper S.A.',  '2025-05-01', 2500.0, 580.0, 3.60, NULL, NULL),
-    (i_cartulina_400,'LOT-CAR400-2505','GrafPaper S.A.',  '2025-05-01',  800.0, 750.0, 4.10, NULL, NULL),
-    (i_ink_c,      'LOT-INKC-2505',   'InkPro Chile',     '2025-05-01',   30.0,   8.5, 12.50, '2026-11-01',
-     'CMYK Cyan apertura.'),
-    (i_ink_m,      'LOT-INKM-2505',   'InkPro Chile',     '2025-05-01',   30.0,   7.2, 12.50, '2026-11-01', NULL),
-    (i_ink_y,      'LOT-INKY-2505',   'InkPro Chile',     '2025-05-01',   30.0,   9.1, 12.50, '2026-11-01', NULL),
-    (i_ink_k,      'LOT-INKK-2505',   'InkPro Chile',     '2025-05-01',   35.0,  11.3, 11.00, '2026-11-01', NULL),
-    (i_p485c,      'LOT-P485-2505',   'InkPro Chile',     '2025-05-05',    6.0,   1.2, 28.00, '2026-05-05',
-     'Exclusivo LabelCorp/Farmavida.'),
-    (i_p300c,      'LOT-P300-2505',   'InkPro Chile',     '2025-05-05',    6.0,   1.8, 26.00, '2026-05-05', NULL),
-    (i_p375c,      'LOT-P375-2505',   'InkPro Chile',     '2025-05-05',    4.0,   2.1, 26.00, '2026-05-05', NULL),
-    (i_plates_4up, 'LOT-PLT-2505',    'PlanchaTech S.A.', '2025-05-01',  200.0,  62.0, 18.00, NULL, NULL),
-    (i_blanket,    'LOT-BLK-2505',    'Impresiones S.A.', '2025-05-01',    8.0,   4.0, 95.00, NULL,
-     'Stock mínimo 2 por máquina. Cambio cada 200h.'),
-    (i_plastic_film,'LOT-FILM-2505',  'Laminados Chile',  '2025-05-05',  400.0, 145.0, 6.50, NULL, NULL),
+    (i_couche_80,  'LOT-ADH80-2505A', 'PapelMax Ltda.',   '2025-05-01', 3000.0, 3000.0, 2.10, NULL),
+    (i_couche_60,  'LOT-ADH60-2505A', 'PapelMax Ltda.',   '2025-05-01', 4000.0, 4000.0, 1.80, NULL),
+    (i_couche_115, 'LOT-COU115-2505', 'PapelMax Ltda.',   '2025-05-01', 1500.0, 1500.0, 1.95, NULL),
+    (i_couche_150, 'LOT-COU150-2505', 'GrafPaper S.A.',   '2025-05-01',  800.0,  800.0, 2.50, NULL),
+    (i_cartulina_300,'LOT-CAR300-2505','GrafPaper S.A.',  '2025-05-01', 2000.0, 2000.0, 3.20, NULL),
+    (i_cartulina_350,'LOT-CAR350-2505','GrafPaper S.A.',  '2025-05-01', 2500.0, 2500.0, 3.60, NULL),
+    (i_cartulina_400,'LOT-CAR400-2505','GrafPaper S.A.',  '2025-05-01',  800.0,  800.0, 4.10, NULL),
+    (i_ink_c,      'LOT-INKC-2505',   'InkPro Chile',     '2025-05-01',   30.0,   30.0, 12.50, '2026-11-01'),
+    (i_ink_m,      'LOT-INKM-2505',   'InkPro Chile',     '2025-05-01',   30.0,   30.0, 12.50, '2026-11-01'),
+    (i_ink_y,      'LOT-INKY-2505',   'InkPro Chile',     '2025-05-01',   30.0,   30.0, 12.50, '2026-11-01'),
+    (i_ink_k,      'LOT-INKK-2505',   'InkPro Chile',     '2025-05-01',   35.0,   35.0, 11.00, '2026-11-01'),
+    (i_p485c,      'LOT-P485-2505',   'InkPro Chile',     '2025-05-05',    6.0,    6.0, 28.00, '2026-05-05'),
+    (i_p300c,      'LOT-P300-2505',   'InkPro Chile',     '2025-05-05',    6.0,    6.0, 26.00, '2026-05-05'),
+    (i_p375c,      'LOT-P375-2505',   'InkPro Chile',     '2025-05-05',    4.0,    4.0, 26.00, '2026-05-05'),
+    (i_plates_4up, 'LOT-PLT-2505',    'PlanchaTech S.A.', '2025-05-01',  200.0,  200.0, 18.00, NULL),
+    (i_blanket,    'LOT-BLK-2505',    'Impresiones S.A.', '2025-05-01',    8.0,    8.0, 95.00, NULL),
+    (i_plastic_film,'LOT-FILM-2505',  'Laminados Chile',  '2025-05-05',  400.0,  400.0,  6.50, NULL),
 
     -- Pre-crunch replenishment July 2025
-    (i_couche_80,  'LOT-ADH80-2507A', 'PapelMax Ltda.',   '2025-07-25', 4000.0, 1200.0, 2.10, NULL,
-     'Compra previa a crunch agosto. Volumen incrementado.'),
-    (i_couche_60,  'LOT-ADH60-2507A', 'PapelMax Ltda.',   '2025-07-25', 5000.0, 1850.0, 1.80, NULL,
-     'Compra previa a crunch agosto.'),
-    (i_p485c,      'LOT-P485-2507',   'InkPro Chile',     '2025-07-28',   12.0,   4.5, 28.00, '2026-07-28',
-     'Anticipada para volumen NeuroCalm + AllerFree Q1.'),
-    (i_plates_4up, 'LOT-PLT-2507',    'PlanchaTech S.A.', '2025-07-28',  300.0, 185.0, 18.00, NULL,
-     'Reposición crunch.'),
+    (i_couche_80,  'LOT-ADH80-2507A', 'PapelMax Ltda.',   '2025-07-25', 4000.0, 4000.0, 2.10, NULL),
+    (i_couche_60,  'LOT-ADH60-2507A', 'PapelMax Ltda.',   '2025-07-25', 5000.0, 5000.0, 1.80, NULL),
+    (i_p485c,      'LOT-P485-2507',   'InkPro Chile',     '2025-07-28',   12.0,   12.0, 28.00, '2026-07-28'),
+    (i_plates_4up, 'LOT-PLT-2507',    'PlanchaTech S.A.', '2025-07-28',  300.0,  300.0, 18.00, NULL),
 
     -- EMERGENCY PURCHASE Aug 2025 — couche 80gsm near zero
-    (i_couche_80,  'LOT-ADH80-2508E', 'PapelMax Ltda.',   '2025-08-19', 2000.0, 980.0, 2.25, NULL,
-     '🚨 COMPRA EMERGENCIA. Stock llegó a 42kg el 18/08 (bajo punto de reorden). '
-     'Precio +7% por urgencia. Proveedor entregó en 18h.'),
+    (i_couche_80,  'LOT-ADH80-2508E', 'PapelMax Ltda.',   '2025-08-19', 2000.0, 2000.0, 2.25, NULL),
 
     -- Pre-crunch Nov 2025
-    (i_couche_80,  'LOT-ADH80-2510A', 'PapelMax Ltda.',   '2025-10-28', 4500.0, 2100.0, 2.12, NULL,
-     'Compra anticipada crunch noviembre.'),
-    (i_p485c,      'LOT-P485-2510',   'InkPro Chile',     '2025-10-28',   15.0,   7.2, 28.00, '2026-10-28', NULL),
-    (i_ink_c,      'LOT-INKC-2510',   'InkPro Chile',     '2025-10-28',   40.0,  22.0, 12.50, '2027-04-01', NULL),
-    (i_ink_m,      'LOT-INKM-2510',   'InkPro Chile',     '2025-10-28',   40.0,  20.5, 12.50, '2027-04-01', NULL),
-    (i_ink_y,      'LOT-INKY-2510',   'InkPro Chile',     '2025-10-28',   40.0,  21.8, 12.50, '2027-04-01', NULL),
-    (i_ink_k,      'LOT-INKK-2510',   'InkPro Chile',     '2025-10-28',   45.0,  28.4, 11.00, '2027-04-01', NULL),
+    (i_couche_80,  'LOT-ADH80-2510A', 'PapelMax Ltda.',   '2025-10-28', 4500.0, 4500.0, 2.12, NULL),
+    (i_p485c,      'LOT-P485-2510',   'InkPro Chile',     '2025-10-28',   15.0,   15.0, 28.00, '2026-10-28'),
+    (i_ink_c,      'LOT-INKC-2510',   'InkPro Chile',     '2025-10-28',   40.0,   40.0, 12.50, '2027-04-01'),
+    (i_ink_m,      'LOT-INKM-2510',   'InkPro Chile',     '2025-10-28',   40.0,   40.0, 12.50, '2027-04-01'),
+    (i_ink_y,      'LOT-INKY-2510',   'InkPro Chile',     '2025-10-28',   40.0,   40.0, 12.50, '2027-04-01'),
+    (i_ink_k,      'LOT-INKK-2510',   'InkPro Chile',     '2025-10-28',   45.0,   45.0, 11.00, '2027-04-01'),
 
     -- Pre-crunch Feb 2026 (for Mar crunch)
-    (i_couche_80,  'LOT-ADH80-2602A', 'PapelMax Ltda.',   '2026-02-23', 5000.0, 3100.0, 2.15, NULL,
-     'Compra anticipada crunch marzo 2026.'),
-    (i_couche_60,  'LOT-ADH60-2602A', 'PapelMax Ltda.',   '2026-02-23', 5500.0, 3400.0, 1.82, NULL, NULL),
-    (i_p485c,      'LOT-P485-2602',   'InkPro Chile',     '2026-02-23',   18.0,  10.5, 28.50, '2027-02-23',
-     'Precio subió 1.8% vs año anterior.'),
-    (i_blanket,    'LOT-BLK-2603',    'Impresiones S.A.', '2026-03-03',    4.0,   4.0, 97.00, NULL,
-     'Compra preventiva antes del crunch. Precio +2%.'),
+    (i_couche_80,  'LOT-ADH80-2602A', 'PapelMax Ltda.',   '2026-02-23', 5000.0, 5000.0, 2.15, NULL),
+    (i_couche_60,  'LOT-ADH60-2602A', 'PapelMax Ltda.',   '2026-02-23', 5500.0, 5500.0, 1.82, NULL),
+    (i_p485c,      'LOT-P485-2602',   'InkPro Chile',     '2026-02-23',   18.0,   18.0, 28.50, '2027-02-23'),
+    (i_blanket,    'LOT-BLK-2603',    'Impresiones S.A.', '2026-03-03',    4.0,    4.0, 97.00, NULL),
 
     -- Current balances (Apr 2026 — post Q3 crunch)
-    (i_couche_80,  'LOT-ADH80-2604',  'PapelMax Ltda.',   '2026-04-01', 3500.0, 2850.0, 2.15, NULL, 'Stock actual.'),
-    (i_couche_60,  'LOT-ADH60-2604',  'PapelMax Ltda.',   '2026-04-01', 4000.0, 3200.0, 1.82, NULL, 'Stock actual.'),
-    (i_plates_4up, 'LOT-PLT-2604',    'PlanchaTech S.A.', '2026-04-01',  300.0, 245.0, 18.50, NULL, 'Stock actual.')
-  ON CONFLICT (lot_number) DO NOTHING;
+    (i_couche_80,  'LOT-ADH80-2604',  'PapelMax Ltda.',   '2026-04-01', 3500.0, 3500.0, 2.15, NULL),
+    (i_couche_60,  'LOT-ADH60-2604',  'PapelMax Ltda.',   '2026-04-01', 4000.0, 4000.0, 1.82, NULL),
+    (i_plates_4up, 'LOT-PLT-2604',    'PlanchaTech S.A.', '2026-04-01',  300.0,  300.0, 18.50, NULL)
+  ON CONFLICT (item_id, lot_number) DO NOTHING;
+
+  -- Resolve lot IDs for transaction lot_id references (required by trigger)
+  SELECT id INTO l_adh80_2505a FROM public.inventory_lots WHERE lot_number = 'LOT-ADH80-2505A';
+  SELECT id INTO l_adh60_2505a FROM public.inventory_lots WHERE lot_number = 'LOT-ADH60-2505A';
+  SELECT id INTO l_car350_2505  FROM public.inventory_lots WHERE lot_number = 'LOT-CAR350-2505';
+  SELECT id INTO l_p485_2505    FROM public.inventory_lots WHERE lot_number = 'LOT-P485-2505';
+  SELECT id INTO l_p375_2505    FROM public.inventory_lots WHERE lot_number = 'LOT-P375-2505';
+  SELECT id INTO l_plt_2505     FROM public.inventory_lots WHERE lot_number = 'LOT-PLT-2505';
+  SELECT id INTO l_blk_2505     FROM public.inventory_lots WHERE lot_number = 'LOT-BLK-2505';
+  SELECT id INTO l_adh80_2507a FROM public.inventory_lots WHERE lot_number = 'LOT-ADH80-2507A';
+  SELECT id INTO l_adh60_2507a FROM public.inventory_lots WHERE lot_number = 'LOT-ADH60-2507A';
+  SELECT id INTO l_p485_2507    FROM public.inventory_lots WHERE lot_number = 'LOT-P485-2507';
+  SELECT id INTO l_adh80_2510a FROM public.inventory_lots WHERE lot_number = 'LOT-ADH80-2510A';
+  SELECT id INTO l_p485_2510    FROM public.inventory_lots WHERE lot_number = 'LOT-P485-2510';
+  SELECT id INTO l_adh80_2602a FROM public.inventory_lots WHERE lot_number = 'LOT-ADH80-2602A';
+  SELECT id INTO l_adh60_2602a FROM public.inventory_lots WHERE lot_number = 'LOT-ADH60-2602A';
+  SELECT id INTO l_p485_2602    FROM public.inventory_lots WHERE lot_number = 'LOT-P485-2602';
+  SELECT id INTO l_blk_2603     FROM public.inventory_lots WHERE lot_number = 'LOT-BLK-2603';
 
   -- ══════════════════════════════════════════════════════════
   -- STOCK TRANSACTIONS
@@ -271,73 +256,66 @@ BEGIN
   -- ══════════════════════════════════════════════════════════
 
   INSERT INTO public.inventory_stock_transactions
-    (item_id, ot_id, transaction_type, quantity, unit_cost, transaction_date,
-     reference_number, notes)
+    (item_id, lot_id, work_order_id, tx_type, quantity, unit_cost,
+     reference_code, notes, created_at)
   VALUES
     -- May 2025 — opening consumptions
-    (i_couche_80, ot_001, 'egreso', -185.0, 2.10, '2025-05-12',
-     'CON-2025-001', 'Consumo OT-2025-001 LabelCorp NeuroCalm 3.2M'),
-    (i_p485c, ot_001, 'egreso', -0.85, 28.00, '2025-05-12',
-     'CON-2025-001B', 'Pantone 485C OT-2025-001'),
-    (i_couche_60, ot_003, 'egreso', -220.0, 1.80, '2025-05-22',
-     'CON-2025-003', 'Consumo OT-2025-003 Distribuidora 5.5M'),
-    (i_plates_4up, ot_001, 'egreso', -4.0, 18.00, '2025-05-10',
-     'CON-2025-001P', 'Planchas CTP OT-2025-001'),
-
-    -- Aug 2025 crunch consumptions
-    (i_couche_80, ot_018, 'egreso', -420.0, 2.10, '2025-08-11',
-     'CON-2025-018', 'Couche 80gsm OT-018 LabelCorp NeuroCalm Q1'),
-    (i_p485c, ot_018, 'egreso', -1.80, 28.00, '2025-08-11',
-     'CON-2025-018B', 'Pantone 485C OT-018'),
-    (i_couche_80, ot_019, 'egreso', -195.0, 2.10, '2025-08-18',
-     'CON-2025-019', 'Couche 80gsm OT-019 LabelCorp AllerFree Q1'),
-    (i_cartulina_350, ot_020, 'egreso', -580.0, 3.60, '2025-08-11',
-     'CON-2025-020', 'Cartulina 350gsm OT-020 PackBrands HogarMax Q1'),
-    (i_couche_60, ot_021, 'egreso', -310.0, 1.80, '2025-08-18',
-     'CON-2025-021', 'Couche 60gsm OT-021 Distribuidora Promo Verano Q1'),
-
-    -- Emergency purchase Aug 2025 (triggered by low stock)
-    (i_couche_80, NULL, 'ingreso', 2000.0, 2.25, '2025-08-19',
-     'PO-2025-EMG-001',
-     '🚨 COMPRA EMERGENCIA. Stock llegó a 42kg el 18/08. '
-     'Precio +7% urgencia. Proveedor PapelMax entregó en 18h. '
-     'OT-021 casi paralizada. Ver mantenimiento preventivo de stock.'),
+    (i_couche_80,  l_adh80_2505a, ot_001, 'consumption', 185.0, 2.10,
+     'CON-2025-001',  'Consumo OT-2025-001 LabelCorp NeuroCalm 3.2M',    '2025-05-12'),
+    (i_p485c,      l_p485_2505,   ot_001, 'consumption',   0.85, 28.00,
+     'CON-2025-001B', 'Pantone 485C OT-2025-001',                         '2025-05-12'),
+    (i_couche_60,  l_adh60_2505a, ot_003, 'consumption', 220.0, 1.80,
+     'CON-2025-003',  'Consumo OT-2025-003 Distribuidora 5.5M',           '2025-05-22'),
+    (i_plates_4up, l_plt_2505,    ot_001, 'consumption',   4.0, 18.00,
+     'CON-2025-001P', 'Planchas CTP OT-2025-001',                         '2025-05-10'),
 
     -- Jun 2025
-    (i_couche_80, ot_008, 'egreso', -155.0, 2.10, '2025-06-11',
-     'CON-2025-008', 'AllerFree blister Jun LabelCorp'),
-    (i_p485c, ot_008, 'egreso', -0.65, 28.00, '2025-06-11',
-     'CON-2025-008B', 'Pantone 485C OT-008'),
+    (i_couche_80,  l_adh80_2505a, ot_008, 'consumption', 155.0, 2.10,
+     'CON-2025-008',  'AllerFree blister Jun LabelCorp',                  '2025-06-11'),
+    (i_p485c,      l_p485_2505,   ot_008, 'consumption',   0.65, 28.00,
+     'CON-2025-008B', 'Pantone 485C OT-008',                              '2025-06-11'),
+
+    -- Aug 2025 crunch consumptions
+    (i_couche_80,    l_adh80_2507a, ot_018, 'consumption', 420.0, 2.10,
+     'CON-2025-018',  'Couche 80gsm OT-018 LabelCorp NeuroCalm Q1',      '2025-08-11'),
+    (i_p485c,        l_p485_2507,   ot_018, 'consumption',   1.80, 28.00,
+     'CON-2025-018B', 'Pantone 485C OT-018',                              '2025-08-11'),
+    (i_couche_80,    l_adh80_2507a, ot_019, 'consumption', 195.0, 2.10,
+     'CON-2025-019',  'Couche 80gsm OT-019 LabelCorp AllerFree Q1',      '2025-08-18'),
+    (i_cartulina_350, l_car350_2505, ot_020, 'consumption', 580.0, 3.60,
+     'CON-2025-020',  'Cartulina 350gsm OT-020 PackBrands HogarMax Q1',  '2025-08-11'),
+    (i_couche_60,    l_adh60_2507a, ot_021, 'consumption', 310.0, 1.80,
+     'CON-2025-021',  'Couche 60gsm OT-021 Distribuidora Promo Verano Q1','2025-08-18'),
 
     -- Nov 2025 crunch
-    (i_couche_80, ot_034, 'egreso', -510.0, 2.12, '2025-11-10',
-     'CON-2025-034', 'NeuroCalm Q2 LabelCorp — 4M etiquetas'),
-    (i_p485c, ot_034, 'egreso', -2.10, 28.00, '2025-11-10',
-     'CON-2025-034B', 'Pantone 485C OT-034 crunch Q2'),
-    (i_couche_80, ot_036, 'egreso', -620.0, 2.12, '2025-11-10',
-     'CON-2025-036', 'ShineMax Q2 PackBrands — 2M etiquetas'),
-    (i_p375c, ot_036, 'egreso', -1.20, 26.00, '2025-11-10',
-     'CON-2025-036B', 'Pantone 375C OT-036'),
-    (i_couche_60, ot_037, 'egreso', -380.0, 1.80, '2025-11-17',
-     'CON-2025-037', 'Distribuidora Promo Navidad Q2 — 6M — noche'),
+    (i_couche_80,  l_adh80_2510a, ot_034, 'consumption', 510.0, 2.12,
+     'CON-2025-034',  'NeuroCalm Q2 LabelCorp — 4M etiquetas',            '2025-11-10'),
+    (i_p485c,      l_p485_2510,   ot_034, 'consumption',   2.10, 28.00,
+     'CON-2025-034B', 'Pantone 485C OT-034 crunch Q2',                   '2025-11-10'),
+    (i_couche_80,  l_adh80_2510a, ot_036, 'consumption', 620.0, 2.12,
+     'CON-2025-036',  'ShineMax Q2 PackBrands — 2M etiquetas',            '2025-11-10'),
+    (i_p375c,      l_p375_2505,   ot_036, 'consumption',   1.20, 26.00,
+     'CON-2025-036B', 'Pantone 375C OT-036',                              '2025-11-10'),
+    (i_couche_60,  l_adh60_2507a, ot_037, 'consumption', 380.0, 1.80,
+     'CON-2025-037',  'Distribuidora Promo Navidad Q2 — 6M — noche',      '2025-11-17'),
 
     -- Mar 2026 crunch
-    (i_couche_80, ot_011, 'egreso', -490.0, 2.15, '2026-03-09',
-     'CON-2026-011', 'NeuroCalm Q3 LabelCorp — 3.8M — AVERÍA DÍA 3'),
-    (i_p485c, ot_011, 'egreso', -1.95, 28.50, '2026-03-09',
-     'CON-2026-011B', 'Pantone 485C OT-011 Q3'),
-    (i_couche_80, ot_012, 'egreso', -210.0, 2.15, '2026-03-11',
-     'CON-2026-012', 'AllerFree Q3 LabelCorp — 3M — Ryobi #2'),
-    (i_cartulina_350, ot_013, 'egreso', -640.0, 3.60, '2026-03-14',
-     'CON-2026-013', 'HogarMax Q3 PackBrands — 2.4M (1.8M in-house)'),
-    (i_couche_60, ot_014, 'egreso', -350.0, 1.82, '2026-03-17',
-     'CON-2026-014', 'Distrib. Promo Primavera Q3 — noche — 5.8M'),
+    (i_couche_80,    l_adh80_2602a, ot_011, 'consumption', 490.0, 2.15,
+     'CON-2026-011',  'NeuroCalm Q3 LabelCorp — 3.8M — AVERIA DIA 3',    '2026-03-09'),
+    (i_p485c,        l_p485_2602,   ot_011, 'consumption',   1.95, 28.50,
+     'CON-2026-011B', 'Pantone 485C OT-011 Q3',                          '2026-03-09'),
+    (i_couche_80,    l_adh80_2602a, ot_012, 'consumption', 210.0, 2.15,
+     'CON-2026-012',  'AllerFree Q3 LabelCorp — 3M — Ryobi #2',          '2026-03-11'),
+    (i_cartulina_350, l_car350_2505, ot_013, 'consumption', 640.0, 3.60,
+     'CON-2026-013',  'HogarMax Q3 PackBrands — 2.4M (1.8M in-house)',   '2026-03-14'),
+    (i_couche_60,    l_adh60_2602a, ot_014, 'consumption', 350.0, 1.82,
+     'CON-2026-014',  'Distrib. Promo Primavera Q3 — noche — 5.8M',      '2026-03-17'),
 
     -- Blanket replacement (Mar 2026 — after Ryobi #1 repair)
-    (i_blanket, NULL, 'egreso', -1.0, 95.00, '2026-03-13',
+    (i_blanket,    l_blk_2603,    NULL, 'consumption', 1.0, 97.00,
      'MAINT-2026-R1-01',
-     'Reemplazo mantilla Ryobi #1 post-avería cojinete. '
-     'Técnico Impresiones S.A. recomendó cambio preventivo.')
+     'Reemplazo mantilla Ryobi #1 post-averia cojinete. Tecnico Impresiones S.A.',
+     '2026-03-13')
 
   ON CONFLICT DO NOTHING;
 

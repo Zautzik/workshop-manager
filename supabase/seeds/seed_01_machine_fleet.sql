@@ -199,6 +199,33 @@ BEGIN
   IF v_dv2 IS NOT NULL THEN UPDATE public.machines SET brand = 'Ford', model = 'Transit 350 L3H2', serial_number = 'WF0FXXTTGFDF78901', year_manufactured = 2018, description = 'Furgón despacho grande. 1.200 kg. Regiones y clientes volumen.', power_kw = 100.0, maintenance_cost_monthly = 300.00, status = 'idle', is_active = true, workstation_id = v_ws_d WHERE id = v_dv2; END IF;
   IF v_dv3 IS NOT NULL THEN UPDATE public.machines SET brand = 'Renault', model = 'Master L3H2', serial_number = 'VF1MAFB4H54321098', year_manufactured = 2019, description = 'Furgón reparto express y nocturno para entregas urgentes en crunches.', power_kw = 90.0, maintenance_cost_monthly = 320.00, status = 'idle', is_active = true, workstation_id = v_ws_d WHERE id = v_dv3; END IF;
 
+  -- ── Reverse-link: set workstations.machine_id ───────────────────────────
+  -- Each workstation gets a primary machine so the planta_live view works
+  -- correctly. Multi-machine workstations (Puesto Corte, Taller Manual,
+  -- Bodega y Despacho) use the first machine as primary.
+  IF v_ws_a IS NOT NULL AND v_r1 IS NOT NULL THEN
+    UPDATE public.workstations SET machine_id = v_r1 WHERE id = v_ws_a;
+  END IF;
+  IF v_ws_b IS NOT NULL AND v_r2 IS NOT NULL THEN
+    UPDATE public.workstations SET machine_id = v_r2 WHERE id = v_ws_b;
+  END IF;
+  IF v_ws_t IS NOT NULL AND v_dc IS NOT NULL THEN
+    UPDATE public.workstations SET machine_id = v_dc WHERE id = v_ws_t;
+  END IF;
+  -- Puesto Corte: 3 guillotines share this workstation → assign g1 as primary
+  IF v_ws_c IS NOT NULL AND v_g1 IS NOT NULL THEN
+    UPDATE public.workstations SET machine_id = v_g1 WHERE id = v_ws_c;
+  END IF;
+  -- Taller Manual: 6 manual stations share this workstation → assign mw1 as primary
+  IF v_ws_m IS NOT NULL AND v_mw1 IS NOT NULL THEN
+    UPDATE public.workstations SET machine_id = v_mw1 WHERE id = v_ws_m;
+  END IF;
+  -- Pre-Prensa: no dedicated machine in this seed — leave machine_id NULL
+  -- Bodega y Despacho: 3 vans share this workstation → assign dv1 as primary
+  IF v_ws_d IS NOT NULL AND v_dv1 IS NOT NULL THEN
+    UPDATE public.workstations SET machine_id = v_dv1 WHERE id = v_ws_d;
+  END IF;
+
 END $$;
 
 -- ── 3. Machine Costs — 12 months ────────────────────────────

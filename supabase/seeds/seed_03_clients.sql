@@ -142,4 +142,4 @@ VALUES
     'Tiradas cortas urgentes: 100–500K unidades. Margen 40%. Pago rápido.',
     true
   )
-ON CONFLICT (rut) DO NOTHING;
+ON CONFLICT (rut) WHERE rut IS NOT NULL AND rut <> '' DO NOTHING;

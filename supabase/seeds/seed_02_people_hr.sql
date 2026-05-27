@@ -362,7 +362,8 @@ BEGIN
     (e_isabel,     'full_time', '2023-05-15',  40, 9, 50, true,  10, 12, true),
     (e_ricardo,    'full_time', '2020-10-01',  40, 9, 50, true,  10, 12, true),
     (e_pablo,      'full_time', '2021-08-01',  40, 9, 50, true,  10, 12, true),
-    (e_claudia,    'full_time', '2022-01-03',  40, 8, 48, false,  0, 12, true);
+    (e_claudia,    'full_time', '2022-01-03',  40, 8, 48, false,  0, 12, true)
+  ON CONFLICT DO NOTHING;
 
   -- ── Compensation rates ────────────────────────────────────
   -- Hourly rates in USD. OT multipliers per Chilean labor law:
@@ -391,7 +392,8 @@ BEGIN
     (e_isabel,    '2023-05-15',  9.00, 'USD', 1.50, 2.00, 1.35, 1.50, true),
     (e_ricardo,   '2020-10-01', 10.00, 'USD', 1.50, 2.00, 1.35, 1.50, true),
     (e_pablo,     '2021-08-01', 10.00, 'USD', 1.50, 2.00, 1.35, 1.50, true),
-    (e_claudia,   '2022-01-03', 10.00, 'USD', 1.50, 2.00, 1.00, 1.00, true);
+    (e_claudia,   '2022-01-03', 10.00, 'USD', 1.50, 2.00, 1.00, 1.00, true)
+  ON CONFLICT DO NOTHING;
 
   -- ── Employee skills ───────────────────────────────────────
   -- proficiency: 1=beginner, 2=developing, 3=proficient, 4=expert, 5=master
@@ -496,9 +498,9 @@ BEGIN
     -- Valentina
     (e_valentina,'vacation', 96,  96,  0, 16, '2025-05-01', 2025, 8.0, 200, '2025-04-30'),
     (e_valentina,'sick',     40,  40,  0,  0, '2025-05-01', 2025, 4.0,  80, '2025-04-30'),
-    -- Carlos — 7 years; has 16h used for sick in 2024
+    -- Carlos — 7 years; fresh sick balance for 2025 must cover the Nov crunch leave (80h)
     (e_carlos,  'vacation', 104, 104,  0, 24, '2025-05-01', 2025, 8.0, 200, '2025-04-30'),
-    (e_carlos,  'sick',      24,  40, 16,  0, '2025-05-01', 2025, 4.0,  80, '2025-04-30'),
+    (e_carlos,  'sick',      80,  80,  0,  0, '2025-05-01', 2025, 4.0,  80, '2025-04-30'),
     -- Jorge
     (e_jorge,   'vacation',  88,  88,  0,  8, '2025-05-01', 2025, 8.0, 200, '2025-04-30'),
     (e_jorge,   'sick',      40,  40,  0,  0, '2025-05-01', 2025, 4.0,  80, '2025-04-30'),
@@ -521,21 +523,35 @@ BEGIN
     (e_maria,   'vacation',  80,  80,  0, 16, '2025-05-01', 2025, 8.0, 200, '2025-04-30'),
     (e_maria,   'sick',      40,  40,  0,  0, '2025-05-01', 2025, 4.0,  80, '2025-04-30'),
     (e_ricardo, 'vacation',  72,  72,  0,  0, '2025-05-01', 2025, 8.0, 200, '2025-04-30'),
-    (e_ricardo, 'sick',      40,  40,  0,  0, '2025-05-01', 2025, 4.0,  80, '2025-04-30')
+    (e_ricardo, 'sick',      40,  40,  0,  0, '2025-05-01', 2025, 4.0,  80, '2025-04-30'),
+    -- 2026 balances needed for leave requests that span into 2026
+    -- Patricia vacation Jan-26: trigger checks balance_year=2026, must exist
+    (e_patricia, 'vacation',  80,  80,  0, 16, '2026-01-01', 2026, 8.0, 200, '2025-12-31'),
+    (e_patricia, 'sick',      48,  48,  0,  0, '2026-01-01', 2026, 4.0,  80, '2025-12-31')
   ON CONFLICT (employee_id, leave_type, as_of) DO NOTHING;
 
   -- ── Leave requests (educational scenarios) ───────────────
   -- SCENARIO A: Carlos sick leave during Nov-25 crunch → press understaffed
   -- SCENARIO B: Patricia vacation Jan-26 → pre-press covered by Andrea
+  -- Use WHERE NOT EXISTS so the balance-deduction trigger never fires on re-runs
   INSERT INTO public.leave_requests (employee_id, leave_type, status,
     start_date, end_date, hours_requested, reason)
-  VALUES
-    (e_carlos,   'sick',     'approved', '2025-11-10', '2025-11-21', 80,
-     'Diagnóstico: gastroenteritis severa. Médico indica reposo 2 semanas. '
-     'IMPACTO: Ryobi #1 queda con Jorge+Luis en pleno crunch Q2.'),
-    (e_patricia, 'vacation', 'approved', '2026-01-05', '2026-01-16', 80,
-     'Vacaciones planificadas. Andrea cubre pre-prensa.')
-  ON CONFLICT DO NOTHING;
+  SELECT e_carlos, 'sick', 'approved', '2025-11-10', '2025-11-21', 80,
+         'Diagnóstico: gastroenteritis severa. Médico indica reposo 2 semanas. '
+         'IMPACTO: Ryobi #1 queda con Jorge+Luis en pleno crunch Q2.'
+  WHERE NOT EXISTS (
+    SELECT 1 FROM public.leave_requests
+    WHERE employee_id = e_carlos AND leave_type = 'sick' AND start_date = '2025-11-10'
+  );
+
+  INSERT INTO public.leave_requests (employee_id, leave_type, status,
+    start_date, end_date, hours_requested, reason)
+  SELECT e_patricia, 'vacation', 'approved', '2026-01-05', '2026-01-16', 80,
+         'Vacaciones planificadas. Andrea cubre pre-prensa.'
+  WHERE NOT EXISTS (
+    SELECT 1 FROM public.leave_requests
+    WHERE employee_id = e_patricia AND leave_type = 'vacation' AND start_date = '2026-01-05'
+  );
 
   -- ── Incentive awards ─────────────────────────────────────
   -- Show the incentive module in use across the year

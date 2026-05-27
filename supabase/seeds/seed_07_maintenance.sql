@@ -39,11 +39,11 @@ BEGIN
   SELECT id INTO m_g2  FROM public.machines WHERE lower(name) = 'guillotine #2'          LIMIT 1;
 
   -- Resolve employees
-  SELECT id INTO e_carlos     FROM public.employees WHERE rut = '12.345.678-9' LIMIT 1;
-  SELECT id INTO e_jorge      FROM public.employees WHERE rut = '13.456.789-0' LIMIT 1;
-  SELECT id INTO e_miguel     FROM public.employees WHERE rut = '14.567.890-1' LIMIT 1;
-  SELECT id INTO e_ana        FROM public.employees WHERE rut = '15.678.901-2' LIMIT 1;
-  SELECT id INTO e_supervisor FROM public.employees WHERE rut = '11.223.344-5' LIMIT 1;
+  SELECT id INTO e_carlos     FROM public.employees WHERE full_name = 'Carlos Muñoz'       LIMIT 1;
+  SELECT id INTO e_jorge      FROM public.employees WHERE full_name = 'Jorge Herrera'      LIMIT 1;
+  SELECT id INTO e_miguel     FROM public.employees WHERE full_name = 'Miguel Fernández'   LIMIT 1;
+  SELECT id INTO e_ana        FROM public.employees WHERE full_name = 'Ana Martínez'       LIMIT 1;
+  SELECT id INTO e_supervisor FROM public.employees WHERE full_name = 'Eduardo Reyes'      LIMIT 1;
 
   -- ══════════════════════════════════════════════════════════
   -- MAINTENANCE SCHEDULES
