@@ -30,8 +30,8 @@ export async function GET(req: NextRequest) {
     .order('created_at', { ascending: false })
     .range(offset, offset + limit - 1);
 
-  if (status) query = query.eq('review_status', status);
-  if (action) query = query.eq('action_type', action);
+  if (status) query = query.eq('review_status', status as any);
+  if (action) query = query.eq('action_type', action as any);
   if (item_id) query = query.eq('item_id', item_id);
   if (ot_number) query = query.eq('ot_number', ot_number);
 

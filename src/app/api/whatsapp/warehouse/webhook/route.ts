@@ -19,6 +19,7 @@ import crypto from 'crypto';
 import { supabaseAdmin } from '@/integrations/supabase/server';
 import { parseWarehouseMessage } from '@/lib/warehouse-parser';
 import { checkRateLimit, retryAfterSeconds } from '@/lib/rate-limiter';
+import type { Json } from '@/integrations/supabase/types';
 
 /* ─── Input Schema ───────────────────────────────────────────── */
 
@@ -214,7 +215,7 @@ export async function POST(req: NextRequest) {
       const { data: stockData } = await supabaseAdmin
         .from('inventory_items_stock_v')
         .select('current_stock, unit, weighted_unit_cost')
-        .eq('id', itemId)
+        .eq('id', itemId as string)
         .maybeSingle();
 
       // Log but auto-approve
@@ -231,7 +232,7 @@ export async function POST(req: NextRequest) {
           scanned_value: parseResult.qr_item_id || parseResult.barcode_value || '',
           raw_message: body,
           message_timestamp: messageTimestamp,
-          parsed_data: parseResult as unknown as Record<string, unknown>,
+          parsed_data: parseResult as unknown as Json,
           review_status: 'auto_approved',
         });
 
@@ -289,7 +290,7 @@ export async function POST(req: NextRequest) {
         scanned_value: parseResult.qr_item_id || parseResult.barcode_value || '',
         raw_message: body,
         message_timestamp: messageTimestamp,
-        parsed_data: parseResult as unknown as Record<string, unknown>,
+        parsed_data: parseResult as unknown as Json,
         quantity: parseResult.quantity,
         unit,
         unit_cost: parseResult.unit_cost,

@@ -10,6 +10,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/integrations/supabase/server';
 import { hasRole, isAuthError, requireAuth } from '@/lib/api-middleware';
+import type { Json } from '@/integrations/supabase/types';
 
 const PERSONAL_EMPLOYEE_FIELDS = [
 	'email',
@@ -59,7 +60,7 @@ async function logHrComplianceAccess(
 		p_purpose: params.purpose,
 		p_request_path: params.requestPath,
 		p_request_method: params.requestMethod,
-		p_metadata: params.metadata ?? {},
+		p_metadata: (params.metadata ?? {}) as unknown as Json,
 	});
 
 	if (error) {
@@ -233,7 +234,7 @@ export async function DELETE(
 
 		const { data: employee, error } = await supabase
 			.from('employees')
-			.update({ status: 'archived' })
+			.update({ status: 'archived' as any })
 			.eq('id', id)
 			.select()
 			.single();

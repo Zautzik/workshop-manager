@@ -11,6 +11,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/integrations/supabase/server';
 import { hasRole, isAuthError, requireAuth } from '@/lib/api-middleware';
+import type { Json } from '@/integrations/supabase/types';
 
 const PERSONAL_EMPLOYEE_FIELDS = [
 	'email',
@@ -50,13 +51,13 @@ async function logHrComplianceAccess(
 ) {
 	const { error } = await supabase.rpc('log_hr_compliance_access', {
 		p_table_name: params.tableName,
-		p_record_id: null,
-		p_employee_id: null,
+		p_record_id: undefined,
+		p_employee_id: undefined,
 		p_access_type: params.accessType,
 		p_purpose: params.purpose,
 		p_request_path: params.requestPath,
 		p_request_method: params.requestMethod,
-		p_metadata: params.metadata ?? {},
+		p_metadata: (params.metadata ?? {}) as unknown as Json,
 	});
 
 	if (error) {
@@ -138,7 +139,7 @@ export async function GET(request: NextRequest) {
 			`,
 				{ count: 'exact' }
 			)
-			.eq('status', status)
+			.eq('status', status as any)
 			.order('full_name', { ascending: true })
 			.range(offset, offset + limit - 1);
 

@@ -26,7 +26,7 @@ export async function POST() {
         name: node.name,
         description: node.description,
         category: node.category,
-        skill_tree_type: node.skillTreeType,
+        skill_tree_type: node.skillTreeType as any,
         is_active: true,
         display_order: node.tier * 100 + SKILL_NODES.indexOf(node),
         icon_name: node.icon,

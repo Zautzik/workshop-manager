@@ -19,7 +19,7 @@ async function buildSnapshotMetrics() {
       .select('id', { count: 'exact', head: true })
       .in('status', ['offset_printing', 'die_cutting', 'workshop', 'in_delivery']),
     supabaseAdmin.from('employees').select('id', { count: 'exact', head: true }),
-    supabaseAdmin.from('machines').select('id', { count: 'exact', head: true }).eq('status', 'active'),
+    supabaseAdmin.from('machines').select('id', { count: 'exact', head: true }).eq('status', 'running'),
     supabaseAdmin.from('ot_approvals').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
     supabaseAdmin
       .from('ots')

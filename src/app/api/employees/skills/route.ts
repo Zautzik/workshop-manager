@@ -67,6 +67,7 @@ export async function PUT(request: NextRequest) {
     const body = await request.json();
     const url = new URL(request.url);
     const skillId = url.pathname.split('/').pop();
+    if (!skillId) return NextResponse.json({ error: 'Missing skill id' }, { status: 400 });
 
     const {
       proficiency_level,
@@ -110,6 +111,7 @@ export async function DELETE(request: NextRequest) {
     const supabase = supabaseAdmin;
     const url = new URL(request.url);
     const skillId = url.pathname.split('/').pop();
+    if (!skillId) return NextResponse.json({ error: 'Missing skill id' }, { status: 400 });
 
     const { error } = await supabase
       .from('employee_skills')

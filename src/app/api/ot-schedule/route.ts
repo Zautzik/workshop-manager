@@ -93,10 +93,11 @@ export async function POST(req: NextRequest) {
 	if (estimated == null) {
 		const { data: est } = await supabaseAdmin.rpc('estimate_ot_hours', {
 			p_ot_id: parsed.data.ot_id,
-			p_machine_type: null,
+			p_machine_type: undefined,
 		});
-		if (est && !est.error) {
-			estimated = est.estimated_hours ?? null;
+		const estData = est as { error?: string; estimated_hours?: number } | null;
+		if (estData && !estData.error) {
+			estimated = estData.estimated_hours ?? null;
 		}
 	}
 

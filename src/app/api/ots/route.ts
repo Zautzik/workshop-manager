@@ -106,9 +106,19 @@ const CreateOTSchema = z.object({
 // max:200 prevents full-table fetches; callers that need more should filter
 // by status/date on the server rather than fetching everything client-side.
 const PageSchema = z.object({
-	page:  z.coerce.number().int().min(1).default(1),
-	limit: z.coerce.number().int().min(1).max(200).default(50),
+	page:   z.coerce.number().int().min(1).default(1),
+	limit:  z.coerce.number().int().min(1).max(200).default(50),
+	active: z.string().optional(), // 'true' → filter to in-flight statuses only
 });
+
+// Statuses that represent an OT actively moving through the workflow.
+// Mirrors activeOTStatuses in use-workflow-queries.ts.
+const ACTIVE_OT_STATUSES = [
+	'pre_press', 'visto_bueno', 'paper_purchase', 'in_storage',
+	'guillotine_first_cut', 'offset_printing', 'die_cutting',
+	'guillotine_final_cut', 'workshop', 'outsourced', 'workshop_revision',
+	'ready_for_delivery', 'in_delivery',
+] as const;
 
 export async function GET(req: NextRequest) {
 	const auth = await requireAuth();
@@ -122,19 +132,24 @@ export async function GET(req: NextRequest) {
 			{ status: 400 }
 		);
 	}
-	const { page, limit } = pagination.data;
+	const { page, limit, active } = pagination.data;
 	const offset = (page - 1) * limit;
 
 	try {
-		const { data, error, count } = await supabaseAdmin
+		let query = supabaseAdmin
 			.from('ots')
 			.select(
 				'*, workstation:workstations(*), machine:machines!assigned_machine_id(id,name,brand,model,type,status,location,colors,nominal_speed_sheets_hr,power_kw)',
 				{ count: 'exact' }
 			)
 			.order('priority', { ascending: false })
-			.order('created_at', { ascending: false })
-			.range(offset, offset + limit - 1);
+			.order('created_at', { ascending: false });
+
+		if (active === 'true') {
+			query = query.in('status', ACTIVE_OT_STATUSES as unknown as string[]);
+		}
+
+		const { data, error, count } = await query.range(offset, offset + limit - 1);
 
 		if (error) {
 			console.error('Error fetching OTs:', error);

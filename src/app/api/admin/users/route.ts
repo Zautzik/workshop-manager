@@ -2,11 +2,16 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { requireAuth, isAuthError } from '@/lib/api-middleware';
 import { supabaseAdmin } from '@/integrations/supabase/server';
+import { MIN_PASSWORD_LENGTH, MAX_PASSWORD_LENGTH, checkPassword } from '@/lib/password-policy';
 import type { AppRole } from '@/types/app-role';
 
 const CreateUserSchema = z.object({
 	email: z.string().email().max(255),
-	password: z.string().min(6).max(128),
+	password: z
+		.string()
+		.min(MIN_PASSWORD_LENGTH, `Password must be at least ${MIN_PASSWORD_LENGTH} characters.`)
+		.max(MAX_PASSWORD_LENGTH)
+		.refine((p) => checkPassword(p).ok, (p) => ({ message: checkPassword(p).reason ?? 'Invalid password.' })),
 	name: z.string().min(1).max(255).optional(),
 	role: z.enum(['supervisor', 'manager', 'hr_manager', 'admin', 'technician']),
 	department: z.string().max(100).optional().nullable(),
@@ -47,9 +52,7 @@ export async function GET(request: NextRequest) {
 			.in('user_id', userIds.length > 0 ? userIds : ['__none__']);
 
 		const usersWithRoles = authUsers.map((u) => {
-			const userRole = (roles ?? []).find((r: { user_id: string }) => r.user_id === u.id) as
-				| { role: AppRole; id: string; department?: string; manager_domain?: string }
-				| undefined;
+			const userRole = (roles ?? []).find((r) => r.user_id === u.id);
 			return {
 				id: u.id,
 				email: u.email,

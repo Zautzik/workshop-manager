@@ -19,6 +19,7 @@ import { supabaseAdmin } from '@/integrations/supabase/server';
 import { parseWhatsAppMessage } from '@/lib/whatsapp-parser';
 import { inferProductionCosts, type OTContext } from '@/lib/whatsapp-cost-inference';
 import { checkRateLimit, retryAfterSeconds } from '@/lib/rate-limiter';
+import type { Json } from '@/integrations/supabase/types';
 
 /* ─── Input Schema ───────────────────────────────────────────── */
 
@@ -309,8 +310,8 @@ export async function POST(req: NextRequest) {
           message_type: 'end',
           raw_message: body,
           message_timestamp: messageTimestamp,
-          parsed_data: parseResult.production_data,
-          inferred_costs: inferredCosts,
+          parsed_data: parseResult.production_data as unknown as Json,
+          inferred_costs: inferredCosts as unknown as Json,
           start_log_id: startLogId,
           elapsed_minutes: elapsedMinutes,
           review_status: 'pending', // END messages need supervisor review

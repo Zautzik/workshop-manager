@@ -97,7 +97,7 @@ export async function GET(req: NextRequest) {
         workstation:workstations(id, name),
         machine:machines!assigned_machine_id(id, name, type)
       `)
-      .in('status', ACTIVE_OT_STATUSES as unknown as string[])
+      .in('status', ACTIVE_OT_STATUSES as any)
       .order('priority', { ascending: false })
       .order('created_at', { ascending: false }),
   ]);

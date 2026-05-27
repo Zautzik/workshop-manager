@@ -117,21 +117,58 @@ export async function POST(req: NextRequest) {
       successIds.push(otId);
     }
 
-    // ── Batch update: 1 query for all passing OTs ─────────────────────────
+    // ── Batch update with concurrency guard ──────────────────────────────
+    // Group successIds by fromStatus so each UPDATE can add a WHERE clause
+    // checking the current status hasn't changed since we pre-fetched.
+    // This prevents a TOCTOU race where two concurrent bulk-transition
+    // requests both read the same OT, both pass validation, and the second
+    // write silently overwrites a status set by the first.
     if (successIds.length > 0) {
-      const { error: updateError } = await supabaseAdmin
-        .from('ots')
-        .update({ status: toStatus, updated_at: nowIso })
-        .in('id', successIds);
+      // Build groups: fromStatus → ids that were in that status at read time.
+      const byFromStatus = new Map<string, string[]>();
+      for (const id of successIds) {
+        const from = otMap.get(id)!.status;
+        const group = byFromStatus.get(from) ?? [];
+        group.push(id);
+        byFromStatus.set(from, group);
+      }
 
-      if (updateError) {
-        // Treat all as failed if the batch update itself errors.
+      // Run one UPDATE per fromStatus group — each scoped by .eq('status', fromStatus)
+      // so rows modified since our pre-fetch are left untouched.
+      const updateResults = await Promise.all(
+        [...byFromStatus.entries()].map(([fromStatus, ids]) =>
+          supabaseAdmin
+            .from('ots')
+            .update({ status: toStatus, updated_at: nowIso })
+            .in('id', ids)
+            .eq('status', fromStatus as OTWorkflowStatus)   // ← concurrency guard
+            .select('id'),
+        ),
+      );
+
+      const hardError = updateResults.find((r) => r.error);
+      if (hardError) {
+        // DB-level failure — treat the entire batch as failed.
         failedCount += successIds.length;
         failures.push(
-          ...successIds.map((id) => ({ ot_id: id, error: 'Failed to update OT status' }))
+          ...successIds.map((id) => ({ ot_id: id, error: 'Failed to update OT status' })),
         );
       } else {
-        successCount = successIds.length;
+        // Collect the IDs that were actually written.
+        const updatedIds = new Set<string>(
+          updateResults.flatMap(({ data }) =>
+            (data ?? []).map((r: { id: string }) => r.id),
+          ),
+        );
+        // Any successId not in updatedIds was modified by a concurrent request.
+        for (const id of successIds) {
+          if (updatedIds.has(id)) {
+            successCount += 1;
+          } else {
+            failedCount += 1;
+            failures.push({ ot_id: id, error: 'Concurrent modification — transition skipped' });
+          }
+        }
       }
     }
 

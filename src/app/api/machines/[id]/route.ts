@@ -1,15 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
+import { revalidateTag } from 'next/cache';
 import { requireAuth, isAuthError } from '@/lib/api-middleware';
 import { supabaseAdmin } from '@/integrations/supabase/server';
+import { MACHINE_STATUS_VALUES } from '@/types/machine-status';
+import { MACHINE_TYPE_VALUES } from '@/types/machine-type';
 
 const nullableString = z.string().max(5000).nullable().optional();
 const nullableNumber = z.number().nullable().optional();
 
 const UpdateMachineSchema = z.object({
 	name: z.string().min(1).max(255).optional(),
-	type: z.enum(['offset_printer', 'die_cutter', 'guillotine', 'digital_printer', 'pre_press', 'manual_workshop', 'delivery']).optional(),
-	status: z.enum(['idle', 'running', 'maintenance', 'offline', 'setup', 'breakdown']).optional(),
+	type: z.enum(MACHINE_TYPE_VALUES).optional(),
+	status: z.enum(MACHINE_STATUS_VALUES).optional(),
 	brand: nullableString,
 	model: nullableString,
 	serial_number: nullableString,
@@ -98,6 +101,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 		}
 		if (!data) return NextResponse.json({ error: 'Machine not found' }, { status: 404 });
 
+		revalidateTag('machines', 'max');
 		return NextResponse.json(data);
 	} catch (error) {
 		console.error('Error updating machine:', error);
@@ -125,6 +129,7 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
 			return NextResponse.json({ error: 'Failed to delete machine' }, { status: 500 });
 		}
 
+		revalidateTag('machines', 'max');
 		return NextResponse.json({ success: true });
 	} catch (error) {
 		console.error('Error deleting machine:', error);

@@ -24,7 +24,7 @@ export async function GET(
 		// Fetch OT header
 		const { data: ot, error: otErr } = await supabaseAdmin
 			.from('ots')
-			.select('id, ot_number, client_name, product_name, quantity, status, created_at, pricing, calculations')
+			.select('id, ot_number, client_name, product_name, quantity, status, created_at, total_price')
 			.eq('id', id)
 			.single();
 
@@ -162,8 +162,6 @@ export async function GET(
 			: null;
 
 		// Pricing info from OT
-		const pricing = (ot.pricing as Record<string, number>) ?? {};
-		const calculations = (ot.calculations as Record<string, number>) ?? {};
 
 		const analysis = {
 			ot: {
@@ -174,7 +172,7 @@ export async function GET(
 				quantity: ot.quantity,
 				status: ot.status,
 				created_at: ot.created_at,
-				budget_amount: pricing.total_price ?? calculations.grand_total ?? 0,
+						budget_amount: ot.total_price ?? 0,
 			},
 			summary: {
 				total_estimated: Math.round(totalEstimated * 100) / 100,

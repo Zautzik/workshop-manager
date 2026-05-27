@@ -75,10 +75,10 @@ export async function POST(
   const { data: newOT, error: insertErr } = await supabaseAdmin
     .from('ots')
     .insert({
-      ...rest,
+      ...rest as any,
       ot_number: `${ot_number}-${newLabel}`,
       quantity: advance_quantity,
-      status: target_status,
+      status: target_status as any,
       is_partial: true,
       split_group_id: splitGroupId,
       split_label: newLabel,

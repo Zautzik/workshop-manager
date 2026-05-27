@@ -127,7 +127,7 @@ export async function PATCH(
 		const { data, error } = await supabaseAdmin
 			.from('ots')
 			.update({
-				...otFields,
+				...(otFields as any),
 				updated_at: new Date().toISOString(),
 			})
 			.eq('id', id)

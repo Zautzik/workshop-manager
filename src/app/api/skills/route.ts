@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
       query = query.eq('category', category);
     }
     if (type) {
-      query = query.eq('skill_tree_type', type);
+      query = query.eq('skill_tree_type', type as any);
     }
 
     let { data: skills, error } = await query.order('display_order', { ascending: true });
@@ -44,7 +44,7 @@ export async function GET(request: NextRequest) {
       const fallbackResult = await fallbackSelect.order('name', { ascending: true });
       skills = (fallbackResult.data || []).map((skill) => ({
         ...skill,
-        skill_tree_type: null,
+        skill_tree_type: null as any,
         parent_skill_id: null,
         display_order: null,
         is_certification_required: false,

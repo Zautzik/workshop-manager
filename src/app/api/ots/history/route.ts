@@ -25,7 +25,7 @@ export async function GET(req: NextRequest) {
 			query = query.ilike('client_name', `%${client}%`);
 		}
 		if (productType) {
-			query = query.eq('product_type', productType);
+			query = query.eq('product_type', productType as any);
 		}
 
 		const { data, error } = await query;
