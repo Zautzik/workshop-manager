@@ -272,7 +272,7 @@ export function useUpdateTask() {
       estimated_minutes?: number | null;
       task_number?: number | null;
     }) => {
-      const { error } = await supabase.from('program_tasks').update(patch).eq('id', id);
+      const { error } = await supabase.from('program_tasks').update(patch as any).eq('id', id);
       if (error) throw error;
     },
     onSuccess: (_result, { programId }) => {
@@ -298,7 +298,7 @@ export function useCreateTask() {
     }) => {
       const { data, error } = await supabase
         .from('program_tasks')
-        .insert({ ...task, is_active: true })
+        .insert({ ...task, is_active: true } as any)
         .select()
         .single();
       if (error) throw error;

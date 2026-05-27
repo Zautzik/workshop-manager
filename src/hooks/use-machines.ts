@@ -2,19 +2,12 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import type { MachineStatus } from '@/types/machine-status';
+export type { MachineStatus } from '@/types/machine-status';
+import type { MachineType } from '@/types/machine-type';
+export type { MachineType } from '@/types/machine-type';
 
-// ─── Types ────────────────────────────────────────────────────────────────────
-
-export type MachineType =
-  | 'offset_printer'
-  | 'die_cutter'
-  | 'guillotine'
-  | 'digital_printer'
-  | 'pre_press'
-  | 'manual_workshop'
-  | 'delivery';
-
-export type MachineStatus = 'idle' | 'running' | 'maintenance' | 'offline' | 'setup' | 'breakdown';
+// ─── Types ────────────────────────────────────────────────────────────────────────────────
 
 export interface Machine {
   id: string;
@@ -274,13 +267,16 @@ export function useUpsertMachine() {
 
         return payload;
       } else {
-        const { data, error } = await supabase
-          .from('machines')
-          .insert(rest)
-          .select()
-          .single();
-        if (error) throw error;
-        return data;
+        const response = await fetch('/api/machines', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify(rest),
+        });
+        let payload: any = null;
+        try { payload = await response.json(); } catch { payload = null; }
+        if (!response.ok) throw new Error(payload?.error || 'Failed to create machine');
+        return payload;
       }
     },
     onSuccess: () => {
@@ -325,11 +321,16 @@ export function useUpdateMachineStatus() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ id, status }: { id: string; status: MachineStatus }) => {
-      const { error } = await supabase
-        .from('machines')
-        .update({ status, updated_at: new Date().toISOString() })
-        .eq('id', id);
-      if (error) throw error;
+      const response = await fetch(`/api/machines/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ status }),
+      });
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null);
+        throw new Error(payload?.error || 'Failed to update machine status');
+      }
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: Q.all });

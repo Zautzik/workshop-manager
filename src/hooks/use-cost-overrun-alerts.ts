@@ -43,11 +43,11 @@ export function useCostOverrunAlerts() {
       const pct       = Math.round(((actual - estimated) / estimated) * 100);
 
       try {
-        await (supabase as any)
+        await supabase
           .from('notifications')
           .insert({
             user_id:       user.id,
-            type:          'cost_overrun',
+            type:          'cost_overrun' as any,
             title:         `⚠️ Desvío de costo: ${ot.ot_number ?? ot.id}`,
             message:       `OT "${ot.ot_number ?? ot.id}" supera el presupuesto en ${pct}%. Estimado: $${estimated.toFixed(0)} — Real: $${actual.toFixed(0)}`,
             resource_type: 'ot',

@@ -2,7 +2,6 @@
  * @fileoverview API Request Hook (useApi)
  * 
  * SYSTEM ROLE: HTTP Client / API Communication Layer
- * ORGAN ANALOGY: The "Postal Service" - Handles all communication with backend API
  * 
  * Custom React hook that provides methods for making authenticated HTTP requests:
  * 

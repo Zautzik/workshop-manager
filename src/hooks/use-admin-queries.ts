@@ -45,7 +45,7 @@ export function useInventory() {
   return useQuery<any[]>({
     queryKey: queryKeys.inventory,
     queryFn: async () => {
-      const { data, error } = await supabase.from('inventory_items_stock_v' as any).select('*').order('name');
+      const { data, error } = await supabase.from('inventory_items_stock_v').select('*').order('name');
       if (error) throw error;
       return (data ?? []) as any[];
     },
@@ -56,7 +56,7 @@ export function useInventoryItems() {
   return useQuery<any[]>({
     queryKey: queryKeys.inventoryItems,
     queryFn: async () => {
-      const { data, error } = await supabase.from('inventory_items_stock_v' as any).select('*').order('name');
+      const { data, error } = await supabase.from('inventory_items_stock_v').select('*').order('name');
       if (error) throw error;
       return (data ?? []) as any[];
     },
@@ -68,7 +68,7 @@ export function useInventoryLots(itemId?: string | null) {
     queryKey: queryKeys.inventoryLots(itemId),
     queryFn: async () => {
       let query = supabase
-        .from('inventory_lots' as any)
+        .from('inventory_lots')
         .select('*, inventory_items(name, sku, category, unit)')
         .order('received_date', { ascending: false });
 
@@ -88,7 +88,7 @@ export function useInventoryTransactions() {
     queryKey: queryKeys.inventoryTransactions,
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('inventory_stock_transactions_v' as any)
+        .from('inventory_stock_transactions_v')
         .select('*')
         .order('created_at', { ascending: false });
       if (error) throw error;

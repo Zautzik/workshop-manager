@@ -2,7 +2,6 @@
  * @fileoverview Toast Notification Hook (useToast)
  * 
  * SYSTEM ROLE: Notification System Manager
- * ORGAN ANALOGY: The "Notification Bell" - Displays temporary user alerts
  * 
  * Manages toast notifications across the application:
  * - toast(options): Shows a new notification with optional title, description, action

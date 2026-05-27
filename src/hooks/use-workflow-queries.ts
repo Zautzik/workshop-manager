@@ -127,14 +127,11 @@ export function useActiveOTs() {
   return useQuery({
     queryKey: [...queryKeys.ots, 'active'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('ots')
-        .select(OT_SELECT)
-        .in('status', activeOTStatuses as unknown as string[])
-        .order('priority', { ascending: false })
-        .order('created_at', { ascending: false });
-      if (error) throw error;
-      return data ?? [];
+      const res = await fetch('/api/ots?active=true&limit=200', { credentials: 'include' });
+      if (!res.ok) throw new Error(`Failed to fetch active OTs: ${res.status}`);
+      const payload = await res.json();
+      // Unwrap paginated envelope { data, total, ... }; fall back to plain array.
+      return (Array.isArray(payload) ? payload : (payload?.data ?? [])) as any[];
     },
   });
 }
@@ -143,17 +140,9 @@ export function useDaySchedule(date: string) {
   return useQuery({
     queryKey: ['schedule', 'day', date],
     queryFn: async () => {
-      const dayStart = `${date}T00:00:00.000Z`;
-      const dayEnd = `${date}T23:59:59.999Z`;
-      const { data, error } = await supabase
-        .from('ot_machine_schedule')
-        .select(SCHEDULE_SELECT)
-        .gte('scheduled_start', dayStart)
-        .lte('scheduled_start', dayEnd)
-        .order('sort_order', { ascending: true })
-        .order('scheduled_start', { ascending: true });
-      if (error) throw error;
-      return data ?? [];
+      const res = await fetch(`/api/ot-schedule?date=${date}`, { credentials: 'include' });
+      if (!res.ok) throw new Error(`Failed to fetch day schedule: ${res.status}`);
+      return (await res.json()) ?? [];
     },
     enabled: !!date,
   });
@@ -203,30 +192,19 @@ export function useUnscheduledOTs(date: string) {
   return useQuery({
     queryKey: ['schedule', 'unscheduled', date],
     queryFn: async () => {
-      const dayStart = `${date}T00:00:00.000Z`;
-      const dayEnd = `${date}T23:59:59.999Z`;
+      const [slotsRes, otsRes] = await Promise.all([
+        fetch(`/api/ot-schedule?date=${date}`, { credentials: 'include' }),
+        fetch('/api/ots?active=true&limit=200', { credentials: 'include' }),
+      ]);
+      if (!slotsRes.ok) throw new Error(`Failed to fetch schedule slots: ${slotsRes.status}`);
+      if (!otsRes.ok) throw new Error(`Failed to fetch active OTs: ${otsRes.status}`);
 
-      const { data: slots } = await supabase
-        .from('ot_machine_schedule')
-        .select('ot_id')
-        .gte('scheduled_start', dayStart)
-        .lte('scheduled_start', dayEnd);
+      const slots = (await slotsRes.json()) as any[];
+      const otsPayload = await otsRes.json();
+      const allActive: any[] = Array.isArray(otsPayload) ? otsPayload : (otsPayload?.data ?? []);
 
-      const scheduledIds = (slots ?? []).map((slot: any) => slot.ot_id);
-
-      let query = supabase
-        .from('ots')
-        .select(OT_SELECT)
-        .in('status', activeOTStatuses as unknown as string[])
-        .order('priority', { ascending: false });
-
-      if (scheduledIds.length > 0) {
-        query = query.not('id', 'in', `(${scheduledIds.join(',')})`);
-      }
-
-      const { data, error } = await query;
-      if (error) throw error;
-      return data ?? [];
+      const scheduledIds = new Set(slots.map((slot) => slot.ot_id));
+      return allActive.filter((ot) => !scheduledIds.has(ot.id));
     },
     enabled: !!date,
   });
@@ -236,9 +214,9 @@ export function useShifts() {
   return useQuery({
     queryKey: queryKeys.shifts,
     queryFn: async () => {
-      const { data, error } = await supabase.from('shifts').select('*').order('start_time');
-      if (error) throw error;
-      return data ?? [];
+      const res = await fetch('/api/shifts', { credentials: 'include' });
+      if (!res.ok) throw new Error(`Failed to fetch shifts: ${res.status}`);
+      return (await res.json()) ?? [];
     },
   });
 }
@@ -247,11 +225,9 @@ export function useWorkstations() {
   return useQuery({
     queryKey: queryKeys.workstations,
     queryFn: async () => {
-      const { data: workstationData, error: workstationError } = await supabase
-        .from('workstations')
-        .select('*')
-        .order('name');
-      if (workstationError) throw workstationError;
+      const wsRes = await fetch('/api/workstations', { credentials: 'include' });
+      if (!wsRes.ok) throw new Error(`Failed to fetch workstations: ${wsRes.status}`);
+      const workstationData: any[] = (await wsRes.json()) ?? [];
 
       const machineRes = await fetch('/api/machines', {
         credentials: 'include',
@@ -647,7 +623,7 @@ export function useInventoryItems() {
     queryKey: queryKeys.inventoryItems,
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('inventory_items_stock_v' as any)
+        .from('inventory_items_stock_v')
         .select('*')
         .order('name');
       if (error) throw error;

@@ -271,7 +271,7 @@ export function useLeaveBalance(employeeId: string, leaveType?: string) {
 				.eq('balance_year', new Date().getFullYear());
 
 			if (leaveType) {
-				query = query.eq('leave_type', leaveType);
+				query = query.eq('leave_type', leaveType as any);
 			}
 
 			const { data, error } = await query;
@@ -328,7 +328,7 @@ export function useCreateLeaveRequest() {
 				.insert([
 					{
 						employee_id: data.employee_id,
-						leave_type: data.leave_type,
+						leave_type: data.leave_type as any,
 						start_date: data.start_date,
 						end_date: data.end_date,
 						hours_requested: data.hours_requested ?? 0,

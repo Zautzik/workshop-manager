@@ -2,7 +2,6 @@
  * @fileoverview Mobile Responsive Detection Hook
  * 
  * SYSTEM ROLE: Responsive Design Detection
- * ORGAN ANALOGY: The "Weather Sensor" - Detects viewport size for responsive behavior
  * 
  * Custom hook that detects if device is mobile (viewport < 768px):
  * 

@@ -23,16 +23,14 @@ export function useWorkers() {
   return useQuery({
     queryKey: queryKeys.workers(),
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('employees')
-        .select(
-          'id, full_name, department, sheets_per_hour, teamwork_rating, overtime_availability, attendance_score, lateness_minutes, quality_score, speed_score, overall_rating'
-        )
-        .order('full_name');
-      if (error) throw error;
-      return (data ?? []).map((employee: any) => ({
+      // Use the API route so supabaseAdmin bypasses RLS (dev bypass has no JWT).
+      const res = await fetch('/api/workers?limit=200', { credentials: 'include' });
+      if (!res.ok) throw new Error(`Failed to fetch workers: ${res.status}`);
+      const payload = await res.json();
+      const rows: any[] = Array.isArray(payload) ? payload : (payload?.data ?? []);
+      return rows.map((employee: any) => ({
         ...employee,
-        name: employee.full_name,
+        name: employee.full_name ?? employee.name,
       }));
     },
   });
@@ -117,13 +115,11 @@ export function useOTs() {
   return useQuery({
     queryKey: queryKeys.ots,
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('ots')
-        .select(OT_SELECT)
-        .order('priority', { ascending: false })
-        .order('created_at', { ascending: false });
-      if (error) throw error;
-      return data ?? [];
+      // Use the API route so supabaseAdmin bypasses RLS (dev bypass has no JWT).
+      const res = await fetch('/api/ots?limit=200', { credentials: 'include' });
+      if (!res.ok) throw new Error(`Failed to fetch OTs: ${res.status}`);
+      const payload = await res.json();
+      return (Array.isArray(payload) ? payload : (payload?.data ?? [])) as any[];
     },
   });
 }
