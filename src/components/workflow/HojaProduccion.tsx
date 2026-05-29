@@ -302,7 +302,7 @@ export function HojaProduccion() {
         </Card>
       ) : (
         machineGroups.map(({ machine, slots: mSlots }) => {
-          const totalHrs = mSlots.reduce((acc, s) => {
+          const totalHrs = mSlots.reduce((acc: number, s: any) => {
             return acc + (Number((s as any).hours_override ?? (s as any).estimated_hours ?? 0));
           }, 0);
           return (
@@ -353,7 +353,7 @@ export function HojaProduccion() {
                     </tr>
                   </thead>
                   <tbody>
-                    {mSlots.map((slot: any, idx) => {
+                    {mSlots.map((slot: any, idx: number) => {
                       const ot = slot.ot;
                       if (!ot) return null;
                       const hrs = slot.hours_override ?? slot.estimated_hours;

@@ -146,7 +146,7 @@ export async function GET(req: NextRequest) {
 			.order('created_at', { ascending: false });
 
 		if (active === 'true') {
-			query = query.in('status', ACTIVE_OT_STATUSES as unknown as string[]);
+			query = query.in('status', [...ACTIVE_OT_STATUSES]);
 		}
 
 		const { data, error, count } = await query.range(offset, offset + limit - 1);

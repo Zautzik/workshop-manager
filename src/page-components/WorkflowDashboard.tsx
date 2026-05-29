@@ -1191,7 +1191,7 @@ export default function WorkflowDashboard({ initialTab = 'en_proceso' }: Workflo
               <div className="flex items-center gap-1.5 mb-3">
                 <Clock className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
                 <span className="text-xs text-muted-foreground">Turno:</span>
-                {shifts.map((shift) => (
+                {shifts.map((shift: any) => (
                   <Button
                     key={shift.id}
                     size="sm"
