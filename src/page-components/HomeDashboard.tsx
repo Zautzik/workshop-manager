@@ -1,6 +1,5 @@
 'use client';
 
-import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -202,9 +201,7 @@ export default function HomeDashboard() {
   const { user, role } = useAuth();
   const { language } = useLanguage();
   const { theme } = useTheme();
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
-  const isDark = mounted && theme === 'dark';
+  const isDark = theme === 'dark';
   const router = useRouter();
 
   const visibleActions = quickActions.filter(

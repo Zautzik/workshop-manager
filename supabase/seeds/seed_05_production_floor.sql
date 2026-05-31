@@ -267,6 +267,26 @@ BEGIN
   ON CONFLICT DO NOTHING;
 
   -- ══════════════════════════════════════════════════════════
+
+  -- ══════════════════════════════════════════════════════════
+  -- WORKER ASSIGNMENTS (simulate a functioning press floor)
+  -- ══════════════════════════════════════════════════════════
+
+  -- Assign main operators to workstations for a sample day shift
+  INSERT INTO public.worker_assignments (employee_id, workstation_id, shift_id, role)
+  VALUES
+    (e_carlos,   ws_r1, s_may_d, 'operator'),      -- Carlos on Ryobi #1
+    (e_jorge,    ws_r2, s_may_d, 'operator'),      -- Jorge on Ryobi #2
+    (e_miguel,   ws_dc, s_may_d, 'operator'),      -- Miguel on Die Cutter
+    (e_ana,      NULL,  s_may_d, 'guillotine'),    -- Ana on Guillotine #1 (no ws, assign by machine if needed)
+    (e_roberto,  NULL,  s_may_d, 'finisher'),      -- Roberto as manual finisher
+    (e_carmen,   NULL,  s_may_d, 'finisher'),      -- Carmen as manual finisher
+    (e_patricia, NULL,  s_may_d, 'prepress'),      -- Patricia in pre-press
+    (e_andrea,   NULL,  s_may_d, 'prepress'),      -- Andrea in pre-press
+    (e_luis,     ws_r2, s_may_d, 'backup'),        -- Luis as backup on Ryobi #2
+    (e_supervisor, NULL, s_may_d, 'supervisor')    -- Supervisor (not assigned to a machine)
+  ON CONFLICT DO NOTHING;
+
   -- WHATSAPP PRODUCTION LOGS
   -- Sample messages from operators during crunch periods.
   -- Mix of: shift start, progress updates, problem reports,

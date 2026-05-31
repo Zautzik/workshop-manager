@@ -27,10 +27,10 @@ export default function WhatsAppPage() {
       <div className="p-6 space-y-6">
         <div>
           <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-            ðŸ“± WhatsApp â€” Control de ProducciÃ³n
+            📱 WhatsApp — Control de Producción
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Reportes de producciÃ³n en tiempo real desde el taller. Los operarios envÃ­an inicio y fin de trabajo vÃ­a WhatsApp.
+            Reportes de producción en tiempo real desde el taller. Los operarios envían inicio y fin de trabajo vía WhatsApp.
           </p>
         </div>
         <WhatsAppDashboard />
