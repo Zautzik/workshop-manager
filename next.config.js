@@ -14,11 +14,11 @@
  * @type {import('next').NextConfig}
  */
 // ---------------------------------------------------------------------------
-// Static security headers â€” applied to every response via next.config.js.
+// Static security headers applied to every response via next.config.js.
 //
-// CSP is intentionally omitted here: it is injected per-request with a
-// cryptographic nonce by src/middleware.ts so that 'unsafe-inline' is never
-// needed for scripts.  Only non-nonce headers live here.
+// Content-Security-Policy is intentionally omitted here because src/proxy.ts
+// injects a stronger per-request nonce-based CSP at runtime. Keeping CSP in
+// one place avoids a weaker static fallback drifting out of sync.
 // ---------------------------------------------------------------------------
 
 const securityHeaders = [

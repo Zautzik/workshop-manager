@@ -31,7 +31,7 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  // Read the per-request nonce injected by src/middleware.ts.
+  // Read the per-request nonce injected by src/proxy.ts.
   // Calling headers() here makes this layout dynamic so Next.js propagates
   // the nonce to the inline hydration <script> tags it generates.
   // If you add explicit <Script> components in future, pass nonce to them.

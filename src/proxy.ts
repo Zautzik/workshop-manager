@@ -2,12 +2,37 @@ import { NextRequest, NextResponse } from 'next/server';
 import { checkRateLimit, retryAfterSeconds } from '@/lib/rate-limiter';
 
 // ---------------------------------------------------------------------------
-// Supabase host — needed for the connect-src CSP directive.
-// Resolved once at module load (Node.js runtime caches env vars).
+// Supabase CSP sources.
+// Resolve once at module load and fall back to the hosted Supabase wildcard
+// when the env var is missing or malformed during local boot / type analysis.
 // ---------------------------------------------------------------------------
-const SUPABASE_HOST = process.env.NEXT_PUBLIC_SUPABASE_URL
-	? new URL(process.env.NEXT_PUBLIC_SUPABASE_URL).host
-	: '*.supabase.co';
+function getSupabaseCspSources() {
+	const rawUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
+
+	if (!rawUrl) {
+		return {
+			http: 'https://*.supabase.co',
+			ws: 'wss://*.supabase.co',
+		};
+	}
+
+	try {
+		const url = new URL(rawUrl);
+		const wsProtocol = url.protocol === 'http:' ? 'ws:' : 'wss:';
+
+		return {
+			http: url.origin,
+			ws: `${wsProtocol}//${url.host}`,
+		};
+	} catch {
+		return {
+			http: 'https://*.supabase.co',
+			ws: 'wss://*.supabase.co',
+		};
+	}
+}
+
+const SUPABASE_CSP_SOURCES = getSupabaseCspSources();
 
 // ── Rate limiting ────────────────────────────────────────────────────────────
 //
@@ -82,14 +107,14 @@ function buildCsp(nonce: string): string {
 		// alternative for style-src without a full CSS-in-JS migration.
 		`style-src 'self' 'unsafe-inline'`,
 
-		// Same-origin images + data URIs (base64 avatars, QR codes) + blobs.
-		`img-src 'self' data: blob:`,
+		// Same-origin images + data URIs + blobs + Supabase public storage.
+		`img-src 'self' data: blob: ${SUPABASE_CSP_SOURCES.http}`,
 
 		// All fonts served from the same origin (no Google Fonts / CDN).
 		`font-src 'self'`,
 
 		// XHR/fetch to same origin + Supabase REST API + Supabase Realtime WS.
-		`connect-src 'self' https://${SUPABASE_HOST} wss://${SUPABASE_HOST}`,
+		`connect-src 'self' ${SUPABASE_CSP_SOURCES.http} ${SUPABASE_CSP_SOURCES.ws}`,
 
 		`media-src 'self'`,
 
