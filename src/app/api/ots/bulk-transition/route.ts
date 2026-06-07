@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { isAuthError, requireAuth } from '@/lib/api-middleware';
 import { supabaseAdmin } from '@/integrations/supabase/server';
+import { buildRateLimitActor, enforceRouteRateLimit } from '@/lib/api-rate-limit';
 import { isValidStatus, type OTWorkflowStatus, validateTransition } from '@/lib/ot-state-machine';
 
 const BulkTransitionSchema = z.object({
@@ -13,6 +14,15 @@ const BulkTransitionSchema = z.object({
 export async function POST(req: NextRequest) {
   const auth = await requireAuth(['admin', 'supervisor', 'manager']);
   if (isAuthError(auth)) return auth;
+
+  const rl = enforceRouteRateLimit({
+    req,
+    key: `ots:${buildRateLimitActor(req, auth.id)}:bulk-transition`,
+    limit: 10,
+    windowMs: 60_000,
+    message: 'Too many OT bulk transitions. Please wait before retrying.',
+  });
+  if (rl) return rl;
 
   try {
     const parsed = BulkTransitionSchema.safeParse(await req.json());

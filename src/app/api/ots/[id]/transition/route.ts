@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { isAuthError, requireAuth } from '@/lib/api-middleware';
 import { supabaseAdmin } from '@/integrations/supabase/server';
+import { buildRateLimitActor, enforceRouteRateLimit } from '@/lib/api-rate-limit';
 import {
   isValidStatus,
   type OTWorkflowStatus,
@@ -23,6 +24,15 @@ export async function POST(
 ) {
   const auth = await requireAuth(['admin', 'supervisor', 'manager']);
   if (isAuthError(auth)) return auth;
+
+  const rl = enforceRouteRateLimit({
+    req,
+    key: `ots:${buildRateLimitActor(req, auth.id)}:transition`,
+    limit: 60,
+    windowMs: 60_000,
+    message: 'Too many OT transition requests. Please wait before retrying.',
+  });
+  if (rl) return rl;
 
   try {
     const { id } = await params;

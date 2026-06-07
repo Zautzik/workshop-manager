@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { requireAuth, isAuthError } from '@/lib/api-middleware';
 import { supabaseAdmin } from '@/integrations/supabase/server';
+import { buildRateLimitActor, enforceRouteRateLimit } from '@/lib/api-rate-limit';
 import { OTStatusSchema } from '@/lib/ot-state-machine';
 
 // OTs are mutable and auth-gated — never cache at the HTTP layer.
@@ -173,6 +174,15 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
 	const auth = await requireAuth(['supervisor', 'admin']);
 	if (isAuthError(auth)) return auth;
+
+	const rl = enforceRouteRateLimit({
+		req,
+		key: `ots:${buildRateLimitActor(req, auth.id)}:create`,
+		limit: 30,
+		windowMs: 60_000,
+		message: 'Too many OT creation requests. Please wait before retrying.',
+	});
+	if (rl) return rl;
 
 	try {
 		const body = await req.json();

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { requireAuth, isAuthError } from '@/lib/api-middleware';
 import { supabaseAdmin } from '@/integrations/supabase/server';
+import { buildRateLimitActor, enforceRouteRateLimit } from '@/lib/api-rate-limit';
 import { OTStatusSchema } from '@/lib/ot-state-machine';
 
 const DeadlineSchema = z.preprocess((value) => {
@@ -104,6 +105,15 @@ export async function PATCH(
 ) {
 	const auth = await requireAuth(['supervisor', 'admin']);
 	if (isAuthError(auth)) return auth;
+
+	const rl = enforceRouteRateLimit({
+		req,
+		key: `ots:${buildRateLimitActor(req, auth.id)}:update`,
+		limit: 40,
+		windowMs: 60_000,
+		message: 'Too many OT update requests. Please wait before retrying.',
+	});
+	if (rl) return rl;
 
 	try {
 		const { id } = await context.params;

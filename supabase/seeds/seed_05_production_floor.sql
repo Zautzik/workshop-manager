@@ -32,6 +32,7 @@ DECLARE
   m_r1 UUID; m_r2 UUID; m_dc UUID; m_g1 UUID; m_g2 UUID;
   -- Workstation IDs
   ws_r1 UUID; ws_r2 UUID; ws_dc UUID;
+  ws_g1 UUID; ws_manual UUID; ws_manual_2 UUID; ws_dispatch UUID;
   -- Shift IDs (will be created then resolved)
   s_may_d UUID; s_aug_crunch_d UUID; s_aug_crunch_n UUID;
   s_nov_crunch_d UUID; s_nov_crunch_n UUID;
@@ -62,9 +63,51 @@ BEGIN
   SELECT id INTO m_g2 FROM public.machines WHERE lower(name) = 'guillotine #2'          LIMIT 1;
 
   -- ── Resolve Workstations ──────────────────────────────────
-  SELECT id INTO ws_r1 FROM public.workstations WHERE lower(name) LIKE '%ryobi%#1%' LIMIT 1;
-  SELECT id INTO ws_r2 FROM public.workstations WHERE lower(name) LIKE '%ryobi%#2%' LIMIT 1;
-  SELECT id INTO ws_dc FROM public.workstations WHERE lower(name) LIKE '%die cut%'  LIMIT 1;
+    SELECT id INTO ws_r1
+    FROM public.workstations
+    WHERE lower(name) LIKE '%puesto offset a%'
+      OR lower(name) LIKE '%offset printer 1%'
+      OR lower(name) LIKE '%ryobi%#1%'
+    LIMIT 1;
+
+    SELECT id INTO ws_r2
+    FROM public.workstations
+    WHERE lower(name) LIKE '%puesto offset b%'
+      OR lower(name) LIKE '%offset printer 2%'
+      OR lower(name) LIKE '%ryobi%#2%'
+    LIMIT 1;
+
+    SELECT id INTO ws_dc
+    FROM public.workstations
+    WHERE lower(name) LIKE '%puesto troquelado%'
+      OR lower(name) LIKE '%die cutter%'
+    LIMIT 1;
+
+    SELECT id INTO ws_g1
+    FROM public.workstations
+    WHERE lower(name) LIKE '%guillotine 1%'
+      OR lower(name) LIKE '%puesto corte%'
+    LIMIT 1;
+
+    SELECT id INTO ws_manual
+    FROM public.workstations
+    WHERE lower(name) LIKE '%taller manual%'
+    LIMIT 1;
+
+    SELECT id INTO ws_manual_2
+    FROM public.workstations
+    WHERE (
+      lower(name) LIKE '%workshop station 1%'
+      OR lower(name) LIKE '%workshop station 2%'
+      OR lower(name) LIKE '%taller manual%'
+    )
+      AND (ws_manual IS NULL OR id <> ws_manual)
+    LIMIT 1;
+
+    SELECT id INTO ws_dispatch
+    FROM public.workstations
+    WHERE lower(name) LIKE '%bodega y despacho%'
+    LIMIT 1;
 
   -- ── Resolve OTs ───────────────────────────────────────────
   SELECT id INTO ot_018 FROM public.ots WHERE ot_number = 'OT-2025-018';
@@ -272,20 +315,47 @@ BEGIN
   -- WORKER ASSIGNMENTS (simulate a functioning press floor)
   -- ══════════════════════════════════════════════════════════
 
-  -- Assign main operators to workstations for a sample day shift
-  INSERT INTO public.worker_assignments (employee_id, workstation_id, shift_id, role)
-  VALUES
-    (e_carlos,   ws_r1, s_may_d, 'operator'),      -- Carlos on Ryobi #1
-    (e_jorge,    ws_r2, s_may_d, 'operator'),      -- Jorge on Ryobi #2
-    (e_miguel,   ws_dc, s_may_d, 'operator'),      -- Miguel on Die Cutter
-    (e_ana,      NULL,  s_may_d, 'guillotine'),    -- Ana on Guillotine #1 (no ws, assign by machine if needed)
-    (e_roberto,  NULL,  s_may_d, 'finisher'),      -- Roberto as manual finisher
-    (e_carmen,   NULL,  s_may_d, 'finisher'),      -- Carmen as manual finisher
-    (e_patricia, NULL,  s_may_d, 'prepress'),      -- Patricia in pre-press
-    (e_andrea,   NULL,  s_may_d, 'prepress'),      -- Andrea in pre-press
-    (e_luis,     ws_r2, s_may_d, 'backup'),        -- Luis as backup on Ryobi #2
-    (e_supervisor, NULL, s_may_d, 'supervisor')    -- Supervisor (not assigned to a machine)
-  ON CONFLICT DO NOTHING;
+  -- Resolve representative shift IDs used by planner defaults
+  SELECT id INTO s_may_d
+  FROM public.shifts
+  WHERE name = 'Turno Día — 12 May 2025'
+  ORDER BY id DESC
+  LIMIT 1;
+
+  SELECT id INTO s_aug_crunch_n
+  FROM public.shifts
+  WHERE name = 'Turno Noche CRUNCH — 20 Ago 2025'
+  ORDER BY id DESC
+  LIMIT 1;
+
+  -- Seed a full-floor roster for today's selected day shift.
+  -- Clear today's assignments for these demo employees so reruns remain deterministic.
+  DELETE FROM public.worker_assignments
+  WHERE date = CURRENT_DATE
+    AND employee_id IN (
+      e_carlos, e_jorge, e_miguel, e_ana, e_roberto,
+      e_carmen, e_patricia, e_andrea, e_luis, e_supervisor
+    );
+
+  WITH base_roster AS (
+    SELECT *
+    FROM (VALUES
+      (e_carlos, ws_r1, s_may_d, 'operator'),
+      (e_jorge,  ws_r2, s_may_d, 'operator'),
+      (e_miguel, ws_dc, s_may_d, 'operator'),
+      (e_ana,    ws_g1, s_may_d, 'guillotine'),
+      (e_roberto, COALESCE(ws_manual, ws_manual_2), s_may_d, 'finisher'),
+      (e_carmen,  COALESCE(ws_manual_2, ws_manual), s_may_d, 'finisher'),
+      (e_luis,   ws_r2, s_may_d, 'backup'),
+      (e_supervisor, ws_dispatch, s_may_d, 'supervisor')
+    ) AS r(employee_id, workstation_id, shift_id, role)
+    WHERE employee_id IS NOT NULL
+      AND workstation_id IS NOT NULL
+      AND shift_id IS NOT NULL
+  )
+  INSERT INTO public.worker_assignments (employee_id, workstation_id, shift_id, date, role)
+  SELECT r.employee_id, r.workstation_id, r.shift_id, CURRENT_DATE, r.role
+  FROM base_roster r;
 
   -- WHATSAPP PRODUCTION LOGS
   -- Sample messages from operators during crunch periods.

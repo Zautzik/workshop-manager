@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth, isAuthError } from '@/lib/api-middleware';
 import { supabaseAdmin } from '@/integrations/supabase/server';
+import { buildRateLimitActor, enforceRouteRateLimit } from '@/lib/api-rate-limit';
 
 const BUCKET = 'ot-images';
 const MAX_SIZE_BYTES = 5 * 1024 * 1024; // 5 MB
@@ -12,6 +13,16 @@ export async function POST(
 ) {
   const authResult = await requireAuth();
   if (isAuthError(authResult)) return authResult;
+
+  const actorId = typeof authResult === 'object' && 'id' in authResult ? authResult.id : null;
+  const rl = enforceRouteRateLimit({
+    req: request,
+    key: `ots:${buildRateLimitActor(request, actorId)}:image-upload`,
+    limit: 20,
+    windowMs: 60_000,
+    message: 'Too many OT image uploads. Please wait before retrying.',
+  });
+  if (rl) return rl;
 
   const { id: otId } = await params;
   if (!otId) {
@@ -84,11 +95,21 @@ export async function POST(
 }
 
 export async function DELETE(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const authResult = await requireAuth();
   if (isAuthError(authResult)) return authResult;
+
+  const actorId = typeof authResult === 'object' && 'id' in authResult ? authResult.id : null;
+  const rl = enforceRouteRateLimit({
+    req: request,
+    key: `ots:${buildRateLimitActor(request, actorId)}:image-delete`,
+    limit: 20,
+    windowMs: 60_000,
+    message: 'Too many OT image delete requests. Please wait before retrying.',
+  });
+  if (rl) return rl;
 
   const { id: otId } = await params;
 

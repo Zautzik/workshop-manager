@@ -77,10 +77,19 @@ export function useWorkersByRating() {
 
       // Unwrap paginated envelope { data, total, ... }; fall back to plain array.
       const workers = Array.isArray(payload) ? payload : (payload?.data ?? []);
-      return workers.sort(
+      const normalized = workers.map((worker: any) => ({
+        ...worker,
+        name: worker?.name ?? worker?.full_name ?? worker?.display_name ?? worker?.employee_name ?? 'Operario',
+      }));
+
+      return normalized.sort(
         (a: any, b: any) => Number(b?.overall_rating ?? 0) - Number(a?.overall_rating ?? 0)
       );
     },
+    retry: 10,
+    retryDelay: 1000,
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: true,
   });
 }
 
@@ -216,8 +225,26 @@ export function useShifts() {
     queryFn: async () => {
       const res = await fetch('/api/shifts', { credentials: 'include' });
       if (!res.ok) throw new Error(`Failed to fetch shifts: ${res.status}`);
-      return (await res.json()) ?? [];
+      const payload = (await res.json()) ?? [];
+      const shifts = Array.isArray(payload) ? payload : [];
+
+      // Keep one shift per name to avoid duplicated legacy/demo seeds flooding the selector.
+      const uniqueByName = new Map<string, any>();
+      for (const shift of shifts) {
+        const key = String(shift?.name || '').trim().toLowerCase();
+        if (!key) continue;
+        if (/pre\s*-?\s*prensa|pre\s*-?\s*press|pre_press|prepress/.test(key)) continue;
+        if (!uniqueByName.has(key)) {
+          uniqueByName.set(key, shift);
+        }
+      }
+
+      return Array.from(uniqueByName.values());
     },
+    retry: 10,
+    retryDelay: 1000,
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: true,
   });
 }
 
@@ -241,7 +268,7 @@ export function useWorkstations() {
       }
 
       if (!machineRes.ok) {
-        throw new Error(machinePayload?.error || 'Failed to fetch machines');
+        machinePayload = [];
       }
 
       const machines = Array.isArray(machinePayload) ? machinePayload : [];
@@ -338,6 +365,10 @@ export function useWorkstations() {
         };
       });
     },
+    retry: 10,
+    retryDelay: 1000,
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: true,
   });
 }
 

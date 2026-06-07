@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { requireAuth, isAuthError } from '@/lib/api-middleware';
 import { supabaseAdmin } from '@/integrations/supabase/server';
+import { buildRateLimitActor, enforceRouteRateLimit } from '@/lib/api-rate-limit';
 
 const ApprovalActionSchema = z.object({
 	action: z.enum(['approve', 'reject', 'request_revision']),
@@ -44,6 +45,15 @@ export async function POST(
 ) {
 	const auth = await requireAuth(['supervisor', 'admin']);
 	if (isAuthError(auth)) return auth;
+
+	const rl = enforceRouteRateLimit({
+		req,
+		key: `ots:${buildRateLimitActor(req, auth.id)}:approval`,
+		limit: 40,
+		windowMs: 60_000,
+		message: 'Too many OT approval requests. Please wait before retrying.',
+	});
+	if (rl) return rl;
 
 	const { id } = await params;
 	const userId = typeof auth === 'object' && 'id' in auth ? auth.id : null;

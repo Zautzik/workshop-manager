@@ -26,6 +26,7 @@ import { Users, Factory, Clock, ClipboardList, ChevronLeft, ChevronRight, Calend
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCompensationRatesForDate, useSchedulingCostModel, useWorkerAssignments, useWorkerMonthlyOvertime, useWorkflowCertificationAlerts, useWorkflowContracts, useWorkflowIncentiveStatuses, useWorkflowLeaveStatuses, useWorkflowWeeklyHours, useWorkersByRating, useWorkstations, useShifts } from "@/hooks/use-workflow-queries";
+import { useRealtimeProduction } from "@/hooks/use-realtime-production";
 import { DndContext, DragEndEvent, DragOverlay } from "@dnd-kit/core";
 import { useTranslation } from "react-i18next";
 import { isWorkerQualifiedForStation } from "@/lib/workstation-skills";
@@ -58,6 +59,8 @@ interface WorkflowDashboardProps {
 
 export default function WorkflowDashboard({ initialTab = 'en_proceso' }: WorkflowDashboardProps) {
   const router = useRouter();
+  useRealtimeProduction();
+
   const getDateIso = (date: Date) => {
     const offset = date.getTimezoneOffset() * 60 * 1000;
     return new Date(date.getTime() - offset).toISOString().split("T")[0];
@@ -86,8 +89,8 @@ export default function WorkflowDashboard({ initialTab = 'en_proceso' }: Workflo
   const [selectedOT, setSelectedOT] = useState<any>(null);
   const [selectedDate, setSelectedDate] = useState<string>(getDateIso(today));
   const [weekStartDate, setWeekStartDate] = useState<Date>(getWeekStart(today));
-  const { data: workers = [] } = useWorkersByRating();
-  const { data: workstations = [] } = useWorkstations();
+  const { data: workersData = [] } = useWorkersByRating();
+  const { data: workstationsData = [] } = useWorkstations();
   const { data: shifts = [] } = useShifts();
   const { data: assignments = [], refetch: refetchAssignments } = useWorkerAssignments(selectedDate);
   const { data: monthlyOvertimeByWorker = {} } = useWorkerMonthlyOvertime(selectedDate);
@@ -120,11 +123,73 @@ export default function WorkflowDashboard({ initialTab = 'en_proceso' }: Workflo
   const { role } = useAuth();
   const { t } = useTranslation();
 
+  const [fallbackWorkers, setFallbackWorkers] = useState<any[]>([]);
+  const [fallbackWorkstations, setFallbackWorkstations] = useState<any[]>([]);
+
+  const workers = workersData.length > 0 ? workersData : fallbackWorkers;
+  const rawWorkstations = workstationsData.length > 0 ? workstationsData : fallbackWorkstations;
+  const workstations = rawWorkstations.filter((station: any) => {
+    const type = String(station?.type || '').toLowerCase().trim();
+    return !/pre\s*-?\s*press|pre\s*-?\s*prensa|pre_press|preprensa/.test(type);
+  });
+
   const canManageCostModel = role === 'admin';
 
   useEffect(() => {
     setActiveTab(initialTab);
   }, [initialTab]);
+
+  useEffect(() => {
+    const needsWorkersFallback = workersData.length === 0 && fallbackWorkers.length === 0;
+    const needsWorkstationsFallback = workstationsData.length === 0 && fallbackWorkstations.length === 0;
+
+    if (!needsWorkersFallback && !needsWorkstationsFallback) return;
+
+    let cancelled = false;
+
+    const loadFallbackData = async () => {
+      try {
+        if (needsWorkersFallback) {
+          const workersRes = await fetch('/api/workers?limit=200', { credentials: 'include' });
+          if (workersRes.ok) {
+            const workersPayload = await workersRes.json();
+            const workersList = Array.isArray(workersPayload)
+              ? workersPayload
+              : (workersPayload?.data ?? []);
+            if (!cancelled) setFallbackWorkers(workersList);
+          }
+        }
+
+        if (needsWorkstationsFallback) {
+          const workstationsRes = await fetch('/api/workstations', { credentials: 'include' });
+          if (workstationsRes.ok) {
+            const workstationsPayload = await workstationsRes.json();
+            const workstationsList = Array.isArray(workstationsPayload)
+              ? workstationsPayload
+              : (workstationsPayload?.data ?? []);
+            if (!cancelled) setFallbackWorkstations(workstationsList);
+          }
+        }
+      } catch {
+        // Silent fallback failure: primary queries continue retrying.
+      }
+    };
+
+    loadFallbackData();
+
+    const retryId = window.setInterval(() => {
+      if (cancelled) return;
+      const stillNeedsWorkers = workersData.length === 0 && fallbackWorkers.length === 0;
+      const stillNeedsWorkstations = workstationsData.length === 0 && fallbackWorkstations.length === 0;
+      if (!stillNeedsWorkers && !stillNeedsWorkstations) return;
+      loadFallbackData();
+    }, 3000);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(retryId);
+    };
+  }, [workersData.length, workstationsData.length, fallbackWorkers.length, fallbackWorkstations.length]);
 
   const defaultCostModel = {
     name: 'Default Cost Model',
@@ -559,11 +624,13 @@ export default function WorkflowDashboard({ initialTab = 'en_proceso' }: Workflo
     }
   };
 
+  const calendarLocale = 'es-CL';
+
   const formatWeekday = (date: Date) =>
-    date.toLocaleDateString(undefined, { weekday: "short" });
+    date.toLocaleDateString(calendarLocale, { weekday: "short" });
 
   const formatDayLabel = (date: Date) =>
-    date.toLocaleDateString(undefined, { day: "2-digit", month: "2-digit" });
+    date.toLocaleDateString(calendarLocale, { day: "2-digit", month: "2-digit" });
 
   const handleDragStart = (event: any) => {
     setActiveId(event.active.id);

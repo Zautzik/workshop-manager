@@ -180,7 +180,7 @@ function DroppableWorkstation({
 				{getWorkstationIcon(station.type)}
 				<div className='min-w-0 flex-1'>
 					<h3 className='font-bold text-foreground text-sm leading-tight break-words'>
-							{station.machine?.name ?? station.display_name ?? station.name}
+							{station.display_name ?? station.name ?? station.machine?.name}
 						</h3>
 						{station.machine?.brand || station.machine?.model ? (
 							<p className='text-xs text-muted-foreground break-words'>
@@ -443,6 +443,11 @@ export function WorkstationLayout({
 		currentShiftOvertimeAssignments.map(a => a.employee_id ?? a.worker_id)
 	).size;
 
+	const visibleWorkstations = workstations.filter((station) => {
+		const type = String(station?.type || '').toLowerCase().trim();
+		return !/pre\s*-?\s*press|pre\s*-?\s*prensa|pre_press|preprensa/.test(type);
+	});
+
 	const currentShiftWorkerIds = new Set(
 		currentShiftAssignments.map(a => a.employee_id ?? a.worker_id)
 	);
@@ -452,14 +457,16 @@ export function WorkstationLayout({
 			.map(a => a.employee_id ?? a.worker_id)
 	);
 
-	const unassignedWorkers = workers.filter(worker => {
-		if (currentShiftWorkerIds.has(worker.id)) return false;
-		if (!otherShiftWorkerIds.has(worker.id)) return true;
-		return Boolean(worker.overtime_availability);
+	const strictUnassignedWorkers = workers.filter(worker => {
+		return !currentShiftWorkerIds.has(worker.id);
 	});
 
+	const unassignedWorkers = strictUnassignedWorkers.length > 0
+		? strictUnassignedWorkers
+		: workers;
+
 	const stationTypes = Array.from(
-		new Set(workstations.map(station => station.type))
+		new Set(visibleWorkstations.map(station => station.type))
 	);
 
 	const getWorkerPrimaryType = (worker: any) =>
@@ -574,9 +581,11 @@ export function WorkstationLayout({
 			worker => getWorkerPrimaryType(worker) === type
 		);
 
+		const pool = availableByType.length > 0 ? availableByType : unassignedWorkers;
+
 		const filtered = showOnlyOvertime
-			? availableByType.filter(worker => isOvertimeWorker(worker))
-			: availableByType;
+			? pool.filter(worker => isOvertimeWorker(worker))
+			: pool;
 
 		const entries = filtered.map(worker => {
 			const overtime = isOvertimeWorker(worker);
@@ -651,7 +660,7 @@ export function WorkstationLayout({
 		: uncategorizedAvailableWorkers;
 
 	// Group workstations by type
-	const groupedWorkstations = workstations.reduce((acc: any, station: any) => {
+	const groupedWorkstations = visibleWorkstations.reduce((acc: any, station: any) => {
 		if (!acc[station.type]) {
 			acc[station.type] = [];
 		}

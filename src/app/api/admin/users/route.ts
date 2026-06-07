@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { requireAuth, isAuthError } from '@/lib/api-middleware';
 import { supabaseAdmin } from '@/integrations/supabase/server';
 import { MIN_PASSWORD_LENGTH, MAX_PASSWORD_LENGTH, checkPassword } from '@/lib/password-policy';
+import { buildRateLimitActor, enforceRouteRateLimit } from '@/lib/api-rate-limit';
 import type { AppRole } from '@/types/app-role';
 
 const CreateUserSchema = z.object({
@@ -24,6 +25,15 @@ const CreateUserSchema = z.object({
 export async function GET(request: NextRequest) {
 	const auth = await requireAuth('admin');
 	if (isAuthError(auth)) return auth;
+
+	const rl = enforceRouteRateLimit({
+		req: request,
+		key: `admin-users:${buildRateLimitActor(request, auth.id)}:read`,
+		limit: 60,
+		windowMs: 60_000,
+		message: 'Too many admin user list requests. Please wait before retrying.',
+	});
+	if (rl) return rl;
 
 	try {
 		const url = new URL(request.url);
@@ -78,6 +88,15 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
 	const auth = await requireAuth('admin');
 	if (isAuthError(auth)) return auth;
+
+	const rl = enforceRouteRateLimit({
+		req: request,
+		key: `admin-users:${buildRateLimitActor(request, auth.id)}:write`,
+		limit: 20,
+		windowMs: 60_000,
+		message: 'Too many admin user write operations. Please wait before retrying.',
+	});
+	if (rl) return rl;
 
 	try {
 		const body = await request.json();
@@ -156,6 +175,15 @@ export async function DELETE(request: NextRequest) {
 	const auth = await requireAuth('admin');
 	if (isAuthError(auth)) return auth;
 
+	const rl = enforceRouteRateLimit({
+		req: request,
+		key: `admin-users:${buildRateLimitActor(request, auth.id)}:write`,
+		limit: 20,
+		windowMs: 60_000,
+		message: 'Too many admin user write operations. Please wait before retrying.',
+	});
+	if (rl) return rl;
+
 	try {
 		const { searchParams } = new URL(request.url);
 		const userId = searchParams.get('id');
@@ -200,6 +228,15 @@ const UpdateUserSchema = z.object({
 export async function PATCH(request: NextRequest) {
 	const auth = await requireAuth('admin');
 	if (isAuthError(auth)) return auth;
+
+	const rl = enforceRouteRateLimit({
+		req: request,
+		key: `admin-users:${buildRateLimitActor(request, auth.id)}:write`,
+		limit: 20,
+		windowMs: 60_000,
+		message: 'Too many admin user write operations. Please wait before retrying.',
+	});
+	if (rl) return rl;
 
 	try {
 		const body = await request.json();

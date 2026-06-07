@@ -13,6 +13,8 @@
  * 
  * @type {import('next').NextConfig}
  */
+const { withSentryConfig } = require('@sentry/nextjs');
+
 // ---------------------------------------------------------------------------
 // Static security headers applied to every response via next.config.js.
 //
@@ -83,4 +85,13 @@ const nextConfig = {
 	},
 };
 
-module.exports = nextConfig;
+module.exports = withSentryConfig(nextConfig, {
+	org: process.env.SENTRY_ORG,
+	project: process.env.SENTRY_PROJECT,
+	authToken: process.env.SENTRY_AUTH_TOKEN,
+	silent: true,
+	disableLogger: true,
+	sourcemaps: {
+		disable: !process.env.SENTRY_AUTH_TOKEN,
+	},
+});

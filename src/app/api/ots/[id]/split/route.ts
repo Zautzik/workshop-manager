@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { requireAuth, isAuthError } from '@/lib/api-middleware';
 import { supabaseAdmin } from '@/integrations/supabase/server';
+import { buildRateLimitActor, enforceRouteRateLimit } from '@/lib/api-rate-limit';
 
 const SplitSchema = z.object({
   advance_quantity: z.number().positive(),
@@ -14,6 +15,16 @@ export async function POST(
 ) {
   const authResult = await requireAuth();
   if (isAuthError(authResult)) return authResult;
+
+  const actorId = typeof authResult === 'object' && 'id' in authResult ? authResult.id : null;
+  const rl = enforceRouteRateLimit({
+    req: request,
+    key: `ots:${buildRateLimitActor(request, actorId)}:split`,
+    limit: 20,
+    windowMs: 60_000,
+    message: 'Too many OT split requests. Please wait before retrying.',
+  });
+  if (rl) return rl;
 
   const { id: otId } = await params;
 

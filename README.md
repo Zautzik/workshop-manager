@@ -29,6 +29,28 @@ npm run dev
 SEED_ADMIN_PASSWORD="<choose-a-strong-password>" npx tsx scripts/seed-admin.ts
 ```
 
+## Error Tracking (Sentry)
+
+Sentry is integrated for client, server, and edge runtime errors.
+
+Set these variables in `.env` to enable capture:
+
+```env
+NEXT_PUBLIC_SENTRY_DSN="<dsn-from-sentry-project>"
+SENTRY_DSN="<optional-server-dsn-override>"
+NEXT_PUBLIC_SENTRY_TRACES_SAMPLE_RATE="0.1"
+SENTRY_TRACES_SAMPLE_RATE="0.1"
+SENTRY_ENVIRONMENT="development"
+```
+
+Optional CI/CD source map upload:
+
+```env
+SENTRY_AUTH_TOKEN="<token>"
+SENTRY_ORG="<org-slug>"
+SENTRY_PROJECT="<project-slug>"
+```
+
 ## 🛠️ Tech Stack
 
 - **Framework**: Next.js 16 (App Router)

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { requireAuth, isAuthError } from '@/lib/api-middleware';
 import { supabaseAdmin } from '@/integrations/supabase/server';
+import { buildRateLimitActor, enforceRouteRateLimit } from '@/lib/api-rate-limit';
 
 const RealCostSchema = z.object({
 	operation_code: z.string().min(1).max(50),
@@ -63,6 +64,15 @@ export async function POST(
 ) {
 	const auth = await requireAuth(['supervisor', 'admin', 'manager']);
 	if (isAuthError(auth)) return auth;
+
+	const rl = enforceRouteRateLimit({
+		req,
+		key: `ots:${buildRateLimitActor(req, auth.id)}:real-costs`,
+		limit: 30,
+		windowMs: 60_000,
+		message: 'Too many OT real-cost submissions. Please wait before retrying.',
+	});
+	if (rl) return rl;
 
 	const { id } = await params;
 	const userId = typeof auth === 'object' && 'id' in auth ? auth.id : null;
