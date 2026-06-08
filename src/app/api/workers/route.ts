@@ -45,10 +45,34 @@ export async function GET(req: NextRequest) {
 
 		if (!employeesError) {
 			const total = count ?? 0;
-			const mapped = (employeesData ?? []).map((employee: any) => ({
+			const employees = employeesData ?? [];
+			const employeeIds = employees.map((employee: any) => employee.id).filter(Boolean);
+
+			let skillsByEmployee = new Map<string, any[]>();
+			if (employeeIds.length > 0) {
+				const { data: employeeSkills, error: employeeSkillsError } = await supabaseAdmin
+					.from('employee_skills')
+					.select('employee_id, proficiency_level, certified, certification_expires_on, skill:skills(id, code, name)')
+					.in('employee_id', employeeIds);
+
+				if (employeeSkillsError) {
+					console.warn('employee_skills query failed in /api/workers:', employeeSkillsError);
+				} else {
+					skillsByEmployee = (employeeSkills ?? []).reduce((acc: Map<string, any[]>, row: any) => {
+						const employeeId = row?.employee_id;
+						if (!employeeId) return acc;
+						const current = acc.get(employeeId) ?? [];
+						current.push(row);
+						acc.set(employeeId, current);
+						return acc;
+					}, new Map<string, any[]>());
+				}
+			}
+
+			const mapped = employees.map((employee: any) => ({
 				...employee,
 				name: employee.full_name,
-				employee_skills: Array.isArray(employee?.employee_skills) ? employee.employee_skills : [],
+				employee_skills: skillsByEmployee.get(employee.id) ?? [],
 			}));
 			return NextResponse.json({
 				data: mapped,

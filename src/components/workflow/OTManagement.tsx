@@ -95,6 +95,7 @@ export function OTManagement({ onOTSelect }: OTManagementProps) {
   const [splitTarget,     setSplitTarget]     = useState<{ key: string; label: string } | null>(null);
   const [rollbackTarget,  setRollbackTarget]  = useState<{ ot: any; key: string; labelEs: string; fromLabelEs: string } | null>(null);
   const [searchTerm,      setSearchTerm]      = useState("");
+  const [showCompleted,   setShowCompleted]   = useState(false);
   const [collapsed,       setCollapsed]       = useState<Record<string, boolean>>({});
   const [draggedOT,       setDraggedOT]       = useState<any>(null);
   const [dragOverCol,     setDragOverCol]     = useState<string | null>(null);
@@ -173,10 +174,14 @@ export function OTManagement({ onOTSelect }: OTManagementProps) {
     setRollbackTarget(null);
   };
 
-  const filteredOTs = (ots as any[]).filter((ot: any) =>
-    ot.ot_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    ot.client_name.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredOTs = (ots as any[]).filter((ot: any) => {
+    if (!showCompleted && ot.status === 'completed') return false;
+
+    return (
+      ot.ot_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      ot.client_name.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  });
   const getByStatus = (key: string) =>
     filteredOTs.filter(ot => ot.status === key).sort((a, b) => b.priority - a.priority);
 
@@ -264,6 +269,12 @@ export function OTManagement({ onOTSelect }: OTManagementProps) {
               className="bg-input border-border placeholder:text-muted-foreground w-52 pl-8"
             />
           </div>
+          <Button
+            variant={showCompleted ? 'default' : 'outline'}
+            onClick={() => setShowCompleted(prev => !prev)}
+          >
+            {showCompleted ? 'Ocultar completadas' : 'Mostrar completadas'}
+          </Button>
           <Button onClick={() => setCreateFlow('wizard')} className="bg-primary hover:bg-primary/90">
             <Plus className="w-4 h-4 mr-1" />Nueva OT
           </Button>

@@ -20,6 +20,14 @@ export const STATION_SKILL_REQUIREMENTS: Record<string, StationSkillRequirement>
     skillCodes: ['MANUAL_WORKSHOP'],
     minProficiency: 1,
   },
+  manual_workshop: {
+    skillCodes: ['MANUAL_WORKSHOP'],
+    minProficiency: 1,
+  },
+  other: {
+    skillCodes: ['WAREHOUSE_OPS', 'MATERIAL_HANDLING', 'QUALITY_CONTROL'],
+    minProficiency: 1,
+  },
 };
 
 const normalizeSkillCode = (code?: string | null) =>

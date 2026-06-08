@@ -581,7 +581,7 @@ export function WorkstationLayout({
 			worker => getWorkerPrimaryType(worker) === type
 		);
 
-		const pool = availableByType.length > 0 ? availableByType : unassignedWorkers;
+		const pool = availableByType;
 
 		const filtered = showOnlyOvertime
 			? pool.filter(worker => isOvertimeWorker(worker))
