@@ -4,6 +4,9 @@ import React, { createContext, useContext, useEffect, ReactNode } from 'react';
 import { useSession, signIn as nextAuthSignIn, signOut as nextAuthSignOut, getSession } from 'next-auth/react';
 import { supabase } from '@/integrations/supabase/client';
 import type { AppRole } from '@/types/app-role';
+import { assertDevBypassConfigSafe, isDevBypassEnabled } from '@/lib/dev-bypass-guard';
+
+assertDevBypassConfigSafe();
 
 interface User {
 	id: string;
@@ -43,11 +46,7 @@ function DevBypassProvider({ children }: { children: ReactNode }) {
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
 	// ── Dev bypass — set NEXT_PUBLIC_DEV_BYPASS=true in .env.local ────────
-	const isDevBypass =
-		process.env.NODE_ENV === 'development' &&
-		process.env.NEXT_PUBLIC_DEV_BYPASS === 'true';
-
-	if (isDevBypass) {
+	if (isDevBypassEnabled) {
 		return <DevBypassProvider>{children}</DevBypassProvider>;
 	}
 

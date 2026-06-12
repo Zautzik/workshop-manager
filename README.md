@@ -51,6 +51,14 @@ SENTRY_ORG="<org-slug>"
 SENTRY_PROJECT="<project-slug>"
 ```
 
+## Dev Bypass Safety Note
+
+When `NEXT_PUBLIC_DEV_BYPASS=true` in development, maintenance dashboard hooks use local mock data rather than relying on anon database read policies.
+Do not add anon SELECT policies for maintenance tables in shared environments.
+
+`NEXT_PUBLIC_DEV_BYPASS` is development-only and must stay `false` in production/staging.
+The app now fails fast if `NEXT_PUBLIC_DEV_BYPASS=true` is present in a non-development build, and CI scans the standalone output to ensure dev bypass code is not bundled.
+
 ## 🛠️ Tech Stack
 
 - **Framework**: Next.js 16 (App Router)

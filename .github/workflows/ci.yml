@@ -29,3 +29,20 @@ jobs:
 
       - name: Test
         run: npm run test
+
+      - name: Build (production)
+        env:
+          NODE_ENV: production
+          NEXTAUTH_SECRET: ci-build-secret-not-for-runtime
+          NEXT_PUBLIC_DEV_BYPASS: "false"
+        run: npm run build
+
+      - name: Guard production bundle against dev bypass
+        run: |
+          if grep -R "DevBypassProvider" .next/standalone 2>/dev/null; then
+            echo "FATAL: DevBypassProvider found in production standalone bundle"
+            exit 1
+          fi
+
+      - name: Verify CSP wiring
+        run: npm run verify:csp

@@ -20,6 +20,9 @@ import { createClient } from '@supabase/supabase-js';
 import { supabaseAdmin } from '@/integrations/supabase/server';
 import type { Database } from '@/integrations/supabase/types';
 import type { AppRole } from '@/types/app-role';
+import { assertDevBypassConfigSafe } from '@/lib/dev-bypass-guard';
+
+assertDevBypassConfigSafe();
 
 // â”€â”€ NEXTAUTH_SECRET guard â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Fail loudly at module-load time if the secret is missing or is the

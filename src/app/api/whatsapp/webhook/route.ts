@@ -19,6 +19,7 @@ import { supabaseAdmin } from '@/integrations/supabase/server';
 import { parseWhatsAppMessage } from '@/lib/whatsapp-parser';
 import { inferProductionCosts, type OTContext } from '@/lib/whatsapp-cost-inference';
 import { checkRateLimit, retryAfterSeconds } from '@/lib/rate-limiter';
+import logger from '@/lib/logger';
 import type { Json } from '@/integrations/supabase/types';
 
 /* ─── Input Schema ───────────────────────────────────────────── */
@@ -57,6 +58,12 @@ function verifyTwilioSignature(rawBody: string, signature: string | null): boole
   } catch {
     return false;
   }
+}
+
+function redactPhone(phone: string): string {
+  const digits = phone.replace(/\D/g, '');
+  const last4 = digits.slice(-4).padStart(4, '*');
+  return `***${last4}`;
 }
 
 /* ─── GET: Webhook Verification ──────────────────────────────── */
@@ -139,12 +146,23 @@ export async function POST(req: NextRequest) {
     let otContext: OTContext | null = null;
 
     const otNum = parseResult.ot_number;
-    const { data: otData } = await supabaseAdmin
+    const { data: otData, error: otLookupError } = await supabaseAdmin
       .from('ots')
       .select('id, ot_number, quantity, substrate_type, grammage_gsm, width_cm, height_cm, client_name, product_name, status')
-      .or(`ot_number.eq.${otNum},ot_number.eq.OT-${otNum}`)
+      .in('ot_number', [otNum, `OT-${otNum}`])
       .limit(1)
-      .single();
+      .maybeSingle();
+
+    if (otLookupError) {
+      logger.warn(
+        {
+          err: otLookupError,
+          phone: redactPhone(from),
+          ot: parseResult.ot_number,
+        },
+        'OT lookup failed during webhook processing',
+      );
+    }
 
     if (otData) {
       otId = otData.id;
@@ -165,17 +183,42 @@ export async function POST(req: NextRequest) {
     const cleanPhone = from.replace(/\D/g, '');
     if (cleanPhone.length >= 7) {
       const phoneSuffix = cleanPhone.slice(-9);
-      const { data: employees } = await supabaseAdmin
+
+      const { data: exactEmployee, error: exactEmployeeError } = await supabaseAdmin
         .from('employees')
         .select('id, full_name, phone')
-        .or(`phone.eq.${from},phone.ilike.%${phoneSuffix}`)
-        .limit(10);
+        .eq('phone', from)
+        .limit(1)
+        .maybeSingle();
 
-      // Prefer exact match, then suffix match
-      const employee = employees?.find(e => e.phone === from)
-        ?? employees?.find(e => e.phone?.replace(/\D/g, '').endsWith(phoneSuffix))
-        ?? employees?.[0]
-        ?? null;
+      if (exactEmployeeError) {
+        logger.warn(
+          { err: exactEmployeeError, phone: redactPhone(from) },
+          'Exact employee lookup failed during webhook processing',
+        );
+      }
+
+      let employee = exactEmployee;
+
+      if (!employee) {
+        const { data: suffixEmployees, error: suffixEmployeeError } = await supabaseAdmin
+          .from('employees')
+          .select('id, full_name, phone')
+          .ilike('phone', `%${phoneSuffix}`)
+          .limit(10);
+
+        if (suffixEmployeeError) {
+          logger.warn(
+            { err: suffixEmployeeError, phone: redactPhone(from) },
+            'Suffix employee lookup failed during webhook processing',
+          );
+        }
+
+        employee =
+          suffixEmployees?.find((e) => e.phone?.replace(/\D/g, '').endsWith(phoneSuffix))
+          ?? suffixEmployees?.[0]
+          ?? null;
+      }
 
       if (employee) {
         operatorName = employee.full_name;
@@ -236,7 +279,14 @@ export async function POST(req: NextRequest) {
         .single();
 
       if (error) {
-        console.error('Error creating start log:', { phone: from, ot: parseResult.ot_number, error });
+        logger.error(
+          {
+            err: error,
+            phone: redactPhone(from),
+            ot: parseResult.ot_number,
+          },
+          'Error creating start log',
+        );
         return NextResponse.json({ error: 'Failed to log start message' }, { status: 500 });
       }
 
@@ -274,7 +324,7 @@ export async function POST(req: NextRequest) {
       let startLogId: string | null = null;
       let elapsedMinutes: number | null = null;
 
-      const { data: startLog } = await supabaseAdmin
+      const { data: startLog, error: startLookupError } = await supabaseAdmin
         .from('whatsapp_production_logs')
         .select('id, message_timestamp')
         .eq('ot_number', parseResult.ot_number)
@@ -282,7 +332,18 @@ export async function POST(req: NextRequest) {
         .eq('message_type', 'start')
         .order('message_timestamp', { ascending: false })
         .limit(1)
-        .single();
+        .maybeSingle();
+
+      if (startLookupError) {
+        logger.warn(
+          {
+            err: startLookupError,
+            phone: redactPhone(from),
+            ot: parseResult.ot_number,
+          },
+          'START log lookup failed during webhook processing',
+        );
+      }
 
       if (startLog) {
         startLogId = startLog.id;
@@ -320,7 +381,14 @@ export async function POST(req: NextRequest) {
         .single();
 
       if (error) {
-        console.error('Error creating end log:', { phone: from, ot: parseResult.ot_number, error });
+        logger.error(
+          {
+            err: error,
+            phone: redactPhone(from),
+            ot: parseResult.ot_number,
+          },
+          'Error creating end log',
+        );
         return NextResponse.json({ error: 'Failed to log end message' }, { status: 500 });
       }
 
@@ -343,7 +411,7 @@ export async function POST(req: NextRequest) {
       message: `❓ No entendí tu mensaje. Usa:\n• INICIO OT-${parseResult.ot_number}\n• FIN OT-${parseResult.ot_number} [datos de producción]`,
     });
   } catch (error) {
-    console.error('WhatsApp webhook error:', error);
+    logger.error({ err: error }, 'WhatsApp webhook error');
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

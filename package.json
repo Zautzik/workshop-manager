@@ -9,6 +9,7 @@
 		"start:standalone": "node .next/standalone/server.js",
 		"lint": "next lint",
 		"typecheck": "tsc --noEmit",
+		"verify:csp": "node scripts/verify-csp-wiring.cjs",
 		"test": "vitest run",
 		"test:watch": "vitest"
 	},

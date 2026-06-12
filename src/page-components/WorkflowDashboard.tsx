@@ -636,16 +636,54 @@ export default function WorkflowDashboard({ initialTab = 'en_proceso' }: Workflo
     setActiveId(event.active.id);
   };
 
+  const createWorkerAssignment = async (payload: any) => {
+    const response = await fetch('/api/worker-assignments', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify(payload),
+    });
+
+    const body = await response.json().catch(() => null);
+    if (!response.ok) {
+      throw new Error(body?.error || 'Failed to create assignment');
+    }
+    return body;
+  };
+
+  const updateWorkerAssignment = async (assignmentId: string, payload: any) => {
+    const response = await fetch(`/api/worker-assignments/${assignmentId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify(payload),
+    });
+
+    const body = await response.json().catch(() => null);
+    if (!response.ok) {
+      throw new Error(body?.error || 'Failed to update assignment');
+    }
+    return body;
+  };
+
+  const deleteWorkerAssignment = async (assignmentId: string) => {
+    const response = await fetch(`/api/worker-assignments/${assignmentId}`, {
+      method: 'DELETE',
+      credentials: 'include',
+    });
+
+    const body = await response.json().catch(() => null);
+    if (!response.ok) {
+      throw new Error(body?.error || 'Failed to delete assignment');
+    }
+    return body;
+  };
+
   const handleUnassignWorker = async (assignmentId?: string, workerName?: string) => {
     if (!assignmentId) return;
 
     try {
-      const { error } = await supabase
-        .from("worker_assignments")
-        .delete()
-        .eq("id", assignmentId);
-
-      if (error) throw error;
+      await deleteWorkerAssignment(assignmentId);
 
       toast({
         title: "Worker unassigned",
@@ -749,27 +787,20 @@ export default function WorkflowDashboard({ initialTab = 'en_proceso' }: Workflo
       if (assignmentId) {
         const draggedAssignment = assignments.find(a => a.id === assignmentId);
 
-        const { error } = await supabase
-          .from("worker_assignments")
-          .update({
-            workstation_id: workstation.id,
-            ot_id: selectedOT?.id || null,
-            role: draggedAssignment?.role || assignmentRole,
-          })
-          .eq("id", assignmentId);
-        if (error) throw error;
+        await updateWorkerAssignment(assignmentId, {
+          workstation_id: workstation.id,
+          ot_id: selectedOT?.id || null,
+          role: draggedAssignment?.role || assignmentRole,
+        });
       } else {
-        const { error } = await supabase
-          .from("worker_assignments")
-          .insert({
-            employee_id: worker.id,
-            workstation_id: workstation.id,
-            shift_id: selectedShiftId,
-            date: selectedDate,
-            role: assignmentRole,
-            ot_id: selectedOT?.id || null
-          });
-        if (error) throw error;
+        await createWorkerAssignment({
+          employee_id: worker.id,
+          workstation_id: workstation.id,
+          shift_id: selectedShiftId,
+          date: selectedDate,
+          role: assignmentRole,
+          ot_id: selectedOT?.id || null,
+        });
       }
 
       toast({

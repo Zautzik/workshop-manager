@@ -67,6 +67,8 @@ function DraggableWorker({
 		legalHourConflict?: boolean;
 	};
 }) {
+	if (!worker) return null;
+
 	const { attributes, listeners, setNodeRef, transform, isDragging } =
 		useDraggable({
 			id: assignmentId || `worker-${worker.id}`,
@@ -241,7 +243,9 @@ function DroppableWorkstation({
 				}`}
 			>
 				{assignedWorkers.length > 0 ? (
-					assignedWorkers.map((assignment: any) => (
+					assignedWorkers
+						.filter((assignment: any) => assignment?.worker)
+						.map((assignment: any) => (
 						<DraggableWorker
 							key={assignment.id}
 							worker={assignment.worker}
@@ -472,7 +476,7 @@ export function WorkstationLayout({
 	const getWorkerPrimaryType = (worker: any) =>
 		getWorkerPrimaryStationType(worker, stationTypes);
 
-	const isOvertimeWorker = (worker: any) => otherShiftWorkerIds.has(worker.id);
+	const isOvertimeWorker = (worker: any) => Boolean(worker?.id) && otherShiftWorkerIds.has(worker.id);
 
 	const getWorkerCostInfo = (worker: any, overtime: boolean) => {
 		const rate = compensationByWorker?.[worker?.id];

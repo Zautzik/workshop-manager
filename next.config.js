@@ -15,6 +15,10 @@
  */
 const { withSentryConfig } = require('@sentry/nextjs');
 
+if (process.env.NEXT_PUBLIC_DEV_BYPASS === 'true' && process.env.NODE_ENV !== 'development') {
+	throw new Error('FATAL: NEXT_PUBLIC_DEV_BYPASS must not be set in non-development builds');
+}
+
 // ---------------------------------------------------------------------------
 // Static security headers applied to every response via next.config.js.
 //
@@ -90,7 +94,6 @@ module.exports = withSentryConfig(nextConfig, {
 	project: process.env.SENTRY_PROJECT,
 	authToken: process.env.SENTRY_AUTH_TOKEN,
 	silent: true,
-	disableLogger: true,
 	sourcemaps: {
 		disable: !process.env.SENTRY_AUTH_TOKEN,
 	},
