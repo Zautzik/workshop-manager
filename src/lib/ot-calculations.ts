@@ -129,7 +129,10 @@ const DEFAULT_COSTS = {
   substrate_per_kg: 1500,
   ink_per_kg: 31915,
   plate_per_unit: 8500,
-  digital_print_per_click: 595,
+  // Offset press time. The calculation engine is offset-based (CTP plates, ink
+  // per sheet, press sheets), so printing is priced per press-hour — not per
+  // digital click. Adjust to your real press rate; this is a starting estimate.
+  offset_print_per_hour: 25000,
   cut_per_hour: 2500,
   troquelado_per_hour: 5000,
   plegado_per_hour: 3000,
@@ -192,16 +195,19 @@ export function generateDefaultOperations(
     });
   }
 
-  // Printing
-  if (calcs.calc_print_hours > 0) {
+  // Printing — offset press time, consistent with the offset calculation
+  // engine above. Only emitted when the job actually prints (it has colors);
+  // a "sin impresión" job must not get a printing line.
+  const totalColorPasses = colorCount(form.color_front) + colorCount(form.color_back);
+  if (totalColorPasses > 0 && calcs.calc_print_hours > 0) {
     ops.push({
       id: crypto.randomUUID(),
       category: 'impresion',
-      name: 'Impresión Digital',
-      unit: 'clicks',
-      quantity: calcs.calc_sheets,
-      unit_cost: DEFAULT_COSTS.digital_print_per_click,
-      total_cost: Math.round(calcs.calc_sheets * DEFAULT_COSTS.digital_print_per_click),
+      name: 'Impresión Offset',
+      unit: 'hours',
+      quantity: calcs.calc_print_hours,
+      unit_cost: DEFAULT_COSTS.offset_print_per_hour,
+      total_cost: Math.round(calcs.calc_print_hours * DEFAULT_COSTS.offset_print_per_hour),
       sort_order: order++,
     });
   }

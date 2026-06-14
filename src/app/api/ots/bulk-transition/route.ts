@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { isAuthError, requireAuth } from '@/lib/api-middleware';
 import { supabaseAdmin } from '@/integrations/supabase/server';
 import { buildRateLimitActor, enforceRouteRateLimit } from '@/lib/api-rate-limit';
+import type { Json } from '@/integrations/supabase/types';
 import { isValidStatus, type OTWorkflowStatus, validateTransition } from '@/lib/ot-state-machine';
 
 const BulkTransitionSchema = z.object({
@@ -40,7 +41,7 @@ export async function POST(req: NextRequest) {
     const toStatus = parsed.data.to_status as OTWorkflowStatus;
     const otIds = parsed.data.ot_ids;
 
-    const db = supabaseAdmin as any;
+    const db = supabaseAdmin;
     const { data: job, error: jobInsertError } = await db
       .from('bulk_operation_jobs')
       .insert([
@@ -177,6 +178,26 @@ export async function POST(req: NextRequest) {
           } else {
             failedCount += 1;
             failures.push({ ot_id: id, error: 'Concurrent modification — transition skipped' });
+          }
+        }
+
+        // Audit trail for the rows actually written — best-effort, non-blocking.
+        const historyRows = [...updatedIds].map((updatedId) => ({
+          ot_id: updatedId,
+          from_status: otMap.get(updatedId)!.status as OTWorkflowStatus,
+          to_status: toStatus,
+          changed_by: auth.id,
+          changed_by_role: auth.role,
+          reason: parsed.data.reason ?? null,
+          rollback: false,
+          metadata: { bulk_job_id: job?.id ?? null } as unknown as Json,
+        }));
+        if (historyRows.length > 0) {
+          const { error: historyError } = await supabaseAdmin
+            .from('ot_status_history')
+            .insert(historyRows);
+          if (historyError) {
+            console.error('Error writing bulk OT status history:', historyError);
           }
         }
       }

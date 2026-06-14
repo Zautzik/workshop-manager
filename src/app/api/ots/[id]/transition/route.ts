@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { isAuthError, requireAuth } from '@/lib/api-middleware';
 import { supabaseAdmin } from '@/integrations/supabase/server';
 import { buildRateLimitActor, enforceRouteRateLimit } from '@/lib/api-rate-limit';
+import type { Database, Json } from '@/integrations/supabase/types';
 import {
   isValidStatus,
   type OTWorkflowStatus,
@@ -98,6 +99,10 @@ export async function POST(
 
     const nowIso = new Date().toISOString();
 
+    // Concurrency guard: scope the update by the status we validated against
+    // (.eq('status', fromStatus)). If another request changed the OT between
+    // our read and this write, zero rows match and we report a 409 instead of
+    // silently clobbering their transition. Mirrors the bulk-transition route.
     const { data: updatedOt, error: updateError } = await supabaseAdmin
       .from('ots')
       .update({
@@ -105,17 +110,42 @@ export async function POST(
         updated_at: nowIso,
       })
       .eq('id', id)
+      .eq('status', fromStatus)
       .select('id, ot_number, status, updated_at')
-      .single();
+      .maybeSingle();
 
-    if (updateError || !updatedOt) {
+    if (updateError) {
       console.error('Error updating OT status:', updateError);
       return NextResponse.json({ error: 'Failed to update OT status' }, { status: 500 });
     }
 
-    const db = supabaseAdmin as any;
+    if (!updatedOt) {
+      return NextResponse.json(
+        { error: 'La OT fue modificada por otra operación. Vuelve a intentarlo.', code: 'CONCURRENT_MODIFICATION' },
+        { status: 409 }
+      );
+    }
 
-    const approverRoles = ['admin', 'supervisor', 'manager'];
+    // Audit trail — best-effort, must not block the transition response.
+    const { error: historyError } = await supabaseAdmin
+      .from('ot_status_history')
+      .insert({
+        ot_id: id,
+        from_status: fromStatus,
+        to_status: toStatus,
+        changed_by: auth.id,
+        changed_by_role: auth.role,
+        reason: parsed.data.reason ?? null,
+        rollback: parsed.data.rollback ?? false,
+        metadata: (parsed.data.metadata ?? {}) as unknown as Json,
+      });
+    if (historyError) {
+      console.error('Error writing OT status history:', historyError);
+    }
+
+    const db = supabaseAdmin;
+
+    const approverRoles: Array<Database['public']['Enums']['app_role']> = ['admin', 'supervisor', 'manager'];
     const { data: candidateUsers } = await db
       .from('user_roles')
       .select('user_id, role')
@@ -126,7 +156,7 @@ export async function POST(
     if (Array.isArray(candidateUsers) && candidateUsers.length > 0) {
       const notifications = candidateUsers.map((row: { user_id: string; role: string }) => ({
         user_id: row.user_id,
-        type: 'ot_status_changed',
+        type: 'ot_status_changed' as const,
         title: `OT ${updatedOt.ot_number} moved to ${toStatus}`,
         message: `Changed by ${auth.name ?? auth.email}`,
         resource_type: 'ot',
