@@ -15,7 +15,7 @@ export async function GET(
 
   try {
     const { id } = await params;
-    const db = supabaseAdmin as any;
+    const db = supabaseAdmin;
 
     const { data: attachment, error } = await db
       .from('ot_attachments')

@@ -24,7 +24,7 @@ export async function GET() {
 	if (isAuthError(auth)) return auth;
 
 	const since = TWO_WEEKS_AGO();
-	const db = supabaseAdmin as any;
+	const db = supabaseAdmin;
 
 	// ── Run all queries in parallel ──────────────────────────────────────────
 	const [

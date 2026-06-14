@@ -16,7 +16,7 @@ export async function GET(_req: NextRequest) {
   if (isAuthError(auth)) return auth;
 
   try {
-    const db = supabaseAdmin as any;
+    const db = supabaseAdmin;
     const query = db
       .from('reporting_exports')
       .select('*')
@@ -57,7 +57,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const db = supabaseAdmin as any;
+    const db = supabaseAdmin;
     const { data, error } = await db
       .from('reporting_exports')
       .insert([

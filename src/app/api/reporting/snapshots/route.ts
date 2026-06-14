@@ -46,7 +46,7 @@ export async function GET(req: NextRequest) {
 
   try {
     const latest = req.nextUrl.searchParams.get('latest') === 'true';
-    const db = supabaseAdmin as any;
+    const db = supabaseAdmin;
 
     let query = db
       .from('reporting_snapshots')
@@ -76,7 +76,7 @@ export async function POST(_req: NextRequest) {
   try {
     const metrics = await buildSnapshotMetrics();
     const today = new Date().toISOString().slice(0, 10);
-    const db = supabaseAdmin as any;
+    const db = supabaseAdmin;
 
     const { data, error } = await db
       .from('reporting_snapshots')

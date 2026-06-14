@@ -19,9 +19,7 @@ export async function GET(req: NextRequest) {
     const limit = Number(url.searchParams.get('limit') ?? 50);
     const safeLimit = Number.isFinite(limit) ? Math.min(Math.max(limit, 1), 200) : 50;
 
-    const db = supabaseAdmin as any;
-
-    let query = db
+    let query = supabaseAdmin
       .from('notifications')
       .select('*')
       .eq('user_id', auth.id)
@@ -63,11 +61,10 @@ export async function PATCH(req: NextRequest) {
       );
     }
 
-    const db = supabaseAdmin as any;
     const nowIso = new Date().toISOString();
 
     if (parsed.data.mark_all_read) {
-      const { error } = await db
+      const { error } = await supabaseAdmin
         .from('notifications')
         .update({ is_read: true, read_at: nowIso })
         .eq('user_id', auth.id)
@@ -82,7 +79,7 @@ export async function PATCH(req: NextRequest) {
     }
 
     const ids = parsed.data.ids ?? [];
-    const { error } = await db
+    const { error } = await supabaseAdmin
       .from('notifications')
       .update({ is_read: true, read_at: nowIso })
       .eq('user_id', auth.id)

@@ -14,6 +14,42 @@ export type Database = {
   }
   public: {
     Tables: {
+      bulk_operation_jobs: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          error_message: string | null
+          id: string
+          operation_type: string
+          payload: Json
+          requested_by: string
+          result: Json
+          status: Database["public"]["Enums"]["bulk_job_status"]
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          operation_type: string
+          payload?: Json
+          requested_by: string
+          result?: Json
+          status?: Database["public"]["Enums"]["bulk_job_status"]
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          operation_type?: string
+          payload?: Json
+          requested_by?: string
+          result?: Json
+          status?: Database["public"]["Enums"]["bulk_job_status"]
+        }
+        Relationships: []
+      }
       clients: {
         Row: {
           address: string | null
@@ -746,6 +782,45 @@ export type Database = {
           incentive_type?: Database["public"]["Enums"]["incentive_rule_type"]
           is_active?: boolean
           name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      integration_connectors: {
+        Row: {
+          config: Json
+          created_at: string
+          created_by: string | null
+          id: string
+          last_error: string | null
+          last_sync_at: string | null
+          name: string
+          provider: string
+          status: Database["public"]["Enums"]["integration_status"]
+          updated_at: string
+        }
+        Insert: {
+          config?: Json
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          last_error?: string | null
+          last_sync_at?: string | null
+          name: string
+          provider: string
+          status?: Database["public"]["Enums"]["integration_status"]
+          updated_at?: string
+        }
+        Update: {
+          config?: Json
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          last_error?: string | null
+          last_sync_at?: string | null
+          name?: string
+          provider?: string
+          status?: Database["public"]["Enums"]["integration_status"]
           updated_at?: string
         }
         Relationships: []
@@ -2121,6 +2196,128 @@ export type Database = {
         }
         Relationships: []
       }
+      ot_approvals: {
+        Row: {
+          approver_id: string | null
+          comments: string | null
+          created_at: string
+          id: string
+          ot_id: string
+          requested_by: string | null
+          resolved_at: string | null
+          status: Database["public"]["Enums"]["ot_approval_status"]
+        }
+        Insert: {
+          approver_id?: string | null
+          comments?: string | null
+          created_at?: string
+          id?: string
+          ot_id: string
+          requested_by?: string | null
+          resolved_at?: string | null
+          status?: Database["public"]["Enums"]["ot_approval_status"]
+        }
+        Update: {
+          approver_id?: string | null
+          comments?: string | null
+          created_at?: string
+          id?: string
+          ot_id?: string
+          requested_by?: string | null
+          resolved_at?: string | null
+          status?: Database["public"]["Enums"]["ot_approval_status"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ot_approvals_ot_id_fkey"
+            columns: ["ot_id"]
+            isOneToOne: false
+            referencedRelation: "ots"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ot_attachments: {
+        Row: {
+          created_at: string
+          draft_id: string | null
+          file_size: number | null
+          filename: string
+          id: string
+          mime_type: string | null
+          ot_id: string | null
+          storage_path: string
+          uploaded_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          draft_id?: string | null
+          file_size?: number | null
+          filename: string
+          id?: string
+          mime_type?: string | null
+          ot_id?: string | null
+          storage_path: string
+          uploaded_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          draft_id?: string | null
+          file_size?: number | null
+          filename?: string
+          id?: string
+          mime_type?: string | null
+          ot_id?: string | null
+          storage_path?: string
+          uploaded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ot_attachments_draft_id_fkey"
+            columns: ["draft_id"]
+            isOneToOne: false
+            referencedRelation: "ot_drafts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ot_attachments_ot_id_fkey"
+            columns: ["ot_id"]
+            isOneToOne: false
+            referencedRelation: "ots"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ot_drafts: {
+        Row: {
+          created_at: string
+          form_data: Json
+          id: string
+          step: number
+          title: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          form_data?: Json
+          id?: string
+          step?: number
+          title?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          form_data?: Json
+          id?: string
+          step?: number
+          title?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       ot_financials: {
         Row: {
           created_at: string
@@ -2270,77 +2467,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
-      }
-      ot_approvals: {
-        Row: {
-          approver_id: string | null
-          comments: string | null
-          created_at: string
-          id: string
-          ot_id: string
-          requested_by: string | null
-          resolved_at: string | null
-          status: Database["public"]["Enums"]["ot_approval_status"]
-        }
-        Insert: {
-          approver_id?: string | null
-          comments?: string | null
-          created_at?: string
-          id?: string
-          ot_id: string
-          requested_by?: string | null
-          resolved_at?: string | null
-          status?: Database["public"]["Enums"]["ot_approval_status"]
-        }
-        Update: {
-          approver_id?: string | null
-          comments?: string | null
-          created_at?: string
-          id?: string
-          ot_id?: string
-          requested_by?: string | null
-          resolved_at?: string | null
-          status?: Database["public"]["Enums"]["ot_approval_status"]
-        }
-        Relationships: [
-          {
-            foreignKeyName: "ot_approvals_ot_id_fkey"
-            columns: ["ot_id"]
-            isOneToOne: false
-            referencedRelation: "ots"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      ot_drafts: {
-        Row: {
-          created_at: string
-          form_data: Json
-          id: string
-          step: number
-          title: string | null
-          updated_at: string
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          form_data?: Json
-          id?: string
-          step?: number
-          title?: string | null
-          updated_at?: string
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          form_data?: Json
-          id?: string
-          step?: number
-          title?: string | null
-          updated_at?: string
-          user_id?: string
-        }
-        Relationships: []
       }
       ot_operations: {
         Row: {
@@ -2492,16 +2618,63 @@ export type Database = {
           },
         ]
       }
+      ot_status_history: {
+        Row: {
+          changed_by: string | null
+          changed_by_role: string | null
+          created_at: string
+          from_status: Database["public"]["Enums"]["ot_status"] | null
+          id: string
+          metadata: Json
+          ot_id: string
+          reason: string | null
+          rollback: boolean
+          to_status: Database["public"]["Enums"]["ot_status"]
+        }
+        Insert: {
+          changed_by?: string | null
+          changed_by_role?: string | null
+          created_at?: string
+          from_status?: Database["public"]["Enums"]["ot_status"] | null
+          id?: string
+          metadata?: Json
+          ot_id: string
+          reason?: string | null
+          rollback?: boolean
+          to_status: Database["public"]["Enums"]["ot_status"]
+        }
+        Update: {
+          changed_by?: string | null
+          changed_by_role?: string | null
+          created_at?: string
+          from_status?: Database["public"]["Enums"]["ot_status"] | null
+          id?: string
+          metadata?: Json
+          ot_id?: string
+          reason?: string | null
+          rollback?: boolean
+          to_status?: Database["public"]["Enums"]["ot_status"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ot_status_history_ot_id_fkey"
+            columns: ["ot_id"]
+            isOneToOne: false
+            referencedRelation: "ots"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ot_templates: {
         Row: {
-          color_back: Database["public"]["Enums"]["ot_color_mode"]
-          color_front: Database["public"]["Enums"]["ot_color_mode"]
+          color_back: Database["public"]["Enums"]["ot_color_mode"] | null
+          color_front: Database["public"]["Enums"]["ot_color_mode"] | null
           commission_pct: number | null
           created_at: string
           created_by: string | null
-          default_operations: Json
+          default_operations: Json | null
           description: string | null
-          finishes: Json
+          finishes: Json | null
           grammage_gsm: number | null
           height_cm: number | null
           id: string
@@ -2510,19 +2683,21 @@ export type Database = {
           margin_pct: number | null
           name: string
           product_type: Database["public"]["Enums"]["ot_product_type"] | null
-          substrate_type: Database["public"]["Enums"]["ot_substrate_type"] | null
+          substrate_type:
+            | Database["public"]["Enums"]["ot_substrate_type"]
+            | null
           updated_at: string
           width_cm: number | null
         }
         Insert: {
-          color_back?: Database["public"]["Enums"]["ot_color_mode"]
-          color_front?: Database["public"]["Enums"]["ot_color_mode"]
+          color_back?: Database["public"]["Enums"]["ot_color_mode"] | null
+          color_front?: Database["public"]["Enums"]["ot_color_mode"] | null
           commission_pct?: number | null
           created_at?: string
           created_by?: string | null
-          default_operations?: Json
+          default_operations?: Json | null
           description?: string | null
-          finishes?: Json
+          finishes?: Json | null
           grammage_gsm?: number | null
           height_cm?: number | null
           id?: string
@@ -2531,19 +2706,21 @@ export type Database = {
           margin_pct?: number | null
           name: string
           product_type?: Database["public"]["Enums"]["ot_product_type"] | null
-          substrate_type?: Database["public"]["Enums"]["ot_substrate_type"] | null
+          substrate_type?:
+            | Database["public"]["Enums"]["ot_substrate_type"]
+            | null
           updated_at?: string
           width_cm?: number | null
         }
         Update: {
-          color_back?: Database["public"]["Enums"]["ot_color_mode"]
-          color_front?: Database["public"]["Enums"]["ot_color_mode"]
+          color_back?: Database["public"]["Enums"]["ot_color_mode"] | null
+          color_front?: Database["public"]["Enums"]["ot_color_mode"] | null
           commission_pct?: number | null
           created_at?: string
           created_by?: string | null
-          default_operations?: Json
+          default_operations?: Json | null
           description?: string | null
-          finishes?: Json
+          finishes?: Json | null
           grammage_gsm?: number | null
           height_cm?: number | null
           id?: string
@@ -2552,7 +2729,9 @@ export type Database = {
           margin_pct?: number | null
           name?: string
           product_type?: Database["public"]["Enums"]["ot_product_type"] | null
-          substrate_type?: Database["public"]["Enums"]["ot_substrate_type"] | null
+          substrate_type?:
+            | Database["public"]["Enums"]["ot_substrate_type"]
+            | null
           updated_at?: string
           width_cm?: number | null
         }
@@ -2799,7 +2978,50 @@ export type Database = {
             referencedRelation: "workstations"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "ots_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "ot_templates"
+            referencedColumns: ["id"]
+          },
         ]
+      }
+      permission_templates: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          department: string | null
+          id: string
+          is_active: boolean
+          name: string
+          permissions: Json
+          role: Database["public"]["Enums"]["app_role"] | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          department?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          permissions?: Json
+          role?: Database["public"]["Enums"]["app_role"] | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          department?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          permissions?: Json
+          role?: Database["public"]["Enums"]["app_role"] | null
+          updated_at?: string
+        }
+        Relationships: []
       }
       program_task_logs: {
         Row: {
@@ -3098,6 +3320,39 @@ export type Database = {
           id?: string
           name?: string
           updated_at?: string | null
+        }
+        Relationships: []
+      }
+      saved_searches: {
+        Row: {
+          created_at: string
+          domain: string
+          filters: Json
+          id: string
+          is_default: boolean
+          name: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          domain: string
+          filters?: Json
+          id?: string
+          is_default?: boolean
+          name: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          domain?: string
+          filters?: Json
+          id?: string
+          is_default?: boolean
+          name?: string
+          updated_at?: string
+          user_id?: string
         }
         Relationships: []
       }
@@ -3416,6 +3671,48 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      training_articles: {
+        Row: {
+          category: string | null
+          content_md: string
+          created_at: string
+          created_by: string | null
+          id: string
+          is_published: boolean
+          slug: string
+          tags: Json
+          title: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          category?: string | null
+          content_md: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_published?: boolean
+          slug: string
+          tags?: Json
+          title: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          category?: string | null
+          content_md?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_published?: boolean
+          slug?: string
+          tags?: Json
+          title?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
       }
       user_roles: {
         Row: {
@@ -4087,48 +4384,6 @@ export type Database = {
           },
         ]
       }
-      training_articles: {
-        Row: {
-          category: string | null
-          content_md: string
-          created_at: string
-          created_by: string | null
-          id: string
-          is_published: boolean
-          slug: string
-          tags: Json
-          title: string
-          updated_at: string
-          updated_by: string | null
-        }
-        Insert: {
-          category?: string | null
-          content_md: string
-          created_at?: string
-          created_by?: string | null
-          id?: string
-          is_published?: boolean
-          slug: string
-          tags?: Json
-          title: string
-          updated_at?: string
-          updated_by?: string | null
-        }
-        Update: {
-          category?: string | null
-          content_md?: string
-          created_at?: string
-          created_by?: string | null
-          id?: string
-          is_published?: boolean
-          slug?: string
-          tags?: Json
-          title?: string
-          updated_at?: string
-          updated_by?: string | null
-        }
-        Relationships: []
-      }
     }
     Views: {
       inventory_items_stock_v: {
@@ -4751,6 +5006,16 @@ export type Database = {
         }
         Returns: undefined
       }
+      show_limit: { Args: never; Returns: number }
+      show_trgm: { Args: { "": string }; Returns: string[] }
+      split_ot: {
+        Args: {
+          p_advance_quantity: number
+          p_ot_id: string
+          p_target_status: Database["public"]["Enums"]["ot_status"]
+        }
+        Returns: Json
+      }
       validate_contract_coverage: {
         Args: { p_employee_id: string; p_from_date: string; p_to_date: string }
         Returns: {
@@ -4763,6 +5028,7 @@ export type Database = {
     }
     Enums: {
       app_role: "supervisor" | "manager" | "admin" | "technician" | "hr_manager"
+      bulk_job_status: "queued" | "running" | "completed" | "failed"
       employee_status: "active" | "inactive" | "on_leave" | "terminated"
       employment_contract_type:
         | "full_time"
@@ -4795,6 +5061,7 @@ export type Database = {
         | "attendance_bonus"
         | "overtime_bonus"
         | "penalty_adjustment"
+      integration_status: "inactive" | "active" | "error"
       inventory_item_category:
         | "tool"
         | "supply"
@@ -4842,7 +5109,11 @@ export type Database = {
         | "ot_rejected"
         | "report_ready"
         | "system_alert"
-      ot_approval_status: "pending" | "approved" | "rejected" | "revision_requested"
+      ot_approval_status:
+        | "pending"
+        | "approved"
+        | "rejected"
+        | "revision_requested"
       ot_color_mode:
         | "cmyk"
         | "1_color"
@@ -5067,6 +5338,7 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["supervisor", "manager", "admin", "technician", "hr_manager"],
+      bulk_job_status: ["queued", "running", "completed", "failed"],
       employee_status: ["active", "inactive", "on_leave", "terminated"],
       employment_contract_type: [
         "full_time",
@@ -5103,6 +5375,7 @@ export const Constants = {
         "overtime_bonus",
         "penalty_adjustment",
       ],
+      integration_status: ["inactive", "active", "error"],
       inventory_item_category: [
         "tool",
         "supply",
@@ -5157,7 +5430,12 @@ export const Constants = {
         "report_ready",
         "system_alert",
       ],
-      ot_approval_status: ["pending", "approved", "rejected", "revision_requested"],
+      ot_approval_status: [
+        "pending",
+        "approved",
+        "rejected",
+        "revision_requested",
+      ],
       ot_color_mode: [
         "cmyk",
         "1_color",
@@ -5168,9 +5446,9 @@ export const Constants = {
       ],
       ot_operation_category: [
         "materiales",
-        "tercerizado",
         "impresion",
         "terminaciones",
+        "tercerizado",
         "otros",
       ],
       ot_priority_level: ["baja", "normal", "alta", "urgente"],
@@ -5193,6 +5471,7 @@ export const Constants = {
         "in_storage",
         "guillotine_first_cut",
         "offset_printing",
+        "digital_printing",
         "die_cutting",
         "guillotine_final_cut",
         "workshop",

@@ -21,7 +21,7 @@ export async function GET(_req: NextRequest) {
   const auth = await requireAuth();
   if (isAuthError(auth)) return auth;
 
-  const db = supabaseAdmin as any;
+  const db = supabaseAdmin;
   const { data, error } = await db
     .from('saved_searches')
     .select('*')
@@ -48,7 +48,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const db = supabaseAdmin as any;
+  const db = supabaseAdmin;
   const { data, error } = await db
     .from('saved_searches')
     .insert([{ ...parsed.data, user_id: auth.id }])
@@ -76,7 +76,7 @@ export async function PATCH(req: NextRequest) {
   }
 
   const { id, ...updates } = parsed.data;
-  const db = supabaseAdmin as any;
+  const db = supabaseAdmin;
   const { data, error } = await db
     .from('saved_searches')
     .update(updates)
@@ -102,7 +102,7 @@ export async function DELETE(req: NextRequest) {
     return NextResponse.json({ error: 'id is required' }, { status: 400 });
   }
 
-  const db = supabaseAdmin as any;
+  const db = supabaseAdmin;
   const { error } = await db
     .from('saved_searches')
     .delete()

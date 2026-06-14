@@ -22,6 +22,11 @@ const PERSONAL_EMPLOYEE_FIELDS = [
 	'termination_date',
 ] as const;
 
+// Allowed values for the `status` filter — validates user-supplied query input
+// instead of trusting it blindly (defence-in-depth; PostgREST already escapes).
+const EMPLOYEE_STATUSES = ['active', 'inactive', 'on_leave', 'terminated'] as const;
+type EmployeeStatus = (typeof EMPLOYEE_STATUSES)[number];
+
 const COMPENSATION_FIELDS = [
 	'hourly_rate',
 	'overtime_multiplier_50',
@@ -86,7 +91,10 @@ export async function GET(request: NextRequest) {
 		// Get query parameters
 		const { searchParams } = new URL(request.url);
 		const department = searchParams.get('department');
-		const status = searchParams.get('status') || 'active';
+		const statusParam = searchParams.get('status') || 'active';
+		const status: EmployeeStatus = (EMPLOYEE_STATUSES as readonly string[]).includes(statusParam)
+			? (statusParam as EmployeeStatus)
+			: 'active';
 		const limit = parseInt(searchParams.get('limit') || '50', 10);
 		const offset = parseInt(searchParams.get('offset') || '0', 10);
 
@@ -139,7 +147,7 @@ export async function GET(request: NextRequest) {
 			`,
 				{ count: 'exact' }
 			)
-			.eq('status', status as any)
+			.eq('status', status)
 			.order('full_name', { ascending: true })
 			.range(offset, offset + limit - 1);
 

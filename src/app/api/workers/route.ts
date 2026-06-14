@@ -86,7 +86,7 @@ export async function GET(req: NextRequest) {
 		console.warn('employees query failed in /api/workers, trying legacy workers fallback:', employeesError);
 
 		const { data: legacyWorkers, error: legacyError, count: legacyCount } = await supabaseAdmin
-			.from('workers' as any)
+			.from('workers')
 			.select('*', { count: 'exact' })
 			.order('name', { ascending: true })
 			.range(offset, offset + limit - 1);

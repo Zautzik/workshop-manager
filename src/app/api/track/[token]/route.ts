@@ -15,9 +15,9 @@ export async function GET(
     return NextResponse.json({ error: 'Token inválido' }, { status: 400 });
   }
 
-  const { data, error } = await (supabaseAdmin as any)
+  const { data, error } = await supabaseAdmin
     .from('ots')
-    .select('id, ot_number, client_name, status, priority, created_at, due_date, description')
+    .select('id, ot_number, client_name, status, priority, created_at, deadline, description')
     .eq('id', token)
     .maybeSingle();
 

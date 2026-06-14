@@ -234,7 +234,7 @@ export async function DELETE(
 
 		const { data: employee, error } = await supabase
 			.from('employees')
-			.update({ status: 'archived' as any })
+			.update({ status: 'terminated' })
 			.eq('id', id)
 			.select()
 			.single();

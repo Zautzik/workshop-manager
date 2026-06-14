@@ -23,7 +23,7 @@ export async function GET(_req: NextRequest) {
   if (isAuthError(auth)) return auth;
 
   try {
-    const db = supabaseAdmin as any;
+    const db = supabaseAdmin;
     const { data, error } = await db
       .from('integration_connectors')
       .select('*')
@@ -55,7 +55,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const db = supabaseAdmin as any;
+    const db = supabaseAdmin;
     const { data, error } = await db
       .from('integration_connectors')
       .insert([
@@ -96,7 +96,7 @@ export async function PATCH(req: NextRequest) {
     }
 
     const { id, ...fields } = parsed.data;
-    const db = supabaseAdmin as any;
+    const db = supabaseAdmin;
 
     const { data, error } = await db
       .from('integration_connectors')

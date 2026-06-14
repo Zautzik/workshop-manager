@@ -71,7 +71,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Failed to upload file' }, { status: 500 });
     }
 
-    const db = supabaseAdmin as any;
+    const db = supabaseAdmin;
     const { data: attachment, error: insertError } = await db
       .from('ot_attachments')
       .insert([

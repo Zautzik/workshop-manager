@@ -25,7 +25,7 @@ export async function GET(_req: NextRequest) {
   if (isAuthError(auth)) return auth;
 
   try {
-    const db = supabaseAdmin as any;
+    const db = supabaseAdmin;
     const { data, error } = await db
       .from('permission_templates')
       .select('*')
@@ -56,7 +56,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const db = supabaseAdmin as any;
+    const db = supabaseAdmin;
     const { data, error } = await db
       .from('permission_templates')
       .insert([
@@ -94,7 +94,7 @@ export async function PATCH(req: NextRequest) {
     }
 
     const { id, ...updates } = parsed.data;
-    const db = supabaseAdmin as any;
+    const db = supabaseAdmin;
     const { data, error } = await db
       .from('permission_templates')
       .update(updates)
