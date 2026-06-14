@@ -220,7 +220,7 @@ const ExecutiveOverview = () => {
               <div className="flex items-end justify-between">
                 <div>
                   <div className="text-3xl font-bold text-foreground">{kpis.workforceEfficiency}%</div>
-                  <p className="text-xs text-muted-foreground mt-1">Skill utilization</p>
+                  <p className="text-xs text-muted-foreground mt-1">Utilización de habilidades</p>
                 </div>
                 <div className="flex items-center text-green-500 text-sm">
                   <Zap className="h-4 w-4" />

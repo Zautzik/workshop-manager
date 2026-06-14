@@ -195,8 +195,8 @@ const SkillTreeManager = () => {
   const handleSaveSkill = async () => {
     if (!formData.code || !formData.name) {
       toast({
-        title: 'Validation Error',
-        description: 'Code and Name are required',
+        title: 'Error de validación',
+        description: 'El código y el nombre son obligatorios',
         variant: 'destructive',
       });
       return;
@@ -226,7 +226,7 @@ const SkillTreeManager = () => {
       }
 
       toast({
-        title: 'Success',
+        title: 'Éxito',
         description: selectedSkill?.id ? 'Skill updated' : 'Skill created',
       });
 
@@ -260,8 +260,8 @@ const SkillTreeManager = () => {
       }
 
       toast({
-        title: 'Success',
-        description: 'Skill deleted successfully',
+        title: 'Éxito',
+        description: 'Habilidad eliminada correctamente',
       });
 
       queryClient.invalidateQueries({ queryKey: ['skills'] });
@@ -357,7 +357,7 @@ const SkillTreeManager = () => {
           <CardTitle>Skills Tree Manager</CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-muted-foreground">Loading skill tree...</p>
+          <p className="text-muted-foreground">Cargando árbol de habilidades...</p>
         </CardContent>
       </Card>
     );
@@ -386,8 +386,8 @@ const SkillTreeManager = () => {
       <CardContent>
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="tree">Skill Tree</TabsTrigger>
-            <TabsTrigger value="list">List View</TabsTrigger>
+            <TabsTrigger value="tree">Árbol de habilidades</TabsTrigger>
+            <TabsTrigger value="list">Vista de lista</TabsTrigger>
             <TabsTrigger value="details">
               {selectedSkill ? 'Details' : 'Select a Skill'}
             </TabsTrigger>
@@ -397,7 +397,7 @@ const SkillTreeManager = () => {
             <div className="flex flex-col gap-3 md:flex-row">
               <div className="flex-1">
                 <Input
-                  placeholder="Search skills..."
+                  placeholder="Buscar habilidades..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
@@ -409,10 +409,10 @@ const SkillTreeManager = () => {
                 }
               >
                 <SelectTrigger className="w-full md:w-[200px]">
-                  <SelectValue placeholder="Filter by type" />
+                  <SelectValue placeholder="Filtrar por tipo" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Types</SelectItem>
+                  <SelectItem value="all">Todos los tipos</SelectItem>
                   {SKILL_TREE_TYPES.map((type) => (
                     <SelectItem key={type.value} value={type.value}>
                       {type.label}
@@ -502,7 +502,7 @@ const SkillTreeManager = () => {
             ) : (
               <div className="text-center py-8 text-muted-foreground">
                 <AlertCircle className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                <p>Select a skill to view details</p>
+                <p>Seleccione una habilidad para ver detalles</p>
               </div>
             )}
           </TabsContent>
@@ -540,7 +540,7 @@ const SkillTreeManager = () => {
               <Label htmlFor="name">Name *</Label>
               <Input
                 id="name"
-                placeholder="e.g., Offset Press - Basic Operation"
+                placeholder="ej., Prensa offset - Operación básica"
                 value={formData.name}
                 onChange={(e) =>
                   setFormData({ ...formData, name: e.target.value })
@@ -549,10 +549,10 @@ const SkillTreeManager = () => {
             </div>
 
             <div>
-              <Label htmlFor="description">Description</Label>
+              <Label htmlFor="description">Descripción</Label>
               <Textarea
                 id="description"
-                placeholder="Describe what this skill entails..."
+                placeholder="Describa en qué consiste esta habilidad..."
                 value={formData.description}
                 onChange={(e) =>
                   setFormData({ ...formData, description: e.target.value })
@@ -562,10 +562,10 @@ const SkillTreeManager = () => {
             </div>
 
             <div>
-              <Label htmlFor="category">Category</Label>
+              <Label htmlFor="category">Categoría</Label>
               <Input
                 id="category"
-                placeholder="e.g., Offset Printing"
+                placeholder="ej., Impresión offset"
                 value={formData.category}
                 onChange={(e) =>
                   setFormData({ ...formData, category: e.target.value })
@@ -595,7 +595,7 @@ const SkillTreeManager = () => {
             </div>
 
             <div>
-              <Label htmlFor="parent_skill_id">Parent Skill (Optional)</Label>
+              <Label htmlFor="parent_skill_id">Habilidad padre (opcional)</Label>
               <Select
                 value={formData.parent_skill_id ?? 'none'}
                 onValueChange={(value) =>
@@ -606,10 +606,10 @@ const SkillTreeManager = () => {
                 }
               >
                 <SelectTrigger id="parent_skill_id">
-                  <SelectValue placeholder="Select parent skill" />
+                  <SelectValue placeholder="Seleccionar habilidad padre" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="none">None (Root Level)</SelectItem>
+                  <SelectItem value="none">Ninguno (nivel raíz)</SelectItem>
                   {allSkills
                     .filter((s: any) => s.id !== selectedSkill?.id)
                     .map((skill: any) => (
@@ -667,7 +667,7 @@ const SkillTreeManager = () => {
             >
               Cancel
             </Button>
-            <Button onClick={handleSaveSkill}>Save Skill</Button>
+            <Button onClick={handleSaveSkill}>Guardar habilidad</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -683,7 +683,7 @@ const SkillTreeManager = () => {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction onClick={handleConfirmDelete}>
               Delete
             </AlertDialogAction>
@@ -706,7 +706,7 @@ const SkillDetailsPanel = ({ skill, onEdit, onDelete }: any) => {
   });
 
   if (isLoading) {
-    return <div className="py-4 text-muted-foreground">Loading details...</div>;
+    return <div className="py-4 text-muted-foreground">Cargando detalles...</div>;
   }
 
   return (
@@ -717,11 +717,11 @@ const SkillDetailsPanel = ({ skill, onEdit, onDelete }: any) => {
           <p className="font-mono text-sm">{fullSkill.code}</p>
         </div>
         <div>
-          <Label className="text-xs uppercase text-muted-foreground">Type</Label>
+          <Label className="text-xs uppercase text-muted-foreground">Tipo</Label>
           <p className="text-sm capitalize">{fullSkill.skill_tree_type}</p>
         </div>
         <div>
-          <Label className="text-xs uppercase text-muted-foreground">Category</Label>
+          <Label className="text-xs uppercase text-muted-foreground">Categoría</Label>
           <p className="text-sm">{fullSkill.category || 'Uncategorized'}</p>
         </div>
         <div>

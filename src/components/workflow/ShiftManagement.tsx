@@ -38,8 +38,8 @@ export function ShiftManagement({ onShiftChange }: ShiftManagementProps) {
   useEffect(() => {
     if (machinesError || otsError) {
       toast({
-        title: "Error loading machine schedule",
-        description: "Failed to load machines or work orders",
+        title: "Error al cargar la programación de máquinas",
+        description: "No se pudieron cargar las máquinas o las órdenes de trabajo",
         variant: "destructive"
       });
     }
@@ -109,7 +109,7 @@ export function ShiftManagement({ onShiftChange }: ShiftManagementProps) {
       <Card className="bg-white/10 border-white/20 backdrop-blur-sm">
         <CardContent className="p-8 text-center text-white">
           <Clock className="w-12 h-12 mx-auto mb-4 animate-spin" />
-          <p>Loading machine schedule...</p>
+          <p>Cargando programación de máquinas...</p>
         </CardContent>
       </Card>
     );
@@ -185,7 +185,7 @@ export function ShiftManagement({ onShiftChange }: ShiftManagementProps) {
                     <div className="absolute inset-0 flex items-center justify-center">
                       <div className="flex items-center gap-2 text-white/40">
                         <AlertCircle className="w-5 h-5" />
-                        <span className="text-sm">No active work order</span>
+                        <span className="text-sm">No hay orden de trabajo activa</span>
                       </div>
                     </div>
                   )}

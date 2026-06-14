@@ -62,7 +62,7 @@ export function MonthlyPayrollCalculator() {
     <div className='space-y-6'>
       <Card>
         <CardHeader>
-          <CardTitle>Monthly Payroll Calculator</CardTitle>
+          <CardTitle>Calculadora de nómina mensual</CardTitle>
         </CardHeader>
         <CardContent className='space-y-4'>
           <div className='max-w-xs'>
@@ -87,7 +87,7 @@ export function MonthlyPayrollCalculator() {
             <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4'>
               <Card>
                 <CardHeader className='pb-2'>
-                  <CardTitle className='text-sm text-muted-foreground'>Regular Hours</CardTitle>
+                  <CardTitle className='text-sm text-muted-foreground'>Horas normales</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <p className='text-2xl font-semibold'>{Math.round(totals.regularHours).toLocaleString('es-CL')}</p>
@@ -127,14 +127,14 @@ export function MonthlyPayrollCalculator() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Employee Payroll Breakdown</CardTitle>
+          <CardTitle>Desglose de nómina del empleado</CardTitle>
         </CardHeader>
         <CardContent>
           <div className='overflow-x-auto'>
             <table className='w-full text-sm'>
               <thead>
                 <tr className='border-b'>
-                  <th className='text-left py-2 px-3'>Employee</th>
+                  <th className='text-left py-2 px-3'>Empleado</th>
                   <th className='text-right py-2 px-3'>Regular Hrs</th>
                   <th className='text-right py-2 px-3'>OT Hrs</th>
                   <th className='text-right py-2 px-3'>Base Pay</th>

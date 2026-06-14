@@ -61,7 +61,7 @@ export function WorkerStatsPanel({
               </div>
             </div>
             <div className="text-right">
-              <p className="text-xs uppercase tracking-wide text-muted-foreground">Performance profile</p>
+              <p className="text-xs uppercase tracking-wide text-muted-foreground">Perfil de desempeño</p>
               <p className="text-sm font-semibold text-foreground">{getProfileLabel(selectedWorker)}</p>
             </div>
           </div>
@@ -169,13 +169,13 @@ export function WorkerStatsPanel({
       ) : (
         <Card className="bg-card border-border p-6 text-center">
           <Users className="w-12 h-12 mx-auto mb-2 text-primary/70" />
-          <p className="text-foreground">Select a worker to view stats</p>
+          <p className="text-foreground">Seleccione un trabajador para ver estadísticas</p>
         </Card>
       )}
 
       {/* All Workers List */}
       <Card className="bg-card border-border p-4">
-        <h3 className="text-lg font-bold text-foreground mb-3">All Workers</h3>
+        <h3 className="text-lg font-bold text-foreground mb-3">Todos los trabajadores</h3>
         <ScrollArea className="h-[400px] pr-4">
           <div className="space-y-2">
             {workers.map((worker) => (
@@ -199,7 +199,7 @@ export function WorkerStatsPanel({
                     </div>
                   </div>
                   <div className="text-right">
-                    <p className="text-xs text-muted-foreground">Profile</p>
+                    <p className="text-xs text-muted-foreground">Perfil</p>
                     <p className="text-sm font-semibold text-foreground">{getProfileLabel(worker)}</p>
                   </div>
                 </div>

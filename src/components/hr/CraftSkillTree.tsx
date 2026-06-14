@@ -560,11 +560,11 @@ function NodeDetailPanel({
             <span className="text-slate-300 font-medium">{TIER_LABELS[node.tier]}</span>
           </div>
           <div>
-            <span className="text-slate-500 block mb-0.5">Category</span>
+            <span className="text-slate-500 block mb-0.5">Categoría</span>
             <span className="text-slate-300 font-medium">{node.category}</span>
           </div>
           <div>
-            <span className="text-slate-500 block mb-0.5">Proficiency</span>
+            <span className="text-slate-500 block mb-0.5">Competencia</span>
             <div className="flex items-center gap-1 mt-0.5">
               {[1, 2, 3, 4, 5].map(l => (
                 <div
@@ -778,7 +778,7 @@ function TalentDevelopmentGuide({
         </div>
 
         <div className="rounded-lg border border-[#1e293b] bg-[#0d1117] p-3">
-          <p className="text-[11px] uppercase tracking-wide text-slate-500 mb-2">Next Unlock Targets</p>
+          <p className="text-[11px] uppercase tracking-wide text-slate-500 mb-2">Próximos objetivos a desbloquear</p>
           {selectedEmployeeName ? (
             nextUnlockNodes.length > 0 ? (
               <div className="space-y-1.5">
@@ -855,7 +855,7 @@ function TalentDevelopmentGuide({
                     Missing milestones: {template.missingNames.slice(0, 3).join(', ')}{template.missingNames.length > 3 ? '...' : ''}
                   </p>
                 ) : (
-                  <p className="text-[11px] text-emerald-300 mt-1.5">All core milestones covered.</p>
+                  <p className="text-[11px] text-emerald-300 mt-1.5">Todos los hitos principales cubiertos.</p>
                 )}
               </div>
             ))}
@@ -907,7 +907,7 @@ function IndividualDevelopmentPlanPanel({
         </div>
         <div className="flex items-center gap-2">
           <Button size="sm" variant="outline" onClick={onCopy}>Copy Plan</Button>
-          <Button size="sm" variant="outline" onClick={onDownload}>Download .txt</Button>
+          <Button size="sm" variant="outline" onClick={onDownload}>Descargar .txt</Button>
         </div>
       </div>
 
@@ -941,20 +941,20 @@ function IndividualDevelopmentPlanPanel({
       </div>
 
       <div className="mt-3 rounded border border-[#1e293b] bg-[#0a0f15] p-2.5">
-        <p className="text-xs font-semibold text-slate-100">Manager Review and Sign-Off</p>
+        <p className="text-xs font-semibold text-slate-100">Revisión y aprobación del encargado</p>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-2">
           <div>
-            <label className="text-[11px] text-slate-500 block mb-1">Reviewer Name</label>
+            <label className="text-[11px] text-slate-500 block mb-1">Nombre del revisor</label>
             <input
               type="text"
               value={signoffManager}
               onChange={(e) => onSignoffManagerChange(e.target.value)}
-              placeholder="Manager / Supervisor"
+              placeholder="Encargado / Supervisor"
               className="w-full rounded border border-[#1e293b] bg-[#0d1117] px-2 py-1.5 text-xs text-slate-200"
             />
           </div>
           <div>
-            <label className="text-[11px] text-slate-500 block mb-1">Review Date</label>
+            <label className="text-[11px] text-slate-500 block mb-1">Fecha de revisión</label>
             <input
               type="date"
               value={signoffDate}
@@ -964,11 +964,11 @@ function IndividualDevelopmentPlanPanel({
           </div>
         </div>
         <div className="mt-2">
-          <label className="text-[11px] text-slate-500 block mb-1">Manager Notes</label>
+          <label className="text-[11px] text-slate-500 block mb-1">Notas del encargado</label>
           <textarea
             value={managerNotes}
             onChange={(e) => onManagerNotesChange(e.target.value)}
-            placeholder="Observations, support actions, constraints, and sign-off notes..."
+            placeholder="Observaciones, acciones de apoyo, restricciones y notas de aprobación..."
             rows={4}
             className="w-full rounded border border-[#1e293b] bg-[#0d1117] px-2 py-1.5 text-xs text-slate-200"
           />
@@ -1236,7 +1236,7 @@ export default function CraftSkillTree() {
       await navigator.clipboard.writeText(developmentPlanText);
       toast({ title: 'Development plan copied', description: 'IDP copied to clipboard.' });
     } catch {
-      toast({ variant: 'destructive', title: 'Copy failed', description: 'Could not copy IDP to clipboard.' });
+      toast({ variant: 'destructive', title: 'Falló la copia', description: 'No se pudo copiar el IDP al portapapeles.' });
     }
   }, [developmentPlanText, toast]);
 
@@ -1281,7 +1281,7 @@ export default function CraftSkillTree() {
     if (!dbSkillId) {
       toast({
         variant: 'destructive',
-        title: 'Skill not found',
+        title: 'Habilidad no encontrada',
         description: `"${selectedNode.code}" is not in the database yet. Run the seed first.`,
       });
       return;
@@ -1349,7 +1349,7 @@ export default function CraftSkillTree() {
       <div className="flex items-center justify-between gap-3 px-4 py-3 bg-[#0d1117]/90 border-b border-[#1e293b] backdrop-blur z-10 relative">
         <div className="flex items-center gap-3">
           <Award className="w-5 h-5 text-amber-500" />
-          <h2 className="text-sm font-semibold text-slate-200">Craft Skill Paths</h2>
+          <h2 className="text-sm font-semibold text-slate-200">Rutas de oficios</h2>
         </div>
 
         <div className="flex items-center gap-3">
@@ -1368,10 +1368,10 @@ export default function CraftSkillTree() {
               }}
             >
               <SelectTrigger className="w-[200px] h-8 text-xs bg-[#0d1117] border-[#1e293b] text-slate-300">
-                <SelectValue placeholder="Select employee..." />
+                <SelectValue placeholder="Seleccionar empleado..." />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="__none__">No employee (view all)</SelectItem>
+                <SelectItem value="__none__">Sin empleado (ver todos)</SelectItem>
                 {employees.map((e: any) => (
                   <SelectItem key={e.id} value={e.id}>
                     {e.full_name}
@@ -1388,10 +1388,10 @@ export default function CraftSkillTree() {
               disabled={!selectedEmployeeId}
             >
               <SelectTrigger className="w-[240px] h-8 text-xs bg-[#0d1117] border-[#1e293b] text-slate-300">
-                <SelectValue placeholder="Role target template" />
+                <SelectValue placeholder="Plantilla de rol objetivo" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="__none__">Auto (best-fit template)</SelectItem>
+                <SelectItem value="__none__">Automático (plantilla más adecuada)</SelectItem>
                 {ROLE_TARGET_TEMPLATES.map(template => (
                   <SelectItem key={template.id} value={template.id}>
                     {template.name}

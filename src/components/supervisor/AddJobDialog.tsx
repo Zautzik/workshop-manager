@@ -73,14 +73,14 @@ const AddJobDialog = ({ open, onOpenChange, machines, onJobAdded }: AddJobDialog
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               required
-              placeholder="Enter job description"
+              placeholder="Ingrese la descripción del trabajo"
             />
           </div>
           <div className="space-y-2">
             <Label htmlFor="machine">{t('machine')} (Optional)</Label>
             <Select value={machineId} onValueChange={setMachineId}>
               <SelectTrigger>
-                <SelectValue placeholder="Select a machine" />
+                <SelectValue placeholder="Seleccionar una máquina" />
               </SelectTrigger>
               <SelectContent>
                 {machines.map(machine => (

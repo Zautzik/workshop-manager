@@ -93,7 +93,7 @@ export function OrderLaborMarginAnalysis() {
                   <SelectValue placeholder={otsLoading ? 'Loading...' : 'All orders'} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Orders</SelectItem>
+                  <SelectItem value="all">Todas las órdenes</SelectItem>
                   {ots?.map((ot) => (
                     <SelectItem key={ot.id} value={ot.id}>
                       {ot.ot_number} - {ot.client_name}
@@ -128,7 +128,7 @@ export function OrderLaborMarginAnalysis() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
+              <CardTitle className="text-sm font-medium">Ingresos totales</CardTitle>
               <DollarSign className="h-4 w-4 text-green-600" />
             </CardHeader>
             <CardContent>
@@ -141,7 +141,7 @@ export function OrderLaborMarginAnalysis() {
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Labor Cost</CardTitle>
+              <CardTitle className="text-sm font-medium">Costo de mano de obra</CardTitle>
               <DollarSign className="h-4 w-4 text-orange-600" />
             </CardHeader>
             <CardContent>
@@ -154,7 +154,7 @@ export function OrderLaborMarginAnalysis() {
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Incentive Cost</CardTitle>
+              <CardTitle className="text-sm font-medium">Costo de incentivos</CardTitle>
               <DollarSign className="h-4 w-4 text-blue-600" />
             </CardHeader>
             <CardContent>
@@ -180,7 +180,7 @@ export function OrderLaborMarginAnalysis() {
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Labor Hours</CardTitle>
+              <CardTitle className="text-sm font-medium">Horas de mano de obra</CardTitle>
               <AlertCircle className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>

@@ -154,7 +154,7 @@ const WorkerSkillsProficiency = () => {
     if (!selectedEmployeeId || !skillForm.skill_id) {
       toast({
         title: 'Error',
-        description: 'Please select an employee and skill',
+        description: 'Seleccione un empleado y una habilidad',
         variant: 'destructive',
       });
       return;
@@ -173,8 +173,8 @@ const WorkerSkillsProficiency = () => {
       if (!response.ok) throw new Error('Failed to add skill');
 
       toast({
-        title: 'Success',
-        description: 'Skill added successfully',
+        title: 'Éxito',
+        description: 'Habilidad agregada correctamente',
       });
 
       queryClient.invalidateQueries({
@@ -210,10 +210,10 @@ const WorkerSkillsProficiency = () => {
     return (
       <Card>
         <CardHeader>
-          <CardTitle>Worker Skills Proficiency</CardTitle>
+          <CardTitle>Competencia de habilidades del trabajador</CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-muted-foreground">Loading employees...</p>
+          <p className="text-muted-foreground">Cargando empleados...</p>
         </CardContent>
       </Card>
     );
@@ -240,9 +240,9 @@ const WorkerSkillsProficiency = () => {
           {/* Employee Selection */}
           <div className="lg:col-span-3 space-y-4">
             <div>
-              <Label>Search & Select Employee</Label>
+              <Label>Buscar y seleccionar empleado</Label>
               <Input
-                placeholder="Search by name or code..."
+                placeholder="Buscar por nombre o código..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
@@ -313,7 +313,7 @@ const WorkerSkillsProficiency = () => {
         </div>
 
         {selectedEmployee && qualificationsLoading && (
-          <p className="text-muted-foreground">Loading qualifications...</p>
+          <p className="text-muted-foreground">Cargando calificaciones...</p>
         )}
 
         {selectedEmployee && workerQualifications && (
@@ -383,7 +383,7 @@ const WorkerSkillsProficiency = () => {
                 ) : (
                   <div className="text-center py-8 text-muted-foreground">
                     <AlertTriangle className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                    <p>No skills assigned to this worker yet</p>
+                    <p>Aún no hay habilidades asignadas a este trabajador</p>
                     <Button
                       size="sm"
                       variant="outline"
@@ -407,10 +407,10 @@ const WorkerSkillsProficiency = () => {
                 }
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Filter machines" />
+                  <SelectValue placeholder="Filtrar máquinas" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Machines</SelectItem>
+                  <SelectItem value="all">Todas las máquinas</SelectItem>
                   {machines.map((machine: any) => (
                     <SelectItem key={machine.id} value={machine.id}>
                       {machine.name}
@@ -549,7 +549,7 @@ const WorkerSkillsProficiency = () => {
         {!selectedEmployee && (
           <div className="text-center py-12 text-muted-foreground">
             <Award className="w-8 h-8 mx-auto mb-2 opacity-50" />
-            <p>Select an employee to view their skill profile</p>
+            <p>Seleccione un empleado para ver su perfil de habilidades</p>
           </div>
         )}
       </CardContent>
@@ -558,7 +558,7 @@ const WorkerSkillsProficiency = () => {
       <Dialog open={skillDialogOpen} onOpenChange={setSkillDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Assign Skill</DialogTitle>
+            <DialogTitle>Asignar habilidad</DialogTitle>
             <DialogDescription>
               Assign a skill to {selectedEmployee?.full_name}
             </DialogDescription>
@@ -574,7 +574,7 @@ const WorkerSkillsProficiency = () => {
                 }
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Select a skill" />
+                  <SelectValue placeholder="Seleccionar una habilidad" />
                 </SelectTrigger>
                 <SelectContent>
                   {allSkills.map((skill: any) => (
@@ -618,7 +618,7 @@ const WorkerSkillsProficiency = () => {
             >
               Cancel
             </Button>
-            <Button onClick={handleAddSkill}>Add Skill</Button>
+            <Button onClick={handleAddSkill}>Agregar habilidad</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

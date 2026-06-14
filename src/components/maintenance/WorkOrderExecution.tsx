@@ -120,9 +120,9 @@ export default function WorkOrderExecution() {
       .eq('id', order.id);
 
     if (error) {
-      toast({ title: 'Error', description: 'Failed to start work order', variant: 'destructive' });
+      toast({ title: 'Error', description: 'No se pudo iniciar la orden de trabajo', variant: 'destructive' });
     } else {
-      toast({ title: 'Started', description: 'Work order started' });
+      toast({ title: 'Iniciado', description: 'Orden de trabajo iniciada' });
       const updatedOrder = { ...order, status: 'in_progress', started_at: new Date().toISOString() };
       setSelectedOrder(updatedOrder);
       refetchWorkOrders();
@@ -150,7 +150,7 @@ export default function WorkOrderExecution() {
         .eq('id', task.completionId);
 
       if (error) {
-        toast({ title: 'Error', description: 'Failed to update task', variant: 'destructive' });
+        toast({ title: 'Error', description: 'No se pudo actualizar la tarea', variant: 'destructive' });
         return;
       }
     }
@@ -166,7 +166,7 @@ export default function WorkOrderExecution() {
 
     const allCompleted = tasks.every(t => t.completed);
     if (!allCompleted) {
-      toast({ title: 'Warning', description: 'Please complete all tasks first', variant: 'destructive' });
+      toast({ title: 'Warning', description: 'Complete primero todas las tareas', variant: 'destructive' });
       return;
     }
 
@@ -182,9 +182,9 @@ export default function WorkOrderExecution() {
       .eq('id', selectedOrder.id);
 
     if (error) {
-      toast({ title: 'Error', description: 'Failed to complete work order', variant: 'destructive' });
+      toast({ title: 'Error', description: 'No se pudo completar la orden de trabajo', variant: 'destructive' });
     } else {
-      toast({ title: 'Completed', description: 'Work order completed successfully' });
+      toast({ title: 'Completado', description: 'Orden de trabajo completada correctamente' });
       setExecuting(false);
       setSelectedOrder(null);
       refetchWorkOrders();
@@ -223,7 +223,7 @@ export default function WorkOrderExecution() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold text-foreground">Active Work Orders</h2>
+        <h2 className="text-2xl font-bold text-foreground">Órdenes de trabajo activas</h2>
         <Badge variant="outline" className="text-muted-foreground">
           {workOrders.length} active
         </Badge>
@@ -313,7 +313,7 @@ export default function WorkOrderExecution() {
                 <Card className="p-6 border-border/40 bg-card/50">
                   <div className="text-center">
                     <AlertCircle className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
-                    <p className="text-muted-foreground">No tasks found for this work order.</p>
+                    <p className="text-muted-foreground">No se encontraron tareas para esta orden de trabajo.</p>
                     <p className="text-sm text-muted-foreground mt-1">
                       The associated checklist may not have items defined.
                     </p>
@@ -340,7 +340,7 @@ export default function WorkOrderExecution() {
                           </div>
                           {!task.completed && (
                             <Textarea
-                              placeholder="Add notes (optional)"
+                              placeholder="Agregar notas (opcional)"
                               value={taskNotes[task.id] || ''}
                               onChange={(e) => setTaskNotes(prev => ({ ...prev, [task.id]: e.target.value }))}
                               className="text-sm"

@@ -429,11 +429,11 @@ const HrManagerDashboard = () => {
   const handleEmployeeSave = async () => {
     setActionError(null);
     if (!employeeForm.full_name || !employeeForm.department || !employeeForm.hire_date) {
-      setActionError('Full name, department, and hire date are required.');
+      setActionError('El nombre completo, el departamento y la fecha de contratación son obligatorios.');
       toast({
         variant: 'destructive',
-        title: 'Missing details',
-        description: 'Full name, department, and hire date are required.',
+        title: 'Faltan datos',
+        description: 'El nombre completo, el departamento y la fecha de contratación son obligatorios.',
       });
       return;
     }
@@ -470,7 +470,7 @@ const HrManagerDashboard = () => {
     if (error) {
       queryClient.setQueryData(listKey, previous);
       setActionError(error.message);
-      toast({ variant: 'destructive', title: 'Employee update failed', description: error.message });
+      toast({ variant: 'destructive', title: 'No se pudo actualizar el empleado', description: error.message });
       return;
     }
 
@@ -483,7 +483,7 @@ const HrManagerDashboard = () => {
     queryClient.invalidateQueries({ queryKey: ['workers', 'rating'] });
     queryClient.invalidateQueries({ queryKey: ['monthlyPayroll'] });
     queryClient.invalidateQueries({ queryKey: ['orderLaborMargin'] });
-    toast({ title: 'Employee saved', description: `${data.full_name} is up to date.` });
+    toast({ title: 'Empleado guardado', description: `${data.full_name} está actualizado.` });
     setEmployeeDialogOpen(false);
     resetEmployeeForm();
   };
@@ -491,11 +491,11 @@ const HrManagerDashboard = () => {
   const handleCompensationSave = async () => {
     setActionError(null);
     if (!compensationForm.employee_id || !compensationForm.hourly_rate || !compensationForm.effective_from) {
-      setActionError('Employee, hourly rate, and effective date are required.');
+      setActionError('El empleado, la tarifa por hora y la fecha de vigencia son obligatorios.');
       toast({
         variant: 'destructive',
-        title: 'Missing details',
-        description: 'Employee, hourly rate, and effective date are required.',
+        title: 'Faltan datos',
+        description: 'El empleado, la tarifa por hora y la fecha de vigencia son obligatorios.',
       });
       return;
     }
@@ -507,16 +507,16 @@ const HrManagerDashboard = () => {
 
     if (Number.isNaN(effectiveFrom) || (compensationForm.effective_to && Number.isNaN(effectiveTo))) {
       setActionError('Provide valid dates for compensation.');
-      toast({ variant: 'destructive', title: 'Invalid dates', description: 'Provide valid dates.' });
+      toast({ variant: 'destructive', title: 'Fechas inválidas', description: 'Proporcione fechas válidas.' });
       return;
     }
 
     if (effectiveTo !== null && effectiveTo < effectiveFrom) {
-      setActionError('Effective end date cannot be before start date.');
+      setActionError('La fecha de fin de vigencia no puede ser anterior a la de inicio.');
       toast({
         variant: 'destructive',
-        title: 'Invalid date range',
-        description: 'Effective end date cannot be before start date.',
+        title: 'Rango de fechas inválido',
+        description: 'La fecha de fin de vigencia no puede ser anterior a la de inicio.',
       });
       return;
     }
@@ -535,8 +535,8 @@ const HrManagerDashboard = () => {
       setActionError('This effective date overlaps an existing rate.');
       toast({
         variant: 'destructive',
-        title: 'Overlapping rate',
-        description: 'Adjust the effective dates to avoid overlap.',
+        title: 'Tarifa superpuesta',
+        description: 'Ajuste las fechas de vigencia para evitar superposición.',
       });
       return;
     }
@@ -568,7 +568,7 @@ const HrManagerDashboard = () => {
     if (error) {
       queryClient.setQueryData(listKey, previous);
       setActionError(error.message);
-      toast({ variant: 'destructive', title: 'Rate not saved', description: error.message });
+      toast({ variant: 'destructive', title: 'No se guardó la tarifa', description: error.message });
       return;
     }
 
@@ -579,7 +579,7 @@ const HrManagerDashboard = () => {
     queryClient.invalidateQueries({ queryKey: ['compensationRates'] });
     queryClient.invalidateQueries({ queryKey: ['monthlyPayroll'] });
     queryClient.invalidateQueries({ queryKey: ['orderLaborMargin'] });
-    toast({ title: 'Rate added', description: 'Compensation rate is live.' });
+    toast({ title: 'Tarifa agregada', description: 'La tarifa de compensación está activa.' });
     setCompDialogOpen(false);
     setCompensationForm({
       employee_id: '',
@@ -593,11 +593,11 @@ const HrManagerDashboard = () => {
   const handleLeaveRequestSave = async () => {
     setActionError(null);
     if (!leaveForm.employee_id || !leaveForm.start_date || !leaveForm.end_date) {
-      setActionError('Employee, start date, and end date are required.');
+      setActionError('El empleado, la fecha de inicio y la fecha de término son obligatorios.');
       toast({
         variant: 'destructive',
-        title: 'Missing details',
-        description: 'Employee, start date, and end date are required.',
+        title: 'Faltan datos',
+        description: 'El empleado, la fecha de inicio y la fecha de término son obligatorios.',
       });
       return;
     }
@@ -605,16 +605,16 @@ const HrManagerDashboard = () => {
     const startDate = Date.parse(leaveForm.start_date);
     const endDate = Date.parse(leaveForm.end_date);
     if (Number.isNaN(startDate) || Number.isNaN(endDate)) {
-      setActionError('Provide valid leave dates.');
-      toast({ variant: 'destructive', title: 'Invalid dates', description: 'Provide valid leave dates.' });
+      setActionError('Proporcione fechas de licencia válidas.');
+      toast({ variant: 'destructive', title: 'Fechas inválidas', description: 'Proporcione fechas de licencia válidas.' });
       return;
     }
     if (endDate < startDate) {
-      setActionError('Leave end date cannot be before start date.');
+      setActionError('La fecha de término de la licencia no puede ser anterior a la de inicio.');
       toast({
         variant: 'destructive',
-        title: 'Invalid date range',
-        description: 'Leave end date cannot be before start date.',
+        title: 'Rango de fechas inválido',
+        description: 'La fecha de término de la licencia no puede ser anterior a la de inicio.',
       });
       return;
     }
@@ -647,7 +647,7 @@ const HrManagerDashboard = () => {
     if (error) {
       queryClient.setQueryData(listKey, previous);
       setActionError(error.message);
-      toast({ variant: 'destructive', title: 'Leave request failed', description: error.message });
+      toast({ variant: 'destructive', title: 'No se pudo enviar la solicitud de licencia', description: error.message });
       return;
     }
 
@@ -655,7 +655,7 @@ const HrManagerDashboard = () => {
       current.map((item) => (item.id === optimisticId ? data : item)),
     );
     queryClient.invalidateQueries({ queryKey: listKey });
-    toast({ title: 'Leave request sent', description: 'Awaiting approval.' });
+    toast({ title: 'Solicitud de licencia enviada', description: 'En espera de aprobación.' });
     setLeaveDialogOpen(false);
     setLeaveForm({
       employee_id: '',
@@ -680,21 +680,21 @@ const HrManagerDashboard = () => {
     if (error) {
       queryClient.setQueryData(listKey, previous);
       setActionError(error.message);
-      toast({ variant: 'destructive', title: 'Leave update failed', description: error.message });
+      toast({ variant: 'destructive', title: 'No se pudo actualizar la licencia', description: error.message });
       return;
     }
     queryClient.invalidateQueries({ queryKey: listKey });
-    toast({ title: 'Leave status updated', description: `Request marked ${status}.` });
+    toast({ title: 'Estado de la licencia actualizado', description: `Solicitud marcada como ${status}.` });
   };
 
   const handleSkillAssign = async () => {
     setActionError(null);
     if (!skillForm.employee_id || !skillForm.skill_id) {
-      setActionError('Employee and skill are required.');
+      setActionError('El empleado y la habilidad son obligatorios.');
       toast({
         variant: 'destructive',
-        title: 'Missing details',
-        description: 'Employee and skill are required.',
+        title: 'Faltan datos',
+        description: 'El empleado y la habilidad son obligatorios.',
       });
       return;
     }
@@ -710,7 +710,7 @@ const HrManagerDashboard = () => {
       setActionError(existingSkillError.message);
       toast({
         variant: 'destructive',
-        title: 'Skill check failed',
+        title: 'Falló la verificación de la habilidad',
         description: existingSkillError.message,
       });
       return;
@@ -720,8 +720,8 @@ const HrManagerDashboard = () => {
       setActionError('This employee already has that skill assigned.');
       toast({
         variant: 'destructive',
-        title: 'Duplicate skill',
-        description: 'That skill is already assigned to this employee.',
+        title: 'Habilidad duplicada',
+        description: 'Esa habilidad ya está asignada a este empleado.',
       });
       return;
     }
@@ -750,7 +750,7 @@ const HrManagerDashboard = () => {
     if (error) {
       queryClient.setQueryData(listKey, previous);
       setActionError(error.message);
-      toast({ variant: 'destructive', title: 'Skill not assigned', description: error.message });
+      toast({ variant: 'destructive', title: 'No se asignó la habilidad', description: error.message });
       return;
     }
 
@@ -758,7 +758,7 @@ const HrManagerDashboard = () => {
       current.map((item) => (item.id === optimisticId ? data : item)),
     );
     queryClient.invalidateQueries({ queryKey: listKey });
-    toast({ title: 'Skill assigned', description: 'Employee skill profile updated.' });
+    toast({ title: 'Habilidad asignada', description: 'Perfil de habilidades del empleado actualizado.' });
     setSkillDialogOpen(false);
     setSkillForm({
       employee_id: '',
@@ -771,21 +771,21 @@ const HrManagerDashboard = () => {
   const handleIncentiveRuleSave = async () => {
     setActionError(null);
     if (!incentiveRuleForm.name || !incentiveRuleForm.amount) {
-      setActionError('Rule name and amount are required.');
+      setActionError('El nombre de la regla y el monto son obligatorios.');
       toast({
         variant: 'destructive',
-        title: 'Missing details',
-        description: 'Rule name and amount are required.',
+        title: 'Faltan datos',
+        description: 'El nombre de la regla y el monto son obligatorios.',
       });
       return;
     }
 
     if (Number(incentiveRuleForm.amount) <= 0) {
-      setActionError('Incentive amount must be greater than zero.');
+      setActionError('El monto del incentivo debe ser mayor que cero.');
       toast({
         variant: 'destructive',
-        title: 'Invalid amount',
-        description: 'Incentive amount must be greater than zero.',
+        title: 'Monto inválido',
+        description: 'El monto del incentivo debe ser mayor que cero.',
       });
       return;
     }
@@ -816,7 +816,7 @@ const HrManagerDashboard = () => {
     if (error) {
       queryClient.setQueryData(listKey, previous);
       setActionError(error.message);
-      toast({ variant: 'destructive', title: 'Rule not saved', description: error.message });
+      toast({ variant: 'destructive', title: 'No se guardó la regla', description: error.message });
       return;
     }
 
@@ -824,7 +824,7 @@ const HrManagerDashboard = () => {
       current.map((item) => (item.id === optimisticId ? data : item)),
     );
     queryClient.invalidateQueries({ queryKey: listKey });
-    toast({ title: 'Rule created', description: 'Incentive rule is ready.' });
+    toast({ title: 'Regla creada', description: 'La regla de incentivo está lista.' });
     setIncentiveRuleDialogOpen(false);
     setIncentiveRuleForm({
       name: '',
@@ -838,18 +838,18 @@ const HrManagerDashboard = () => {
   const handleAwardSave = async () => {
     setActionError(null);
     if (!awardForm.employee_id || !awardForm.incentive_rule_id || !awardForm.amount) {
-      setActionError('Employee, rule, and amount are required.');
+      setActionError('El empleado, la regla y el monto son obligatorios.');
       toast({
         variant: 'destructive',
-        title: 'Missing details',
-        description: 'Employee, rule, and amount are required.',
+        title: 'Faltan datos',
+        description: 'El empleado, la regla y el monto son obligatorios.',
       });
       return;
     }
 
     if (Number(awardForm.amount) <= 0) {
-      setActionError('Award amount must be greater than zero.');
-      toast({ variant: 'destructive', title: 'Invalid amount', description: 'Award amount must be greater than zero.' });
+      setActionError('El monto del otorgamiento debe ser mayor que cero.');
+      toast({ variant: 'destructive', title: 'Monto inválido', description: 'El monto del otorgamiento debe ser mayor que cero.' });
       return;
     }
 
@@ -879,7 +879,7 @@ const HrManagerDashboard = () => {
     if (error) {
       queryClient.setQueryData(listKey, previous);
       setActionError(error.message);
-      toast({ variant: 'destructive', title: 'Award failed', description: error.message });
+      toast({ variant: 'destructive', title: 'Falló el otorgamiento', description: error.message });
       return;
     }
 
@@ -887,7 +887,7 @@ const HrManagerDashboard = () => {
       current.map((item) => (item.id === optimisticId ? data : item)),
     );
     queryClient.invalidateQueries({ queryKey: listKey });
-    toast({ title: 'Incentive awarded', description: 'Award has been recorded.' });
+    toast({ title: 'Incentivo otorgado', description: 'El otorgamiento se ha registrado.' });
     setAwardDialogOpen(false);
     setAwardForm({
       employee_id: '',
@@ -900,21 +900,21 @@ const HrManagerDashboard = () => {
   const handleDocumentSave = async () => {
     setActionError(null);
     if (!documentForm.employee_id || !documentForm.title) {
-      setActionError('Employee and title are required.');
+      setActionError('El empleado y el título son obligatorios.');
       toast({
         variant: 'destructive',
-        title: 'Missing details',
-        description: 'Employee and title are required.',
+        title: 'Faltan datos',
+        description: 'El empleado y el título son obligatorios.',
       });
       return;
     }
 
     if (documentForm.expires_on && documentForm.issue_date && documentForm.expires_on < documentForm.issue_date) {
-      setActionError('Expiry date cannot be before issue date.');
+      setActionError('La fecha de vencimiento no puede ser anterior a la de emisión.');
       toast({
         variant: 'destructive',
-        title: 'Invalid dates',
-        description: 'Expiry date cannot be before issue date.',
+        title: 'Fechas inválidas',
+        description: 'La fecha de vencimiento no puede ser anterior a la de emisión.',
       });
       return;
     }
@@ -936,12 +936,12 @@ const HrManagerDashboard = () => {
 
     if (error) {
       setActionError(error.message);
-      toast({ variant: 'destructive', title: 'Document not saved', description: error.message });
+      toast({ variant: 'destructive', title: 'No se guardó el documento', description: error.message });
       return;
     }
 
     queryClient.invalidateQueries({ queryKey: ['hr', 'documents'] });
-    toast({ title: 'Document saved', description: 'Metadata is now tracked.' });
+    toast({ title: 'Documento guardado', description: 'Los metadatos ahora se registran.' });
     setDocumentDialogOpen(false);
     setDocumentForm({
       employee_id: '',
@@ -983,7 +983,7 @@ const HrManagerDashboard = () => {
       setActionError(error.message);
       toast({
         variant: 'destructive',
-        title: 'Employee not deleted',
+        title: 'No se eliminó el empleado',
         description: error.message,
       });
       return;
@@ -996,7 +996,7 @@ const HrManagerDashboard = () => {
 
     queryClient.invalidateQueries({ queryKey: listKey });
     toast({
-      title: 'Employee deleted',
+      title: 'Empleado eliminado',
       description: `${employee.full_name} profile has been removed.`,
     });
   };
@@ -1010,13 +1010,13 @@ const HrManagerDashboard = () => {
 
     if (error) {
       setActionError(error.message);
-      toast({ variant: 'destructive', title: 'Accrual failed', description: error.message });
+      toast({ variant: 'destructive', title: 'Falló la acumulación', description: error.message });
       return;
     }
 
     queryClient.invalidateQueries({ queryKey: ['hr', 'leaveBalances'] });
     toast({
-      title: 'Accrual complete',
+      title: 'Acumulación completada',
       description: `Updated ${data ?? 0} leave balance records.`,
     });
   };
@@ -1060,7 +1060,7 @@ const HrManagerDashboard = () => {
             <Card className="border-primary/20">
               <CardHeader>
                 <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                  <CardTitle>Employee Profiles</CardTitle>
+                  <CardTitle>Perfiles de empleados</CardTitle>
                   {canManageHR && (
                     <Button
                       onClick={() => {
@@ -1077,17 +1077,17 @@ const HrManagerDashboard = () => {
               </CardHeader>
               <CardContent>
                 {employeesLoading && (
-                  <p className="text-sm text-muted-foreground">Loading employee profiles...</p>
+                  <p className="text-sm text-muted-foreground">Cargando perfiles de empleados...</p>
                 )}
                 {employeesError && (
-                  <p className="text-sm text-destructive">Failed to load employee profiles.</p>
+                  <p className="text-sm text-destructive">No se pudieron cargar los perfiles de empleados.</p>
                 )}
                 {!employeesLoading && !employeesError && (
                   <div className="space-y-4">
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       <Card className="border-primary/10">
                         <CardHeader>
-                          <CardTitle className="text-sm text-muted-foreground">Total Employees</CardTitle>
+                          <CardTitle className="text-sm text-muted-foreground">Total de empleados</CardTitle>
                         </CardHeader>
                         <CardContent>
                           <div className="text-2xl font-semibold text-primary">{employeeStats}</div>
@@ -1095,7 +1095,7 @@ const HrManagerDashboard = () => {
                       </Card>
                       <Card className="border-primary/10">
                         <CardHeader>
-                          <CardTitle className="text-sm text-muted-foreground">Active Employees</CardTitle>
+                          <CardTitle className="text-sm text-muted-foreground">Empleados activos</CardTitle>
                         </CardHeader>
                         <CardContent>
                           <div className="text-2xl font-semibold text-primary">{activeEmployees}</div>
@@ -1103,7 +1103,7 @@ const HrManagerDashboard = () => {
                       </Card>
                       <Card className="border-primary/10">
                         <CardHeader>
-                          <CardTitle className="text-sm text-muted-foreground">Departments</CardTitle>
+                          <CardTitle className="text-sm text-muted-foreground">Departamentos</CardTitle>
                         </CardHeader>
                         <CardContent>
                           <div className="text-2xl font-semibold text-primary">{departmentCount}</div>
@@ -1154,7 +1154,7 @@ const HrManagerDashboard = () => {
                         </div>
                       ))}
                       {employees.length === 0 && (
-                        <p className="text-sm text-muted-foreground">No employees found.</p>
+                        <p className="text-sm text-muted-foreground">No se encontraron empleados.</p>
                       )}
                     </div>
                   </div>
@@ -1167,7 +1167,7 @@ const HrManagerDashboard = () => {
             <Card className="border-primary/20">
               <CardHeader>
                 <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                  <CardTitle>Compensation</CardTitle>
+                  <CardTitle>Compensación</CardTitle>
                   {canManageHR && (
                     <Button
                       onClick={() => {
@@ -1190,7 +1190,7 @@ const HrManagerDashboard = () => {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <Card className="border-primary/10">
                       <CardHeader>
-                        <CardTitle className="text-sm text-muted-foreground">Rates Loaded</CardTitle>
+                        <CardTitle className="text-sm text-muted-foreground">Tarifas cargadas</CardTitle>
                       </CardHeader>
                       <CardContent>
                         <div className="text-2xl font-semibold text-primary">{compensationRates.length}</div>
@@ -1198,7 +1198,7 @@ const HrManagerDashboard = () => {
                     </Card>
                     <Card className="border-primary/10">
                       <CardHeader>
-                        <CardTitle className="text-sm text-muted-foreground">Missing Compensation</CardTitle>
+                        <CardTitle className="text-sm text-muted-foreground">Sin compensación</CardTitle>
                       </CardHeader>
                       <CardContent>
                         <div className="text-2xl font-semibold text-primary">{compensationCoverage.missingComp}</div>
@@ -1223,7 +1223,7 @@ const HrManagerDashboard = () => {
                       </div>
                     ))}
                     {compensationRates.length === 0 && (
-                      <p className="text-sm text-muted-foreground">No compensation rates found.</p>
+                      <p className="text-sm text-muted-foreground">No se encontraron tarifas de compensación.</p>
                     )}
                   </div>
                 </div>
@@ -1234,9 +1234,9 @@ const HrManagerDashboard = () => {
           <TabsContent value="skills" className="space-y-4">
             <Tabs defaultValue="craft-paths" className="w-full">
               <TabsList className="grid w-full grid-cols-3">
-                <TabsTrigger value="craft-paths">Craft Skill Paths</TabsTrigger>
-                <TabsTrigger value="tree">Skill Tech Tree</TabsTrigger>
-                <TabsTrigger value="proficiency">Worker Proficiency</TabsTrigger>
+                <TabsTrigger value="craft-paths">Rutas de oficios</TabsTrigger>
+                <TabsTrigger value="tree">Árbol de habilidades</TabsTrigger>
+                <TabsTrigger value="proficiency">Competencia del trabajador</TabsTrigger>
               </TabsList>
 
               <TabsContent value="craft-paths">
@@ -1257,7 +1257,7 @@ const HrManagerDashboard = () => {
             <Card className="border-primary/20">
               <CardHeader>
                 <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                  <CardTitle>Leave</CardTitle>
+                  <CardTitle>Licencias</CardTitle>
                   {canManageHR && (
                     <div className="flex flex-wrap gap-2">
                       <Button
@@ -1282,7 +1282,7 @@ const HrManagerDashboard = () => {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <Card className="border-primary/10">
                       <CardHeader>
-                        <CardTitle className="text-sm text-muted-foreground">Leave Balances</CardTitle>
+                        <CardTitle className="text-sm text-muted-foreground">Saldos de licencia</CardTitle>
                       </CardHeader>
                       <CardContent>
                         <div className="text-2xl font-semibold text-primary">{leaveBalances.length}</div>
@@ -1290,7 +1290,7 @@ const HrManagerDashboard = () => {
                     </Card>
                     <Card className="border-primary/10">
                       <CardHeader>
-                        <CardTitle className="text-sm text-muted-foreground">Recent Requests</CardTitle>
+                        <CardTitle className="text-sm text-muted-foreground">Solicitudes recientes</CardTitle>
                       </CardHeader>
                       <CardContent>
                         <div className="text-2xl font-semibold text-primary">{leaveRequests.length}</div>
@@ -1335,7 +1335,7 @@ const HrManagerDashboard = () => {
                       </div>
                     ))}
                     {leaveRequests.length === 0 && (
-                      <p className="text-sm text-muted-foreground">No leave requests found.</p>
+                      <p className="text-sm text-muted-foreground">No se encontraron solicitudes de licencia.</p>
                     )}
                   </div>
                 </div>
@@ -1347,7 +1347,7 @@ const HrManagerDashboard = () => {
             <Card className="border-primary/20">
               <CardHeader>
                 <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                  <CardTitle>Incentives</CardTitle>
+                  <CardTitle>Incentivos</CardTitle>
                   {canManageHR && (
                     <div className="flex flex-wrap gap-2">
                       <Button
@@ -1379,7 +1379,7 @@ const HrManagerDashboard = () => {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <Card className="border-primary/10">
                       <CardHeader>
-                        <CardTitle className="text-sm text-muted-foreground">Active Rules</CardTitle>
+                        <CardTitle className="text-sm text-muted-foreground">Reglas activas</CardTitle>
                       </CardHeader>
                       <CardContent>
                         <div className="text-2xl font-semibold text-primary">
@@ -1389,7 +1389,7 @@ const HrManagerDashboard = () => {
                     </Card>
                     <Card className="border-primary/10">
                       <CardHeader>
-                        <CardTitle className="text-sm text-muted-foreground">Recent Awards</CardTitle>
+                        <CardTitle className="text-sm text-muted-foreground">Otorgamientos recientes</CardTitle>
                       </CardHeader>
                       <CardContent>
                         <div className="text-2xl font-semibold text-primary">{incentiveAwards.length}</div>
@@ -1412,7 +1412,7 @@ const HrManagerDashboard = () => {
                       </div>
                     ))}
                     {incentiveRules.length === 0 && (
-                      <p className="text-sm text-muted-foreground">No incentive rules found.</p>
+                      <p className="text-sm text-muted-foreground">No se encontraron reglas de incentivo.</p>
                     )}
                   </div>
                 </div>
@@ -1424,7 +1424,7 @@ const HrManagerDashboard = () => {
             <Card className="border-primary/20">
               <CardHeader>
                 <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                  <CardTitle>Compliance</CardTitle>
+                  <CardTitle>Cumplimiento</CardTitle>
                   {canManageHR && (
                     <Button
                       onClick={() => {
@@ -1443,7 +1443,7 @@ const HrManagerDashboard = () => {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <Card className="border-primary/10">
                     <CardHeader>
-                      <CardTitle className="text-sm text-muted-foreground">Contracts</CardTitle>
+                      <CardTitle className="text-sm text-muted-foreground">Contratos</CardTitle>
                     </CardHeader>
                     <CardContent>
                       <div className="text-2xl font-semibold text-primary">{employmentContracts.length}</div>
@@ -1451,7 +1451,7 @@ const HrManagerDashboard = () => {
                   </Card>
                   <Card className="border-primary/10">
                     <CardHeader>
-                      <CardTitle className="text-sm text-muted-foreground">Missing Contracts</CardTitle>
+                      <CardTitle className="text-sm text-muted-foreground">Sin contrato</CardTitle>
                     </CardHeader>
                     <CardContent>
                       <div className="text-2xl font-semibold text-primary">{compensationCoverage.missingContracts}</div>
@@ -1459,7 +1459,7 @@ const HrManagerDashboard = () => {
                   </Card>
                   <Card className="border-primary/10">
                     <CardHeader>
-                      <CardTitle className="text-sm text-muted-foreground">Expiring Documents</CardTitle>
+                      <CardTitle className="text-sm text-muted-foreground">Documentos por vencer</CardTitle>
                     </CardHeader>
                     <CardContent>
                       <div className="text-2xl font-semibold text-primary">{expiringDocuments.length}</div>
@@ -1484,7 +1484,7 @@ const HrManagerDashboard = () => {
                     </div>
                   ))}
                   {expiringDocuments.length === 0 && (
-                    <p className="text-sm text-muted-foreground">No expiring documents in the next 45 days.</p>
+                    <p className="text-sm text-muted-foreground">No hay documentos por vencer en los próximos 45 días.</p>
                   )}
                 </div>
               </CardContent>
@@ -1495,8 +1495,8 @@ const HrManagerDashboard = () => {
         <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
           <SheetContent className="w-full sm:max-w-2xl">
             <SheetHeader>
-              <SheetTitle>Employee Details</SheetTitle>
-              <SheetDescription>Profile snapshot with contracts and history.</SheetDescription>
+              <SheetTitle>Detalles del empleado</SheetTitle>
+              <SheetDescription>Resumen del perfil con contratos e historial.</SheetDescription>
             </SheetHeader>
             <div className="mt-6 space-y-6">
               {selectedEmployeeId ? (
@@ -1504,7 +1504,7 @@ const HrManagerDashboard = () => {
                   <Card className="border-primary/10">
                     <CardHeader>
                       <div className="flex items-center justify-between">
-                        <CardTitle className="text-base">Profile</CardTitle>
+                        <CardTitle className="text-base">Perfil</CardTitle>
                         {canManageHR && selectedEmployee && (
                           <div className="flex items-center gap-2">
                             <Button size="sm" variant="outline" onClick={() => openEmployeeEditor(selectedEmployee)}>
@@ -1529,7 +1529,7 @@ const HrManagerDashboard = () => {
                         <>
                           <p className="text-sm font-medium">{selectedEmployee.full_name}</p>
                           <p className="text-xs text-muted-foreground">{selectedEmployee.department}</p>
-                          <p className="text-xs text-muted-foreground">Status: {selectedEmployee.status}</p>
+                          <p className="text-xs text-muted-foreground">Estado: {selectedEmployee.status}</p>
                           {selectedEmployee.email && (
                             <p className="text-xs text-muted-foreground">Email: {selectedEmployee.email}</p>
                           )}
@@ -1538,14 +1538,14 @@ const HrManagerDashboard = () => {
                           )}
                         </>
                       ) : (
-                        <p className="text-sm text-muted-foreground">No employee selected.</p>
+                        <p className="text-sm text-muted-foreground">No hay empleado seleccionado.</p>
                       )}
                     </CardContent>
                   </Card>
 
                   <Card className="border-primary/10">
                     <CardHeader>
-                      <CardTitle className="text-base">Contracts</CardTitle>
+                      <CardTitle className="text-base">Contratos</CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-2">
                       {employeeContracts.data?.slice(0, 3).map((contract: any) => (
@@ -1557,7 +1557,7 @@ const HrManagerDashboard = () => {
                         </div>
                       ))}
                       {employeeContracts.data?.length === 0 && (
-                        <p className="text-sm text-muted-foreground">No contracts found.</p>
+                        <p className="text-sm text-muted-foreground">No se encontraron contratos.</p>
                       )}
                     </CardContent>
                   </Card>
@@ -1565,7 +1565,7 @@ const HrManagerDashboard = () => {
                   <Card className="border-primary/10">
                     <CardHeader>
                       <div className="flex items-center justify-between">
-                        <CardTitle className="text-base">Compensation History</CardTitle>
+                        <CardTitle className="text-base">Historial de compensación</CardTitle>
                         {canManageHR && selectedEmployeeId && (
                           <Button
                             size="sm"
@@ -1590,7 +1590,7 @@ const HrManagerDashboard = () => {
                         </div>
                       ))}
                       {employeeCompHistory.data?.length === 0 && (
-                        <p className="text-sm text-muted-foreground">No compensation history found.</p>
+                        <p className="text-sm text-muted-foreground">No se encontró historial de compensación.</p>
                       )}
                     </CardContent>
                   </Card>
@@ -1598,7 +1598,7 @@ const HrManagerDashboard = () => {
                   <Card className="border-primary/10">
                     <CardHeader>
                       <div className="flex items-center justify-between">
-                        <CardTitle className="text-base">Skills</CardTitle>
+                        <CardTitle className="text-base">Habilidades</CardTitle>
                         {canManageHR && selectedEmployeeId && (
                           <Button size="sm" variant="outline" onClick={() => openSkillDialogFor(selectedEmployeeId)}>
                             <Plus className="mr-2 h-4 w-4" />
@@ -1617,7 +1617,7 @@ const HrManagerDashboard = () => {
                         </div>
                       ))}
                       {employeeSkills.length === 0 && (
-                        <p className="text-sm text-muted-foreground">No skills assigned.</p>
+                        <p className="text-sm text-muted-foreground">No hay habilidades asignadas.</p>
                       )}
                     </CardContent>
                   </Card>
@@ -1625,7 +1625,7 @@ const HrManagerDashboard = () => {
                   <Card className="border-primary/10">
                     <CardHeader>
                       <div className="flex items-center justify-between">
-                        <CardTitle className="text-base">Leave</CardTitle>
+                        <CardTitle className="text-base">Licencias</CardTitle>
                         {canManageHR && selectedEmployeeId && (
                           <Button size="sm" variant="outline" onClick={() => openLeaveDialogFor(selectedEmployeeId)}>
                             <Plus className="mr-2 h-4 w-4" />
@@ -1644,7 +1644,7 @@ const HrManagerDashboard = () => {
                         </div>
                       ))}
                       {employeeLeaveBalances.length === 0 && (
-                        <p className="text-sm text-muted-foreground">No leave balances found.</p>
+                        <p className="text-sm text-muted-foreground">No se encontraron saldos de licencia.</p>
                       )}
                     </CardContent>
                   </Card>
@@ -1652,7 +1652,7 @@ const HrManagerDashboard = () => {
                   <Card className="border-primary/10">
                     <CardHeader>
                       <div className="flex items-center justify-between">
-                        <CardTitle className="text-base">Recent Requests</CardTitle>
+                        <CardTitle className="text-base">Solicitudes recientes</CardTitle>
                         {canManageHR && selectedEmployeeId && (
                           <Button size="sm" variant="outline" onClick={() => openLeaveDialogFor(selectedEmployeeId)}>
                             <Plus className="mr-2 h-4 w-4" />
@@ -1671,7 +1671,7 @@ const HrManagerDashboard = () => {
                         </div>
                       ))}
                       {employeeLeaveRequests.data?.length === 0 && (
-                        <p className="text-sm text-muted-foreground">No recent requests.</p>
+                        <p className="text-sm text-muted-foreground">No hay solicitudes recientes.</p>
                       )}
                     </CardContent>
                   </Card>
@@ -1679,7 +1679,7 @@ const HrManagerDashboard = () => {
                   <Card className="border-primary/10">
                     <CardHeader>
                       <div className="flex items-center justify-between">
-                        <CardTitle className="text-base">Incentives</CardTitle>
+                        <CardTitle className="text-base">Incentivos</CardTitle>
                         {canManageHR && selectedEmployeeId && (
                           <Button size="sm" variant="outline" onClick={() => openAwardDialogFor(selectedEmployeeId)}>
                             <Gift className="mr-2 h-4 w-4" />
@@ -1701,13 +1701,13 @@ const HrManagerDashboard = () => {
                           </div>
                         ))}
                       {incentiveAwards.filter((award: any) => award.employee_id === selectedEmployeeId).length === 0 && (
-                        <p className="text-sm text-muted-foreground">No incentive awards recorded.</p>
+                        <p className="text-sm text-muted-foreground">No hay incentivos otorgados registrados.</p>
                       )}
                     </CardContent>
                   </Card>
                 </>
               ) : (
-                <p className="text-sm text-muted-foreground">Select an employee to view details.</p>
+                <p className="text-sm text-muted-foreground">Seleccione un empleado para ver los detalles.</p>
               )}
             </div>
           </SheetContent>
@@ -1717,11 +1717,11 @@ const HrManagerDashboard = () => {
           <DialogContent>
             <DialogHeader>
               <DialogTitle>{employeeForm.id ? 'Edit Employee' : 'Add Employee'}</DialogTitle>
-              <DialogDescription>Update core profile information.</DialogDescription>
+              <DialogDescription>Actualizar la información principal del perfil.</DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="employee-name">Full name</Label>
+                <Label htmlFor="employee-name">Nombre completo</Label>
                 <Input
                   id="employee-name"
                   value={employeeForm.full_name}
@@ -1729,7 +1729,7 @@ const HrManagerDashboard = () => {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="employee-department">Department</Label>
+                <Label htmlFor="employee-department">Departamento</Label>
                 <Input
                   id="employee-department"
                   value={employeeForm.department}
@@ -1738,7 +1738,7 @@ const HrManagerDashboard = () => {
               </div>
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <div className="space-y-2">
-                  <Label htmlFor="employee-hire-date">Hire date</Label>
+                  <Label htmlFor="employee-hire-date">Fecha de contratación</Label>
                   <Input
                     id="employee-hire-date"
                     type="date"
@@ -1747,23 +1747,23 @@ const HrManagerDashboard = () => {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="employee-status">Status</Label>
+                  <Label htmlFor="employee-status">Estado</Label>
                   <select
                     id="employee-status"
                     className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                     value={employeeForm.status}
                     onChange={(event) => setEmployeeForm({ ...employeeForm, status: event.target.value })}
                   >
-                    <option value="active">Active</option>
-                    <option value="inactive">Inactive</option>
-                    <option value="on_leave">On leave</option>
-                    <option value="terminated">Terminated</option>
+                    <option value="active">Activo</option>
+                    <option value="inactive">Inactivo</option>
+                    <option value="on_leave">En licencia</option>
+                    <option value="terminated">Desvinculado</option>
                   </select>
                 </div>
               </div>
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <div className="space-y-2">
-                  <Label htmlFor="employee-email">Email</Label>
+                  <Label htmlFor="employee-email">Correo electrónico</Label>
                   <Input
                     id="employee-email"
                     type="email"
@@ -1772,7 +1772,7 @@ const HrManagerDashboard = () => {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="employee-phone">Phone</Label>
+                  <Label htmlFor="employee-phone">Teléfono</Label>
                   <Input
                     id="employee-phone"
                     value={employeeForm.phone}
@@ -1786,7 +1786,7 @@ const HrManagerDashboard = () => {
               <Button variant="outline" onClick={() => setEmployeeDialogOpen(false)}>
                 Cancel
               </Button>
-              <Button onClick={handleEmployeeSave}>Save</Button>
+              <Button onClick={handleEmployeeSave}>Guardar</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
@@ -1794,19 +1794,19 @@ const HrManagerDashboard = () => {
         <Dialog open={compDialogOpen} onOpenChange={setCompDialogOpen}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Add Compensation Rate</DialogTitle>
-              <DialogDescription>Create a new rate with effective dates.</DialogDescription>
+              <DialogTitle>Agregar tarifa de compensación</DialogTitle>
+              <DialogDescription>Crear una nueva tarifa con fechas de vigencia.</DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="comp-employee">Employee</Label>
+                <Label htmlFor="comp-employee">Empleado</Label>
                 <select
                   id="comp-employee"
                   className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                   value={compensationForm.employee_id}
                   onChange={(event) => setCompensationForm({ ...compensationForm, employee_id: event.target.value })}
                 >
-                  <option value="">Select employee</option>
+                  <option value="">Seleccionar empleado</option>
                   {employees.map((employee: any) => (
                     <option key={employee.id} value={employee.id}>
                       {employee.full_name}
@@ -1816,7 +1816,7 @@ const HrManagerDashboard = () => {
               </div>
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <div className="space-y-2">
-                  <Label htmlFor="comp-rate">Hourly rate</Label>
+                  <Label htmlFor="comp-rate">Tarifa por hora</Label>
                   <Input
                     id="comp-rate"
                     type="number"
@@ -1825,7 +1825,7 @@ const HrManagerDashboard = () => {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="comp-currency">Currency</Label>
+                  <Label htmlFor="comp-currency">Moneda</Label>
                   <Input
                     id="comp-currency"
                     value={compensationForm.currency_code}
@@ -1835,7 +1835,7 @@ const HrManagerDashboard = () => {
               </div>
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <div className="space-y-2">
-                  <Label htmlFor="comp-from">Effective from</Label>
+                  <Label htmlFor="comp-from">Vigente desde</Label>
                   <Input
                     id="comp-from"
                     type="date"
@@ -1844,7 +1844,7 @@ const HrManagerDashboard = () => {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="comp-to">Effective to</Label>
+                  <Label htmlFor="comp-to">Vigente hasta</Label>
                   <Input
                     id="comp-to"
                     type="date"
@@ -1859,7 +1859,7 @@ const HrManagerDashboard = () => {
               <Button variant="outline" onClick={() => setCompDialogOpen(false)}>
                 Cancel
               </Button>
-              <Button onClick={handleCompensationSave}>Save Rate</Button>
+              <Button onClick={handleCompensationSave}>Guardar tarifa</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
@@ -1867,19 +1867,19 @@ const HrManagerDashboard = () => {
         <Dialog open={leaveDialogOpen} onOpenChange={setLeaveDialogOpen}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>New Leave Request</DialogTitle>
-              <DialogDescription>Create a leave request for an employee.</DialogDescription>
+              <DialogTitle>Nueva solicitud de licencia</DialogTitle>
+              <DialogDescription>Crear una solicitud de licencia para un empleado.</DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="leave-employee">Employee</Label>
+                <Label htmlFor="leave-employee">Empleado</Label>
                 <select
                   id="leave-employee"
                   className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                   value={leaveForm.employee_id}
                   onChange={(event) => setLeaveForm({ ...leaveForm, employee_id: event.target.value })}
                 >
-                  <option value="">Select employee</option>
+                  <option value="">Seleccionar empleado</option>
                   {employees.map((employee: any) => (
                     <option key={employee.id} value={employee.id}>
                       {employee.full_name}
@@ -1888,25 +1888,25 @@ const HrManagerDashboard = () => {
                 </select>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="leave-type">Leave type</Label>
+                <Label htmlFor="leave-type">Tipo de licencia</Label>
                 <select
                   id="leave-type"
                   className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                   value={leaveForm.leave_type}
                   onChange={(event) => setLeaveForm({ ...leaveForm, leave_type: event.target.value })}
                 >
-                  <option value="vacation">Vacation</option>
-                  <option value="sick">Sick</option>
+                  <option value="vacation">Vacaciones</option>
+                  <option value="sick">Enfermedad</option>
                   <option value="personal">Personal</option>
-                  <option value="maternity">Maternity</option>
-                  <option value="paternity">Paternity</option>
-                  <option value="unpaid">Unpaid</option>
-                  <option value="other">Other</option>
+                  <option value="maternity">Maternidad</option>
+                  <option value="paternity">Paternidad</option>
+                  <option value="unpaid">Sin goce</option>
+                  <option value="other">Otro</option>
                 </select>
               </div>
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <div className="space-y-2">
-                  <Label htmlFor="leave-start">Start date</Label>
+                  <Label htmlFor="leave-start">Fecha de inicio</Label>
                   <Input
                     id="leave-start"
                     type="date"
@@ -1915,7 +1915,7 @@ const HrManagerDashboard = () => {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="leave-end">End date</Label>
+                  <Label htmlFor="leave-end">Fecha de término</Label>
                   <Input
                     id="leave-end"
                     type="date"
@@ -1925,7 +1925,7 @@ const HrManagerDashboard = () => {
                 </div>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="leave-hours">Hours requested</Label>
+                <Label htmlFor="leave-hours">Horas solicitadas</Label>
                 <Input
                   id="leave-hours"
                   type="number"
@@ -1939,7 +1939,7 @@ const HrManagerDashboard = () => {
               <Button variant="outline" onClick={() => setLeaveDialogOpen(false)}>
                 Cancel
               </Button>
-              <Button onClick={handleLeaveRequestSave}>Submit</Button>
+              <Button onClick={handleLeaveRequestSave}>Enviar</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
@@ -1947,19 +1947,19 @@ const HrManagerDashboard = () => {
         <Dialog open={skillDialogOpen} onOpenChange={setSkillDialogOpen}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Assign Skill</DialogTitle>
-              <DialogDescription>Add a skill to an employee profile.</DialogDescription>
+              <DialogTitle>Asignar habilidad</DialogTitle>
+              <DialogDescription>Agregar una habilidad al perfil de un empleado.</DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="skill-employee">Employee</Label>
+                <Label htmlFor="skill-employee">Empleado</Label>
                 <select
                   id="skill-employee"
                   className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                   value={skillForm.employee_id}
                   onChange={(event) => setSkillForm({ ...skillForm, employee_id: event.target.value })}
                 >
-                  <option value="">Select employee</option>
+                  <option value="">Seleccionar empleado</option>
                   {employees.map((employee: any) => (
                     <option key={employee.id} value={employee.id}>
                       {employee.full_name}
@@ -1968,7 +1968,7 @@ const HrManagerDashboard = () => {
                 </select>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="skill-id">Skill</Label>
+                <Label htmlFor="skill-id">Habilidad</Label>
                 <select
                   id="skill-id"
                   className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
@@ -1995,23 +1995,23 @@ const HrManagerDashboard = () => {
                   <p className="text-sm text-destructive">Could not load skills. Please refresh and try again.</p>
                 )}
                 {!skillsLoading && !skillsError && skills.length === 0 && (
-                  <p className="text-sm text-muted-foreground">No skills found in the database. Seed skills first, then reopen this dialog.</p>
+                  <p className="text-sm text-muted-foreground">No se encontraron habilidades en la base de datos. Cargue habilidades primero y vuelva a abrir este diálogo.</p>
                 )}
               </div>
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <div className="space-y-2">
-                  <Label htmlFor="skill-level">Proficiency level</Label>
+                  <Label htmlFor="skill-level">Nivel de competencia</Label>
                   <select
                     id="skill-level"
                     className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                     value={skillForm.proficiency_level}
                     onChange={(event) => setSkillForm({ ...skillForm, proficiency_level: event.target.value })}
                   >
-                    <option value="1">1 - Beginner</option>
-                    <option value="2">2 - Basic</option>
-                    <option value="3">3 - Skilled</option>
-                    <option value="4">4 - Advanced</option>
-                    <option value="5">5 - Expert</option>
+                    <option value="1">1 - Principiante</option>
+                    <option value="2">2 - Básico</option>
+                    <option value="3">3 - Competente</option>
+                    <option value="4">4 - Avanzado</option>
+                    <option value="5">5 - Experto</option>
                   </select>
                 </div>
                 <div className="flex items-center gap-2">
@@ -2021,7 +2021,7 @@ const HrManagerDashboard = () => {
                     checked={skillForm.certified}
                     onChange={(event) => setSkillForm({ ...skillForm, certified: event.target.checked })}
                   />
-                  <Label htmlFor="skill-certified">Certified</Label>
+                  <Label htmlFor="skill-certified">Certificado</Label>
                 </div>
               </div>
               {actionError && <p className="text-sm text-destructive">{actionError}</p>}
@@ -2040,12 +2040,12 @@ const HrManagerDashboard = () => {
         <Dialog open={incentiveRuleDialogOpen} onOpenChange={setIncentiveRuleDialogOpen}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Create Incentive Rule</DialogTitle>
-              <DialogDescription>Define a new incentive structure.</DialogDescription>
+              <DialogTitle>Crear regla de incentivo</DialogTitle>
+              <DialogDescription>Definir una nueva estructura de incentivos.</DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="rule-name">Rule name</Label>
+                <Label htmlFor="rule-name">Nombre de la regla</Label>
                 <Input
                   id="rule-name"
                   value={incentiveRuleForm.name}
@@ -2054,22 +2054,22 @@ const HrManagerDashboard = () => {
               </div>
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <div className="space-y-2">
-                  <Label htmlFor="rule-type">Type</Label>
+                  <Label htmlFor="rule-type">Tipo</Label>
                   <select
                     id="rule-type"
                     className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                     value={incentiveRuleForm.incentive_type}
                     onChange={(event) => setIncentiveRuleForm({ ...incentiveRuleForm, incentive_type: event.target.value })}
                   >
-                    <option value="fixed_bonus">Fixed bonus</option>
-                    <option value="performance_bonus">Performance bonus</option>
-                    <option value="attendance_bonus">Attendance bonus</option>
-                    <option value="overtime_bonus">Overtime bonus</option>
-                    <option value="penalty_adjustment">Penalty adjustment</option>
+                    <option value="fixed_bonus">Bono fijo</option>
+                    <option value="performance_bonus">Bono por desempeño</option>
+                    <option value="attendance_bonus">Bono por asistencia</option>
+                    <option value="overtime_bonus">Bono por horas extra</option>
+                    <option value="penalty_adjustment">Ajuste por penalización</option>
                   </select>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="rule-amount">Amount</Label>
+                  <Label htmlFor="rule-amount">Monto</Label>
                   <Input
                     id="rule-amount"
                     type="number"
@@ -2080,7 +2080,7 @@ const HrManagerDashboard = () => {
               </div>
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <div className="space-y-2">
-                  <Label htmlFor="rule-currency">Currency</Label>
+                  <Label htmlFor="rule-currency">Moneda</Label>
                   <Input
                     id="rule-currency"
                     value={incentiveRuleForm.currency_code}
@@ -2094,7 +2094,7 @@ const HrManagerDashboard = () => {
                     checked={incentiveRuleForm.is_active}
                     onChange={(event) => setIncentiveRuleForm({ ...incentiveRuleForm, is_active: event.target.checked })}
                   />
-                  <Label htmlFor="rule-active">Active</Label>
+                  <Label htmlFor="rule-active">Activo</Label>
                 </div>
               </div>
               {actionError && <p className="text-sm text-destructive">{actionError}</p>}
@@ -2103,7 +2103,7 @@ const HrManagerDashboard = () => {
               <Button variant="outline" onClick={() => setIncentiveRuleDialogOpen(false)}>
                 Cancel
               </Button>
-              <Button onClick={handleIncentiveRuleSave}>Create</Button>
+              <Button onClick={handleIncentiveRuleSave}>Crear</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
@@ -2111,19 +2111,19 @@ const HrManagerDashboard = () => {
         <Dialog open={awardDialogOpen} onOpenChange={setAwardDialogOpen}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Award Incentive</DialogTitle>
-              <DialogDescription>Grant an incentive to an employee.</DialogDescription>
+              <DialogTitle>Otorgar incentivo</DialogTitle>
+              <DialogDescription>Otorgar un incentivo a un empleado.</DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="award-employee">Employee</Label>
+                <Label htmlFor="award-employee">Empleado</Label>
                 <select
                   id="award-employee"
                   className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                   value={awardForm.employee_id}
                   onChange={(event) => setAwardForm({ ...awardForm, employee_id: event.target.value })}
                 >
-                  <option value="">Select employee</option>
+                  <option value="">Seleccionar empleado</option>
                   {employees.map((employee: any) => (
                     <option key={employee.id} value={employee.id}>
                       {employee.full_name}
@@ -2132,14 +2132,14 @@ const HrManagerDashboard = () => {
                 </select>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="award-rule">Rule</Label>
+                <Label htmlFor="award-rule">Regla</Label>
                 <select
                   id="award-rule"
                   className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                   value={awardForm.incentive_rule_id}
                   onChange={(event) => setAwardForm({ ...awardForm, incentive_rule_id: event.target.value })}
                 >
-                  <option value="">Select rule</option>
+                  <option value="">Seleccionar regla</option>
                   {incentiveRules.map((rule: any) => (
                     <option key={rule.id} value={rule.id}>
                       {rule.name}
@@ -2149,7 +2149,7 @@ const HrManagerDashboard = () => {
               </div>
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <div className="space-y-2">
-                  <Label htmlFor="award-amount">Amount</Label>
+                  <Label htmlFor="award-amount">Monto</Label>
                   <Input
                     id="award-amount"
                     type="number"
@@ -2158,7 +2158,7 @@ const HrManagerDashboard = () => {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="award-date">Awarded date</Label>
+                  <Label htmlFor="award-date">Fecha de otorgamiento</Label>
                   <Input
                     id="award-date"
                     type="date"
@@ -2173,7 +2173,7 @@ const HrManagerDashboard = () => {
               <Button variant="outline" onClick={() => setAwardDialogOpen(false)}>
                 Cancel
               </Button>
-              <Button onClick={handleAwardSave}>Award</Button>
+              <Button onClick={handleAwardSave}>Otorgar</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
@@ -2181,19 +2181,19 @@ const HrManagerDashboard = () => {
         <Dialog open={documentDialogOpen} onOpenChange={setDocumentDialogOpen}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Add HR Document</DialogTitle>
-              <DialogDescription>Track contract and certification metadata.</DialogDescription>
+              <DialogTitle>Agregar documento de RR.HH.</DialogTitle>
+              <DialogDescription>Registrar metadatos de contratos y certificaciones.</DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="doc-employee">Employee</Label>
+                <Label htmlFor="doc-employee">Empleado</Label>
                 <select
                   id="doc-employee"
                   className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                   value={documentForm.employee_id}
                   onChange={(event) => setDocumentForm({ ...documentForm, employee_id: event.target.value })}
                 >
-                  <option value="">Select employee</option>
+                  <option value="">Seleccionar empleado</option>
                   {employees.map((employee: any) => (
                     <option key={employee.id} value={employee.id}>
                       {employee.full_name}
@@ -2202,7 +2202,7 @@ const HrManagerDashboard = () => {
                 </select>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="doc-title">Title</Label>
+                <Label htmlFor="doc-title">Título</Label>
                 <Input
                   id="doc-title"
                   value={documentForm.title}
@@ -2211,22 +2211,22 @@ const HrManagerDashboard = () => {
               </div>
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <div className="space-y-2">
-                  <Label htmlFor="doc-type">Document type</Label>
+                  <Label htmlFor="doc-type">Tipo de documento</Label>
                   <select
                     id="doc-type"
                     className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                     value={documentForm.doc_type}
                     onChange={(event) => setDocumentForm({ ...documentForm, doc_type: event.target.value })}
                   >
-                    <option value="contract">Contract</option>
-                    <option value="certification">Certification</option>
-                    <option value="policy">Policy</option>
-                    <option value="training">Training</option>
-                    <option value="other">Other</option>
+                    <option value="contract">Contrato</option>
+                    <option value="certification">Certificación</option>
+                    <option value="policy">Política</option>
+                    <option value="training">Capacitación</option>
+                    <option value="other">Otro</option>
                   </select>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="doc-issuer">Issuer</Label>
+                  <Label htmlFor="doc-issuer">Emisor</Label>
                   <Input
                     id="doc-issuer"
                     value={documentForm.issuer}
@@ -2236,7 +2236,7 @@ const HrManagerDashboard = () => {
               </div>
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <div className="space-y-2">
-                  <Label htmlFor="doc-issue-date">Issue date</Label>
+                  <Label htmlFor="doc-issue-date">Fecha de emisión</Label>
                   <Input
                     id="doc-issue-date"
                     type="date"
@@ -2245,7 +2245,7 @@ const HrManagerDashboard = () => {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="doc-expiry-date">Expiry date</Label>
+                  <Label htmlFor="doc-expiry-date">Fecha de vencimiento</Label>
                   <Input
                     id="doc-expiry-date"
                     type="date"
@@ -2256,7 +2256,7 @@ const HrManagerDashboard = () => {
               </div>
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <div className="space-y-2">
-                  <Label htmlFor="doc-reminder">Reminder days before</Label>
+                  <Label htmlFor="doc-reminder">Días de aviso previo</Label>
                   <Input
                     id="doc-reminder"
                     type="number"
@@ -2267,7 +2267,7 @@ const HrManagerDashboard = () => {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="doc-file">File URL</Label>
+                  <Label htmlFor="doc-file">URL del archivo</Label>
                   <Input
                     id="doc-file"
                     value={documentForm.file_url}
@@ -2276,7 +2276,7 @@ const HrManagerDashboard = () => {
                 </div>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="doc-notes">Notes</Label>
+                <Label htmlFor="doc-notes">Notas</Label>
                 <Input
                   id="doc-notes"
                   value={documentForm.notes}
@@ -2289,7 +2289,7 @@ const HrManagerDashboard = () => {
               <Button variant="outline" onClick={() => setDocumentDialogOpen(false)}>
                 Cancel
               </Button>
-              <Button onClick={handleDocumentSave}>Save Document</Button>
+              <Button onClick={handleDocumentSave}>Guardar documento</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>

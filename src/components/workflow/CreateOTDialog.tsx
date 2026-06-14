@@ -48,14 +48,14 @@ export function CreateOTDialog({ open, onOpenChange, onSuccess }: CreateOTDialog
     if (!response.ok) {
       const errorBody = await response.json().catch(() => null);
       toast({
-        title: "Error creating OT",
+        title: "Error al crear OT",
         description: errorBody?.error || 'Request failed',
         variant: "destructive",
       });
       return;
     }
 
-    toast({ title: "OT created successfully" });
+    toast({ title: "OT creada correctamente" });
     setFormData({
       ot_number: "",
       client_name: "",
@@ -72,7 +72,7 @@ export function CreateOTDialog({ open, onOpenChange, onSuccess }: CreateOTDialog
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="bg-card border-border">
         <DialogHeader>
-          <DialogTitle className="text-foreground">Create New Work Order</DialogTitle>
+          <DialogTitle className="text-foreground">Crear nueva orden de trabajo</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
@@ -95,18 +95,18 @@ export function CreateOTDialog({ open, onOpenChange, onSuccess }: CreateOTDialog
               value={formData.client_name}
               onChange={(e) => setFormData({ ...formData, client_name: e.target.value })}
               className="bg-input border-border"
-              placeholder="Client Company"
+              placeholder="Empresa del cliente"
             />
           </div>
 
           <div>
-            <Label htmlFor="description">Description</Label>
+            <Label htmlFor="description">Descripción</Label>
             <Textarea
               id="description"
               value={formData.description}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
               className="bg-input border-border"
-              placeholder="Brief description of the work order..."
+              placeholder="Breve descripción de la orden de trabajo..."
             />
           </div>
 
@@ -134,7 +134,7 @@ export function CreateOTDialog({ open, onOpenChange, onSuccess }: CreateOTDialog
                 value={formData.priority}
                 onChange={(e) => setFormData({ ...formData, priority: e.target.value })}
                 className="bg-input border-border"
-                placeholder="Higher = more urgent"
+                placeholder="Mayor = más urgente"
               />
             </div>
           </div>

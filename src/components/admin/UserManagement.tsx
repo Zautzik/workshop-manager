@@ -314,7 +314,7 @@ const UserManagement = ({ onUpdate }: UserManagementProps) => {
                     id="password"
                     name="password"
                     type="password"
-                    placeholder="Minimum 6 characters"
+                    placeholder="Mínimo 6 caracteres"
                     value={formData.password}
                     onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                     required
@@ -347,7 +347,7 @@ const UserManagement = ({ onUpdate }: UserManagementProps) => {
                       <div className="w-3 h-3 rounded-full bg-supervisor" />
                       <div>
                         <div className="font-medium">{t('supervisor')}</div>
-                        <div className="text-xs text-muted-foreground">Manages workers, jobs, and production</div>
+                        <div className="text-xs text-muted-foreground">Administra trabajadores, trabajos y producción</div>
                       </div>
                     </div>
                   </SelectItem>
@@ -365,7 +365,7 @@ const UserManagement = ({ onUpdate }: UserManagementProps) => {
                       <div className="w-3 h-3 rounded-full bg-cyan-500" />
                       <div>
                         <div className="font-medium">HR Manager</div>
-                        <div className="text-xs text-muted-foreground">Manages contracts, leave, incentives and HR docs</div>
+                        <div className="text-xs text-muted-foreground">Administra contratos, licencias, incentivos y documentos de RR.HH.</div>
                       </div>
                     </div>
                   </SelectItem>
@@ -374,7 +374,7 @@ const UserManagement = ({ onUpdate }: UserManagementProps) => {
                       <div className="w-3 h-3 rounded-full bg-orange-500" />
                       <div>
                         <div className="font-medium">{t('technician')}</div>
-                        <div className="text-xs text-muted-foreground">Executes maintenance checklists</div>
+                        <div className="text-xs text-muted-foreground">Ejecuta listas de verificación de mantenimiento</div>
                       </div>
                     </div>
                   </SelectItem>
@@ -383,7 +383,7 @@ const UserManagement = ({ onUpdate }: UserManagementProps) => {
                       <div className="w-3 h-3 rounded-full bg-primary" />
                       <div>
                         <div className="font-medium">{t('admin')}</div>
-                        <div className="text-xs text-muted-foreground">Full system access and user management</div>
+                        <div className="text-xs text-muted-foreground">Acceso total al sistema y gestión de usuarios</div>
                       </div>
                     </div>
                   </SelectItem>
@@ -396,7 +396,7 @@ const UserManagement = ({ onUpdate }: UserManagementProps) => {
                 <Label htmlFor="department">{t('department')}</Label>
                 <Select value={formData.department} onValueChange={(value) => setFormData({ ...formData, department: value })}>
                   <SelectTrigger id="department" aria-label="Select department">
-                    <SelectValue placeholder="Select department" />
+                    <SelectValue placeholder="Seleccionar departamento" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="press">{t('press')}</SelectItem>
@@ -414,7 +414,7 @@ const UserManagement = ({ onUpdate }: UserManagementProps) => {
                 <Label htmlFor="manager_domain">{t('managerDomain')}</Label>
                 <Select value={formData.manager_domain} onValueChange={(value) => setFormData({ ...formData, manager_domain: value })}>
                   <SelectTrigger id="manager_domain" aria-label="Select manager domain">
-                    <SelectValue placeholder="Select domain" />
+                    <SelectValue placeholder="Seleccionar dominio" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="cost">{t('cost')}</SelectItem>

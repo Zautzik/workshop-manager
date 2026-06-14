@@ -62,7 +62,7 @@ const TraceabilityReport = () => {
                 id="otNumber"
                 value={otNumber}
                 onChange={(e) => setOtNumber(e.target.value)}
-                placeholder="Enter OT number (e.g., OT-2025-001)"
+                placeholder="Ingrese el número de OT (ej., OT-2025-001)"
               />
             </div>
             <Button

@@ -46,7 +46,7 @@ export default function ChecklistManagement() {
 
   useEffect(() => {
     if (isError) {
-      toast({ title: 'Error', description: 'Failed to fetch checklists', variant: 'destructive' });
+      toast({ title: 'Error', description: 'No se pudieron obtener las listas de verificación', variant: 'destructive' });
     }
   }, [isError, toast]);
 
@@ -119,11 +119,11 @@ export default function ChecklistManagement() {
       .single();
 
     if (error) {
-      toast({ title: 'Error', description: 'Failed to create work order: ' + error.message, variant: 'destructive' });
+      toast({ title: 'Error', description: 'No se pudo crear la orden de trabajo: ' + error.message, variant: 'destructive' });
       return;
     }
 
-    toast({ title: 'Success', description: 'Work order created successfully' });
+    toast({ title: 'Éxito', description: 'Orden de trabajo creada correctamente' });
     setDialogOpen(false);
     setSelectedChecklist(null);
   };
@@ -147,7 +147,7 @@ export default function ChecklistManagement() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold text-foreground">Checklist Templates</h2>
+        <h2 className="text-2xl font-bold text-foreground">Plantillas de listas de verificación</h2>
         <Badge variant="outline" className="text-muted-foreground">
           {checklists.length} checklists
         </Badge>
@@ -157,7 +157,7 @@ export default function ChecklistManagement() {
         <Card className="p-12 border-border/40 bg-card/50 backdrop-blur">
           <div className="text-center">
             <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-            <p className="text-muted-foreground">No checklist templates found</p>
+            <p className="text-muted-foreground">No se encontraron plantillas de listas de verificación</p>
             <p className="text-sm text-muted-foreground mt-2">
               Use the Checklist Editor to create maintenance templates
             </p>
@@ -228,24 +228,24 @@ export default function ChecklistManagement() {
                           </DialogTrigger>
                           <DialogContent>
                             <DialogHeader>
-                              <DialogTitle>Create Work Order</DialogTitle>
+                              <DialogTitle>Crear orden de trabajo</DialogTitle>
                               <DialogDescription>Fill in the details to create a new work order from this checklist.</DialogDescription>
                             </DialogHeader>
                             <div className="space-y-4 py-4">
                               <div className="space-y-2">
-                                <Label>Checklist</Label>
+                                <Label>Lista de verificación</Label>
                                 <Input value={checklist.name} disabled />
                               </div>
                               <div className="space-y-2">
-                                <Label>Machine</Label>
+                                <Label>Máquina</Label>
                                 <Input value={checklist.machines?.name || checklist.machine_type} disabled />
                               </div>
                               <div className="space-y-2">
-                                <Label>Tasks</Label>
+                                <Label>Tareas</Label>
                                 <Input value={`${getItemCount(checklist)} tasks (~${getTotalTime(checklist)} min)`} disabled />
                               </div>
                               <div className="space-y-2">
-                                <Label>Scheduled Date</Label>
+                                <Label>Fecha programada</Label>
                                 <Input 
                                   type="date" 
                                   value={workOrderDate}

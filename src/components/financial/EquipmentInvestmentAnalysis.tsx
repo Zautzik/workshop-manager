@@ -201,22 +201,22 @@ export const EquipmentInvestmentAnalysis = () => {
           </DialogHeader>
           <div className="space-y-4">
             <div>
-              <Label>Equipment Name</Label>
+              <Label>Nombre del equipo</Label>
               <Input
                 value={formData.equipment_name}
                 onChange={(e) => setFormData({ ...formData, equipment_name: e.target.value })}
-                placeholder="e.g., New Offset Press 5000"
+                placeholder="ej., Nueva prensa offset 5000"
               />
             </div>
 
             <div>
-              <Label>Related Machine (Optional)</Label>
+              <Label>Máquina relacionada (opcional)</Label>
               <select
                 className="w-full mt-1 rounded-md border border-input bg-background px-3 py-2"
                 value={formData.machine_id}
                 onChange={(e) => setFormData({ ...formData, machine_id: e.target.value })}
               >
-                <option value="">None (New Equipment)</option>
+                <option value="">Ninguno (equipo nuevo)</option>
                 {machines.map((machine) => (
                   <option key={machine.id} value={machine.id}>
                     {machine.name} ({machine.type})
@@ -256,31 +256,31 @@ export const EquipmentInvestmentAnalysis = () => {
             )}
 
             <div>
-              <Label>Status</Label>
+              <Label>Estado</Label>
               <select
                 className="w-full mt-1 rounded-md border border-input bg-background px-3 py-2"
                 value={formData.status}
                 onChange={(e) => setFormData({ ...formData, status: e.target.value })}
               >
-                <option value="proposal">Proposal</option>
+                <option value="proposal">Propuesta</option>
                 <option value="approved">Approved</option>
                 <option value="rejected">Rejected</option>
-                <option value="completed">Completed</option>
+                <option value="completed">Completado</option>
               </select>
             </div>
 
             <div>
-              <Label>Notes</Label>
+              <Label>Notas</Label>
               <Textarea
                 value={formData.notes}
                 onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                placeholder="Justification, expected benefits, timeline..."
+                placeholder="Justificación, beneficios esperados, cronograma..."
               />
             </div>
 
             <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => { setIsOpen(false); resetForm(); }}>Cancel</Button>
-              <Button onClick={handleSubmit}>Save</Button>
+              <Button variant="outline" onClick={() => { setIsOpen(false); resetForm(); }}>Cancelar</Button>
+              <Button onClick={handleSubmit}>Guardar</Button>
             </div>
           </div>
         </DialogContent>
@@ -289,20 +289,20 @@ export const EquipmentInvestmentAnalysis = () => {
       {/* Investment Proposals Table */}
       <Card>
         <CardHeader>
-          <CardTitle>Equipment Investment Proposals</CardTitle>
+          <CardTitle>Propuestas de inversión en equipos</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
                 <tr className="border-b">
-                  <th className="text-left py-2 px-4 font-medium">Equipment</th>
+                  <th className="text-left py-2 px-4 font-medium">Equipo</th>
                   <th className="text-left py-2 px-4 font-medium">Related To</th>
-                  <th className="text-right py-2 px-4 font-medium">Purchase Cost</th>
+                  <th className="text-right py-2 px-4 font-medium">Costo de compra</th>
                   <th className="text-right py-2 px-4 font-medium">Annual Savings</th>
                   <th className="text-right py-2 px-4 font-medium">Payback Period</th>
-                  <th className="text-center py-2 px-4 font-medium">Status</th>
-                  <th className="text-center py-2 px-4 font-medium">Actions</th>
+                  <th className="text-center py-2 px-4 font-medium">Estado</th>
+                  <th className="text-center py-2 px-4 font-medium">Acciones</th>
                 </tr>
               </thead>
               <tbody>

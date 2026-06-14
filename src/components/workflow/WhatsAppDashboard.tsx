@@ -100,7 +100,7 @@ function CostLineTable({ lines, confidence }: { lines: InferredCostLine[]; confi
           <tr className="bg-muted/50">
             <th className="text-left p-2 font-medium">Concepto</th>
             <th className="text-right p-2 font-medium">Cant.</th>
-            <th className="text-right p-2 font-medium">Unit.</th>
+            <th className="text-right p-2 font-medium">Unid.</th>
             <th className="text-right p-2 font-medium">$/u</th>
             <th className="text-right p-2 font-medium">Total</th>
             <th className="text-center p-2 font-medium">Fuente</th>

@@ -519,8 +519,8 @@ export default function MaintenanceChecklistEditor() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Maintenance Checklists</h1>
-          <p className="text-gray-600 mt-1">Create and manage detailed maintenance procedures</p>
+          <h1 className="text-3xl font-bold text-gray-900">Listas de verificación de mantenimiento</h1>
+          <p className="text-gray-600 mt-1">Cree y administre procedimientos de mantenimiento detallados</p>
         </div>
         <Button
           onClick={() => setIsDialogOpen(true)}
@@ -585,8 +585,8 @@ export default function MaintenanceChecklistEditor() {
           {checklists.length === 0 && (
             <div className="col-span-full flex flex-col items-center justify-center p-12 text-center">
               <CheckCircle2 size={48} className="text-gray-300 mb-4" />
-              <p className="text-gray-500 text-lg mb-4">No checklists yet</p>
-              <Button onClick={() => setIsDialogOpen(true)}>Create Your First Checklist</Button>
+              <p className="text-gray-500 text-lg mb-4">Aún no hay listas de verificación</p>
+              <Button onClick={() => setIsDialogOpen(true)}>Cree su primera lista de verificación</Button>
             </div>
           )}
         </div>
@@ -640,7 +640,7 @@ export default function MaintenanceChecklistEditor() {
                     <Label htmlFor="title">Item Title *</Label>
                     <Input
                       id="title"
-                      placeholder="e.g., Clean ink rollers"
+                      placeholder="ej., Limpiar rodillos de tinta"
                       value={newItem.title || ''}
                       onChange={(e) => setNewItem({ ...newItem, title: e.target.value })}
                     />
@@ -660,10 +660,10 @@ export default function MaintenanceChecklistEditor() {
                 </div>
 
                 <div>
-                  <Label htmlFor="description">Description</Label>
+                  <Label htmlFor="description">Descripción</Label>
                   <Textarea
                     id="description"
-                    placeholder="Detailed instructions for this step..."
+                    placeholder="Instrucciones detalladas para este paso..."
                     value={newItem.description || ''}
                     onChange={(e) => setNewItem({ ...newItem, description: e.target.value })}
                     rows={3}
@@ -695,11 +695,11 @@ export default function MaintenanceChecklistEditor() {
                   </div>
 
                   <div>
-                    <Label htmlFor="tools-input">Tools Required</Label>
+                    <Label htmlFor="tools-input">Herramientas requeridas</Label>
                     <div className="flex gap-2">
                       <Input
                         id="tools-input"
-                        placeholder="e.g., Wrench, Screwdriver"
+                        placeholder="ej., Llave, destornillador"
                         value={toolInput}
                         onChange={(e) => setToolInput(e.target.value)}
                         onKeyPress={(e) => e.key === 'Enter' && handleAddTool()}
@@ -858,7 +858,7 @@ export default function MaintenanceChecklistEditor() {
 
                     <div className="mt-3 ml-11 flex items-center gap-2 p-2 bg-gray-100 rounded">
                       <input type="checkbox" className="w-4 h-4 cursor-pointer" />
-                      <span className="text-sm text-gray-600">Completed</span>
+                      <span className="text-sm text-gray-600">Completado</span>
                     </div>
                   </div>
                 ))}
@@ -894,7 +894,7 @@ export default function MaintenanceChecklistEditor() {
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Create New Maintenance Checklist</DialogTitle>
+            <DialogTitle>Crear nueva lista de verificación de mantenimiento</DialogTitle>
             <DialogDescription>
               Set up a new maintenance checklist for equipment or machines
             </DialogDescription>
@@ -905,7 +905,7 @@ export default function MaintenanceChecklistEditor() {
               <Label htmlFor="checklist-name">Checklist Name *</Label>
               <Input
                 id="checklist-name"
-                placeholder="e.g., Offset Printer Monthly Maintenance"
+                placeholder="ej., Mantenimiento mensual de impresora offset"
                 value={newChecklist.name || ''}
                 onChange={(e) => setNewChecklist({ ...newChecklist, name: e.target.value })}
               />
@@ -915,14 +915,14 @@ export default function MaintenanceChecklistEditor() {
               <Label htmlFor="machine-type">Machine/Equipment Type *</Label>
               <Input
                 id="machine-type"
-                placeholder="e.g., Offset Printer, Guillotine, Die Cutter"
+                placeholder="ej., Impresora offset, guillotina, troqueladora"
                 value={newChecklist.machineType || ''}
                 onChange={(e) => setNewChecklist({ ...newChecklist, machineType: e.target.value })}
               />
             </div>
 
             <div>
-              <Label htmlFor="maintenance-type">Maintenance Type</Label>
+              <Label htmlFor="maintenance-type">Tipo de mantenimiento</Label>
               <Select
                 value={newChecklist.maintenanceType || 'preventive'}
                 onValueChange={(val) =>

@@ -302,8 +302,8 @@ export default function WorkflowDashboard({ initialTab = 'en_proceso' }: Workflo
   const applyShiftRosterFromDate = async (sourceDate: string, setupLabel: string) => {
     if (!selectedShiftId) {
       toast({
-        title: 'Select a shift first',
-        description: 'Choose a shift before applying a quick roster setup.',
+        title: 'Seleccione primero un turno',
+        description: 'Elija un turno antes de aplicar una configuración rápida de plantilla.',
         variant: 'destructive',
       });
       return;
@@ -312,7 +312,7 @@ export default function WorkflowDashboard({ initialTab = 'en_proceso' }: Workflo
     if (sourceDate === selectedDate) {
       toast({
         title: 'Source and target are the same day',
-        description: 'Pick another day to copy roster setup from.',
+        description: 'Elija otro día desde el cual copiar la configuración de la plantilla.',
         variant: 'destructive',
       });
       return;
@@ -329,7 +329,7 @@ export default function WorkflowDashboard({ initialTab = 'en_proceso' }: Workflo
 
       if (!sourceAssignments || sourceAssignments.length === 0) {
         toast({
-          title: 'No source roster found',
+          title: 'No se encontró una plantilla de origen',
           description: `No assignments exist for ${setupLabel}.`,
           variant: 'destructive',
         });
@@ -367,7 +367,7 @@ export default function WorkflowDashboard({ initialTab = 'en_proceso' }: Workflo
       });
     } catch (error: any) {
       toast({
-        title: 'Failed to apply quick setup',
+        title: 'No se pudo aplicar la configuración rápida',
         description: error.message || 'Unexpected error while copying roster setup.',
         variant: 'destructive',
       });
@@ -608,14 +608,14 @@ export default function WorkflowDashboard({ initialTab = 'en_proceso' }: Workflo
       if (response.error) throw response.error;
 
       toast({
-        title: 'Cost model saved',
-        description: 'Scheduling will use the updated cost model settings.',
+        title: 'Modelo de costos guardado',
+        description: 'La programación usará la configuración actualizada del modelo de costos.',
       });
       refetchCostModel();
     } catch (error: any) {
       setCostModelError(error.message || 'Failed to save cost model');
       toast({
-        title: 'Failed to save cost model',
+        title: 'No se pudo guardar el modelo de costos',
         description: error.message || 'Please review the values and try again.',
         variant: 'destructive',
       });
@@ -636,54 +636,16 @@ export default function WorkflowDashboard({ initialTab = 'en_proceso' }: Workflo
     setActiveId(event.active.id);
   };
 
-  const createWorkerAssignment = async (payload: any) => {
-    const response = await fetch('/api/worker-assignments', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify(payload),
-    });
-
-    const body = await response.json().catch(() => null);
-    if (!response.ok) {
-      throw new Error(body?.error || 'Failed to create assignment');
-    }
-    return body;
-  };
-
-  const updateWorkerAssignment = async (assignmentId: string, payload: any) => {
-    const response = await fetch(`/api/worker-assignments/${assignmentId}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify(payload),
-    });
-
-    const body = await response.json().catch(() => null);
-    if (!response.ok) {
-      throw new Error(body?.error || 'Failed to update assignment');
-    }
-    return body;
-  };
-
-  const deleteWorkerAssignment = async (assignmentId: string) => {
-    const response = await fetch(`/api/worker-assignments/${assignmentId}`, {
-      method: 'DELETE',
-      credentials: 'include',
-    });
-
-    const body = await response.json().catch(() => null);
-    if (!response.ok) {
-      throw new Error(body?.error || 'Failed to delete assignment');
-    }
-    return body;
-  };
-
   const handleUnassignWorker = async (assignmentId?: string, workerName?: string) => {
     if (!assignmentId) return;
 
     try {
-      await deleteWorkerAssignment(assignmentId);
+      const { error } = await supabase
+        .from("worker_assignments")
+        .delete()
+        .eq("id", assignmentId);
+
+      if (error) throw error;
 
       toast({
         title: "Worker unassigned",
@@ -693,7 +655,7 @@ export default function WorkflowDashboard({ initialTab = 'en_proceso' }: Workflo
       refetchAssignments();
     } catch (error: any) {
       toast({
-        title: "Error unassigning worker",
+        title: "Error al desasignar trabajador",
         description: error.message,
         variant: "destructive"
       });
@@ -723,8 +685,8 @@ export default function WorkflowDashboard({ initialTab = 'en_proceso' }: Workflo
 
     if (!selectedShiftId) {
       toast({
-        title: "Select a shift first",
-        description: "Choose a shift in the Layout settings before assigning workers.",
+        title: "Seleccione primero un turno",
+        description: "Elija un turno en la configuración de diseño antes de asignar trabajadores.",
         variant: "destructive"
       });
       return;
@@ -733,7 +695,7 @@ export default function WorkflowDashboard({ initialTab = 'en_proceso' }: Workflo
     if (!isWorkerQualifiedForStation(worker, workstation)) {
       const workerName = worker?.name || worker?.full_name || 'This worker';
       toast({
-        title: "Skill requirement not met",
+        title: "No se cumple el requisito de habilidad",
         description: `${workerName} doesn't meet the required skills for ${workstation.name}.`,
         variant: "destructive"
       });
@@ -774,7 +736,7 @@ export default function WorkflowDashboard({ initialTab = 'en_proceso' }: Workflo
     const isOvertimeAssignment = hasAssignmentInOtherShift;
     if (isOvertimeAssignment && !worker.overtime_availability) {
       toast({
-        title: "Overtime not available",
+        title: "Horas extra no disponibles",
         description: `${worker.name} is already assigned in another shift and is not marked as overtime available.`,
         variant: "destructive"
       });
@@ -787,20 +749,27 @@ export default function WorkflowDashboard({ initialTab = 'en_proceso' }: Workflo
       if (assignmentId) {
         const draggedAssignment = assignments.find(a => a.id === assignmentId);
 
-        await updateWorkerAssignment(assignmentId, {
-          workstation_id: workstation.id,
-          ot_id: selectedOT?.id || null,
-          role: draggedAssignment?.role || assignmentRole,
-        });
+        const { error } = await supabase
+          .from("worker_assignments")
+          .update({
+            workstation_id: workstation.id,
+            ot_id: selectedOT?.id || null,
+            role: draggedAssignment?.role || assignmentRole,
+          })
+          .eq("id", assignmentId);
+        if (error) throw error;
       } else {
-        await createWorkerAssignment({
-          employee_id: worker.id,
-          workstation_id: workstation.id,
-          shift_id: selectedShiftId,
-          date: selectedDate,
-          role: assignmentRole,
-          ot_id: selectedOT?.id || null,
-        });
+        const { error } = await supabase
+          .from("worker_assignments")
+          .insert({
+            employee_id: worker.id,
+            workstation_id: workstation.id,
+            shift_id: selectedShiftId,
+            date: selectedDate,
+            role: assignmentRole,
+            ot_id: selectedOT?.id || null
+          });
+        if (error) throw error;
       }
 
       toast({
@@ -813,7 +782,7 @@ export default function WorkflowDashboard({ initialTab = 'en_proceso' }: Workflo
       refetchAssignments();
     } catch (error: any) {
       toast({
-        title: "Error assigning worker",
+        title: "Error al asignar trabajador",
         description: error.message,
         variant: "destructive"
       });
@@ -873,7 +842,7 @@ export default function WorkflowDashboard({ initialTab = 'en_proceso' }: Workflo
 
   const handleBulkAutoFillShift = async () => {
     if (!selectedShiftId) {
-      toast({ title: 'Select a shift first', variant: 'destructive' });
+      toast({ title: 'Seleccione primero un turno', variant: 'destructive' });
       return;
     }
 
@@ -919,11 +888,11 @@ export default function WorkflowDashboard({ initialTab = 'en_proceso' }: Workflo
 
       refetchAssignments();
       toast({
-        title: 'Auto-fill completed',
+        title: 'Autocompletado finalizado',
         description: `Assigned ${inserted} workers${skipped ? `, skipped ${skipped}` : ''}.`,
       });
     } catch (error: any) {
-      toast({ title: 'Auto-fill failed', description: error.message, variant: 'destructive' });
+      toast({ title: 'Falló el autocompletado', description: error.message, variant: 'destructive' });
     } finally {
       setBulkActionLoading(null);
     }
@@ -931,7 +900,7 @@ export default function WorkflowDashboard({ initialTab = 'en_proceso' }: Workflo
 
   const handleReplaceConflictedAssignments = async () => {
     if (!selectedShiftId) {
-      toast({ title: 'Select a shift first', variant: 'destructive' });
+      toast({ title: 'Seleccione primero un turno', variant: 'destructive' });
       return;
     }
 
@@ -985,11 +954,11 @@ export default function WorkflowDashboard({ initialTab = 'en_proceso' }: Workflo
 
       refetchAssignments();
       toast({
-        title: 'Conflict replacement completed',
+        title: 'Reemplazo de conflicto completado',
         description: `Replaced ${replaced} assignments${unresolved ? `, unresolved ${unresolved}` : ''}.`,
       });
     } catch (error: any) {
-      toast({ title: 'Replacement failed', description: error.message, variant: 'destructive' });
+      toast({ title: 'Falló el reemplazo', description: error.message, variant: 'destructive' });
     } finally {
       setBulkActionLoading(null);
     }
@@ -997,7 +966,7 @@ export default function WorkflowDashboard({ initialTab = 'en_proceso' }: Workflo
 
   const handleRedistributeOT = async () => {
     if (!selectedShiftId) {
-      toast({ title: 'Select a shift first', variant: 'destructive' });
+      toast({ title: 'Seleccione primero un turno', variant: 'destructive' });
       return;
     }
 
@@ -1044,11 +1013,11 @@ export default function WorkflowDashboard({ initialTab = 'en_proceso' }: Workflo
 
       refetchAssignments();
       toast({
-        title: 'OT redistribution completed',
+        title: 'Redistribución de OT completada',
         description: `Redistributed ${redistributed} overtime assignments${remaining ? `, remaining ${remaining}` : ''}.`,
       });
     } catch (error: any) {
-      toast({ title: 'OT redistribution failed', description: error.message, variant: 'destructive' });
+      toast({ title: 'Falló la redistribución de OT', description: error.message, variant: 'destructive' });
     } finally {
       setBulkActionLoading(null);
     }
@@ -1072,7 +1041,7 @@ export default function WorkflowDashboard({ initialTab = 'en_proceso' }: Workflo
       if (employeeIds.length === 0) {
         toast({
           title: 'Nothing to publish',
-          description: 'No assignments exist for this week.',
+          description: 'No existen asignaciones para esta semana.',
           variant: 'destructive',
         });
         setPublishLoading(false);
@@ -1194,7 +1163,7 @@ export default function WorkflowDashboard({ initialTab = 'en_proceso' }: Workflo
       });
     } catch (error: any) {
       toast({
-        title: 'Failed to publish week',
+        title: 'No se pudo publicar la semana',
         description: error.message || 'Unexpected error during week publishing.',
         variant: 'destructive',
       });
@@ -1458,7 +1427,7 @@ export default function WorkflowDashboard({ initialTab = 'en_proceso' }: Workflo
               <Card className="bg-card/80 border-border backdrop-blur-sm p-4 mt-6">
                 <div className="flex items-center justify-between gap-3">
                   <div>
-                    <h3 className="text-lg font-bold text-foreground">Cost Model</h3>
+                    <h3 className="text-lg font-bold text-foreground">Modelo de costos</h3>
                     <p className="text-sm text-muted-foreground">
                       Customize how cost, rating, and skill weights rank assignments.
                     </p>
@@ -1487,7 +1456,7 @@ export default function WorkflowDashboard({ initialTab = 'en_proceso' }: Workflo
 
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       <div>
-                        <Label htmlFor="cost-model-name">Model Name</Label>
+                        <Label htmlFor="cost-model-name">Nombre del modelo</Label>
                         <Input
                           id="cost-model-name"
                           value={costModelForm.name}
@@ -1497,7 +1466,7 @@ export default function WorkflowDashboard({ initialTab = 'en_proceso' }: Workflo
                         />
                       </div>
                       <div>
-                        <Label htmlFor="cost-weight">Cost Weight</Label>
+                        <Label htmlFor="cost-weight">Peso del costo</Label>
                         <Input
                           id="cost-weight"
                           type="number"
@@ -1509,7 +1478,7 @@ export default function WorkflowDashboard({ initialTab = 'en_proceso' }: Workflo
                         />
                       </div>
                       <div>
-                        <Label htmlFor="rating-weight">Rating Weight</Label>
+                        <Label htmlFor="rating-weight">Peso de la calificación</Label>
                         <Input
                           id="rating-weight"
                           type="number"
@@ -1521,7 +1490,7 @@ export default function WorkflowDashboard({ initialTab = 'en_proceso' }: Workflo
                         />
                       </div>
                       <div>
-                        <Label htmlFor="skill-weight">Skill Weight</Label>
+                        <Label htmlFor="skill-weight">Peso de la habilidad</Label>
                         <Input
                           id="skill-weight"
                           type="number"
@@ -1581,7 +1550,7 @@ export default function WorkflowDashboard({ initialTab = 'en_proceso' }: Workflo
                         />
                       </div>
                       <div>
-                        <Label htmlFor="min-rate">Minimum Hourly Rate</Label>
+                        <Label htmlFor="min-rate">Tarifa mínima por hora</Label>
                         <Input
                           id="min-rate"
                           type="number"
@@ -1626,7 +1595,7 @@ export default function WorkflowDashboard({ initialTab = 'en_proceso' }: Workflo
                             setCostModelForm((prev) => ({ ...prev, prefer_lower_cost: checked }))
                           }
                         />
-                        <Label>Prefer lower cost</Label>
+                        <Label>Preferir menor costo</Label>
                       </div>
                       {costModelError && (
                         <p className="text-sm text-destructive">{costModelError}</p>

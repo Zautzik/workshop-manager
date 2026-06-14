@@ -138,7 +138,7 @@ export const MachineCostAnalysis = () => {
       {/* Chart */}
       <Card>
         <CardHeader>
-          <CardTitle>Machine Cost vs Outsourcing Comparison</CardTitle>
+          <CardTitle>Comparación de costo de máquina vs tercerización</CardTitle>
         </CardHeader>
         <CardContent>
           <ResponsiveContainer width="100%" height={300}>
@@ -171,13 +171,13 @@ export const MachineCostAnalysis = () => {
             {!editingId && (
               <>
                 <div>
-                  <Label>Select Machine</Label>
+                  <Label>Seleccionar máquina</Label>
                   <select
                     className="w-full mt-1 rounded-md border border-input bg-background px-3 py-2"
                     value={selectedMachineId}
                     onChange={(e) => setSelectedMachineId(e.target.value)}
                   >
-                    <option value="">Select a machine...</option>
+                    <option value="">Seleccione una máquina...</option>
                     {machines.map((machine) => (
                       <option key={machine.id} value={machine.id}>
                         {machine.name} ({machine.type})
@@ -254,17 +254,17 @@ export const MachineCostAnalysis = () => {
             </div>
 
             <div>
-              <Label>Notes</Label>
+              <Label>Notas</Label>
               <Textarea
                 value={formData.notes}
                 onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                placeholder="Additional notes..."
+                placeholder="Notas adicionales..."
               />
             </div>
 
             <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => { setIsOpen(false); resetForm(); }}>Cancel</Button>
-              <Button onClick={handleSubmit}>Save</Button>
+              <Button variant="outline" onClick={() => { setIsOpen(false); resetForm(); }}>Cancelar</Button>
+              <Button onClick={handleSubmit}>Guardar</Button>
             </div>
           </div>
         </DialogContent>
@@ -273,20 +273,20 @@ export const MachineCostAnalysis = () => {
       {/* Machine Cost Details */}
       <Card>
         <CardHeader>
-          <CardTitle>Machine Cost Breakdown</CardTitle>
+          <CardTitle>Desglose de costos de máquina</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
                 <tr className="border-b">
-                  <th className="text-left py-2 px-4 font-medium">Machine</th>
+                  <th className="text-left py-2 px-4 font-medium">Máquina</th>
                   <th className="text-left py-2 px-4 font-medium">Month</th>
-                  <th className="text-right py-2 px-4 font-medium">Operating Cost</th>
-                  <th className="text-right py-2 px-4 font-medium">Outsourcing Cost</th>
+                  <th className="text-right py-2 px-4 font-medium">Costo operativo</th>
+                  <th className="text-right py-2 px-4 font-medium">Costo de tercerización</th>
                   <th className="text-right py-2 px-4 font-medium">Difference</th>
                   <th className="text-center py-2 px-4 font-medium">Recommendation</th>
-                  <th className="text-center py-2 px-4 font-medium">Actions</th>
+                  <th className="text-center py-2 px-4 font-medium">Acciones</th>
                 </tr>
               </thead>
               <tbody>

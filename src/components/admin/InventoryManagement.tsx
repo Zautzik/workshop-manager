@@ -394,7 +394,7 @@ const InventoryManagement = () => {
 
         <Card className="border-primary/20">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm text-primary">Estimated Stock Value</CardTitle>
+            <CardTitle className="text-sm text-primary">Valor estimado de stock</CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-2xl font-bold">${totalStockValue.toFixed(2)}</p>
@@ -417,7 +417,7 @@ const InventoryManagement = () => {
       {alerts.length > 0 && (
         <Card className="border-destructive/30">
           <CardHeader>
-            <CardTitle className="text-destructive">Low-Stock Alerts</CardTitle>
+            <CardTitle className="text-destructive">Alertas de stock bajo</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
@@ -439,15 +439,15 @@ const InventoryManagement = () => {
 
       <Card className="border-primary/20">
         <CardHeader>
-          <CardTitle className="text-primary">Inventory Module</CardTitle>
+          <CardTitle className="text-primary">Módulo de inventario</CardTitle>
         </CardHeader>
         <CardContent>
           <Tabs defaultValue="items" className="w-full">
             <TabsList className="grid w-full grid-cols-4">
               <TabsTrigger value="items">Items</TabsTrigger>
               <TabsTrigger value="lots">Lots</TabsTrigger>
-              <TabsTrigger value="transactions">Stock Transactions</TabsTrigger>
-              <TabsTrigger value="calculator">Cost Estimator</TabsTrigger>
+              <TabsTrigger value="transactions">Movimientos de stock</TabsTrigger>
+              <TabsTrigger value="calculator">Estimador de costos</TabsTrigger>
             </TabsList>
 
             <TabsContent value="items" className="space-y-4">
@@ -455,10 +455,10 @@ const InventoryManagement = () => {
                 <div className="flex flex-wrap gap-2 items-center">
                   <Select value={categoryFilter} onValueChange={setCategoryFilter}>
                     <SelectTrigger className="w-56">
-                      <SelectValue placeholder="Filter by category" />
+                      <SelectValue placeholder="Filtrar por categoría" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">All categories</SelectItem>
+                      <SelectItem value="all">Todas las categorías</SelectItem>
                       {CATEGORY_OPTIONS.map((category) => (
                         <SelectItem key={category.value} value={category.value}>{category.label}</SelectItem>
                       ))}
@@ -468,7 +468,7 @@ const InventoryManagement = () => {
                     value={scanSearch}
                     onChange={(e) => setScanSearch(e.target.value)}
                     className="w-80"
-                    placeholder="Scan/Search SKU, barcode or QR"
+                    placeholder="Escanee/Busque SKU, código de barras o QR"
                   />
                 </div>
 
@@ -484,11 +484,11 @@ const InventoryManagement = () => {
                     <TableHead>SKU</TableHead>
                     <TableHead>Barcode</TableHead>
                     <TableHead>QR</TableHead>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Category</TableHead>
+                    <TableHead>Nombre</TableHead>
+                    <TableHead>Categoría</TableHead>
                     <TableHead>Stock</TableHead>
-                    <TableHead>Min Stock</TableHead>
-                    <TableHead>Avg Cost</TableHead>
+                    <TableHead>Stock mínimo</TableHead>
+                    <TableHead>Costo promedio</TableHead>
                     <TableHead>{t('actions')}</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -530,12 +530,12 @@ const InventoryManagement = () => {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Item</TableHead>
-                    <TableHead>Lot</TableHead>
+                    <TableHead>Ítem</TableHead>
+                    <TableHead>Lote</TableHead>
                     <TableHead>Certification</TableHead>
                     <TableHead>Expiry</TableHead>
                     <TableHead>Available</TableHead>
-                    <TableHead>Unit Cost</TableHead>
+                    <TableHead>Costo unitario</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -564,12 +564,12 @@ const InventoryManagement = () => {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead>Item</TableHead>
-                    <TableHead>Lot</TableHead>
+                    <TableHead>Fecha</TableHead>
+                    <TableHead>Tipo</TableHead>
+                    <TableHead>Ítem</TableHead>
+                    <TableHead>Lote</TableHead>
                     <TableHead>Qty</TableHead>
-                    <TableHead>Work Order</TableHead>
+                    <TableHead>Orden de trabajo</TableHead>
                     <TableHead>Estimated Total</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -600,13 +600,13 @@ const InventoryManagement = () => {
                 <CardContent className="space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label>Inventory item</Label>
+                      <Label>Artículo de inventario</Label>
                       <Select
                         value={calculator.item_id}
                         onValueChange={(value) => setCalculator((prev) => ({ ...prev, item_id: value }))}
                       >
                         <SelectTrigger>
-                          <SelectValue placeholder="Select item" />
+                          <SelectValue placeholder="Seleccionar artículo" />
                         </SelectTrigger>
                         <SelectContent>
                           {items.map((item: any) => (
@@ -618,7 +618,7 @@ const InventoryManagement = () => {
                       </Select>
                     </div>
                     <div className="space-y-2">
-                      <Label>Quantity</Label>
+                      <Label>Cantidad</Label>
                       <Input
                         type="number"
                         min="0"
@@ -662,7 +662,7 @@ const InventoryManagement = () => {
                 <Input value={itemForm.sku} onChange={(e) => setItemForm({ ...itemForm, sku: e.target.value })} />
               </div>
               <div className="space-y-2">
-                <Label>Name</Label>
+                <Label>Nombre</Label>
                 <Input value={itemForm.name} onChange={(e) => setItemForm({ ...itemForm, name: e.target.value })} />
               </div>
             </div>
@@ -670,17 +670,17 @@ const InventoryManagement = () => {
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
                 <Label>Barcode</Label>
-                <Input value={itemForm.barcode_value} onChange={(e) => setItemForm({ ...itemForm, barcode_value: e.target.value })} placeholder="Barcode value" />
+                <Input value={itemForm.barcode_value} onChange={(e) => setItemForm({ ...itemForm, barcode_value: e.target.value })} placeholder="Valor del código de barras" />
               </div>
               <div className="space-y-2">
                 <Label>QR Code</Label>
-                <Input value={itemForm.qr_value} onChange={(e) => setItemForm({ ...itemForm, qr_value: e.target.value })} placeholder="QR value" />
+                <Input value={itemForm.qr_value} onChange={(e) => setItemForm({ ...itemForm, qr_value: e.target.value })} placeholder="Valor del QR" />
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
-                <Label>Category</Label>
+                <Label>Categoría</Label>
                 <Select value={itemForm.category} onValueChange={(value) => setItemForm({ ...itemForm, category: value })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
@@ -691,24 +691,24 @@ const InventoryManagement = () => {
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label>Unit</Label>
+                <Label>Unidad</Label>
                 <Input value={itemForm.unit} onChange={(e) => setItemForm({ ...itemForm, unit: e.target.value })} />
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
-                <Label>Minimum Stock</Label>
+                <Label>Stock mínimo</Label>
                 <Input type="number" step="0.001" value={itemForm.min_stock} onChange={(e) => setItemForm({ ...itemForm, min_stock: Number(e.target.value) })} />
               </div>
               <div className="space-y-2">
-                <Label>Estimated Unit Cost</Label>
+                <Label>Costo unitario estimado</Label>
                 <Input type="number" step="0.0001" value={itemForm.estimated_unit_cost} onChange={(e) => setItemForm({ ...itemForm, estimated_unit_cost: Number(e.target.value) })} />
               </div>
             </div>
 
             <div className="space-y-2">
-              <Label>Notes</Label>
+              <Label>Notas</Label>
               <Textarea value={itemForm.notes} onChange={(e) => setItemForm({ ...itemForm, notes: e.target.value })} />
             </div>
           </div>
@@ -723,7 +723,7 @@ const InventoryManagement = () => {
       <Dialog open={showLotDialog} onOpenChange={setShowLotDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Create Lot</DialogTitle>
+            <DialogTitle>Crear lote</DialogTitle>
             <DialogDescription>
               Register batch/lot data for certification traceability and costing.
             </DialogDescription>
@@ -731,9 +731,9 @@ const InventoryManagement = () => {
 
           <div className="space-y-3">
             <div className="space-y-2">
-              <Label>Item</Label>
+              <Label>Ítem</Label>
               <Select value={lotForm.item_id} onValueChange={(value) => setLotForm({ ...lotForm, item_id: value })}>
-                <SelectTrigger><SelectValue placeholder="Select item" /></SelectTrigger>
+                <SelectTrigger><SelectValue placeholder="Seleccionar artículo" /></SelectTrigger>
                 <SelectContent>
                   {items.map((item: any) => (
                     <SelectItem key={item.id} value={item.id}>{item.sku} - {item.name}</SelectItem>
@@ -744,7 +744,7 @@ const InventoryManagement = () => {
 
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
-                <Label>Lot Number</Label>
+                <Label>Número de lote</Label>
                 <Input value={lotForm.lot_number} onChange={(e) => setLotForm({ ...lotForm, lot_number: e.target.value })} />
               </div>
               <div className="space-y-2">
@@ -774,7 +774,7 @@ const InventoryManagement = () => {
                 <Input type="number" step="0.001" value={lotForm.quantity_available} onChange={(e) => setLotForm({ ...lotForm, quantity_available: Number(e.target.value) })} />
               </div>
               <div className="space-y-2">
-                <Label>Unit Cost</Label>
+                <Label>Costo unitario</Label>
                 <Input type="number" step="0.0001" value={lotForm.unit_cost} onChange={(e) => setLotForm({ ...lotForm, unit_cost: Number(e.target.value) })} />
               </div>
             </div>
@@ -782,7 +782,7 @@ const InventoryManagement = () => {
 
           <DialogFooter>
             <Button variant="outline" onClick={resetLotForm}>{t('cancel')}</Button>
-            <Button onClick={handleCreateLot}>Create Lot</Button>
+            <Button onClick={handleCreateLot}>Crear lote</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -790,7 +790,7 @@ const InventoryManagement = () => {
       <Dialog open={showTxDialog} onOpenChange={setShowTxDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Create Stock Transaction</DialogTitle>
+            <DialogTitle>Crear movimiento de stock</DialogTitle>
             <DialogDescription>
               Track stock movements and link consumption to work orders.
             </DialogDescription>
@@ -799,12 +799,12 @@ const InventoryManagement = () => {
           <div className="space-y-3">
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
-                <Label>Item</Label>
+                <Label>Ítem</Label>
                 <Select
                   value={txForm.item_id}
                   onValueChange={(value) => setTxForm({ ...txForm, item_id: value, lot_id: '' })}
                 >
-                  <SelectTrigger><SelectValue placeholder="Select item" /></SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder="Seleccionar artículo" /></SelectTrigger>
                   <SelectContent>
                     {items.map((item: any) => (
                       <SelectItem key={item.id} value={item.id}>{item.sku} - {item.name}</SelectItem>
@@ -813,7 +813,7 @@ const InventoryManagement = () => {
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label>Transaction Type</Label>
+                <Label>Tipo de movimiento</Label>
                 <Select value={txForm.tx_type} onValueChange={(value) => setTxForm({ ...txForm, tx_type: value })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
@@ -827,9 +827,9 @@ const InventoryManagement = () => {
 
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
-                <Label>Lot</Label>
+                <Label>Lote</Label>
                 <Select value={txForm.lot_id} onValueChange={(value) => setTxForm({ ...txForm, lot_id: value })}>
-                  <SelectTrigger><SelectValue placeholder="Select lot" /></SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder="Seleccionar lote" /></SelectTrigger>
                   <SelectContent>
                     {filteredLots.map((lot: any) => (
                       <SelectItem key={lot.id} value={lot.id}>
@@ -840,20 +840,20 @@ const InventoryManagement = () => {
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label>Quantity</Label>
+                <Label>Cantidad</Label>
                 <Input type="number" step="0.001" value={txForm.quantity} onChange={(e) => setTxForm({ ...txForm, quantity: Number(e.target.value) })} />
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
-                <Label>Unit Cost (optional)</Label>
+                <Label>Costo unitario (opcional)</Label>
                 <Input type="number" step="0.0001" value={txForm.unit_cost} onChange={(e) => setTxForm({ ...txForm, unit_cost: Number(e.target.value) })} />
               </div>
               <div className="space-y-2">
-                <Label>Work Order (required for consumption)</Label>
+                <Label>Orden de trabajo (requerida para consumo)</Label>
                 <Select value={txForm.work_order_id} onValueChange={(value) => setTxForm({ ...txForm, work_order_id: value })}>
-                  <SelectTrigger><SelectValue placeholder="Select OT" /></SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder="Seleccionar OT" /></SelectTrigger>
                   <SelectContent>
                     {ots.map((ot: any) => (
                       <SelectItem key={ot.id} value={ot.id}>{ot.ot_number} - {ot.client_name}</SelectItem>
@@ -869,14 +869,14 @@ const InventoryManagement = () => {
             </div>
 
             <div className="space-y-2">
-              <Label>Notes</Label>
+              <Label>Notas</Label>
               <Textarea value={txForm.notes} onChange={(e) => setTxForm({ ...txForm, notes: e.target.value })} />
             </div>
           </div>
 
           <DialogFooter>
             <Button variant="outline" onClick={resetTxForm}>{t('cancel')}</Button>
-            <Button onClick={handleCreateTransaction}>Create Transaction</Button>
+            <Button onClick={handleCreateTransaction}>Crear movimiento</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

@@ -133,7 +133,7 @@ export const OTFinancialTracking = () => {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card className="border-primary/20">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Total Revenue</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Ingresos totales</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold text-primary">${totalRevenue.toFixed(2)}</div>
@@ -142,7 +142,7 @@ export const OTFinancialTracking = () => {
 
         <Card className="border-destructive/20">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Total Cost</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Costo total</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold text-destructive">${totalCost.toFixed(2)}</div>
@@ -151,7 +151,7 @@ export const OTFinancialTracking = () => {
 
         <Card className={totalProfit >= 0 ? 'border-green-500/20' : 'border-red-500/20'}>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Total Profit</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Ganancia total</CardTitle>
           </CardHeader>
           <CardContent>
             <div className={`text-3xl font-bold ${totalProfit >= 0 ? 'text-green-500' : 'text-red-500'} flex items-center gap-2`}>
@@ -163,7 +163,7 @@ export const OTFinancialTracking = () => {
 
         <Card className="border-accent/20">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Profit Margin</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Margen de ganancia</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold text-accent">{profitMargin}%</div>
@@ -186,13 +186,13 @@ export const OTFinancialTracking = () => {
           <div className="space-y-4">
             {!editingId && (
               <div>
-                <Label>Select OT</Label>
+                <Label>Seleccionar OT</Label>
                 <select
                   className="w-full mt-1 rounded-md border border-input bg-background px-3 py-2"
                   value={selectedOtId}
                   onChange={(e) => setSelectedOtId(e.target.value)}
                 >
-                  <option value="">Select an OT...</option>
+                  <option value="">Seleccione una OT...</option>
                   {ots.map((ot) => (
                     <option key={ot.id} value={ot.id}>
                       {ot.ot_number} - {ot.client_name}
@@ -209,7 +209,7 @@ export const OTFinancialTracking = () => {
               </h4>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label>Hours Spent</Label>
+                  <Label>Horas dedicadas</Label>
                   <Input
                     type="number"
                     step="0.5"
@@ -294,17 +294,17 @@ export const OTFinancialTracking = () => {
             </div>
 
             <div>
-              <Label>Notes</Label>
+              <Label>Notas</Label>
               <Textarea
                 value={formData.notes}
                 onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                placeholder="Additional notes..."
+                placeholder="Notas adicionales..."
               />
             </div>
 
             <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => { setIsOpen(false); resetForm(); }}>Cancel</Button>
-              <Button onClick={handleSubmit}>Save</Button>
+              <Button variant="outline" onClick={() => { setIsOpen(false); resetForm(); }}>Cancelar</Button>
+              <Button onClick={handleSubmit}>Guardar</Button>
             </div>
           </div>
         </DialogContent>
@@ -313,7 +313,7 @@ export const OTFinancialTracking = () => {
       {/* OT Financials Table */}
       <Card>
         <CardHeader>
-          <CardTitle>OT Financial Details</CardTitle>
+          <CardTitle>Detalles financieros de la OT</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
@@ -322,14 +322,14 @@ export const OTFinancialTracking = () => {
                 <tr className="border-b">
                   <th className="text-left py-2 px-4 font-medium">OT Number</th>
                   <th className="text-left py-2 px-4 font-medium">Client</th>
-                  <th className="text-right py-2 px-4 font-medium">Hours</th>
+                  <th className="text-right py-2 px-4 font-medium">Horas</th>
                   <th className="text-right py-2 px-4 font-medium text-blue-600">Time Costs</th>
                   <th className="text-right py-2 px-4 font-medium text-purple-600">Supply Costs</th>
-                  <th className="text-right py-2 px-4 font-medium">Total Cost</th>
-                  <th className="text-right py-2 px-4 font-medium">Revenue</th>
-                  <th className="text-right py-2 px-4 font-medium">Profit</th>
+                  <th className="text-right py-2 px-4 font-medium">Costo total</th>
+                  <th className="text-right py-2 px-4 font-medium">Ingresos</th>
+                  <th className="text-right py-2 px-4 font-medium">Ganancia</th>
                   <th className="text-right py-2 px-4 font-medium">Margin %</th>
-                  <th className="text-center py-2 px-4 font-medium">Actions</th>
+                  <th className="text-center py-2 px-4 font-medium">Acciones</th>
                 </tr>
               </thead>
               <tbody>

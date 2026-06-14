@@ -78,7 +78,7 @@ export default function IntegrationsManagement() {
       <Card className="p-4 space-y-3">
         <h3 className="font-semibold text-foreground">Nueva Integracion</h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-          <Input placeholder="Provider (ej: sap)" value={provider} onChange={(e) => setProvider(e.target.value)} />
+          <Input placeholder="Proveedor (ej: sap)" value={provider} onChange={(e) => setProvider(e.target.value)} />
           <Input placeholder="Nombre" value={name} onChange={(e) => setName(e.target.value)} />
           <Button onClick={createConnector} disabled={!provider || !name}>Crear</Button>
         </div>
@@ -100,7 +100,7 @@ export default function IntegrationsManagement() {
                 </div>
                 <div className="flex items-center gap-1">
                   <Button size="sm" variant="outline" onClick={() => setStatus(item.id, 'inactive')}>Inactive</Button>
-                  <Button size="sm" variant="outline" onClick={() => setStatus(item.id, 'active')}>Active</Button>
+                  <Button size="sm" variant="outline" onClick={() => setStatus(item.id, 'active')}>Activo</Button>
                   <Button size="sm" variant="outline" onClick={() => setStatus(item.id, 'error')}>Error</Button>
                 </div>
               </div>

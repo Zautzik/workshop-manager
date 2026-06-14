@@ -56,7 +56,7 @@ const WorkerStatsReport = () => {
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold">{stats.avgEfficiency}%</div>
-            <p className="text-xs text-muted-foreground mt-1">Average across all workers</p>
+            <p className="text-xs text-muted-foreground mt-1">Promedio entre todos los trabajadores</p>
           </CardContent>
         </Card>
 
@@ -76,7 +76,7 @@ const WorkerStatsReport = () => {
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold">{stats.totalTasks}</div>
-            <p className="text-xs text-muted-foreground mt-1">Completed across all workers</p>
+            <p className="text-xs text-muted-foreground mt-1">Completado entre todos los trabajadores</p>
           </CardContent>
         </Card>
       </div>

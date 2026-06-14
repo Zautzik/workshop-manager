@@ -752,7 +752,7 @@ export default function ProductionOTFormComponent({
                       <svg viewBox="-5 -5 110 110" className="w-full h-8">
                         <text x="50" y="55" textAnchor="middle" fontSize="28" fill="#888">✎</text>
                       </svg>
-                      <div className="text-[7px] text-center leading-tight mt-0.5">Custom</div>
+                      <div className="text-[7px] text-center leading-tight mt-0.5">Personalizado</div>
                     </button>
                   </div>
 

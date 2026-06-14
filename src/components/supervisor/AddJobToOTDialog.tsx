@@ -112,7 +112,7 @@ const AddJobToOTDialog = ({ open, onOpenChange, otId, onJobAdded }: AddJobToOTDi
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               required
-              placeholder="Enter job description"
+              placeholder="Ingrese la descripción del trabajo"
             />
           </div>
           
@@ -121,7 +121,7 @@ const AddJobToOTDialog = ({ open, onOpenChange, otId, onJobAdded }: AddJobToOTDi
               <Label htmlFor="machine">{t('machine')}</Label>
               <Select value={machineId} onValueChange={setMachineId}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select machine" />
+                  <SelectValue placeholder="Seleccionar máquina" />
                 </SelectTrigger>
                 <SelectContent>
                   {machines.map(machine => (
@@ -137,7 +137,7 @@ const AddJobToOTDialog = ({ open, onOpenChange, otId, onJobAdded }: AddJobToOTDi
               <Label htmlFor="worker">{t('worker')}</Label>
               <Select value={workerId} onValueChange={setWorkerId}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select worker" />
+                  <SelectValue placeholder="Seleccionar trabajador" />
                 </SelectTrigger>
                 <SelectContent>
                   {workers.map(worker => (
@@ -154,7 +154,7 @@ const AddJobToOTDialog = ({ open, onOpenChange, otId, onJobAdded }: AddJobToOTDi
             <Label htmlFor="batch">{t('batch')}</Label>
             <Select value={batchId} onValueChange={setBatchId}>
               <SelectTrigger>
-                <SelectValue placeholder="Select batch" />
+                <SelectValue placeholder="Seleccionar lote" />
               </SelectTrigger>
               <SelectContent>
                 {batches.map(batch => (

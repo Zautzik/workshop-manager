@@ -31,7 +31,7 @@ export default function MaintenanceDashboard() {
     if (isError) {
       toast({
         title: 'Error',
-        description: 'Failed to fetch statistics',
+        description: 'No se pudieron obtener las estadísticas',
         variant: 'destructive',
       });
     }
@@ -190,7 +190,7 @@ function MaintenanceCalendar() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold text-foreground">Maintenance Schedule</h2>
+        <h2 className="text-2xl font-bold text-foreground">Programación de mantenimiento</h2>
         <Badge variant="outline" className="text-muted-foreground">
           {workOrders.length} scheduled
         </Badge>
@@ -200,7 +200,7 @@ function MaintenanceCalendar() {
         <Card className="p-12 border-border/40 bg-card/50 backdrop-blur">
           <div className="text-center">
             <Calendar className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-            <p className="text-muted-foreground">No maintenance scheduled</p>
+            <p className="text-muted-foreground">No hay mantenimiento programado</p>
             <p className="text-sm text-muted-foreground mt-2">
               Create work orders from the Checklists tab
             </p>

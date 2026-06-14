@@ -139,7 +139,7 @@ const AdminDashboard = () => {
             </CardHeader>
             <CardContent>
               <div className="text-4xl font-bold text-primary" aria-label={`Total users: ${stats.totalUsers}`}>{stats.totalUsers}</div>
-              <p className="text-xs text-muted-foreground mt-1">Active accounts</p>
+              <p className="text-xs text-muted-foreground mt-1">Cuentas activas</p>
             </CardContent>
           </Card>
 
@@ -169,7 +169,7 @@ const AdminDashboard = () => {
             </CardHeader>
             <CardContent>
               <div className="text-4xl font-bold text-accent" aria-label={`Total machines: ${stats.totalMachines}`}>{stats.totalMachines}</div>
-              <p className="text-xs text-muted-foreground mt-1">Equipment units</p>
+              <p className="text-xs text-muted-foreground mt-1">Unidades de equipo</p>
             </CardContent>
           </Card>
 
@@ -184,7 +184,7 @@ const AdminDashboard = () => {
             </CardHeader>
             <CardContent>
               <div className="text-4xl font-bold text-manager" aria-label={`Total jobs: ${stats.totalJobs}`}>{stats.totalJobs}</div>
-              <p className="text-xs text-muted-foreground mt-1">All time</p>
+              <p className="text-xs text-muted-foreground mt-1">Histórico</p>
             </CardContent>
           </Card>
         </section>

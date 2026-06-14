@@ -102,7 +102,7 @@ export function EditOTDialog({ ot, open, onOpenChange, onSuccess }: EditOTDialog
       }
 
       toast({
-        title: "OT updated successfully",
+        title: "OT actualizada correctamente",
         description: `${formData.ot_number} has been updated`,
       });
 
@@ -110,7 +110,7 @@ export function EditOTDialog({ ot, open, onOpenChange, onSuccess }: EditOTDialog
       onOpenChange(false);
     } catch (error: any) {
       toast({
-        title: "Error updating OT",
+        title: "Error al actualizar OT",
         description: error.message,
         variant: "destructive",
       });
@@ -123,7 +123,7 @@ export function EditOTDialog({ ot, open, onOpenChange, onSuccess }: EditOTDialog
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="bg-card border-border max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="text-2xl text-foreground">Edit Work Order</DialogTitle>
+          <DialogTitle className="text-2xl text-foreground">Editar orden de trabajo</DialogTitle>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -152,7 +152,7 @@ export function EditOTDialog({ ot, open, onOpenChange, onSuccess }: EditOTDialog
           </div>
 
           <div>
-            <Label htmlFor="description">Description</Label>
+            <Label htmlFor="description">Descripción</Label>
             <Textarea
               id="description"
               value={formData.description}
