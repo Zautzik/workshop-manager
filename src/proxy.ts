@@ -145,7 +145,7 @@ function buildCsp(nonce: string): string {
  *  3. Forward the nonce to the layout via x-nonce so the server component
  *     can pass it to any explicit <Script> tags or meta elements.
  */
-export function middleware(req: NextRequest) {
+export function proxy(req: NextRequest) {
 	// ── 0. Rate limiting ─────────────────────────────────────────────────────
 	const { pathname } = req.nextUrl;
 	const tier = getRlTier(pathname);

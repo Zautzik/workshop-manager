@@ -8,7 +8,7 @@ import pino from 'pino';
  *   logger.info({ requestId, userId }, 'OT updated');
  *   logger.error({ err, requestId }, 'DB write failed');
  *
- * The request ID is injected by src/middleware.ts and forwarded via the
+ * The request ID is injected by src/proxy.ts and forwarded via the
  * 'x-request-id' header. API routes can read it with:
  *   req.headers.get('x-request-id') ?? 'unknown'
  *
