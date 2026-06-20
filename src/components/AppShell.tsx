@@ -16,11 +16,6 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import {
-  Home,
-  Factory,
-  BarChart3,
-  Users,
-  Wrench,
   LogOut,
   Moon,
   Sun,
@@ -28,11 +23,10 @@ import {
   ChevronLeft,
   ChevronRight,
   Menu,
-  ShieldCheck,
-  TrendingUp,
   Search,
   ChevronDown,
 } from 'lucide-react';
+import { HOME_ITEM, MODULES } from '@/lib/navigation';
 import { NotificationCenter } from '@/components/NotificationCenter';
 import { ReportingQuickActions } from '@/components/ReportingQuickActions';
 import { GlobalSearch } from '@/components/GlobalSearch';
@@ -59,51 +53,22 @@ interface NavItem {
   children?: SubGroup[];
 }
 
-const operacionesChildren: SubGroup[] = [
-  {
-    group: 'OTs',
-    items: [
-      { label: 'Kanban',        href: '/workflow/kanban' },
-      { label: 'En Proceso',    href: '/workflow/ordenes-en-proceso' },
-      { label: 'Gantt',         href: '/workflow/gantt' },
-      { label: 'Hoja de Prod.', href: '/workflow/hoja-produccion' },
-      { label: 'Archivo OT',    href: '/workflow/production' },
-    ],
-  },
-  {
-    group: 'Planta',
-    items: [
-      { label: 'Modo Planta',  href: '/workflow/floor' },
-      { label: 'Estaciones',   href: '/workflow/planta' },
-      { label: 'Turnos',       href: '/workflow/shifts' },
-      { label: 'Calendario',   href: '/workflow/calendar' },
-      { label: 'Plan Semanal', href: '/workflow/plan-semanal' },
-      { label: 'WhatsApp',     href: '/workflow/whatsapp' },
-    ],
-  },
-  {
-    group: 'Abastecimiento',
-    items: [
-      { label: 'Inventario', href: '/admin/inventory' },
-      { label: 'Compras',    href: '/admin/purchases' },
-      { label: 'Bodega',     href: '/workflow/warehouse' },
-    ],
-  },
-  {
-    group: 'Comercial',
-    items: [
-      { label: 'Clientes',  href: '/workflow/clients' },
-    ],
-  },
-];
-
+// Sidebar nav is derived from the single navigation source of truth so it can
+// never drift from the module landing pages. Every module renders its groups as
+// a submenu (previously only Operaciones had one).
 const navItems: NavItem[] = [
-  { label: 'Inicio',         icon: Home,        href: '/home',        roles: ['admin', 'manager', 'supervisor', 'hr_manager', 'technician'], dot: 'bg-slate-400',   activeBg: 'bg-slate-200 dark:bg-slate-500/20',   activeIcon: 'text-slate-600 dark:text-slate-300'  },
-  { label: 'Operaciones',    icon: Factory,     href: '/workflow',    roles: ['admin', 'supervisor', 'manager'],                             dot: 'bg-blue-500',    activeBg: 'bg-blue-100 dark:bg-blue-500/20',     activeIcon: 'text-blue-600 dark:text-blue-300',   children: operacionesChildren },
-  { label: 'Personas',       icon: Users,       href: '/hr',          roles: ['admin', 'hr_manager', 'supervisor'],                          dot: 'bg-amber-500',   activeBg: 'bg-amber-100 dark:bg-amber-500/20',   activeIcon: 'text-amber-600 dark:text-amber-300'  },
-  { label: 'Equipos',        icon: Wrench,      href: '/maintenance', roles: ['admin', 'technician', 'supervisor', 'manager'],               dot: 'bg-orange-500',  activeBg: 'bg-orange-100 dark:bg-orange-500/20', activeIcon: 'text-orange-600 dark:text-orange-300'},
-  { label: 'Analítica',      icon: TrendingUp,  href: '/financial',   roles: ['admin', 'manager'],                                          dot: 'bg-green-500',   activeBg: 'bg-green-100 dark:bg-green-500/20',   activeIcon: 'text-green-600 dark:text-green-300'  },
-  { label: 'Administración', icon: ShieldCheck, href: '/admin',       roles: ['admin'],                                                     dot: 'bg-violet-500',  activeBg: 'bg-violet-100 dark:bg-violet-500/20', activeIcon: 'text-violet-600 dark:text-violet-300'},
+  {
+    label: HOME_ITEM.label, icon: HOME_ITEM.icon, href: HOME_ITEM.href, roles: HOME_ITEM.roles,
+    dot: HOME_ITEM.dot, activeBg: HOME_ITEM.activeBg, activeIcon: HOME_ITEM.activeIcon,
+  },
+  ...MODULES.map<NavItem>((m) => ({
+    label: m.label, icon: m.icon, href: m.href, roles: m.roles,
+    dot: m.dot, activeBg: m.activeBg, activeIcon: m.activeIcon,
+    children: m.groups.map<SubGroup>((g) => ({
+      group: g.label,
+      items: g.items.map<SubItem>((it) => ({ label: it.label, href: it.href })),
+    })),
+  })),
 ];
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
@@ -144,7 +109,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
   // Public routes — no shell needed
   const isPublicRoute = pathname === '/' || pathname === '/login';
-  const isFullscreenRoute = pathname === '/workflow/floor' || pathname.startsWith('/track/');
+  const isFullscreenRoute = pathname === '/operaciones/floor' || pathname.startsWith('/track/');
 
   // While auth is loading, render children (Login/root) or show a spinner
   if (loading) {
@@ -188,7 +153,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
   const isActive = (href: string) => {
     // Exact match for home and admin landing (avoid matching all /admin/* as "home")
-    if (href === '/home' || href === '/admin') return pathname === href;
+    if (href === '/home' || href === '/administracion') return pathname === href;
     // For everything else, match exact or sub-paths
     return pathname === href || pathname.startsWith(href + '/');
   };

@@ -1,0 +1,264 @@
+/**
+ * Single source of truth for application navigation.
+ *
+ * Both the sidebar (AppShell) and the module landing pages (ModuleHexLanding)
+ * render from this config, which eliminates the drift that previously existed
+ * between those two surfaces (different labels / targets / grouping for the same
+ * module).
+ *
+ * NOTE: hrefs here are the *current* working URLs. The planned URL migration
+ * (e.g. /operaciones/inventario -> /operaciones/...) is a later phase — change the
+ * hrefs here (plus add redirects) when that happens and both surfaces update.
+ */
+import type { AppRole } from '@/types/app-role';
+import {
+  Home, Factory, Users, Wrench, TrendingUp, ShieldCheck,
+  ClipboardList, GanttChart, FileSpreadsheet, Archive,
+  Clock, Calendar, CalendarRange, MonitorPlay,
+  Package, ShoppingCart, Truck, MessageSquare,
+  UserCheck, Wallet, Network, GraduationCap, HardHat,
+  Cpu, AlertCircle, BarChart3, PieChart, DollarSign,
+  LayoutDashboard, ClipboardCheck, GitMerge,
+  Bell, Settings, Activity,
+} from 'lucide-react';
+
+export interface NavLeaf {
+  label: string;
+  href: string;
+  description: string;
+  icon: React.ElementType;
+  /** e.g. "bg-sky-500/10 text-sky-400" — drives the landing hex tint */
+  color: string;
+  roles?: AppRole[];
+  external?: boolean;
+}
+
+export interface NavGroup {
+  label: string;
+  /** gradient classes, e.g. "from-sky-500/10 to-cyan-500/5" */
+  color: string;
+  /** border class, e.g. "border-sky-500/20" */
+  border: string;
+  /** heading text class, e.g. "text-sky-400" */
+  heading: string;
+  items: NavLeaf[];
+}
+
+export interface NavModule {
+  key: string;
+  label: string;
+  href: string;
+  subtitle: string;
+  icon: React.ElementType;
+  roles: AppRole[];
+  /** sidebar styling */
+  dot: string;
+  activeBg: string;
+  activeIcon: string;
+  groups: NavGroup[];
+}
+
+export const HOME_ITEM = {
+  key: 'home',
+  label: 'Inicio',
+  href: '/home',
+  icon: Home,
+  roles: ['admin', 'manager', 'supervisor', 'hr_manager', 'technician'] as AppRole[],
+  dot: 'bg-slate-400',
+  activeBg: 'bg-slate-200 dark:bg-slate-500/20',
+  activeIcon: 'text-slate-600 dark:text-slate-300',
+};
+
+export const MODULES: NavModule[] = [
+  {
+    key: 'operaciones',
+    label: 'Operaciones',
+    href: '/operaciones',
+    subtitle: 'Gestión de órdenes, producción y piso de taller',
+    icon: Factory,
+    roles: ['admin', 'supervisor', 'manager'],
+    dot: 'bg-blue-500',
+    activeBg: 'bg-blue-100 dark:bg-blue-500/20',
+    activeIcon: 'text-blue-600 dark:text-blue-300',
+    groups: [
+      {
+        label: 'Órdenes de Trabajo',
+        color: 'from-sky-500/10 to-cyan-500/5', border: 'border-sky-500/20', heading: 'text-sky-400',
+        items: [
+          { label: 'Tablero',     href: '/operaciones/kanban',             description: 'Pipeline y estado en tiempo real de todas las OTs', icon: ClipboardList,   color: 'bg-cyan-500/10 text-cyan-400' },
+          { label: 'En Proceso',  href: '/operaciones/ordenes-en-proceso', description: 'Órdenes activas en producción',                     icon: ClipboardCheck,  color: 'bg-sky-500/10 text-sky-400' },
+          { label: 'Cronograma',  href: '/operaciones/gantt',              description: 'Línea de tiempo, carga semanal y planificación',    icon: GanttChart,      color: 'bg-violet-500/10 text-violet-400' },
+          { label: 'Hoja de Prod.',href: '/operaciones/hoja-produccion',   description: 'Hoja de trabajo de producción',                     icon: FileSpreadsheet, color: 'bg-fuchsia-500/10 text-fuchsia-400' },
+          { label: 'Archivo OT',  href: '/operaciones/production',          description: 'Archivo histórico de órdenes de producción',        icon: Archive,         color: 'bg-teal-500/10 text-teal-400' },
+        ],
+      },
+      {
+        label: 'Piso & Turnos',
+        color: 'from-emerald-500/10 to-teal-500/5', border: 'border-emerald-500/20', heading: 'text-emerald-400',
+        items: [
+          { label: 'Modo Planta',  href: '/operaciones/floor',        description: 'Pantalla de piso a pantalla completa',         icon: MonitorPlay, color: 'bg-emerald-500/10 text-emerald-400' },
+          { label: 'Planta',       href: '/operaciones/planta',       description: 'Estaciones y asignación de operarios',         icon: Factory,     color: 'bg-emerald-500/10 text-emerald-400' },
+          { label: 'Turnos',       href: '/operaciones/shifts',       description: 'Programación de turnos y máquinas activas',     icon: Clock,       color: 'bg-amber-500/10 text-amber-400' },
+          { label: 'Calendario',   href: '/operaciones/calendar',     description: 'Vista de calendario de OTs',                    icon: Calendar,    color: 'bg-sky-500/10 text-sky-400' },
+          { label: 'Plan Semanal', href: '/operaciones/plan-semanal', description: 'Planificación de la semana',                    icon: CalendarRange, color: 'bg-indigo-500/10 text-indigo-400' },
+        ],
+      },
+      {
+        label: 'Abastecimiento',
+        color: 'from-orange-500/10 to-amber-500/5', border: 'border-orange-500/20', heading: 'text-orange-400',
+        items: [
+          { label: 'Inventario', href: '/operaciones/inventario',  description: 'Stock, materiales y movimientos de almacén',   icon: Package,      color: 'bg-teal-500/10 text-teal-400' },
+          { label: 'Compras',    href: '/operaciones/compras',     description: 'Órdenes de compra, cotizaciones y proveedores', icon: ShoppingCart, color: 'bg-orange-500/10 text-orange-400' },
+          { label: 'Proveedores',href: '/operaciones/proveedores', description: 'Directorio y gestión de proveedores',           icon: Truck,        color: 'bg-amber-500/10 text-amber-400' },
+        ],
+      },
+      {
+        label: 'Comercial & Campo',
+        color: 'from-violet-500/10 to-purple-500/5', border: 'border-violet-500/20', heading: 'text-violet-400',
+        items: [
+          { label: 'Clientes', href: '/operaciones/clients',  description: 'CRM, agenda de OTs y seguimiento comercial',    icon: Users,         color: 'bg-violet-500/10 text-violet-400' },
+          { label: 'WhatsApp', href: '/operaciones/whatsapp', description: 'Captura de producción en campo en tiempo real', icon: MessageSquare, color: 'bg-green-500/10 text-green-400' },
+        ],
+      },
+    ],
+  },
+  {
+    key: 'personas',
+    label: 'Personas',
+    href: '/personas',
+    subtitle: 'Empleados, compensación y desarrollo del talento',
+    icon: Users,
+    roles: ['admin', 'hr_manager', 'supervisor'],
+    dot: 'bg-amber-500',
+    activeBg: 'bg-amber-100 dark:bg-amber-500/20',
+    activeIcon: 'text-amber-600 dark:text-amber-300',
+    groups: [
+      {
+        label: 'Personal',
+        color: 'from-amber-500/10 to-orange-500/5', border: 'border-amber-500/20', heading: 'text-amber-400',
+        items: [
+          { label: 'Empleados',  href: '/personas/empleados', description: 'Perfiles, contratos y datos de cada persona', icon: Users,     color: 'bg-amber-500/10 text-amber-400' },
+          { label: 'Operarios',  href: '/personas/operarios', description: 'Roster de operarios de planta (legado)',      icon: HardHat,   color: 'bg-orange-500/10 text-orange-400' },
+          { label: 'Asistencia', href: '/personas/licencias', description: 'Presencia, licencias y permisos del equipo',  icon: UserCheck, color: 'bg-sky-500/10 text-sky-400' },
+        ],
+      },
+      {
+        label: 'Compensación & Carrera',
+        color: 'from-green-500/10 to-violet-500/5', border: 'border-green-500/20', heading: 'text-green-400',
+        items: [
+          { label: 'Retribución',  href: '/personas/nomina',      description: 'Nómina, bonos y programas de reconocimiento',   icon: Wallet,        color: 'bg-green-500/10 text-green-400' },
+          { label: 'Habilidades',  href: '/personas/habilidades', description: 'Competencias, niveles de maestría y certificaciones', icon: Network, color: 'bg-violet-500/10 text-violet-400' },
+          { label: 'Capacitación', href: '/personas/capacitacion', description: 'Cursos, formación y planes de desarrollo',       icon: GraduationCap, color: 'bg-teal-500/10 text-teal-400' },
+        ],
+      },
+    ],
+  },
+  {
+    key: 'equipos',
+    label: 'Equipos',
+    href: '/equipos',
+    subtitle: 'Mantenimiento, órdenes de trabajo y gestión de la flota',
+    icon: Wrench,
+    roles: ['admin', 'technician', 'supervisor', 'manager'],
+    dot: 'bg-orange-500',
+    activeBg: 'bg-orange-100 dark:bg-orange-500/20',
+    activeIcon: 'text-orange-600 dark:text-orange-300',
+    groups: [
+      {
+        label: 'Flota & Mantenimiento',
+        color: 'from-orange-500/10 to-rose-500/5', border: 'border-orange-500/20', heading: 'text-orange-400',
+        items: [
+          { label: 'Máquinas',      href: '/equipos/maquinas',  description: 'Registro, ficha técnica y estado de cada equipo',   icon: Cpu,           color: 'bg-orange-500/10 text-orange-400' },
+          { label: 'Plan & Órdenes',href: '/equipos/ordenes',   description: 'OTs de mantenimiento, programa semanal y checklists', icon: ClipboardList, color: 'bg-sky-500/10 text-sky-400' },
+          { label: 'Ejecución',     href: '/equipos/ejecucion', description: 'Registro de intervenciones y trabajos realizados',    icon: Wrench,        color: 'bg-fuchsia-500/10 text-fuchsia-400' },
+        ],
+      },
+      {
+        label: 'Análisis & Predictivo',
+        color: 'from-violet-500/10 to-indigo-500/5', border: 'border-violet-500/20', heading: 'text-violet-400',
+        items: [
+          { label: 'Historial & KPIs',     href: '/equipos/historial', description: 'Registro histórico, MTBF, MTTR y métricas de flota', icon: BarChart3,   color: 'bg-indigo-500/10 text-indigo-400' },
+          { label: 'Alertas & Predictivo', href: '/equipos/alertas',   description: 'Avisos activos y mantenimiento preventivo/predictivo', icon: AlertCircle, color: 'bg-amber-500/10 text-amber-400' },
+        ],
+      },
+    ],
+  },
+  {
+    key: 'analitica',
+    label: 'Analítica',
+    href: '/analitica',
+    subtitle: 'Costos, finanzas, KPIs y reportes del taller',
+    icon: TrendingUp,
+    roles: ['admin', 'manager'],
+    dot: 'bg-green-500',
+    activeBg: 'bg-green-100 dark:bg-green-500/20',
+    activeIcon: 'text-green-600 dark:text-green-300',
+    groups: [
+      {
+        label: 'Costos & Finanzas',
+        color: 'from-green-500/10 to-emerald-500/5', border: 'border-green-500/20', heading: 'text-green-400',
+        items: [
+          { label: 'Costos',         href: '/analitica/costos',    description: 'Catálogo de costos unitarios por material y centro', icon: BarChart3,      color: 'bg-green-500/10 text-green-400' },
+          { label: 'Costo por OT',   href: '/analitica/costos-ot', description: 'Detalle de costos reales por orden de trabajo',      icon: FileSpreadsheet,color: 'bg-emerald-500/10 text-emerald-400' },
+          { label: 'Costo Máquina',  href: '/analitica/maquinas',  description: 'Costo operativo y comparación por equipo',           icon: Cpu,            color: 'bg-teal-500/10 text-teal-400' },
+          { label: 'Inversión',      href: '/analitica/inversion', description: 'Propuestas y retorno de inversión en flota',         icon: Wallet,         color: 'bg-amber-500/10 text-amber-400' },
+          { label: 'Nómina',         href: '/analitica/nomina',    description: 'Cálculo y resumen de compensaciones del período',    icon: DollarSign,     color: 'bg-orange-500/10 text-orange-400' },
+        ],
+      },
+      {
+        label: 'Rentabilidad & KPIs',
+        color: 'from-indigo-500/10 to-cyan-500/5', border: 'border-indigo-500/20', heading: 'text-indigo-400',
+        items: [
+          { label: 'Dashboard',     href: '/analitica/dashboard', description: 'Vista ejecutiva consolidada y KPIs del taller',  icon: LayoutDashboard, color: 'bg-indigo-500/10 text-indigo-400' },
+          { label: 'Márgenes',      href: '/analitica/margenes',  description: 'Rentabilidad y margen de mano de obra por OT',   icon: PieChart,        color: 'bg-violet-500/10 text-violet-400' },
+          { label: 'Seguimiento OT',href: '/analitica/ots',       description: 'Seguimiento financiero de cada orden',           icon: ClipboardList,   color: 'bg-sky-500/10 text-sky-400' },
+          { label: 'Tendencias',    href: '/analitica/tendencias',description: 'Tendencias y evolución de métricas del taller',   icon: TrendingUp,      color: 'bg-cyan-500/10 text-cyan-400' },
+        ],
+      },
+      {
+        label: 'Personas & Trazabilidad',
+        color: 'from-teal-500/10 to-violet-500/5', border: 'border-teal-500/20', heading: 'text-teal-400',
+        items: [
+          { label: 'Rendimiento',  href: '/analitica/rendimiento', description: 'Estadísticas y métricas de trabajadores',    icon: ClipboardCheck, color: 'bg-cyan-500/10 text-cyan-400' },
+          { label: 'Trazabilidad', href: '/analitica/trazabilidad',description: 'Ciclo completo de vida de cada OT',           icon: GitMerge,       color: 'bg-teal-500/10 text-teal-400' },
+          { label: 'Actividad',    href: '/analitica/actividad',   description: 'Registro de actividad del sistema',          icon: Activity,       color: 'bg-blue-500/10 text-blue-400' },
+          { label: 'Auditoría',    href: '/analitica/auditoria',   description: 'Auditoría del ciclo de las OTs',             icon: ShieldCheck,    color: 'bg-violet-500/10 text-violet-400' },
+        ],
+      },
+    ],
+  },
+  {
+    key: 'administracion',
+    label: 'Administración',
+    href: '/administracion',
+    subtitle: 'Usuarios, integraciones y configuración del sistema',
+    icon: ShieldCheck,
+    roles: ['admin'],
+    dot: 'bg-violet-500',
+    activeBg: 'bg-violet-100 dark:bg-violet-500/20',
+    activeIcon: 'text-violet-600 dark:text-violet-300',
+    groups: [
+      {
+        label: 'Sistema',
+        color: 'from-violet-500/10 to-slate-500/5', border: 'border-violet-500/20', heading: 'text-violet-400',
+        items: [
+          { label: 'Usuarios',       href: '/administracion/users',         description: 'Cuentas, roles y permisos del sistema',              icon: Users,    color: 'bg-violet-500/10 text-violet-400' },
+          { label: 'Notificaciones', href: '/administracion/notifications', description: 'Configuración de alertas y avisos',                   icon: Bell,     color: 'bg-amber-500/10 text-amber-400' },
+          { label: 'Config. & APIs', href: '/administracion/settings',      description: 'Parámetros globales, webhooks y conexiones externas', icon: Settings, color: 'bg-orange-500/10 text-orange-400' },
+          { label: 'Integraciones',  href: '/administracion/integrations',  description: 'Conectores y servicios externos',                    icon: Network,  color: 'bg-cyan-500/10 text-cyan-400' },
+          { label: 'Diagnósticos',   href: '/administracion/diagnostics',   description: 'Salud del sistema, webhooks, seguridad y logs',       icon: Activity, color: 'bg-emerald-500/10 text-emerald-400' },
+        ],
+      },
+    ],
+  },
+];
+
+/** Look up a module by its base href (e.g. '/operaciones'). */
+export function getModule(key: string): NavModule | undefined {
+  return MODULES.find((m) => m.key === key);
+}
+
+/** Filter a role to the modules it can see. */
+export function modulesForRole(role: AppRole | null | undefined): NavModule[] {
+  return MODULES.filter((m) => !role || m.roles.includes(role));
+}

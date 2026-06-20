@@ -4,7 +4,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
 
 interface BackToModuleProps {
-  /** The root path of the module, e.g. '/workflow' */
+  /** The root path of the module, e.g. '/operaciones' */
   modulePath: string;
   /** Display name shown in the button, e.g. 'Operaciones' */
   moduleName: string;

@@ -1181,7 +1181,7 @@ export default function WorkflowDashboard({ initialTab = 'en_proceso' }: Workflo
           <span className="text-xs text-muted-foreground">{workers.length} op · {workstations.length} est</span>
           <div className="ml-auto flex items-center gap-0.5">
             <button
-              onClick={() => router.push('/workflow/floor')}
+              onClick={() => router.push('/operaciones/floor')}
               title="Modo Planta (pantalla completa)"
               className="w-7 h-7 rounded-md flex items-center justify-center transition-colors text-muted-foreground hover:text-foreground hover:bg-muted/60 mr-1"
             >

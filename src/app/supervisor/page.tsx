@@ -22,6 +22,6 @@ import { useRouter } from 'next/navigation';
 // This route is kept for backward-compatibility and redirects seamlessly.
 export default function SupervisorPage() {
   const router = useRouter();
-  useEffect(() => { router.replace('/workflow'); }, [router]);
+  useEffect(() => { router.replace('/operaciones'); }, [router]);
   return null;
 }

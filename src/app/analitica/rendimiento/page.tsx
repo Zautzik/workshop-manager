@@ -2,7 +2,7 @@
 import ProtectedRoute from '@/components/ProtectedRoute';
 import WorkerStatsReport from '@/components/manager/WorkerStatsReport';
 
-export default function ManagerTrabajadoresPage() {
+export default function AnaliticaRendimientoPage() {
   return (
     <ProtectedRoute allowedRoles={['admin', 'manager']}>
       <div className="p-6 space-y-6">

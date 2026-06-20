@@ -78,7 +78,7 @@ const AdminDashboard = () => {
           </div>
           <nav aria-label="Main navigation" className="flex gap-2">
             <Button
-              onClick={() => router.push('/hr')}
+              onClick={() => router.push('/personas')}
               variant="outline"
               className="border-primary/30 text-primary hover:bg-primary/10"
               aria-label="Navigate to Human Resources"
@@ -87,7 +87,7 @@ const AdminDashboard = () => {
               Human Resources
             </Button>
             <Button
-              onClick={() => router.push('/financial')}
+              onClick={() => router.push('/analitica')}
               variant="outline"
               className="border-green-500/30 text-green-500 hover:bg-green-500/10"
               aria-label="Navigate to Financial Report"
@@ -96,7 +96,7 @@ const AdminDashboard = () => {
               Financial Report
             </Button>
             <Button
-              onClick={() => router.push('/workflow')}
+              onClick={() => router.push('/operaciones')}
               variant="default"
               className="bg-blue-500 hover:bg-blue-600"
               aria-label="Navigate to Workflow Management"
@@ -105,7 +105,7 @@ const AdminDashboard = () => {
               Workflow Management
             </Button>
             <Button
-              onClick={() => router.push('/maintenance')}
+              onClick={() => router.push('/equipos')}
               variant="outline"
               className="border-orange-500/30 text-orange-500 hover:bg-orange-500/10"
               aria-label="Navigate to Asset Maintenance"

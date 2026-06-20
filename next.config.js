@@ -87,6 +87,56 @@ const nextConfig = {
 			},
 		];
 	},
+
+	// ---------------------------------------------------------------------------
+	// Analítica module URL migration: the analytics sections were consolidated
+	// from their legacy role-based trees (/financial, /admin/overview, /manager)
+	// into a single /analitica/* tree that matches the module. These redirects
+	// keep old links/bookmarks working. (permanent: false / 307 while the IA
+	// migration is in progress — flip to true once it's settled.)
+	// ---------------------------------------------------------------------------
+	async redirects() {
+		return [
+			// ── Analítica consolidation (/financial + /manager + /admin/overview → /analitica) ──
+			{ source: '/financial',            destination: '/analitica',              permanent: false },
+			{ source: '/financial/costos',     destination: '/analitica/costos',       permanent: false },
+			{ source: '/financial/costos-ot',  destination: '/analitica/costos-ot',    permanent: false },
+			{ source: '/financial/maquinas',   destination: '/analitica/maquinas',     permanent: false },
+			{ source: '/financial/inversion',  destination: '/analitica/inversion',    permanent: false },
+			{ source: '/financial/margenes',   destination: '/analitica/margenes',     permanent: false },
+			{ source: '/financial/nomina',     destination: '/analitica/nomina',       permanent: false },
+			{ source: '/financial/ots',        destination: '/analitica/ots',          permanent: false },
+			{ source: '/admin/overview',       destination: '/analitica/dashboard',    permanent: false },
+			{ source: '/manager',              destination: '/analitica',              permanent: false },
+			{ source: '/manager/kpis',         destination: '/analitica/dashboard',    permanent: false }, // dup of Dashboard
+			{ source: '/manager/costos',       destination: '/analitica/costos-ot',    permanent: false }, // dup of Costo por OT
+			{ source: '/manager/trabajadores', destination: '/analitica/rendimiento',  permanent: false },
+			{ source: '/manager/trazabilidad', destination: '/analitica/trazabilidad', permanent: false },
+			{ source: '/manager/tendencias',   destination: '/analitica/tendencias',   permanent: false },
+			{ source: '/manager/actividad',    destination: '/analitica/actividad',    permanent: false },
+			{ source: '/manager/auditoria',    destination: '/analitica/auditoria',    permanent: false },
+
+			// ── Operaciones consolidation (/workflow → /operaciones; abastecimiento pulled from /admin) ──
+			{ source: '/workflow',           destination: '/operaciones',             permanent: false },
+			{ source: '/workflow/:path*',    destination: '/operaciones/:path*',      permanent: false },
+			{ source: '/admin/inventory',    destination: '/operaciones/inventario',  permanent: false },
+			{ source: '/admin/purchases',    destination: '/operaciones/compras',     permanent: false },
+			{ source: '/admin/suppliers',    destination: '/operaciones/proveedores', permanent: false },
+
+			// ── Personas (/hr → /personas) + Equipos (/maintenance → /equipos) ──
+			{ source: '/hr',                 destination: '/personas',                permanent: false },
+			{ source: '/hr/:path*',          destination: '/personas/:path*',         permanent: false },
+			{ source: '/maintenance',        destination: '/equipos',                 permanent: false },
+			{ source: '/maintenance/:path*', destination: '/equipos/:path*',          permanent: false },
+
+			// ── Administración (/admin → /administracion). Specific /admin/* relocations
+			// above MUST precede this catch-all (Next matches top-to-bottom). ──
+			{ source: '/admin/training',     destination: '/personas/capacitacion',   permanent: false },
+			{ source: '/admin/workers',      destination: '/personas/operarios',      permanent: false },
+			{ source: '/admin',              destination: '/administracion',          permanent: false },
+			{ source: '/admin/:path*',       destination: '/administracion/:path*',   permanent: false },
+		];
+	},
 };
 
 module.exports = withSentryConfig(nextConfig, {
@@ -94,6 +144,7 @@ module.exports = withSentryConfig(nextConfig, {
 	project: process.env.SENTRY_PROJECT,
 	authToken: process.env.SENTRY_AUTH_TOKEN,
 	silent: true,
+	disableLogger: true,
 	sourcemaps: {
 		disable: !process.env.SENTRY_AUTH_TOKEN,
 	},

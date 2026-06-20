@@ -2,7 +2,7 @@
 import ProtectedRoute from '@/components/ProtectedRoute';
 import TraceabilityReport from '@/components/manager/TraceabilityReport';
 
-export default function ManagerTrazabilidadPage() {
+export default function AnaliticaTrazabilidadPage() {
   return (
     <ProtectedRoute allowedRoles={['admin', 'manager']}>
       <div className="p-6 space-y-6">
