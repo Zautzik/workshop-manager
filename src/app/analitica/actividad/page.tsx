@@ -8,21 +8,27 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useMemo } from 'react';
 import { format, parseISO, isValid, formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Activity, Users, Cpu, FileText } from 'lucide-react';
+import { Activity, Cpu, FileText } from 'lucide-react';
+import { otStatusLabel, machineStatusLabel } from '@/lib/status-labels';
 
 type ActivityEntry = { id: string; type: 'ot' | 'worker' | 'machine'; icon: React.ElementType; iconColor: string; title: string; subtitle: string; time: string | null; };
 
-function ActivityFeed() {
-  const { data: ots     = [], isLoading: l1 } = useOTs();
-  const { data: workers = [], isLoading: l2 } = useWorkers();
-  const { data: machines= [], isLoading: l3 } = useMachines();
+interface ActivityOt { id: string; ot_number: string | null; client_name: string | null; status: string | null; created_at: string | null; }
+interface ActivityMachine { id: string; name: string | null; status: string | null; updated_at: string | null; created_at: string | null; }
 
+function ActivityFeed() {
+  const { data: otsData, isLoading: l1 } = useOTs();
+  const { isLoading: l2 } = useWorkers();
+  const { data: machinesData, isLoading: l3 } = useMachines();
+
+  const ots = (otsData ?? []) as ActivityOt[];
+  const machines = (machinesData ?? []) as ActivityMachine[];
   const loading = l1 || l2 || l3;
 
   const feed = useMemo<ActivityEntry[]>(() => {
     const entries: ActivityEntry[] = [];
 
-    for (const ot of (ots as any[]).slice(0, 20)) {
+    for (const ot of ots.slice(0, 20)) {
       if (!ot.created_at) continue;
       entries.push({
         id: `ot-${ot.id}`,
@@ -30,19 +36,19 @@ function ActivityFeed() {
         icon: FileText,
         iconColor: 'text-blue-500',
         title: `OT ${ot.ot_number} — ${ot.client_name}`,
-        subtitle: `Estado: ${ot.status}`,
+        subtitle: `Estado: ${otStatusLabel(ot.status)}`,
         time: ot.created_at,
       });
     }
 
-    for (const m of (machines as any[]).slice(0, 10)) {
+    for (const m of machines.slice(0, 10)) {
       entries.push({
         id: `machine-${m.id}`,
         type: 'machine',
         icon: Cpu,
         iconColor: 'text-orange-500',
         title: `Máquina: ${m.name}`,
-        subtitle: `Estado actual: ${m.status}`,
+        subtitle: `Estado actual: ${machineStatusLabel(m.status)}`,
         time: m.updated_at ?? m.created_at ?? null,
       });
     }

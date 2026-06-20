@@ -9,28 +9,31 @@ import { useState, useMemo } from 'react';
 import { format, parseISO, isValid } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Search, FileSearch } from 'lucide-react';
+import { otStatusLabel, otStatusColor } from '@/lib/status-labels';
 
-const STATUS_COLOR: Record<string, string> = {
-  pending:     'bg-amber-500',
-  in_progress: 'bg-blue-500',
-  completed:   'bg-green-500',
-  cancelled:   'bg-gray-400',
-};
-const STATUS_LABEL: Record<string, string> = {
-  pending: 'Pendiente', in_progress: 'En proceso', completed: 'Completada', cancelled: 'Cancelada',
-};
+interface AuditOt {
+  id: string;
+  ot_number: string | null;
+  client_name: string | null;
+  status: string | null;
+  created_at: string | null;
+  quantity: number | null;
+}
 
 function AuditList() {
-  const { data: ots = [], isLoading } = useOTs();
+  const { data, isLoading } = useOTs();
+  const ots = (data ?? []) as AuditOt[];
   const [search, setSearch] = useState('');
 
   const filtered = useMemo(() => {
-    if (!search.trim()) return ots as any[];
+    if (!search.trim()) return ots;
     const q = search.toLowerCase();
-    return (ots as any[]).filter(o =>
+    // Match the Spanish label too, so searching "troquelado" finds die_cutting OTs.
+    return ots.filter(o =>
       o.ot_number?.toLowerCase().includes(q) ||
       o.client_name?.toLowerCase().includes(q) ||
-      o.status?.toLowerCase().includes(q)
+      o.status?.toLowerCase().includes(q) ||
+      otStatusLabel(o.status).toLowerCase().includes(q)
     );
   }, [ots, search]);
 
@@ -50,10 +53,10 @@ function AuditList() {
         </div>
       ) : (
         <div className="space-y-2">
-          {filtered.map((ot: any) => (
+          {filtered.map((ot) => (
             <Card key={ot.id}>
               <CardContent className="flex items-center gap-4 p-4">
-                <div className={`h-2 w-2 rounded-full shrink-0 ${STATUS_COLOR[ot.status] ?? 'bg-gray-400'}`} />
+                <div className={`h-2 w-2 rounded-full shrink-0 ${otStatusColor(ot.status)}`} />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-mono font-semibold text-sm">{ot.ot_number}</span>
@@ -66,13 +69,13 @@ function AuditList() {
                     {ot.quantity && <span>{ot.quantity.toLocaleString()} un.</span>}
                   </div>
                 </div>
-                <Badge className={`${STATUS_COLOR[ot.status]} text-white text-xs shrink-0`}>{STATUS_LABEL[ot.status] ?? ot.status}</Badge>
+                <Badge className={`${otStatusColor(ot.status)} text-white text-xs shrink-0`}>{otStatusLabel(ot.status)}</Badge>
               </CardContent>
             </Card>
           ))}
         </div>
       )}
-      <p className="text-xs text-muted-foreground text-right">{filtered.length} de {(ots as any[]).length} órdenes</p>
+      <p className="text-xs text-muted-foreground text-right">{filtered.length} de {ots.length} órdenes</p>
     </div>
   );
 }

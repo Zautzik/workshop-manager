@@ -98,18 +98,24 @@ const nextConfig = {
 	async redirects() {
 		return [
 			// ── Analítica consolidation (/financial + /manager + /admin/overview → /analitica) ──
-			{ source: '/financial',            destination: '/analitica',              permanent: false },
-			{ source: '/financial/costos',     destination: '/analitica/costos',       permanent: false },
-			{ source: '/financial/costos-ot',  destination: '/analitica/costos-ot',    permanent: false },
-			{ source: '/financial/maquinas',   destination: '/analitica/maquinas',     permanent: false },
-			{ source: '/financial/inversion',  destination: '/analitica/inversion',    permanent: false },
-			{ source: '/financial/margenes',   destination: '/analitica/margenes',     permanent: false },
-			{ source: '/financial/nomina',     destination: '/analitica/nomina',       permanent: false },
-			{ source: '/financial/ots',        destination: '/analitica/ots',          permanent: false },
+			{ source: '/financial',            destination: '/analitica',                          permanent: false },
+			{ source: '/financial/costos',     destination: '/analitica/costos',                   permanent: false },
+			{ source: '/financial/costos-ot',  destination: '/analitica/rentabilidad?tab=costos',  permanent: false },
+			{ source: '/financial/maquinas',   destination: '/equipos/economia',                   permanent: false },
+			{ source: '/financial/inversion',  destination: '/equipos/economia?tab=inversion',     permanent: false },
+			{ source: '/analitica/inversion',  destination: '/equipos/economia?tab=inversion',     permanent: false },
+			{ source: '/financial/margenes',   destination: '/analitica/rentabilidad',             permanent: false },
+			{ source: '/financial/nomina',     destination: '/analitica/nomina',                   permanent: false },
+			{ source: '/financial/ots',        destination: '/analitica/rentabilidad?tab=seguimiento', permanent: false },
+
+			// ── Rentabilidad consolidation: márgenes + costos-ot + ots merged into one tabbed workspace ──
+			{ source: '/analitica/margenes',   destination: '/analitica/rentabilidad',                 permanent: false },
+			{ source: '/analitica/costos-ot',  destination: '/analitica/rentabilidad?tab=costos',      permanent: false },
+			{ source: '/analitica/ots',        destination: '/analitica/rentabilidad?tab=seguimiento', permanent: false },
 			{ source: '/admin/overview',       destination: '/analitica/dashboard',    permanent: false },
 			{ source: '/manager',              destination: '/analitica',              permanent: false },
 			{ source: '/manager/kpis',         destination: '/analitica/dashboard',    permanent: false }, // dup of Dashboard
-			{ source: '/manager/costos',       destination: '/analitica/costos-ot',    permanent: false }, // dup of Costo por OT
+			{ source: '/manager/costos',       destination: '/analitica/rentabilidad?tab=costos', permanent: false }, // dup of Costo por OT
 			{ source: '/manager/trabajadores', destination: '/analitica/rendimiento',  permanent: false },
 			{ source: '/manager/trazabilidad', destination: '/analitica/trazabilidad', permanent: false },
 			{ source: '/manager/tendencias',   destination: '/analitica/tendencias',   permanent: false },

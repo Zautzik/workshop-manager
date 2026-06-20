@@ -178,6 +178,7 @@ export const MODULES: NavModule[] = [
         color: 'from-violet-500/10 to-indigo-500/5', border: 'border-violet-500/20', heading: 'text-violet-400',
         items: [
           { label: 'Historial & KPIs',     href: '/equipos/historial', description: 'Registro histórico, MTBF, MTTR y métricas de flota', icon: BarChart3,   color: 'bg-indigo-500/10 text-indigo-400' },
+          { label: 'Economía',             href: '/equipos/economia',  description: 'Costo operativo, depreciación y ROI por máquina',     icon: Wallet,      color: 'bg-teal-500/10 text-teal-400' },
           { label: 'Alertas & Predictivo', href: '/equipos/alertas',   description: 'Avisos activos y mantenimiento preventivo/predictivo', icon: AlertCircle, color: 'bg-amber-500/10 text-amber-400' },
         ],
       },
@@ -198,21 +199,18 @@ export const MODULES: NavModule[] = [
         label: 'Costos & Finanzas',
         color: 'from-green-500/10 to-emerald-500/5', border: 'border-green-500/20', heading: 'text-green-400',
         items: [
-          { label: 'Costos',         href: '/analitica/costos',    description: 'Catálogo de costos unitarios por material y centro', icon: BarChart3,      color: 'bg-green-500/10 text-green-400' },
-          { label: 'Costo por OT',   href: '/analitica/costos-ot', description: 'Detalle de costos reales por orden de trabajo',      icon: FileSpreadsheet,color: 'bg-emerald-500/10 text-emerald-400' },
-          { label: 'Costo Máquina',  href: '/analitica/maquinas',  description: 'Costo operativo y comparación por equipo',           icon: Cpu,            color: 'bg-teal-500/10 text-teal-400' },
-          { label: 'Inversión',      href: '/analitica/inversion', description: 'Propuestas y retorno de inversión en flota',         icon: Wallet,         color: 'bg-amber-500/10 text-amber-400' },
-          { label: 'Nómina',         href: '/analitica/nomina',    description: 'Cálculo y resumen de compensaciones del período',    icon: DollarSign,     color: 'bg-orange-500/10 text-orange-400' },
+          { label: 'Costos',           href: '/analitica/costos',   description: 'Catálogo de costos unitarios por material y centro', icon: BarChart3,  color: 'bg-green-500/10 text-green-400' },
+          { label: 'Economía Equipos', href: '/analitica/maquinas', description: 'Resumen de costos e inversión de la flota',          icon: Cpu,        color: 'bg-teal-500/10 text-teal-400' },
+          { label: 'Costo Laboral',    href: '/analitica/nomina',   description: 'Resumen de nómina del mes; detalle en Personas',     icon: DollarSign, color: 'bg-orange-500/10 text-orange-400' },
         ],
       },
       {
         label: 'Rentabilidad & KPIs',
         color: 'from-indigo-500/10 to-cyan-500/5', border: 'border-indigo-500/20', heading: 'text-indigo-400',
         items: [
-          { label: 'Dashboard',     href: '/analitica/dashboard', description: 'Vista ejecutiva consolidada y KPIs del taller',  icon: LayoutDashboard, color: 'bg-indigo-500/10 text-indigo-400' },
-          { label: 'Márgenes',      href: '/analitica/margenes',  description: 'Rentabilidad y margen de mano de obra por OT',   icon: PieChart,        color: 'bg-violet-500/10 text-violet-400' },
-          { label: 'Seguimiento OT',href: '/analitica/ots',       description: 'Seguimiento financiero de cada orden',           icon: ClipboardList,   color: 'bg-sky-500/10 text-sky-400' },
-          { label: 'Tendencias',    href: '/analitica/tendencias',description: 'Tendencias y evolución de métricas del taller',   icon: TrendingUp,      color: 'bg-cyan-500/10 text-cyan-400' },
+          { label: 'Dashboard',    href: '/analitica/dashboard',    description: 'Vista ejecutiva consolidada y KPIs del taller',      icon: LayoutDashboard, color: 'bg-indigo-500/10 text-indigo-400' },
+          { label: 'Rentabilidad', href: '/analitica/rentabilidad', description: 'Márgenes, costos estimados vs reales y seguimiento', icon: PieChart,        color: 'bg-violet-500/10 text-violet-400' },
+          { label: 'Tendencias',   href: '/analitica/tendencias',   description: 'Tendencias y evolución de métricas del taller',      icon: TrendingUp,      color: 'bg-cyan-500/10 text-cyan-400' },
         ],
       },
       {
@@ -220,7 +218,7 @@ export const MODULES: NavModule[] = [
         color: 'from-teal-500/10 to-violet-500/5', border: 'border-teal-500/20', heading: 'text-teal-400',
         items: [
           { label: 'Rendimiento',  href: '/analitica/rendimiento', description: 'Estadísticas y métricas de trabajadores',    icon: ClipboardCheck, color: 'bg-cyan-500/10 text-cyan-400' },
-          { label: 'Trazabilidad', href: '/analitica/trazabilidad',description: 'Ciclo completo de vida de cada OT',           icon: GitMerge,       color: 'bg-teal-500/10 text-teal-400' },
+          { label: 'Ciclo de OT',  href: '/analitica/trazabilidad',description: 'Lead time, cuellos de botella y recorrido de cada OT', icon: GitMerge,    color: 'bg-teal-500/10 text-teal-400' },
           { label: 'Actividad',    href: '/analitica/actividad',   description: 'Registro de actividad del sistema',          icon: Activity,       color: 'bg-blue-500/10 text-blue-400' },
           { label: 'Auditoría',    href: '/analitica/auditoria',   description: 'Auditoría del ciclo de las OTs',             icon: ShieldCheck,    color: 'bg-violet-500/10 text-violet-400' },
         ],

@@ -17,11 +17,9 @@ import {
 } from 'recharts';
 import { format, parseISO, startOfMonth, isValid } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { otStatusLabel } from '@/lib/status-labels';
 
-const STATUS_LABELS: Record<string, string> = {
-  pending: 'Pendiente', in_progress: 'En proceso',
-  completed: 'Completada', cancelled: 'Cancelada',
-};
+interface TrendOt { status: string | null; created_at: string | null; }
 
 // ── Chart colour configs — referenced as var(--color-<key>) inside SVG ──────
 const areaConfig: ChartConfig = {
@@ -34,11 +32,12 @@ const barConfig: ChartConfig = {
 } satisfies ChartConfig;
 
 function TrendsDashboard() {
-  const { data: ots = [], isLoading } = useOTs();
+  const { data, isLoading } = useOTs();
+  const ots = (data ?? []) as TrendOt[];
 
   const monthlyData = useMemo(() => {
     const byMonth: Record<string, { month: string; total: number; completed: number }> = {};
-    for (const ot of ots as any[]) {
+    for (const ot of ots) {
       const d = ot.created_at ? parseISO(ot.created_at) : null;
       if (!d || !isValid(d)) continue;
       const key = format(startOfMonth(d), 'yyyy-MM');
@@ -52,9 +51,12 @@ function TrendsDashboard() {
 
   const statusData = useMemo(() => {
     const counts: Record<string, number> = {};
-    for (const ot of ots as any[]) counts[ot.status] = (counts[ot.status] || 0) + 1;
+    for (const ot of ots) {
+      const key = ot.status ?? 'unknown';
+      counts[key] = (counts[key] || 0) + 1;
+    }
     return Object.entries(counts).map(([status, count]) => ({
-      name: STATUS_LABELS[status] ?? status,
+      name: otStatusLabel(status),
       value: count,
     }));
   }, [ots]);

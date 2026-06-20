@@ -15,6 +15,7 @@ import {
 } from 'recharts';
 import { useMaintenanceWorkOrdersByStatus } from '@/hooks/use-maintenance-queries';
 import { useMachines, useOTs, useWorkers } from '@/hooks/use-operations-queries';
+import { useAnalyticsFiltersOptional, inPeriod, pctChange } from '@/contexts/AnalyticsFiltersContext';
 
 interface OTByStatus {
   status: string;
@@ -34,6 +35,7 @@ interface WorkerPerformance {
 
 const ExecutiveOverview = () => {
   const { t } = useLanguage();
+  const { range, comparison } = useAnalyticsFiltersOptional();
   const { data: ots = [], isLoading: otsLoading } = useOTs();
   const { data: machines = [], isLoading: machinesLoading } = useMachines();
   const { data: workers = [], isLoading: workersLoading } = useWorkers();
@@ -78,6 +80,19 @@ const ExecutiveOverview = () => {
     }));
   }, [workers]);
 
+  // On-time rate among completed OTs (with a deadline) whose completion
+  // (updated_at proxy) fell inside the given window.
+  const onTimeRate = (period: typeof range): number | null => {
+    const done = ots.filter((ot: any) =>
+      ot.status === 'completed' && ot.deadline && inPeriod(ot.updated_at, period)
+    );
+    if (done.length === 0) return null;
+    const onTime = done.filter((ot: any) =>
+      new Date(ot.updated_at).getTime() <= new Date(ot.deadline).getTime()
+    ).length;
+    return (onTime / done.length) * 100;
+  };
+
   const kpis = useMemo(() => {
     const activeOTs = ots.filter((ot: any) => ot.status !== 'completed').length;
     const completedThisMonth = ots.filter((ot: any) => ot.status === 'completed').length;
@@ -86,17 +101,40 @@ const ExecutiveOverview = () => {
     const machineUtilization = Math.round((runningMachines / totalMachines) * 100);
     const pendingCount = pendingMaintenance.length;
 
+    // Real period-over-period deltas (replace the old hardcoded +12% / +2.3%).
+    const createdInRange = ots.filter((ot: any) => inPeriod(ot.created_at, range)).length;
+    const createdInComparison = ots.filter((ot: any) => inPeriod(ot.created_at, comparison)).length;
+    const activeOTsDelta = pctChange(createdInRange, createdInComparison);
+
+    const onTimeRange = onTimeRate(range);
+    const onTimeComparison = onTimeRate(comparison);
+    // Headline: period value when present, else all-time on-time rate.
+    const allDone = ots.filter((ot: any) => ot.status === 'completed' && ot.deadline);
+    const onTimeAll = allDone.length > 0
+      ? (allDone.filter((ot: any) => new Date(ot.updated_at).getTime() <= new Date(ot.deadline).getTime()).length / allDone.length) * 100
+      : 0;
+    const onTimeDelivery = Math.round(onTimeRange ?? onTimeAll);
+    const onTimeDeliveryDelta =
+      onTimeRange != null && onTimeComparison != null ? onTimeRange - onTimeComparison : null;
+
+    // Workforce efficiency: real average of per-department scores.
+    const workforceEfficiency = workerPerformance.length > 0
+      ? Math.round(workerPerformance.reduce((s, d) => s + d.avgEfficiency, 0) / workerPerformance.length)
+      : 0;
+
     return {
       activeOTs,
       completedThisMonth,
-      avgCycleTime: 4.2,
       machineUtilization,
-      onTimeDelivery: 94,
-      workforceEfficiency: 87,
+      onTimeDelivery,
+      onTimeDeliveryDelta,
+      activeOTsDelta,
+      workforceEfficiency,
       pendingMaintenance: pendingCount,
       criticalAlerts: pendingCount > 3 ? pendingCount - 3 : 0,
     };
-  }, [machines, ots, pendingMaintenance]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [machines, ots, pendingMaintenance, workerPerformance, range, comparison]);
 
   const statusColors: Record<string, string> = {
     pre_press: 'hsl(var(--primary))',
@@ -123,6 +161,19 @@ const ExecutiveOverview = () => {
   };
 
   const formatStatus = (status: string) => otStatusLabel(status);
+
+  // Real period-over-period delta indicator (replaces hardcoded figures).
+  const renderDelta = (value: number | null, suffix = '%') => {
+    if (value == null) return <span className="text-xs text-muted-foreground">sin base</span>;
+    const up = value >= 0;
+    const Icon = up ? ArrowUpRight : ArrowDownRight;
+    return (
+      <div className={`flex items-center text-sm ${up ? 'text-green-500' : 'text-red-500'}`}>
+        <Icon className="h-4 w-4" />
+        <span>{up ? '+' : ''}{value.toFixed(1)}{suffix}</span>
+      </div>
+    );
+  };
 
   if (loading) {
     return (
@@ -154,12 +205,9 @@ const ExecutiveOverview = () => {
               <div className="flex items-end justify-between">
                 <div>
                   <div className="text-3xl font-bold text-foreground">{kpis.activeOTs}</div>
-                  <p className="text-xs text-muted-foreground mt-1">En proceso</p>
+                  <p className="text-xs text-muted-foreground mt-1">En proceso · creación vs período ant.</p>
                 </div>
-                <div className="flex items-center text-green-500 text-sm">
-                  <ArrowUpRight className="h-4 w-4" />
-                  <span>+12%</span>
-                </div>
+                {renderDelta(kpis.activeOTsDelta)}
               </div>
               <Progress value={Math.min(kpis.activeOTs * 10, 100)} className="mt-3 h-1" />
             </CardContent>
@@ -176,12 +224,9 @@ const ExecutiveOverview = () => {
               <div className="flex items-end justify-between">
                 <div>
                   <div className="text-3xl font-bold text-foreground">{kpis.onTimeDelivery}%</div>
-                  <p className="text-xs text-muted-foreground mt-1">Satisfacción del cliente</p>
+                  <p className="text-xs text-muted-foreground mt-1">Entregadas dentro de plazo</p>
                 </div>
-                <div className="flex items-center text-green-500 text-sm">
-                  <TrendingUp className="h-4 w-4" />
-                  <span>+2.3%</span>
-                </div>
+                {renderDelta(kpis.onTimeDeliveryDelta, ' pts')}
               </div>
               <Progress value={kpis.onTimeDelivery} className="mt-3 h-1" />
             </CardContent>
@@ -221,9 +266,12 @@ const ExecutiveOverview = () => {
                   <div className="text-3xl font-bold text-foreground">{kpis.workforceEfficiency}%</div>
                   <p className="text-xs text-muted-foreground mt-1">Utilización de habilidades</p>
                 </div>
-                <div className="flex items-center text-green-500 text-sm">
+                <div className={`flex items-center text-sm ${
+                  kpis.workforceEfficiency >= 85 ? 'text-green-500'
+                  : kpis.workforceEfficiency >= 70 ? 'text-yellow-500' : 'text-red-500'
+                }`}>
                   <Zap className="h-4 w-4" />
-                  <span>Alta</span>
+                  <span>{kpis.workforceEfficiency >= 85 ? 'Alta' : kpis.workforceEfficiency >= 70 ? 'Media' : 'Baja'}</span>
                 </div>
               </div>
               <Progress value={kpis.workforceEfficiency} className="mt-3 h-1" />
