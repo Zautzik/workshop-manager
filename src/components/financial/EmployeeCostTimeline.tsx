@@ -74,7 +74,7 @@ export function EmployeeCostTimeline() {
               </label>
               <Select value={selectedEmployeeId} onValueChange={setSelectedEmployeeId}>
                 <SelectTrigger>
-                  <SelectValue placeholder={workersLoading ? 'Loading...' : 'Select employee'} />
+                  <SelectValue placeholder={workersLoading ? 'Cargando...' : 'Seleccionar empleado'} />
                 </SelectTrigger>
                 <SelectContent>
                   {workers?.map((w) => (
@@ -132,7 +132,7 @@ export function EmployeeCostTimeline() {
             <CardContent>
               <div className="text-2xl font-bold">{formatHours(summary.totalHours)}</div>
               <p className="text-xs text-muted-foreground">
-                {formatHours(summary.totalHours / (timeline?.length || 1))} avg/period
+                {formatHours(summary.totalHours / (timeline?.length || 1))} prom/período
               </p>
             </CardContent>
           </Card>
@@ -171,7 +171,7 @@ export function EmployeeCostTimeline() {
             <CardContent>
               <div className="text-2xl font-bold">{formatCurrency(summary.totalIncentives)}</div>
               <p className="text-xs text-muted-foreground">
-                {formatCurrency(summary.totalIncentives / (timeline?.length || 1))} avg/period
+                {formatCurrency(summary.totalIncentives / (timeline?.length || 1))} prom/período
               </p>
             </CardContent>
           </Card>
@@ -184,7 +184,7 @@ export function EmployeeCostTimeline() {
             <CardContent>
               <div className="text-2xl font-bold">{formatCurrency(summary.totalCost)}</div>
               <p className="text-xs text-muted-foreground">
-                {formatCurrency(summary.totalCost / (timeline?.length || 1))} avg/period
+                {formatCurrency(summary.totalCost / (timeline?.length || 1))} prom/período
               </p>
             </CardContent>
           </Card>

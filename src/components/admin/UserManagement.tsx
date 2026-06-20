@@ -72,14 +72,14 @@ const UserManagement = ({ onUpdate }: UserManagementProps) => {
     try {
       const res = await fetch('/api/admin/users');
       if (!res.ok) {
-        toast.error('Error loading users');
+        toast.error('Error al cargar usuarios');
         return;
       }
       const data = await res.json();
       setUsers(data.users ?? []);
     } catch (error) {
       console.error('Failed to fetch users:', error);
-      toast.error('Failed to fetch users');
+      toast.error('No se pudieron obtener los usuarios');
     }
   }, []);
 
@@ -107,11 +107,11 @@ const UserManagement = ({ onUpdate }: UserManagementProps) => {
 
         if (!res.ok) {
           const err = await res.json().catch(() => ({}));
-          toast.error(err.error ?? 'Error updating user');
+          toast.error(err.error ?? 'Error al actualizar usuario');
           return;
         }
 
-        toast.success('User updated successfully');
+        toast.success('Usuario actualizado correctamente');
       } else {
         // Create new user via secure server-side API
         const res = await fetch('/api/admin/users', {
@@ -128,11 +128,11 @@ const UserManagement = ({ onUpdate }: UserManagementProps) => {
 
         if (!res.ok) {
           const err = await res.json().catch(() => ({}));
-          toast.error(err.error ?? 'Error creating user');
+          toast.error(err.error ?? 'Error al crear usuario');
           return;
         }
 
-        toast.success('User created successfully');
+        toast.success('Usuario creado correctamente');
       }
 
       fetchUsers();
@@ -154,11 +154,11 @@ const UserManagement = ({ onUpdate }: UserManagementProps) => {
 
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
-      toast.error(err.error ?? 'Error deleting user');
+      toast.error(err.error ?? 'Error al eliminar usuario');
       return;
     }
 
-    toast.success('User deleted successfully');
+    toast.success('Usuario eliminado correctamente');
     fetchUsers();
     onUpdate();
   };
@@ -213,7 +213,7 @@ const UserManagement = ({ onUpdate }: UserManagementProps) => {
         <Button 
           onClick={() => setShowDialog(true)} 
           className="bg-primary hover:bg-primary/90"
-          aria-label="Add new user"
+          aria-label="Agregar nuevo usuario"
         >
           <Plus className="mr-2 h-4 w-4" aria-hidden="true" />
           {t('addUser')}
@@ -221,7 +221,7 @@ const UserManagement = ({ onUpdate }: UserManagementProps) => {
       </CardHeader>
       <CardContent>
         <div className="rounded-lg border">
-          <Table aria-label="User management table">
+          <Table aria-label="Tabla de gestión de usuarios">
             <TableHeader>
               <TableRow className="bg-muted/50">
                 <TableHead className="font-semibold" scope="col">{t('email')}</TableHead>
@@ -338,7 +338,7 @@ const UserManagement = ({ onUpdate }: UserManagementProps) => {
                 required
                 aria-required="true"
               >
-                <SelectTrigger className="h-11" id="role" aria-label="Select user role">
+                <SelectTrigger className="h-11" id="role" aria-label="Seleccionar rol de usuario">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -395,7 +395,7 @@ const UserManagement = ({ onUpdate }: UserManagementProps) => {
               <div className="space-y-2">
                 <Label htmlFor="department">{t('department')}</Label>
                 <Select value={formData.department} onValueChange={(value) => setFormData({ ...formData, department: value })}>
-                  <SelectTrigger id="department" aria-label="Select department">
+                  <SelectTrigger id="department" aria-label="Seleccionar departamento">
                     <SelectValue placeholder="Seleccionar departamento" />
                   </SelectTrigger>
                   <SelectContent>
@@ -413,7 +413,7 @@ const UserManagement = ({ onUpdate }: UserManagementProps) => {
               <div className="space-y-2">
                 <Label htmlFor="manager_domain">{t('managerDomain')}</Label>
                 <Select value={formData.manager_domain} onValueChange={(value) => setFormData({ ...formData, manager_domain: value })}>
-                  <SelectTrigger id="manager_domain" aria-label="Select manager domain">
+                  <SelectTrigger id="manager_domain" aria-label="Seleccionar dominio de gestión">
                     <SelectValue placeholder="Seleccionar dominio" />
                   </SelectTrigger>
                   <SelectContent>

@@ -27,9 +27,9 @@ export function WorkerStatsPanel({
     const attendance = Number(worker?.attendance_score || 0);
     const avg = (quality + teamwork + attendance) / 3;
 
-    if (avg >= 80) return 'High consistency';
-    if (avg >= 60) return 'Stable performance';
-    return 'Needs coaching support';
+    if (avg >= 80) return 'Alta consistencia';
+    if (avg >= 60) return 'Desempeño estable';
+    return 'Necesita apoyo';
   };
   
   const getStatColor = (value: number) => {

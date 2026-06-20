@@ -64,11 +64,19 @@ import {
 import { useOTs } from '@/hooks/use-operations-queries';
 
 const CATEGORY_OPTIONS = [
-  { value: 'tool', label: 'Tools' },
-  { value: 'supply', label: 'Supplies' },
-  { value: 'product_input', label: 'Product Inputs' },
-  { value: 'spare_part', label: 'Spare Parts' },
+  { value: 'tool', label: 'Herramientas' },
+  { value: 'supply', label: 'Insumos' },
+  { value: 'product_input', label: 'Materias primas' },
+  { value: 'spare_part', label: 'Repuestos' },
 ];
+
+// Spanish display labels for stock-alert severity (data values stay English).
+const SEVERITY_LABELS: Record<string, string> = {
+  critical: 'CRÍTICO',
+  high: 'ALTO',
+  medium: 'MEDIO',
+  low: 'BAJO',
+};
 
 const TX_OPTIONS = [
   { value: 'purchase', label: 'Purchase (+)' },
@@ -384,7 +392,7 @@ const InventoryManagement = () => {
           <CardHeader className="pb-2">
             <CardTitle className="text-sm text-primary flex items-center gap-2">
               <Boxes className="h-4 w-4" />
-              Total Inventory SKUs
+              Total de SKUs
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -405,7 +413,7 @@ const InventoryManagement = () => {
           <CardHeader className="pb-2">
             <CardTitle className="text-sm text-destructive flex items-center gap-2">
               <AlertTriangle className="h-4 w-4" />
-              Low-Stock Alerts
+              Alertas de stock bajo
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -426,10 +434,10 @@ const InventoryManagement = () => {
                   <div>
                     <p className="font-medium">{alert.name}</p>
                     <p className="text-xs text-muted-foreground">
-                      {getCategoryLabel(alert.category)} â€¢ Stock: {Number(alert.current_stock).toFixed(3)} / Min: {Number(alert.min_stock).toFixed(3)}
+                      {getCategoryLabel(alert.category)} • Stock: {Number(alert.current_stock).toFixed(3)} / Mín: {Number(alert.min_stock).toFixed(3)}
                     </p>
                   </div>
-                  <Badge variant="destructive">{String(alert.severity || 'medium').toUpperCase()}</Badge>
+                  <Badge variant="destructive">{SEVERITY_LABELS[String(alert.severity || 'medium')] ?? String(alert.severity || 'medium').toUpperCase()}</Badge>
                 </div>
               ))}
             </div>

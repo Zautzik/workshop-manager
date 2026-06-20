@@ -1,5 +1,6 @@
 'use client';
 import { useMemo } from 'react';
+import { otStatusLabel, machineStatusLabel } from '@/lib/status-labels';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
@@ -121,9 +122,7 @@ const ExecutiveOverview = () => {
     offline: 'hsl(0 84% 60%)',
   };
 
-  const formatStatus = (status: string) => {
-    return status.replace(/_/g, ' ').replace(/\w/g, l => l.toUpperCase());
-  };
+  const formatStatus = (status: string) => otStatusLabel(status);
 
   if (loading) {
     return (
@@ -138,24 +137,24 @@ const ExecutiveOverview = () => {
   return (
     <div className="space-y-6">
       {/* KPI Scorecards - Balanced Scorecard Approach */}
-      <section aria-label="Key Performance Indicators">
+      <section aria-label="Indicadores Clave de Desempeño">
         <h2 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
           <Target className="h-5 w-5 text-primary" />
-          Strategic KPIs - Balanced Scorecard
+          KPIs Estratégicos - Cuadro de Mando
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {/* Financial Perspective */}
           <Card className="border-l-4 border-l-green-500 hover:shadow-lg transition-shadow">
             <CardHeader className="pb-2">
               <CardTitle className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                Active Work Orders
+                Órdenes de Trabajo Activas
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="flex items-end justify-between">
                 <div>
                   <div className="text-3xl font-bold text-foreground">{kpis.activeOTs}</div>
-                  <p className="text-xs text-muted-foreground mt-1">In pipeline</p>
+                  <p className="text-xs text-muted-foreground mt-1">En proceso</p>
                 </div>
                 <div className="flex items-center text-green-500 text-sm">
                   <ArrowUpRight className="h-4 w-4" />
@@ -170,14 +169,14 @@ const ExecutiveOverview = () => {
           <Card className="border-l-4 border-l-blue-500 hover:shadow-lg transition-shadow">
             <CardHeader className="pb-2">
               <CardTitle className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                On-Time Delivery
+                Entregas a Tiempo
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="flex items-end justify-between">
                 <div>
                   <div className="text-3xl font-bold text-foreground">{kpis.onTimeDelivery}%</div>
-                  <p className="text-xs text-muted-foreground mt-1">Customer satisfaction</p>
+                  <p className="text-xs text-muted-foreground mt-1">Satisfacción del cliente</p>
                 </div>
                 <div className="flex items-center text-green-500 text-sm">
                   <TrendingUp className="h-4 w-4" />
@@ -192,17 +191,17 @@ const ExecutiveOverview = () => {
           <Card className="border-l-4 border-l-purple-500 hover:shadow-lg transition-shadow">
             <CardHeader className="pb-2">
               <CardTitle className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                Machine Utilization
+                Utilización de Máquinas
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="flex items-end justify-between">
                 <div>
                   <div className="text-3xl font-bold text-foreground">{kpis.machineUtilization}%</div>
-                  <p className="text-xs text-muted-foreground mt-1">OEE benchmark</p>
+                  <p className="text-xs text-muted-foreground mt-1">Referencia OEE</p>
                 </div>
                 <Badge variant={kpis.machineUtilization >= 75 ? 'default' : 'destructive'} className="text-xs">
-                  {kpis.machineUtilization >= 75 ? 'Optimal' : 'Below Target'}
+                  {kpis.machineUtilization >= 75 ? 'Óptimo' : 'Bajo objetivo'}
                 </Badge>
               </div>
               <Progress value={kpis.machineUtilization} className="mt-3 h-1" />
@@ -213,7 +212,7 @@ const ExecutiveOverview = () => {
           <Card className="border-l-4 border-l-orange-500 hover:shadow-lg transition-shadow">
             <CardHeader className="pb-2">
               <CardTitle className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                Workforce Efficiency
+                Eficiencia del Personal
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -224,7 +223,7 @@ const ExecutiveOverview = () => {
                 </div>
                 <div className="flex items-center text-green-500 text-sm">
                   <Zap className="h-4 w-4" />
-                  <span>High</span>
+                  <span>Alta</span>
                 </div>
               </div>
               <Progress value={kpis.workforceEfficiency} className="mt-3 h-1" />
@@ -241,10 +240,10 @@ const ExecutiveOverview = () => {
               <AlertTriangle className="h-5 w-5 text-destructive" />
               <div className="flex-1">
                 <p className="text-sm font-medium text-foreground">
-                  {kpis.pendingMaintenance} pending maintenance orders require attention
+                  {kpis.pendingMaintenance} órdenes de mantenimiento pendientes requieren atención
                 </p>
               </div>
-              <Badge variant="destructive">{kpis.pendingMaintenance} Actions</Badge>
+              <Badge variant="destructive">{kpis.pendingMaintenance} Acciones</Badge>
             </div>
           </CardContent>
         </Card>
@@ -257,7 +256,7 @@ const ExecutiveOverview = () => {
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
               <BarChart3 className="h-5 w-5 text-primary" />
-              Production Pipeline - Value Stream
+              Flujo de Producción - Cadena de Valor
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -299,7 +298,7 @@ const ExecutiveOverview = () => {
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
               <PieChart className="h-5 w-5 text-primary" />
-              Asset Health - TPM Overview
+              Salud de Activos - Resumen TPM
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -315,7 +314,7 @@ const ExecutiveOverview = () => {
                     paddingAngle={2}
                     dataKey="count"
                     nameKey="status"
-                    label={({ status, count }) => `${formatStatus(status)}: ${count}`}
+                    label={({ status, count }) => `${machineStatusLabel(status)}: ${count}`}
                     labelLine={{ stroke: 'hsl(var(--muted-foreground))' }}
                   >
                     {machineStatus.map((entry, index) => (
@@ -339,7 +338,7 @@ const ExecutiveOverview = () => {
               {Object.entries(machineColors).map(([status, color]) => (
                 <div key={status} className="flex items-center gap-1.5 text-xs">
                   <div className="w-3 h-3 rounded-full" style={{ backgroundColor: color }} />
-                  <span className="text-muted-foreground">{formatStatus(status)}</span>
+                  <span className="text-muted-foreground">{machineStatusLabel(status)}</span>
                 </div>
               ))}
             </div>
@@ -352,7 +351,7 @@ const ExecutiveOverview = () => {
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
             <Activity className="h-5 w-5 text-primary" />
-            Department Performance Matrix - Lean Metrics
+            Matriz de Desempeño por Área
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -365,12 +364,12 @@ const ExecutiveOverview = () => {
                 <div className="flex items-center justify-between mb-3">
                   <h4 className="font-medium text-foreground capitalize">{dept.department}</h4>
                   <Badge variant={dept.avgEfficiency >= 80 ? 'default' : 'secondary'}>
-                    {dept.totalWorkers} staff
+                    {dept.totalWorkers} personas
                   </Badge>
                 </div>
                 <div className="space-y-2">
                   <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Efficiency Index</span>
+                    <span className="text-muted-foreground">Índice de Eficiencia</span>
                     <span className={`font-semibold ${
                       dept.avgEfficiency >= 85 ? 'text-green-500' : 
                       dept.avgEfficiency >= 70 ? 'text-yellow-500' : 'text-red-500'
@@ -383,12 +382,12 @@ const ExecutiveOverview = () => {
                     {dept.avgEfficiency >= 80 ? (
                       <>
                         <CheckCircle2 className="h-3 w-3 text-green-500" />
-                        Above target
+                        Sobre objetivo
                       </>
                     ) : (
                       <>
                         <Clock className="h-3 w-3 text-yellow-500" />
-                        Improvement opportunity
+                        Oportunidad de mejora
                       </>
                     )}
                   </div>
@@ -408,10 +407,10 @@ const ExecutiveOverview = () => {
                 <CheckCircle2 className="h-5 w-5 text-green-500" />
               </div>
               <div>
-                <h4 className="font-semibold text-foreground">Operational Excellence</h4>
+                <h4 className="font-semibold text-foreground">Excelencia Operacional</h4>
                 <p className="text-sm text-muted-foreground mt-1">
-                  Production throughput is {kpis.machineUtilization >= 70 ? 'meeting' : 'below'} targets. 
-                  Current OEE: {kpis.machineUtilization}%
+                  El rendimiento de producción está {kpis.machineUtilization >= 70 ? 'cumpliendo' : 'por debajo de'} los objetivos. 
+                  OEE actual: {kpis.machineUtilization}%
                 </p>
               </div>
             </div>
@@ -425,9 +424,9 @@ const ExecutiveOverview = () => {
                 <TrendingUp className="h-5 w-5 text-blue-500" />
               </div>
               <div>
-                <h4 className="font-semibold text-foreground">Growth Trajectory</h4>
+                <h4 className="font-semibold text-foreground">Trayectoria de Crecimiento</h4>
                 <p className="text-sm text-muted-foreground mt-1">
-                  {kpis.activeOTs} active orders in pipeline with {kpis.onTimeDelivery}% on-time delivery rate
+                  {kpis.activeOTs} órdenes activas en proceso con {kpis.onTimeDelivery}% de entregas a tiempo
                 </p>
               </div>
             </div>
@@ -441,9 +440,9 @@ const ExecutiveOverview = () => {
                 <Zap className="h-5 w-5 text-purple-500" />
               </div>
               <div>
-                <h4 className="font-semibold text-foreground">Continuous Improvement</h4>
+                <h4 className="font-semibold text-foreground">Mejora Continua</h4>
                 <p className="text-sm text-muted-foreground mt-1">
-                  Kaizen initiatives driving {kpis.workforceEfficiency}% workforce efficiency across departments
+                  Iniciativas Kaizen impulsando {kpis.workforceEfficiency}% de eficiencia del personal entre áreas
                 </p>
               </div>
             </div>

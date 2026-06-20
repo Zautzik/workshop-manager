@@ -90,7 +90,7 @@ export function OrderLaborMarginAnalysis() {
               </label>
               <Select value={selectedOtId} onValueChange={setSelectedOtId}>
                 <SelectTrigger>
-                  <SelectValue placeholder={otsLoading ? 'Loading...' : 'All orders'} />
+                  <SelectValue placeholder={otsLoading ? 'Cargando...' : 'Todas las órdenes'} />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Todas las órdenes</SelectItem>
@@ -112,10 +112,10 @@ export function OrderLaborMarginAnalysis() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="3">Last 3 {t('common.months') || 'months'}</SelectItem>
-                  <SelectItem value="6">Last 6 {t('common.months') || 'months'}</SelectItem>
-                  <SelectItem value="12">Last 12 {t('common.months') || 'months'}</SelectItem>
-                  <SelectItem value="24">Last 24 {t('common.months') || 'months'}</SelectItem>
+                  <SelectItem value="3">Últimos 3 {t('common.months') || 'meses'}</SelectItem>
+                  <SelectItem value="6">Últimos 6 {t('common.months') || 'meses'}</SelectItem>
+                  <SelectItem value="12">Últimos 12 {t('common.months') || 'meses'}</SelectItem>
+                  <SelectItem value="24">Últimos 24 {t('common.months') || 'meses'}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -134,7 +134,7 @@ export function OrderLaborMarginAnalysis() {
             <CardContent>
               <div className="text-2xl font-bold">{formatCurrency(summary.totalRevenue)}</div>
               <p className="text-xs text-muted-foreground">
-                {formatCurrency(summary.totalRevenue / margins.length)} avg/order
+                {formatCurrency(summary.totalRevenue / margins.length)} prom/orden
               </p>
             </CardContent>
           </Card>
@@ -147,7 +147,7 @@ export function OrderLaborMarginAnalysis() {
             <CardContent>
               <div className="text-2xl font-bold">{formatCurrency(summary.totalLaborCost)}</div>
               <p className="text-xs text-muted-foreground">
-                {((summary.totalLaborCost / summary.totalRevenue) * 100).toFixed(1)}% of revenue
+                {((summary.totalLaborCost / summary.totalRevenue) * 100).toFixed(1)}% de ingresos
               </p>
             </CardContent>
           </Card>
@@ -160,20 +160,20 @@ export function OrderLaborMarginAnalysis() {
             <CardContent>
               <div className="text-2xl font-bold">{formatCurrency(summary.totalIncentiveCost)}</div>
               <p className="text-xs text-muted-foreground">
-                {((summary.totalIncentiveCost / summary.totalRevenue) * 100).toFixed(1)}% of revenue
+                {((summary.totalIncentiveCost / summary.totalRevenue) * 100).toFixed(1)}% de ingresos
               </p>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Gross Margin</CardTitle>
+              <CardTitle className="text-sm font-medium">Margen bruto</CardTitle>
               <TrendingUp className="h-4 w-4 text-green-600" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{formatCurrency(summary.totalMargin)}</div>
               <p className="text-xs text-muted-foreground">
-                {formatPercentage(avgMarginPercentage)} margin
+                {formatPercentage(avgMarginPercentage)} de margen
               </p>
             </CardContent>
           </Card>

@@ -571,7 +571,7 @@ export function OTManagement({ onOTSelect }: OTManagementProps) {
               borderRadius: 10, padding: '6px 12px',
             }}>
               <div style={{ fontSize: 10, fontWeight: 800, color: '#fca5a5', letterSpacing: '0.07em', marginBottom: urgentOTs.length ? 6 : 0, display: 'flex', alignItems: 'center', gap: 5 }}>
-                ⚡ Fast Lane For Urgent OT's
+                ⚡ Vía Rápida para OT's Urgentes
               </div>
               {urgentOTs.length === 0 ? (
                 <span style={{ fontSize: 8.5, color: 'rgba(255,255,255,0.30)', fontStyle: 'italic' }}>Sin OTs urgentes</span>

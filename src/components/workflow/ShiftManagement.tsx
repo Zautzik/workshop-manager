@@ -7,6 +7,7 @@ import { Factory, Package, Clock, AlertCircle, Info } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useMachines, useOTs } from "@/hooks/use-workflow-queries";
+import { machineStatusLabel, otStatusLabel } from "@/lib/status-labels";
 
 interface ShiftManagementProps {
   onShiftChange: () => void;
@@ -121,8 +122,8 @@ export function ShiftManagement({ onShiftChange }: ShiftManagementProps) {
       <Alert className="bg-blue-500/20 border-blue-500/40">
         <Info className="h-4 w-4" />
         <AlertDescription className="text-white">
-          <strong>How to use:</strong> This Gantt view shows each machine and its currently assigned work order. 
-          OTs are automatically assigned to machines based on their current workflow status. The timeline shows real-time machine utilization.
+          <strong>Cómo usar:</strong> Esta vista Gantt muestra cada máquina y su orden de trabajo asignada actualmente. 
+          Las OTs se asignan automáticamente a las máquinas según su estado de flujo actual. La línea de tiempo muestra la utilización en tiempo real.
         </AlertDescription>
       </Alert>
 
@@ -130,9 +131,9 @@ export function ShiftManagement({ onShiftChange }: ShiftManagementProps) {
         <CardHeader>
           <CardTitle className="text-white flex items-center gap-2">
             <Factory className="w-6 h-6" />
-            Machine Schedule - Gantt View
+            Programación de Máquinas - Vista Gantt
           </CardTitle>
-          <p className="text-sm text-blue-200">Real-time view of machines and their assigned work orders</p>
+          <p className="text-sm text-blue-200">Vista en tiempo real de las máquinas y sus órdenes asignadas</p>
         </CardHeader>
       <CardContent>
         <ScrollArea className="h-[600px] pr-4">
@@ -147,11 +148,11 @@ export function ShiftManagement({ onShiftChange }: ShiftManagementProps) {
                     <Factory className="w-8 h-8 text-blue-300" />
                     <div>
                       <h3 className="text-lg font-bold text-white">{machine.name}</h3>
-                      <p className="text-sm text-blue-200 capitalize">{machine.type} machine</p>
+                      <p className="text-sm text-blue-200 capitalize">{machine.type}</p>
                     </div>
                   </div>
                   <Badge className={`${getStatusColor(machine.status)} text-white`}>
-                    {machine.status}
+                    {machineStatusLabel(machine.status)}
                   </Badge>
                 </div>
 
@@ -169,14 +170,14 @@ export function ShiftManagement({ onShiftChange }: ShiftManagementProps) {
                         </div>
                         <div className="flex items-center gap-3">
                           <Badge className={`${getOTStatusColor(machine.currentOT.status)} text-white text-xs`}>
-                            {machine.currentOT.status.replace('_', ' ')}
+                            {otStatusLabel(machine.currentOT.status)}
                           </Badge>
                           <span className="text-sm text-white/90 font-medium">
-                            {machine.currentOT.quantity} units
+                            {machine.currentOT.quantity} unidades
                           </span>
                           <div className="flex items-center gap-1">
                             <Clock className="w-4 h-4 text-white/70" />
-                            <span className="text-xs text-white/70">In Progress</span>
+                            <span className="text-xs text-white/70">En curso</span>
                           </div>
                         </div>
                       </div>
