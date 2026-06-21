@@ -19,7 +19,7 @@ import {
   UserCheck, Wallet, Network, GraduationCap, HardHat,
   Cpu, AlertCircle, BarChart3, PieChart, DollarSign,
   LayoutDashboard, ClipboardCheck, GitMerge,
-  Bell, Settings, Activity,
+  Bell, Settings, Activity, BadgeCheck, Receipt,
 } from 'lucide-react';
 
 export interface NavLeaf {
@@ -44,26 +44,27 @@ export interface NavGroup {
   items: NavLeaf[];
 }
 
-/** The body system a module belongs to (anthroposophic threefold + viscera). */
-export type OrganSystem = 'ritmo' | 'movimiento' | 'mente' | 'sosten';
+/**
+ * The IoE pillar a module belongs to (Internet of Everything: People · Process ·
+ * Things · Data — bound by Connections). This is the business-credible framing of
+ * the organism systems documented in docs/organism-vital-signs.md.
+ */
+export type OrganSystem = 'people' | 'process' | 'things' | 'data' | 'connections';
 
 export interface SystemMeta {
   key: OrganSystem;
   label: string;
-  /** organ subtitle, e.g. "Corazón" */
+  /** short descriptor shown under the group label on the Living Home */
   organ: string;
 }
 
-/**
- * Display groups for the Living Home, by business domain. (Internally these keys
- * still map to the organism's body systems — see docs/organism-vital-signs.md —
- * but the UI uses business-relevant language.)
- */
+/** Display groups for the Living Home, by IoE pillar. */
 export const SYSTEMS: SystemMeta[] = [
-  { key: 'ritmo',      label: 'Personas',   organ: 'Talento y nómina' },
-  { key: 'movimiento', label: 'Producción', organ: 'Taller y equipos' },
-  { key: 'mente',      label: 'Análisis',   organ: 'KPIs y reportes' },
-  { key: 'sosten',     label: 'Gestión',    organ: 'Sistema y config' },
+  { key: 'people',      label: 'Personas',   organ: 'Talento y captura humana' },
+  { key: 'process',     label: 'Procesos',   organ: 'Producción · calidad · ventas' },
+  { key: 'things',      label: 'Equipos',    organ: 'Máquinas y mantenimiento' },
+  { key: 'data',        label: 'Datos',      organ: 'Analítica y KPIs' },
+  { key: 'connections', label: 'Conexiones', organ: 'Sistema e integraciones' },
 ];
 
 export interface NavModule {
@@ -100,7 +101,7 @@ export const MODULES: NavModule[] = [
     href: '/operaciones',
     subtitle: 'Gestión de órdenes, producción y piso de taller',
     icon: Factory,
-    system: 'movimiento',
+    system: 'process',
     roles: ['admin', 'supervisor', 'manager'],
     dot: 'bg-blue-500',
     activeBg: 'bg-blue-100 dark:bg-blue-500/20',
@@ -137,11 +138,52 @@ export const MODULES: NavModule[] = [
         ],
       },
       {
-        label: 'Comercial & Campo',
-        color: 'from-violet-500/10 to-purple-500/5', border: 'border-violet-500/20', heading: 'text-violet-400',
+        label: 'Captura en Campo',
+        color: 'from-green-500/10 to-emerald-500/5', border: 'border-green-500/20', heading: 'text-green-400',
         items: [
-          { label: 'Clientes', href: '/operaciones/clients',  description: 'CRM, agenda de OTs y seguimiento comercial',    icon: Users,         color: 'bg-violet-500/10 text-violet-400' },
           { label: 'WhatsApp', href: '/operaciones/whatsapp', description: 'Captura de producción en campo en tiempo real', icon: MessageSquare, color: 'bg-green-500/10 text-green-400' },
+        ],
+      },
+    ],
+  },
+  {
+    key: 'calidad',
+    label: 'Calidad',
+    href: '/calidad',
+    subtitle: 'Trazabilidad, control de calidad y cumplimiento FSSC 22000',
+    icon: BadgeCheck,
+    system: 'process',
+    roles: ['admin', 'manager', 'supervisor'],
+    dot: 'bg-rose-500',
+    activeBg: 'bg-rose-100 dark:bg-rose-500/20',
+    activeIcon: 'text-rose-600 dark:text-rose-300',
+    groups: [
+      {
+        label: 'Trazabilidad & Control',
+        color: 'from-rose-500/10 to-pink-500/5', border: 'border-rose-500/20', heading: 'text-rose-400',
+        items: [
+          { label: 'Ciclo de OT', href: '/calidad/trazabilidad', description: 'Lead time, cuellos de botella y recorrido de cada OT', icon: GitMerge, color: 'bg-rose-500/10 text-rose-400' },
+        ],
+      },
+    ],
+  },
+  {
+    key: 'comercial',
+    label: 'Comercial',
+    href: '/comercial',
+    subtitle: 'Clientes, ventas y facturación electrónica',
+    icon: Receipt,
+    system: 'process',
+    roles: ['admin', 'manager', 'supervisor'],
+    dot: 'bg-cyan-500',
+    activeBg: 'bg-cyan-100 dark:bg-cyan-500/20',
+    activeIcon: 'text-cyan-600 dark:text-cyan-300',
+    groups: [
+      {
+        label: 'Clientes & Ventas',
+        color: 'from-cyan-500/10 to-sky-500/5', border: 'border-cyan-500/20', heading: 'text-cyan-400',
+        items: [
+          { label: 'Clientes', href: '/comercial/clientes', description: 'CRM, agenda de OTs y seguimiento comercial', icon: Users, color: 'bg-cyan-500/10 text-cyan-400' },
         ],
       },
     ],
@@ -152,7 +194,7 @@ export const MODULES: NavModule[] = [
     href: '/personas',
     subtitle: 'Empleados, compensación y desarrollo del talento',
     icon: Users,
-    system: 'ritmo',
+    system: 'people',
     roles: ['admin', 'hr_manager', 'supervisor'],
     dot: 'bg-amber-500',
     activeBg: 'bg-amber-100 dark:bg-amber-500/20',
@@ -163,7 +205,6 @@ export const MODULES: NavModule[] = [
         color: 'from-amber-500/10 to-orange-500/5', border: 'border-amber-500/20', heading: 'text-amber-400',
         items: [
           { label: 'Empleados',  href: '/personas/empleados', description: 'Perfiles, contratos y datos de cada persona', icon: Users,     color: 'bg-amber-500/10 text-amber-400' },
-          { label: 'Operarios',  href: '/personas/operarios', description: 'Roster de operarios de planta (legado)',      icon: HardHat,   color: 'bg-orange-500/10 text-orange-400' },
           { label: 'Asistencia', href: '/personas/licencias', description: 'Presencia, licencias y permisos del equipo',  icon: UserCheck, color: 'bg-sky-500/10 text-sky-400' },
         ],
       },
@@ -184,7 +225,7 @@ export const MODULES: NavModule[] = [
     href: '/equipos',
     subtitle: 'Mantenimiento, órdenes de trabajo y gestión de la flota',
     icon: Wrench,
-    system: 'movimiento',
+    system: 'things',
     roles: ['admin', 'technician', 'supervisor', 'manager'],
     dot: 'bg-orange-500',
     activeBg: 'bg-orange-100 dark:bg-orange-500/20',
@@ -216,7 +257,7 @@ export const MODULES: NavModule[] = [
     href: '/analitica',
     subtitle: 'Costos, finanzas, KPIs y reportes del taller',
     icon: TrendingUp,
-    system: 'mente',
+    system: 'data',
     roles: ['admin', 'manager'],
     dot: 'bg-green-500',
     activeBg: 'bg-green-100 dark:bg-green-500/20',
@@ -238,16 +279,7 @@ export const MODULES: NavModule[] = [
           { label: 'Dashboard',    href: '/analitica/dashboard',    description: 'Vista ejecutiva consolidada y KPIs del taller',      icon: LayoutDashboard, color: 'bg-indigo-500/10 text-indigo-400' },
           { label: 'Rentabilidad', href: '/analitica/rentabilidad', description: 'Márgenes, costos estimados vs reales y seguimiento', icon: PieChart,        color: 'bg-violet-500/10 text-violet-400' },
           { label: 'Tendencias',   href: '/analitica/tendencias',   description: 'Tendencias y evolución de métricas del taller',      icon: TrendingUp,      color: 'bg-cyan-500/10 text-cyan-400' },
-        ],
-      },
-      {
-        label: 'Personas & Trazabilidad',
-        color: 'from-teal-500/10 to-violet-500/5', border: 'border-teal-500/20', heading: 'text-teal-400',
-        items: [
-          { label: 'Rendimiento',  href: '/analitica/rendimiento', description: 'Estadísticas y métricas de trabajadores',    icon: ClipboardCheck, color: 'bg-cyan-500/10 text-cyan-400' },
-          { label: 'Ciclo de OT',  href: '/analitica/trazabilidad',description: 'Lead time, cuellos de botella y recorrido de cada OT', icon: GitMerge,    color: 'bg-teal-500/10 text-teal-400' },
-          { label: 'Actividad',    href: '/analitica/actividad',   description: 'Registro de actividad del sistema',          icon: Activity,       color: 'bg-blue-500/10 text-blue-400' },
-          { label: 'Auditoría',    href: '/analitica/auditoria',   description: 'Auditoría del ciclo de las OTs',             icon: ShieldCheck,    color: 'bg-violet-500/10 text-violet-400' },
+          { label: 'Rendimiento',  href: '/analitica/rendimiento',  description: 'Estadísticas y métricas de trabajadores',            icon: ClipboardCheck,  color: 'bg-teal-500/10 text-teal-400' },
         ],
       },
     ],
@@ -258,7 +290,7 @@ export const MODULES: NavModule[] = [
     href: '/administracion',
     subtitle: 'Usuarios, integraciones y configuración del sistema',
     icon: ShieldCheck,
-    system: 'sosten',
+    system: 'connections',
     roles: ['admin'],
     dot: 'bg-violet-500',
     activeBg: 'bg-violet-100 dark:bg-violet-500/20',

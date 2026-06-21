@@ -112,15 +112,24 @@ const nextConfig = {
 			{ source: '/analitica/margenes',   destination: '/analitica/rentabilidad',                 permanent: false },
 			{ source: '/analitica/costos-ot',  destination: '/analitica/rentabilidad?tab=costos',      permanent: false },
 			{ source: '/analitica/ots',        destination: '/analitica/rentabilidad?tab=seguimiento', permanent: false },
+
+			// ── 7-module restructure (IoE): Calidad & Comercial split out; duplicate merges ──
+			{ source: '/analitica/trazabilidad',       destination: '/calidad/trazabilidad',   permanent: false },
+			{ source: '/analitica/actividad',          destination: '/calidad/trazabilidad',   permanent: false }, // weak feed → Ciclo de OT
+			{ source: '/analitica/auditoria',          destination: '/calidad/trazabilidad',   permanent: false }, // redundant → Ciclo de OT
+			{ source: '/operaciones/clients',          destination: '/comercial/clientes',     permanent: false },
+			{ source: '/personas/operarios',           destination: '/personas/empleados',     permanent: false }, // dup component merged
+			{ source: '/operaciones/warehouse',        destination: '/operaciones/inventario', permanent: false }, // dup of Inventario
+			{ source: '/operaciones/planta-integrada', destination: '/operaciones/planta',     permanent: false }, // dup of Planta
 			{ source: '/admin/overview',       destination: '/analitica/dashboard',    permanent: false },
 			{ source: '/manager',              destination: '/analitica',              permanent: false },
 			{ source: '/manager/kpis',         destination: '/analitica/dashboard',    permanent: false }, // dup of Dashboard
 			{ source: '/manager/costos',       destination: '/analitica/rentabilidad?tab=costos', permanent: false }, // dup of Costo por OT
 			{ source: '/manager/trabajadores', destination: '/analitica/rendimiento',  permanent: false },
-			{ source: '/manager/trazabilidad', destination: '/analitica/trazabilidad', permanent: false },
+			{ source: '/manager/trazabilidad', destination: '/calidad/trazabilidad',   permanent: false },
 			{ source: '/manager/tendencias',   destination: '/analitica/tendencias',   permanent: false },
-			{ source: '/manager/actividad',    destination: '/analitica/actividad',    permanent: false },
-			{ source: '/manager/auditoria',    destination: '/analitica/auditoria',    permanent: false },
+			{ source: '/manager/actividad',    destination: '/calidad/trazabilidad',   permanent: false },
+			{ source: '/manager/auditoria',    destination: '/calidad/trazabilidad',   permanent: false },
 
 			// ── Operaciones consolidation (/workflow → /operaciones; abastecimiento pulled from /admin) ──
 			{ source: '/workflow',           destination: '/operaciones',             permanent: false },
@@ -141,7 +150,7 @@ const nextConfig = {
 			// ── Administración (/admin → /administracion). Specific /admin/* relocations
 			// above MUST precede this catch-all (Next matches top-to-bottom). ──
 			{ source: '/admin/training',     destination: '/personas/capacitacion',   permanent: false },
-			{ source: '/admin/workers',      destination: '/personas/operarios',      permanent: false },
+			{ source: '/admin/workers',      destination: '/personas/empleados',      permanent: false },
 			{ source: '/admin',              destination: '/administracion',          permanent: false },
 			{ source: '/admin/:path*',       destination: '/administracion/:path*',   permanent: false },
 		];

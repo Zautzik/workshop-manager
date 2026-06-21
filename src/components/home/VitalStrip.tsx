@@ -78,11 +78,11 @@ export default function VitalStrip() {
 
   if (isError) return null; // graceful: roles without access simply don't see it
   if (isLoading || !data) {
-    return <Skeleton className="h-24 w-full max-w-5xl rounded-xl" />;
+    return <Skeleton className="h-24 w-full max-w-6xl rounded-xl" />;
   }
 
   return (
-    <Card className="w-full max-w-5xl px-4 py-3">
+    <Card className="w-full max-w-6xl px-4 py-3">
       <div className="flex items-center gap-4 overflow-x-auto">
         <HealthBadge score={data.health.score} label={data.health.label} />
         <div className="flex items-stretch gap-3">

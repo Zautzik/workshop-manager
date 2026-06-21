@@ -2,9 +2,9 @@
 import ProtectedRoute from '@/components/ProtectedRoute';
 import OTLifecycleReport from '@/components/manager/OTLifecycleReport';
 
-export default function AnaliticaTrazabilidadPage() {
+export default function CalidadTrazabilidadPage() {
   return (
-    <ProtectedRoute allowedRoles={['admin', 'manager']}>
+    <ProtectedRoute allowedRoles={['admin', 'manager', 'supervisor']}>
       <div className="p-6 space-y-6">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Ciclo de OT</h1>

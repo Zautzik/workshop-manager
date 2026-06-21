@@ -14,6 +14,8 @@ import {
   Users,
   Wrench,
   ShieldCheck,
+  BadgeCheck,
+  Receipt,
 } from 'lucide-react';
 
 interface QuickAction {
@@ -38,18 +40,40 @@ const quickActions: QuickAction[] = [
     description: 'Kanban, turnos, Gantt y OTs en tiempo real',
     icon: Factory,
     href: '/operaciones',
-    system: 'movimiento',
+    system: 'process',
     rgb: '59 130 246',
     textCls: 'text-blue-100',
     lightTextCls: 'text-blue-900',
     roles: ['admin', 'supervisor', 'manager', 'technician'],
   },
   {
+    label: 'Calidad',
+    description: 'Trazabilidad, control de calidad y FSSC 22000',
+    icon: BadgeCheck,
+    href: '/calidad',
+    system: 'process',
+    rgb: '244 63 94',
+    textCls: 'text-rose-100',
+    lightTextCls: 'text-rose-900',
+    roles: ['admin', 'manager', 'supervisor'],
+  },
+  {
+    label: 'Comercial',
+    description: 'Clientes, ventas y facturación electrónica',
+    icon: Receipt,
+    href: '/comercial',
+    system: 'process',
+    rgb: '6 182 212',
+    textCls: 'text-cyan-100',
+    lightTextCls: 'text-cyan-900',
+    roles: ['admin', 'manager', 'supervisor'],
+  },
+  {
     label: 'Personas',
     description: 'Empleados, nómina, habilidades y contratos',
     icon: Users,
     href: '/personas',
-    system: 'ritmo',
+    system: 'people',
     rgb: '245 158 11',
     textCls: 'text-amber-100',
     lightTextCls: 'text-amber-900',
@@ -60,7 +84,7 @@ const quickActions: QuickAction[] = [
     description: 'Mantenimiento, predictivo, checklists y QR',
     icon: Wrench,
     href: '/equipos',
-    system: 'movimiento',
+    system: 'things',
     rgb: '249 115 22',
     textCls: 'text-orange-100',
     lightTextCls: 'text-orange-900',
@@ -71,7 +95,7 @@ const quickActions: QuickAction[] = [
     description: 'Costos, KPIs, trazabilidad y reportes del taller',
     icon: TrendingUp,
     href: '/analitica',
-    system: 'mente',
+    system: 'data',
     rgb: '34 197 94',
     textCls: 'text-green-100',
     lightTextCls: 'text-green-900',
@@ -82,7 +106,7 @@ const quickActions: QuickAction[] = [
     description: 'Usuarios, integraciones y configuración',
     icon: ShieldCheck,
     href: '/administracion',
-    system: 'sosten',
+    system: 'connections',
     rgb: '139 92 246',
     textCls: 'text-violet-100',
     lightTextCls: 'text-violet-900',
@@ -292,7 +316,7 @@ export default function HomeDashboard() {
       <VitalStrip />
 
       {/* Organ honeycomb grouped by body system (threefold + viscera) */}
-      <div className="flex flex-wrap justify-center items-start gap-x-5 gap-y-8">
+      <div className="flex flex-wrap justify-center items-stretch gap-x-5 gap-y-8">
         {SYSTEMS.map((sys) => {
           const items = visibleActions.filter((a) => a.system === sys.key);
           if (!items.length) return null;
@@ -302,7 +326,7 @@ export default function HomeDashboard() {
                 <p className="text-xs font-bold uppercase tracking-widest text-foreground/70">{sys.label}</p>
                 <p className="text-[10px] text-muted-foreground">{sys.organ}</p>
               </div>
-              <div className="flex flex-col" style={{ gap: GAP }}>
+              <div className="flex flex-1 flex-col justify-center" style={{ gap: GAP }}>
                 {items.map((action) => (
                   <HexCell
                     key={action.href}
