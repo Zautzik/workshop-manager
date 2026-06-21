@@ -7,11 +7,14 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
   Search, FileCheck, ShieldCheck, ShieldAlert, Package, Image as ImageIcon,
-  ClipboardCheck, Printer, AlertTriangle, CheckCircle2,
+  ClipboardCheck, Printer, AlertTriangle, CheckCircle2, Upload, Check, X,
 } from 'lucide-react';
 import { format, parseISO, isValid } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/contexts/AuthContext';
 import { useOTs } from '@/hooks/use-operations-queries';
 import { useOTDossier, type CertStatus } from '@/hooks/use-ot-dossier';
 import { otStatusLabel, otStatusColor } from '@/lib/status-labels';
@@ -39,6 +42,52 @@ export default function ExpedienteReport() {
   const [search, setSearch] = useState('');
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const { data: dossier, isLoading } = useOTDossier(selectedId);
+  const { role } = useAuth();
+  const qc = useQueryClient();
+  const [busy, setBusy] = useState(false);
+  const canApprove = role === 'admin' || role === 'supervisor';
+  const refetch = () => qc.invalidateQueries({ queryKey: ['ot-dossier', selectedId] });
+
+  // Industry 6.0 output gate: attach the deliverable photo, supervisor signs off.
+  const uploadEvidence = async (file: File) => {
+    if (!selectedId) return;
+    setBusy(true);
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      fd.append('ot_id', selectedId);
+      const res = await fetch('/api/attachments/upload', { method: 'POST', body: fd, credentials: 'include' });
+      if (!res.ok) throw new Error();
+      toast.success('Evidencia adjuntada');
+      refetch();
+    } catch { toast.error('No se pudo adjuntar la evidencia'); }
+    finally { setBusy(false); }
+  };
+
+  const review = async (action: 'approve' | 'reject', comments?: string) => {
+    if (!selectedId) return;
+    setBusy(true);
+    try {
+      const res = await fetch(`/api/ots/${selectedId}/approval`, {
+        method: 'POST', credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action, comments: comments ?? null }),
+      });
+      if (!res.ok) throw new Error();
+      toast.success(action === 'approve' ? 'Entregable aprobado' : 'Entregable rechazado');
+      refetch();
+    } catch { toast.error('No se pudo registrar la revisión'); }
+    finally { setBusy(false); }
+  };
+
+  const viewAttachment = async (attId: string) => {
+    try {
+      const res = await fetch(`/api/attachments/${attId}/download`, { credentials: 'include' });
+      if (!res.ok) throw new Error();
+      const { download_url } = await res.json();
+      window.open(download_url, '_blank', 'noopener');
+    } catch { toast.error('No se pudo abrir el archivo'); }
+  };
 
   const suggestions = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -197,6 +246,15 @@ export default function ExpedienteReport() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
+                <label className={cn('mb-3 inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm cursor-pointer hover:bg-muted/60 print:hidden', busy && 'opacity-50 pointer-events-none')}>
+                  <input
+                    type="file"
+                    accept="image/*,application/pdf"
+                    className="hidden"
+                    onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadEvidence(f); e.currentTarget.value = ''; }}
+                  />
+                  <Upload className="h-3.5 w-3.5" /> Adjuntar evidencia
+                </label>
                 {dossier.attachments.length === 0 ? (
                   <p className="text-sm text-muted-foreground py-2">Sin fotos del entregable.</p>
                 ) : (
@@ -204,8 +262,9 @@ export default function ExpedienteReport() {
                     {dossier.attachments.map((a) => (
                       <li key={a.id} className="flex items-center gap-2 text-sm">
                         <ImageIcon className="h-4 w-4 text-muted-foreground shrink-0" />
-                        <span className="truncate">{a.filename}</span>
-                        <span className="ml-auto text-xs text-muted-foreground">{fmtDate(a.created_at)}</span>
+                        <span className="truncate flex-1">{a.filename}</span>
+                        <button onClick={() => viewAttachment(a.id)} className="text-xs text-primary hover:underline print:hidden">Ver</button>
+                        <span className="text-xs text-muted-foreground">{fmtDate(a.created_at)}</span>
                       </li>
                     ))}
                   </ul>
@@ -221,6 +280,19 @@ export default function ExpedienteReport() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
+                {canApprove && (
+                  <div className="flex flex-wrap gap-2 mb-3 print:hidden">
+                    <Button size="sm" className="gap-1.5" disabled={busy} onClick={() => review('approve')}>
+                      <Check className="h-3.5 w-3.5" /> Aprobar
+                    </Button>
+                    <Button
+                      size="sm" variant="outline" className="gap-1.5" disabled={busy}
+                      onClick={() => { const c = window.prompt('Motivo del rechazo (opcional):') ?? undefined; review('reject', c); }}
+                    >
+                      <X className="h-3.5 w-3.5" /> Rechazar
+                    </Button>
+                  </div>
+                )}
                 {dossier.approvals.length === 0 ? (
                   <p className="text-sm text-muted-foreground py-2">Sin revisiones registradas.</p>
                 ) : (
