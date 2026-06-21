@@ -164,6 +164,7 @@ export const MODULES: NavModule[] = [
         items: [
           { label: 'Expediente',      href: '/calidad/expediente',   description: 'Trazabilidad documental FSSC 22000 por orden',        icon: FileCheck,   color: 'bg-rose-500/10 text-rose-400' },
           { label: 'Simulacro Retiro',href: '/calidad/recall',       description: 'Mock recall: del lote a las OTs y clientes afectados', icon: AlertCircle, color: 'bg-amber-500/10 text-amber-400' },
+          { label: 'Certificaciones', href: '/calidad/certificaciones', description: 'Registro FSSC de certificados de insumos y vencimientos', icon: BadgeCheck, color: 'bg-emerald-500/10 text-emerald-400' },
           { label: 'Ciclo de OT',     href: '/calidad/trazabilidad', description: 'Lead time, cuellos de botella y recorrido de cada OT', icon: GitMerge,    color: 'bg-pink-500/10 text-pink-400' },
           { label: 'Retención',       href: '/calidad/retencion',    description: 'Conservación de registros FSSC 22000 (5 años)',        icon: Archive,     color: 'bg-violet-500/10 text-violet-400' },
         ],
