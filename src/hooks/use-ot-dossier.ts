@@ -31,7 +31,7 @@ export interface DossierResponse {
     description: string | null;
   };
   materials: DossierMaterial[];
-  attachments: Array<{ id: string; filename: string; storage_path: string; mime_type: string | null; created_at: string }>;
+  attachments: Array<{ id: string; filename: string; storage_path: string; mime_type: string | null; created_at: string; url: string | null }>;
   approvals: Array<{ id: string; status: string; comments: string | null; resolved_at: string | null; created_at: string }>;
   compliance: {
     compliant: boolean;

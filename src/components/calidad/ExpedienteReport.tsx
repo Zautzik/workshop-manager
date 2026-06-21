@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
   Search, FileCheck, ShieldCheck, ShieldAlert, Package, Image as ImageIcon,
-  ClipboardCheck, Printer, AlertTriangle, CheckCircle2, Upload, Check, X,
+  ClipboardCheck, Printer, AlertTriangle, CheckCircle2, Upload, Check, X, FileText,
 } from 'lucide-react';
 import { format, parseISO, isValid } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -258,16 +258,42 @@ export default function ExpedienteReport() {
                 {dossier.attachments.length === 0 ? (
                   <p className="text-sm text-muted-foreground py-2">Sin fotos del entregable.</p>
                 ) : (
-                  <ul className="space-y-1.5">
-                    {dossier.attachments.map((a) => (
-                      <li key={a.id} className="flex items-center gap-2 text-sm">
-                        <ImageIcon className="h-4 w-4 text-muted-foreground shrink-0" />
-                        <span className="truncate flex-1">{a.filename}</span>
-                        <button onClick={() => viewAttachment(a.id)} className="text-xs text-primary hover:underline print:hidden">Ver</button>
-                        <span className="text-xs text-muted-foreground">{fmtDate(a.created_at)}</span>
-                      </li>
-                    ))}
-                  </ul>
+                  <div className="space-y-3">
+                    {dossier.attachments.some((a) => (a.mime_type ?? '').startsWith('image/')) && (
+                      <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                        {dossier.attachments
+                          .filter((a) => (a.mime_type ?? '').startsWith('image/'))
+                          .map((a) => (
+                            <button
+                              key={a.id}
+                              onClick={() => viewAttachment(a.id)}
+                              title={a.filename}
+                              className="group relative aspect-square overflow-hidden rounded-lg border bg-muted/30"
+                            >
+                              {a.url ? (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img src={a.url} alt={a.filename} className="h-full w-full object-cover transition-transform group-hover:scale-105" />
+                              ) : (
+                                <div className="flex h-full items-center justify-center"><ImageIcon className="h-5 w-5 text-muted-foreground" /></div>
+                              )}
+                            </button>
+                          ))}
+                      </div>
+                    )}
+                    {dossier.attachments.filter((a) => !(a.mime_type ?? '').startsWith('image/')).length > 0 && (
+                      <ul className="space-y-1.5">
+                        {dossier.attachments
+                          .filter((a) => !(a.mime_type ?? '').startsWith('image/'))
+                          .map((a) => (
+                            <li key={a.id} className="flex items-center gap-2 text-sm">
+                              <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
+                              <span className="truncate flex-1">{a.filename}</span>
+                              <button onClick={() => viewAttachment(a.id)} className="text-xs text-primary hover:underline print:hidden">Ver</button>
+                            </li>
+                          ))}
+                      </ul>
+                    )}
+                  </div>
                 )}
               </CardContent>
             </Card>

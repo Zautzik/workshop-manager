@@ -105,6 +105,17 @@ export async function GET(
     const attachments = (attRes.data ?? []) as Array<{ id: string; filename: string; storage_path: string; mime_type: string | null; created_at: string }>;
     const approvals = (apprRes.data ?? []) as Array<{ id: string; status: string; comments: string | null; resolved_at: string | null; created_at: string }>;
 
+    // Short-lived signed URLs for image attachments so the dossier shows thumbnails.
+    const imagePaths = attachments.filter((a) => (a.mime_type ?? '').startsWith('image/')).map((a) => a.storage_path);
+    const signedByPath = new Map<string, string>();
+    if (imagePaths.length > 0) {
+      const { data: signed } = await supabaseAdmin.storage.from('ot-attachments').createSignedUrls(imagePaths, 600);
+      for (const s of signed ?? []) {
+        if (s.signedUrl && s.path) signedByPath.set(s.path, s.signedUrl);
+      }
+    }
+    const attachmentsOut = attachments.map((a) => ({ ...a, url: signedByPath.get(a.storage_path) ?? null }));
+
     // ── Compliance verdict ──
     const certIssues = materials.filter((m) => m.cert_status === 'missing' || m.cert_status === 'expired' || m.cert_status === 'unverified');
     const photoCount = attachments.filter((a) => (a.mime_type ?? '').startsWith('image/')).length || attachments.length;
@@ -119,7 +130,7 @@ export async function GET(
     return NextResponse.json({
       ot: otRes.data,
       materials,
-      attachments,
+      attachments: attachmentsOut,
       approvals,
       compliance: {
         compliant: reasons.length === 0,
