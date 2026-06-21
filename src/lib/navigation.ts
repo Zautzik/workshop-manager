@@ -44,12 +44,36 @@ export interface NavGroup {
   items: NavLeaf[];
 }
 
+/** The body system a module belongs to (anthroposophic threefold + viscera). */
+export type OrganSystem = 'ritmo' | 'movimiento' | 'mente' | 'sosten';
+
+export interface SystemMeta {
+  key: OrganSystem;
+  label: string;
+  /** organ subtitle, e.g. "Corazón" */
+  organ: string;
+}
+
+/**
+ * Display groups for the Living Home, by business domain. (Internally these keys
+ * still map to the organism's body systems — see docs/organism-vital-signs.md —
+ * but the UI uses business-relevant language.)
+ */
+export const SYSTEMS: SystemMeta[] = [
+  { key: 'ritmo',      label: 'Personas',   organ: 'Talento y nómina' },
+  { key: 'movimiento', label: 'Producción', organ: 'Taller y equipos' },
+  { key: 'mente',      label: 'Análisis',   organ: 'KPIs y reportes' },
+  { key: 'sosten',     label: 'Gestión',    organ: 'Sistema y config' },
+];
+
 export interface NavModule {
   key: string;
   label: string;
   href: string;
   subtitle: string;
   icon: React.ElementType;
+  /** which body system this module is an organ of */
+  system: OrganSystem;
   roles: AppRole[];
   /** sidebar styling */
   dot: string;
@@ -76,6 +100,7 @@ export const MODULES: NavModule[] = [
     href: '/operaciones',
     subtitle: 'Gestión de órdenes, producción y piso de taller',
     icon: Factory,
+    system: 'movimiento',
     roles: ['admin', 'supervisor', 'manager'],
     dot: 'bg-blue-500',
     activeBg: 'bg-blue-100 dark:bg-blue-500/20',
@@ -87,20 +112,19 @@ export const MODULES: NavModule[] = [
         items: [
           { label: 'Tablero',     href: '/operaciones/kanban',             description: 'Pipeline y estado en tiempo real de todas las OTs', icon: ClipboardList,   color: 'bg-cyan-500/10 text-cyan-400' },
           { label: 'En Proceso',  href: '/operaciones/ordenes-en-proceso', description: 'Órdenes activas en producción',                     icon: ClipboardCheck,  color: 'bg-sky-500/10 text-sky-400' },
-          { label: 'Cronograma',  href: '/operaciones/gantt',              description: 'Línea de tiempo, carga semanal y planificación',    icon: GanttChart,      color: 'bg-violet-500/10 text-violet-400' },
+          { label: 'Cronograma',   href: '/operaciones/gantt',              description: 'Línea de tiempo, carga semanal y planificación',    icon: GanttChart,      color: 'bg-violet-500/10 text-violet-400' },
+          { label: 'Prog. Máquinas',href: '/operaciones/shifts',           description: 'Gantt de máquinas y sus OTs asignadas',             icon: Cpu,             color: 'bg-rose-500/10 text-rose-400' },
           { label: 'Hoja de Prod.',href: '/operaciones/hoja-produccion',   description: 'Hoja de trabajo de producción',                     icon: FileSpreadsheet, color: 'bg-fuchsia-500/10 text-fuchsia-400' },
-          { label: 'Archivo OT',  href: '/operaciones/production',          description: 'Archivo histórico de órdenes de producción',        icon: Archive,         color: 'bg-teal-500/10 text-teal-400' },
+          { label: 'Archivo OT',   href: '/operaciones/production',         description: 'Archivo histórico de órdenes de producción',        icon: Archive,         color: 'bg-teal-500/10 text-teal-400' },
         ],
       },
       {
-        label: 'Piso & Turnos',
+        label: 'Piso & Planificación',
         color: 'from-emerald-500/10 to-teal-500/5', border: 'border-emerald-500/20', heading: 'text-emerald-400',
         items: [
-          { label: 'Modo Planta',  href: '/operaciones/floor',        description: 'Pantalla de piso a pantalla completa',         icon: MonitorPlay, color: 'bg-emerald-500/10 text-emerald-400' },
-          { label: 'Planta',       href: '/operaciones/planta',       description: 'Estaciones y asignación de operarios',         icon: Factory,     color: 'bg-emerald-500/10 text-emerald-400' },
-          { label: 'Turnos',       href: '/operaciones/shifts',       description: 'Programación de turnos y máquinas activas',     icon: Clock,       color: 'bg-amber-500/10 text-amber-400' },
-          { label: 'Calendario',   href: '/operaciones/calendar',     description: 'Vista de calendario de OTs',                    icon: Calendar,    color: 'bg-sky-500/10 text-sky-400' },
-          { label: 'Plan Semanal', href: '/operaciones/plan-semanal', description: 'Planificación de la semana',                    icon: CalendarRange, color: 'bg-indigo-500/10 text-indigo-400' },
+          { label: 'Modo Planta',   href: '/operaciones/floor',    description: 'Pantalla de piso a pantalla completa',           icon: MonitorPlay,   color: 'bg-emerald-500/10 text-emerald-400' },
+          { label: 'Planta',        href: '/operaciones/planta',   description: 'Estaciones y asignación de operarios',           icon: Factory,       color: 'bg-emerald-500/10 text-emerald-400' },
+          { label: 'Planificación', href: '/operaciones/calendar', description: 'Calendario de vencimientos y plan semanal por máquina', icon: CalendarRange, color: 'bg-sky-500/10 text-sky-400' },
         ],
       },
       {
@@ -128,6 +152,7 @@ export const MODULES: NavModule[] = [
     href: '/personas',
     subtitle: 'Empleados, compensación y desarrollo del talento',
     icon: Users,
+    system: 'ritmo',
     roles: ['admin', 'hr_manager', 'supervisor'],
     dot: 'bg-amber-500',
     activeBg: 'bg-amber-100 dark:bg-amber-500/20',
@@ -159,6 +184,7 @@ export const MODULES: NavModule[] = [
     href: '/equipos',
     subtitle: 'Mantenimiento, órdenes de trabajo y gestión de la flota',
     icon: Wrench,
+    system: 'movimiento',
     roles: ['admin', 'technician', 'supervisor', 'manager'],
     dot: 'bg-orange-500',
     activeBg: 'bg-orange-100 dark:bg-orange-500/20',
@@ -190,6 +216,7 @@ export const MODULES: NavModule[] = [
     href: '/analitica',
     subtitle: 'Costos, finanzas, KPIs y reportes del taller',
     icon: TrendingUp,
+    system: 'mente',
     roles: ['admin', 'manager'],
     dot: 'bg-green-500',
     activeBg: 'bg-green-100 dark:bg-green-500/20',
@@ -231,6 +258,7 @@ export const MODULES: NavModule[] = [
     href: '/administracion',
     subtitle: 'Usuarios, integraciones y configuración del sistema',
     icon: ShieldCheck,
+    system: 'sosten',
     roles: ['admin'],
     dot: 'bg-violet-500',
     activeBg: 'bg-violet-100 dark:bg-violet-500/20',
@@ -259,4 +287,43 @@ export function getModule(key: string): NavModule | undefined {
 /** Filter a role to the modules it can see. */
 export function modulesForRole(role: AppRole | null | undefined): NavModule[] {
   return MODULES.filter((m) => !role || m.roles.includes(role));
+}
+
+/** A nav leaf flattened out of its group, carrying its parent module context. */
+export interface FlatNavLeaf extends NavLeaf {
+  moduleKey: string;
+  moduleLabel: string;
+  moduleIcon: React.ElementType;
+}
+
+/**
+ * Every section (leaf) across all modules, flattened — optionally filtered to
+ * the ones a role can reach. Used by the home quick-links picker.
+ */
+export function getAllNavLeaves(role?: AppRole | null): FlatNavLeaf[] {
+  const out: FlatNavLeaf[] = [];
+  for (const m of MODULES) {
+    if (role && !m.roles.includes(role)) continue;
+    for (const g of m.groups) {
+      for (const it of g.items) {
+        if (role && it.roles && !it.roles.includes(role)) continue;
+        out.push({ ...it, moduleKey: m.key, moduleLabel: m.label, moduleIcon: m.icon });
+      }
+    }
+  }
+  return out;
+}
+
+/** Resolve a single leaf by its href (ignores role). */
+export function findNavLeaf(href: string): FlatNavLeaf | undefined {
+  for (const m of MODULES) {
+    for (const g of m.groups) {
+      for (const it of g.items) {
+        if (it.href === href) {
+          return { ...it, moduleKey: m.key, moduleLabel: m.label, moduleIcon: m.icon };
+        }
+      }
+    }
+  }
+  return undefined;
 }

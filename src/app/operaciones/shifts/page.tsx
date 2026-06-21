@@ -9,8 +9,8 @@ export default function ShiftsPage() {
     <ProtectedRoute allowedRoles={['admin', 'supervisor', 'manager']}>
       <div className="p-6 space-y-6">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Turnos</h1>
-          <p className="text-sm text-muted-foreground mt-1">Asignación de turnos y máquinas activas</p>
+          <h1 className="text-2xl font-bold text-foreground">Programación de Máquinas</h1>
+          <p className="text-sm text-muted-foreground mt-1">Gantt de máquinas y sus órdenes de trabajo asignadas</p>
         </div>
         <ShiftManagement onShiftChange={() => queryClient.invalidateQueries()} />
       </div>
