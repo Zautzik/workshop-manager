@@ -20,7 +20,7 @@ export interface VitalsResponse {
     agni: Vital & { pending: number };
     carga: Vital & { running: number; total: number };
     reflejos: Vital;
-    toxinas: Vital & { unmappedAssignments: number; orphanWorkstations: number; staleMachines: number };
+    toxinas: Vital & { unmappedAssignments: number; orphanWorkstations: number; staleMachines: number; certIssues: number };
     humano: Vital & { activeOperators: number };
   };
 }

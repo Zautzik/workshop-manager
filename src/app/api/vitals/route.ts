@@ -29,6 +29,7 @@ export async function GET(_req: NextRequest) {
 
   const [
     employeesRes, assignmentsRes, whatsappRes, machinesRes, workstationsRes, notificationsRes,
+    lotsRes, itemsRes,
   ] = await Promise.allSettled([
     supabaseAdmin.from('employees').select('id, worker_legacy_id'),
     supabaseAdmin.from('worker_assignments').select('employee_id, worker_id, date').gte('date', since30Date).limit(8000),
@@ -36,6 +37,8 @@ export async function GET(_req: NextRequest) {
     supabaseAdmin.from('machines').select('status, updated_at'),
     supabaseAdmin.from('workstations').select('machine_id'),
     supabaseAdmin.from('notifications').select('created_at').gte('created_at', new Date(Date.now() - 7 * DAY).toISOString()).limit(2000),
+    supabaseAdmin.from('inventory_lots').select('certification_code, certification_expires_on, quantity_available, item_id').limit(5000),
+    supabaseAdmin.from('inventory_items').select('id, is_certification_required'),
   ]);
 
   const val = <T,>(r: PromiseSettledResult<{ data: T[] | null }>): T[] =>
@@ -47,6 +50,8 @@ export async function GET(_req: NextRequest) {
   const machines = val<{ status: string | null; updated_at: string | null }>(machinesRes);
   const workstations = val<{ machine_id: string | null }>(workstationsRes);
   const notifications = val<{ created_at: string }>(notificationsRes);
+  const lots = val<{ certification_code: string | null; certification_expires_on: string | null; quantity_available: number | null; item_id: string }>(lotsRes);
+  const items = val<{ id: string; is_certification_required: boolean | null }>(itemsRes);
 
   // ── 🩸 Circulación — artery patency: do assignments resolve to an employee? ──
   const empIds = new Set(employees.map((e) => e.id));
@@ -89,9 +94,18 @@ export async function GET(_req: NextRequest) {
   // ── ⚡ Reflejos — signals fired in the last 7 days ──
   const reflejos7 = notifications.length;
 
+  // ── 🥬 Cert risk — FSSC 22000: in-stock food-grade lots with missing/expired cert ──
+  const certRequiredItems = new Set(items.filter((i) => i.is_certification_required).map((i) => i.id));
+  const certIssues = lots.filter((l) => {
+    if (!certRequiredItems.has(l.item_id)) return false;
+    if (Number(l.quantity_available ?? 0) <= 0) return false; // only stock that could still be consumed
+    if (!l.certification_code) return true; // missing cert
+    return !!l.certification_expires_on && new Date(l.certification_expires_on).getTime() < Date.now(); // expired
+  }).length;
+
   // ── ☠️ Toxinas — ama accumulating (things to clear) ──
   const orphanWorkstations = workstations.filter((w) => !w.machine_id).length;
-  const toxins = unmappedAssign + orphanWorkstations + staleMachines;
+  const toxins = unmappedAssign + orphanWorkstations + staleMachines + certIssues;
 
   // ── Composite health score ──
   const reflexScore = reflejos7 > 0 ? 100 : 0;
@@ -113,7 +127,7 @@ export async function GET(_req: NextRequest) {
       agni: { value: agniPct, unit: '%', pending: waPending, status: status(agniPct) },
       carga: { value: cargaPct, unit: '%', running: runningMachines, total: totalMachines, status: status(cargaPct, 60, 30) },
       reflejos: { value: reflejos7, unit: '/7d', status: reflejos7 > 0 ? 'flowing' : 'stagnant' },
-      toxinas: { value: toxins, unmappedAssignments: unmappedAssign, orphanWorkstations, staleMachines, status: toxins === 0 ? 'flowing' : toxins <= 5 ? 'stagnant' : 'clotted' },
+      toxinas: { value: toxins, unmappedAssignments: unmappedAssign, orphanWorkstations, staleMachines, certIssues, status: toxins === 0 ? 'flowing' : toxins <= 5 ? 'stagnant' : 'clotted' },
       humano: { value: capturesToday, unit: 'hoy', series: humanSeries, activeOperators: activeOperators7, status: capturesToday > 0 ? 'flowing' : 'stagnant' },
     },
   });

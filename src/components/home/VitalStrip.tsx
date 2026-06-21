@@ -55,7 +55,11 @@ const DEFS: VitalDef[] = [
   { key: 'reflejos', label: 'Alertas', icon: Zap,
     fmt: (v) => `${v.value}`, sub: () => '7 días' },
   { key: 'toxinas', label: 'Pendientes', icon: AlertTriangle,
-    fmt: (v) => `${v.value}`, sub: (v) => { const t = v as { unmappedAssignments: number }; return t.unmappedAssignments ? `${t.unmappedAssignments} sin mapear` : 'al día'; } },
+    fmt: (v) => `${v.value}`, sub: (v) => {
+      const t = v as { unmappedAssignments: number; certIssues?: number };
+      if (t.certIssues) return `${t.certIssues} cert. FSSC vencidos`;
+      return t.unmappedAssignments ? `${t.unmappedAssignments} sin mapear` : 'al día';
+    } },
 ];
 
 function HealthBadge({ score, label }: { score: number; label: string }) {
