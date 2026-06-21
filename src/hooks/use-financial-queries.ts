@@ -250,15 +250,18 @@ export function useMonthlyPayroll(year: number, month: number) {
         rowsByEmployee.set(employeeId, existing);
       });
 
+      // Resilient: skip what can't be mapped/priced rather than aborting the
+      // whole payroll. The clot-fix migration backfills employee_id so these
+      // become rare; the circulation vital surfaces any that remain.
       if (unresolvedAssignments.length > 0) {
-        throw new Error(
-          `Payroll calculation aborted: ${unresolvedAssignments.length} assignment(s) could not be mapped to an employee. Example: ${unresolvedAssignments[0]}`
+        console.warn(
+          `Payroll: skipped ${unresolvedAssignments.length} assignment(s) not mapped to an employee. Example: ${unresolvedAssignments[0]}`
         );
       }
 
       if (assignmentsMissingRate.length > 0) {
-        throw new Error(
-          `Payroll calculation aborted: ${assignmentsMissingRate.length} assignment(s) have no active compensation rate. Example: ${assignmentsMissingRate[0]}`
+        console.warn(
+          `Payroll: skipped ${assignmentsMissingRate.length} assignment(s) with no active compensation rate. Example: ${assignmentsMissingRate[0]}`
         );
       }
 
@@ -619,15 +622,16 @@ export function useOrderLaborMargin(otId?: string, startDate?: string, endDate?:
         rowsByOt.set(orderId, existing);
       });
 
+      // Resilient: skip unmappable/unpriced assignments instead of aborting.
       if (unresolvedAssignments.length > 0) {
-        throw new Error(
-          `Order labor margin aborted: ${unresolvedAssignments.length} assignment(s) could not be mapped to an employee. Example: ${unresolvedAssignments[0]}`
+        console.warn(
+          `Order labor margin: skipped ${unresolvedAssignments.length} assignment(s) not mapped to an employee. Example: ${unresolvedAssignments[0]}`
         );
       }
 
       if (assignmentsMissingRate.length > 0) {
-        throw new Error(
-          `Order labor margin aborted: ${assignmentsMissingRate.length} assignment(s) have no active compensation rate. Example: ${assignmentsMissingRate[0]}`
+        console.warn(
+          `Order labor margin: skipped ${assignmentsMissingRate.length} assignment(s) with no active compensation rate. Example: ${assignmentsMissingRate[0]}`
         );
       }
 
