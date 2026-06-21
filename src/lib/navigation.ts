@@ -19,7 +19,7 @@ import {
   UserCheck, Wallet, Network, GraduationCap, HardHat,
   Cpu, AlertCircle, BarChart3, PieChart, DollarSign,
   LayoutDashboard, ClipboardCheck, GitMerge,
-  Bell, Settings, Activity, BadgeCheck, Receipt,
+  Bell, Settings, Activity, BadgeCheck, Receipt, FileCheck,
 } from 'lucide-react';
 
 export interface NavLeaf {
@@ -162,7 +162,8 @@ export const MODULES: NavModule[] = [
         label: 'Trazabilidad & Control',
         color: 'from-rose-500/10 to-pink-500/5', border: 'border-rose-500/20', heading: 'text-rose-400',
         items: [
-          { label: 'Ciclo de OT', href: '/calidad/trazabilidad', description: 'Lead time, cuellos de botella y recorrido de cada OT', icon: GitMerge, color: 'bg-rose-500/10 text-rose-400' },
+          { label: 'Expediente', href: '/calidad/expediente',   description: 'Trazabilidad documental FSSC 22000 por orden',        icon: FileCheck, color: 'bg-rose-500/10 text-rose-400' },
+          { label: 'Ciclo de OT', href: '/calidad/trazabilidad', description: 'Lead time, cuellos de botella y recorrido de cada OT', icon: GitMerge,  color: 'bg-pink-500/10 text-pink-400' },
         ],
       },
     ],
