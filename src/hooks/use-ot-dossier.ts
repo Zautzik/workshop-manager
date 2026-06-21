@@ -14,6 +14,9 @@ export interface DossierMaterial {
   cert_required: boolean;
   lot_number: string | null;
   supplier_name: string | null;
+  purchase_id: string | null;
+  oc_date: string | null;
+  supplier_rut: string | null;
   certification_code: string | null;
   certification_expires_on: string | null;
   cert_status: CertStatus;

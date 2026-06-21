@@ -14,6 +14,54 @@ export type Database = {
   }
   public: {
     Tables: {
+      attendance_events: {
+        Row: {
+          at: string
+          created_at: string
+          employee_id: string | null
+          event_type: string
+          id: string
+          metadata: Json
+          method: string
+          station_id: string | null
+        }
+        Insert: {
+          at?: string
+          created_at?: string
+          employee_id?: string | null
+          event_type: string
+          id?: string
+          metadata?: Json
+          method?: string
+          station_id?: string | null
+        }
+        Update: {
+          at?: string
+          created_at?: string
+          employee_id?: string | null
+          event_type?: string
+          id?: string
+          metadata?: Json
+          method?: string
+          station_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "attendance_events_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "attendance_events_station_id_fkey"
+            columns: ["station_id"]
+            isOneToOne: false
+            referencedRelation: "workstations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       bulk_operation_jobs: {
         Row: {
           completed_at: string | null
@@ -313,6 +361,7 @@ export type Database = {
       employees: {
         Row: {
           attendance_score: number | null
+          badge_code: string | null
           created_at: string
           department: string
           email: string | null
@@ -339,6 +388,7 @@ export type Database = {
         }
         Insert: {
           attendance_score?: number | null
+          badge_code?: string | null
           created_at?: string
           department: string
           email?: string | null
@@ -365,6 +415,7 @@ export type Database = {
         }
         Update: {
           attendance_score?: number | null
+          badge_code?: string | null
           created_at?: string
           department?: string
           email?: string | null
@@ -911,6 +962,7 @@ export type Database = {
           id: string
           item_id: string
           lot_number: string
+          purchase_id: string | null
           quantity_available: number
           quantity_received: number
           received_date: string
@@ -924,6 +976,7 @@ export type Database = {
           id?: string
           item_id: string
           lot_number: string
+          purchase_id?: string | null
           quantity_available: number
           quantity_received: number
           received_date?: string
@@ -937,6 +990,7 @@ export type Database = {
           id?: string
           item_id?: string
           lot_number?: string
+          purchase_id?: string | null
           quantity_available?: number
           quantity_received?: number
           received_date?: string
@@ -3157,6 +3211,8 @@ export type Database = {
           id: string
           purchase_date: string
           supplier: string
+          supplier_giro: string | null
+          supplier_rut: string | null
           total_cost: number
           updated_at: string | null
         }
@@ -3166,6 +3222,8 @@ export type Database = {
           id?: string
           purchase_date: string
           supplier: string
+          supplier_giro?: string | null
+          supplier_rut?: string | null
           total_cost?: number
           updated_at?: string | null
         }
@@ -3175,6 +3233,8 @@ export type Database = {
           id?: string
           purchase_date?: string
           supplier?: string
+          supplier_giro?: string | null
+          supplier_rut?: string | null
           total_cost?: number
           updated_at?: string | null
         }

@@ -7,9 +7,7 @@ import { supabaseAdmin } from '@/integrations/supabase/server';
  *   - manual : value is the employee id (supervisor fallback)
  *   - face   : the company's face-recognition system (stub — slots in later)
  *
- * Server-only. Casts to any are intentional bridges until the
- * attendance_identity migration is applied and types.ts is regenerated
- * (employees.badge_code is added by that migration).
+ * Server-only.
  */
 export type IdentityMethod = 'qr' | 'face' | 'manual';
 
@@ -19,8 +17,8 @@ export interface ResolvedIdentity {
 }
 
 async function resolveByBadge(code: string): Promise<ResolvedIdentity | null> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data } = await (supabaseAdmin.from('employees') as any)
+  const { data } = await supabaseAdmin
+    .from('employees')
     .select('id, full_name')
     .eq('badge_code', code)
     .maybeSingle();

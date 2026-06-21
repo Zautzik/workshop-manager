@@ -22,6 +22,9 @@ interface MaterialRow {
   cert_required: boolean;
   lot_number: string | null;
   supplier_name: string | null;
+  purchase_id: string | null;
+  oc_date: string | null;
+  supplier_rut: string | null;
   certification_code: string | null;
   certification_expires_on: string | null;
   cert_status: CertStatus;
@@ -45,7 +48,7 @@ export async function GET(
         .maybeSingle(),
       supabaseAdmin
         .from('inventory_stock_transactions')
-        .select('id, quantity, unit_cost, tx_type, created_at, lot:inventory_lots(lot_number, certification_code, certification_expires_on, supplier_name), item:inventory_items(name, sku, unit, is_certification_required)')
+        .select('id, quantity, unit_cost, tx_type, created_at, lot:inventory_lots(lot_number, certification_code, certification_expires_on, supplier_name, purchase_id), item:inventory_items(name, sku, unit, is_certification_required)')
         .eq('work_order_id', id)
         .eq('tx_type', 'consumption'),
       supabaseAdmin
@@ -71,9 +74,23 @@ export async function GET(
     // ── Materials + per-lot cert validity at the moment of consumption ──
     const txRows = (txRes.data ?? []) as Array<{
       id: string; quantity: number; unit_cost: number | null; created_at: string;
-      lot: { lot_number: string | null; certification_code: string | null; certification_expires_on: string | null; supplier_name: string | null } | null;
+      lot: { lot_number: string | null; certification_code: string | null; certification_expires_on: string | null; supplier_name: string | null; purchase_id: string | null } | null;
       item: { name: string | null; sku: string | null; unit: string | null; is_certification_required: boolean | null } | null;
     }>;
+
+    // Resolve each consumed lot's purchase order (OC) → supplier RUT — the FSSC
+    // one-up supply trace (lot → OC → supplier).
+    const purchaseIds = Array.from(new Set(txRows.map((tx) => tx.lot?.purchase_id).filter((p): p is string => !!p)));
+    const ocByPurchase = new Map<string, { date: string | null; rut: string | null }>();
+    if (purchaseIds.length > 0) {
+      const { data: purchases } = await supabaseAdmin
+        .from('purchases')
+        .select('id, purchase_date, supplier_rut')
+        .in('id', purchaseIds);
+      for (const p of purchases ?? []) {
+        ocByPurchase.set(p.id, { date: p.purchase_date ?? null, rut: p.supplier_rut ?? null });
+      }
+    }
 
     const materials: MaterialRow[] = txRows.map((tx) => {
       const certRequired = !!tx.item?.is_certification_required;
@@ -91,6 +108,9 @@ export async function GET(
         cert_required: certRequired,
         lot_number: tx.lot?.lot_number ?? null,
         supplier_name: tx.lot?.supplier_name ?? null,
+        purchase_id: tx.lot?.purchase_id ?? null,
+        oc_date: tx.lot?.purchase_id ? (ocByPurchase.get(tx.lot.purchase_id)?.date ?? null) : null,
+        supplier_rut: tx.lot?.purchase_id ? (ocByPurchase.get(tx.lot.purchase_id)?.rut ?? null) : null,
         certification_code: code,
         certification_expires_on: expires,
         cert_status,

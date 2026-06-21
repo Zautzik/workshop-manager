@@ -219,7 +219,11 @@ export default function ExpedienteReport() {
                             <div className="text-xs text-muted-foreground">{m.item_sku}</div>
                           </td>
                           <td className="py-2 pr-3 font-mono text-xs">{m.lot_number ?? '—'}</td>
-                          <td className="py-2 pr-3 text-xs">{m.supplier_name ?? '—'}</td>
+                          <td className="py-2 pr-3 text-xs">
+                            {m.supplier_name ?? '—'}
+                            {m.supplier_rut && <div className="text-muted-foreground">RUT {m.supplier_rut}</div>}
+                            {m.oc_date && <div className="text-muted-foreground">OC {fmtDate(m.oc_date)}</div>}
+                          </td>
                           <td className="py-2 pr-3 font-mono text-xs">{m.certification_code ?? '—'}</td>
                           <td className="py-2 pr-3 text-xs">{fmtDate(m.certification_expires_on)}</td>
                           <td className="py-2 pr-3 text-right">{m.quantity.toLocaleString()} {m.unit ?? ''}</td>

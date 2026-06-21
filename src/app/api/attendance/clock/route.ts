@@ -5,9 +5,7 @@ import { supabaseAdmin } from '@/integrations/supabase/server';
 import { resolveIdentity, type IdentityMethod } from '@/lib/identity';
 
 // The station device is authenticated; the operator is NOT (login-less) — they
-// are identified by badge. Casts to any bridge the attendance_events table until
-// the attendance_identity migration is applied + types regenerated.
-/* eslint-disable @typescript-eslint/no-explicit-any */
+// are identified by badge.
 
 const ClockSchema = z.object({
   method: z.enum(['qr', 'face', 'manual']).default('qr'),
@@ -29,7 +27,7 @@ export async function GET(_req: NextRequest) {
   if (isAuthError(auth)) return auth;
 
   const since = new Date(); since.setHours(0, 0, 0, 0);
-  const { data, error } = await (supabaseAdmin as any)
+  const { data, error } = await supabaseAdmin
     .from('attendance_events')
     .select('employee_id, event_type, at')
     .gte('at', since.toISOString())
@@ -80,7 +78,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Operario no reconocido' }, { status: 404 });
     }
 
-    const { error } = await (supabaseAdmin as any).from('attendance_events').insert({
+    const { error } = await supabaseAdmin.from('attendance_events').insert({
       employee_id: identity.employee_id,
       station_id: station_id ?? null,
       event_type,
