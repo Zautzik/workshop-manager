@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { isAuthError, requireAuth } from '@/lib/api-middleware';
 import { supabaseAdmin } from '@/integrations/supabase/server';
-import { RETENTION_YEARS, isUnderRetention, retentionUntil } from '@/lib/retention';
+import { RETENTION_YEARS, summarizeRetention } from '@/lib/retention';
 
 // GET /api/retention
 // FSSC 22000 records-retention status: shows that traceability records (OTs and
@@ -17,34 +17,20 @@ export async function GET(_req: NextRequest) {
       supabaseAdmin.from('ot_status_history').select('id', { count: 'exact', head: true }),
     ]);
 
-    const ots = (otsRes.status === 'fulfilled' ? (otsRes.value.data ?? []) : [])
+    const dates = (otsRes.status === 'fulfilled' ? (otsRes.value.data ?? []) : [])
       .map((o: { created_at: string | null }) => o.created_at)
       .filter((d): d is string => !!d);
 
-    const now = new Date();
-    const total = ots.length;
-    let underRetention = 0;
-    let firstUnderRetention: string | null = null;
-    for (const createdAt of ots) {
-      if (isUnderRetention(createdAt, now)) {
-        underRetention += 1;
-        if (firstUnderRetention === null) firstUnderRetention = createdAt; // list is asc → oldest first
-      }
-    }
-    const pastRetention = total - underRetention;
-    const oldest = ots[0] ?? null;
-    const newest = ots[total - 1] ?? null;
+    const r = summarizeRetention(dates);
 
     return NextResponse.json({
       policy_years: RETENTION_YEARS,
-      total_ots: total,
-      under_retention: underRetention,
-      past_retention: pastRetention,
-      oldest_record: oldest,
-      // Next record to pass its 5-year window (the oldest still-retained OT):
-      next_retention_expiry: firstUnderRetention ? retentionUntil(firstUnderRetention).toISOString() : null,
-      // The most recent record is held until:
-      retained_through: newest ? retentionUntil(newest).toISOString() : null,
+      total_ots: r.total,
+      under_retention: r.under_retention,
+      past_retention: r.past_retention,
+      oldest_record: r.oldest,
+      next_retention_expiry: r.next_retention_expiry,
+      retained_through: r.retained_through,
       attachments_count: attRes.status === 'fulfilled' ? (attRes.value.count ?? 0) : 0,
       status_events_count: histRes.status === 'fulfilled' ? (histRes.value.count ?? 0) : 0,
     });

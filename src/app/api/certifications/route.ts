@@ -1,14 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { isAuthError, requireAuth } from '@/lib/api-middleware';
 import { supabaseAdmin } from '@/integrations/supabase/server';
+import { certStatusNow, type CertStatusNow } from '@/lib/fssc';
 
 // GET /api/certifications
 // FSSC 22000 incoming-material register: every lot of a certification-required
 // item, with the validity status of its food-grade certificate. Powers the
 // supplier-approval / incoming-goods control in Calidad.
-type CertState = 'vigente' | 'por_vencer' | 'vencido' | 'faltante' | 'sin_vencimiento';
-
-const SOON_DAYS = 30;
+type CertState = CertStatusNow;
 
 export async function GET(_req: NextRequest) {
   const auth = await requireAuth(['admin', 'manager', 'supervisor']);
@@ -33,20 +32,11 @@ export async function GET(_req: NextRequest) {
     const lots = lotsRes.data ?? [];
     const certItems = new Map(items.filter((i) => i.is_certification_required).map((i) => [i.id, i]));
 
-    const now = Date.now();
-    const soonMs = SOON_DAYS * 86_400_000;
-
     const rows = lots
       .filter((l) => certItems.has(l.item_id))
       .map((l) => {
         const item = certItems.get(l.item_id);
-        const expires = l.certification_expires_on ? new Date(l.certification_expires_on).getTime() : null;
-        let state: CertState;
-        if (!l.certification_code) state = 'faltante';
-        else if (expires === null) state = 'sin_vencimiento';
-        else if (expires < now) state = 'vencido';
-        else if (expires - now <= soonMs) state = 'por_vencer';
-        else state = 'vigente';
+        const state: CertState = certStatusNow({ code: l.certification_code, expiresOn: l.certification_expires_on });
         return {
           lot_id: l.id,
           lot_number: l.lot_number,

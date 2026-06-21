@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { isAuthError, requireAuth } from '@/lib/api-middleware';
 import { supabaseAdmin } from '@/integrations/supabase/server';
+import { consumptionByOt, recallSummary } from '@/lib/fssc';
 
 // GET /api/recall
 //   • no params      → list of material lots (for the recall picker)
@@ -56,12 +57,7 @@ export async function GET(req: NextRequest) {
 
     const txs = (txData ?? []) as Array<{ work_order_id: string | null; quantity: number; created_at: string }>;
 
-    // Aggregate consumption per OT.
-    const consumedByOt = new Map<string, number>();
-    for (const tx of txs) {
-      if (!tx.work_order_id) continue;
-      consumedByOt.set(tx.work_order_id, (consumedByOt.get(tx.work_order_id) ?? 0) + Number(tx.quantity ?? 0));
-    }
+    const consumedByOt = consumptionByOt(txs);
     const otIds = Array.from(consumedByOt.keys());
 
     let affectedOts: Array<{
@@ -84,20 +80,16 @@ export async function GET(req: NextRequest) {
       })).sort((a, b) => (b.created_at ?? '').localeCompare(a.created_at ?? ''));
     }
 
-    const customers = Array.from(
-      new Set(affectedOts.map((o) => o.client_name).filter((c): c is string => !!c))
-    ).sort();
-
-    const totalConsumed = Array.from(consumedByOt.values()).reduce((s, v) => s + v, 0);
+    const summary = recallSummary(affectedOts);
 
     return NextResponse.json({
       lot,
       affected_ots: affectedOts,
-      customers,
+      customers: summary.customers,
       summary: {
-        ot_count: affectedOts.length,
-        customer_count: customers.length,
-        total_consumed: totalConsumed,
+        ot_count: summary.ot_count,
+        customer_count: summary.customer_count,
+        total_consumed: summary.total_consumed,
       },
     });
   } catch (error) {

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { isAuthError, requireAuth } from '@/lib/api-middleware';
 import { supabaseAdmin } from '@/integrations/supabase/server';
+import { certStatusAtUse, evaluateDossierCompliance, type CertStatusAtUse } from '@/lib/fssc';
 
 // GET /api/ots/[id]/dossier
 // The FSSC 22000 traceability dossier ("Expediente de OT"): assembles, from data
@@ -8,7 +9,7 @@ import { supabaseAdmin } from '@/integrations/supabase/server';
 // the consumed material lots (+ food-grade cert validity), the deliverable photo
 // evidence + quality sign-off, and a compliance verdict. Read-side only; no new
 // infra. Backward trace: OT → consumed lots → supplier (+ cert).
-type CertStatus = 'ok' | 'missing' | 'expired' | 'unverified' | 'not_required';
+type CertStatus = CertStatusAtUse;
 
 interface MaterialRow {
   tx_id: string;
@@ -78,13 +79,7 @@ export async function GET(
       const certRequired = !!tx.item?.is_certification_required;
       const code = tx.lot?.certification_code ?? null;
       const expires = tx.lot?.certification_expires_on ?? null;
-      let cert_status: CertStatus = 'not_required';
-      if (certRequired) {
-        if (!code) cert_status = 'missing';
-        else if (!expires) cert_status = 'unverified';
-        else if (new Date(expires).getTime() < new Date(tx.created_at).getTime()) cert_status = 'expired';
-        else cert_status = 'ok';
-      }
+      const cert_status: CertStatus = certStatusAtUse({ certRequired, code, expiresOn: expires, consumedAt: tx.created_at });
       return {
         tx_id: tx.id,
         quantity: Number(tx.quantity ?? 0),
@@ -117,15 +112,14 @@ export async function GET(
     const attachmentsOut = attachments.map((a) => ({ ...a, url: signedByPath.get(a.storage_path) ?? null }));
 
     // ── Compliance verdict ──
-    const certIssues = materials.filter((m) => m.cert_status === 'missing' || m.cert_status === 'expired' || m.cert_status === 'unverified');
     const photoCount = attachments.filter((a) => (a.mime_type ?? '').startsWith('image/')).length || attachments.length;
     const hasApproval = approvals.some((a) => a.status === 'approved');
-
-    const reasons: string[] = [];
-    if (certIssues.length > 0) reasons.push(`${certIssues.length} insumo(s) con certificación inválida o faltante`);
-    if (!hasApproval) reasons.push('Sin aprobación de entregable');
-    if (attachments.length === 0) reasons.push('Sin evidencia fotográfica del entregable');
-    if (materials.length === 0) reasons.push('Sin insumos trazados a esta OT');
+    const verdict = evaluateDossierCompliance({
+      materialCertStatuses: materials.map((m) => m.cert_status),
+      materialsCount: materials.length,
+      attachmentsCount: attachments.length,
+      hasApproval,
+    });
 
     return NextResponse.json({
       ot: otRes.data,
@@ -133,12 +127,12 @@ export async function GET(
       attachments: attachmentsOut,
       approvals,
       compliance: {
-        compliant: reasons.length === 0,
-        cert_issues: certIssues.length,
+        compliant: verdict.compliant,
+        cert_issues: verdict.certIssues,
         materials_count: materials.length,
         photo_count: photoCount,
         has_approval: hasApproval,
-        reasons,
+        reasons: verdict.reasons,
       },
     });
   } catch (error) {
