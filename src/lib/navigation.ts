@@ -19,7 +19,7 @@ import {
   UserCheck, Wallet, Network, GraduationCap, HardHat,
   Cpu, AlertCircle, BarChart3, PieChart, DollarSign,
   LayoutDashboard, ClipboardCheck, GitMerge,
-  Bell, Settings, Activity, BadgeCheck, Receipt, FileCheck,
+  Bell, Settings, Activity, BadgeCheck, Receipt, FileCheck, Gauge,
 } from 'lucide-react';
 
 export interface NavLeaf {
@@ -124,6 +124,7 @@ export const MODULES: NavModule[] = [
         color: 'from-emerald-500/10 to-teal-500/5', border: 'border-emerald-500/20', heading: 'text-emerald-400',
         items: [
           { label: 'Modo Planta',   href: '/operaciones/floor',    description: 'Pantalla de piso a pantalla completa',           icon: MonitorPlay,   color: 'bg-emerald-500/10 text-emerald-400' },
+          { label: 'Estación',      href: '/estacion',             description: 'Kiosko de fichaje por credencial QR (sin login)', icon: Clock,        color: 'bg-cyan-500/10 text-cyan-400' },
           { label: 'Planta',        href: '/operaciones/planta',   description: 'Estaciones y asignación de operarios',           icon: Factory,       color: 'bg-emerald-500/10 text-emerald-400' },
           { label: 'Planificación', href: '/operaciones/calendar', description: 'Calendario de vencimientos y plan semanal por máquina', icon: CalendarRange, color: 'bg-sky-500/10 text-sky-400' },
         ],
@@ -249,6 +250,7 @@ export const MODULES: NavModule[] = [
         color: 'from-violet-500/10 to-indigo-500/5', border: 'border-violet-500/20', heading: 'text-violet-400',
         items: [
           { label: 'Historial & KPIs',     href: '/equipos/historial', description: 'Registro histórico, MTBF, MTTR y métricas de flota', icon: BarChart3,   color: 'bg-indigo-500/10 text-indigo-400' },
+          { label: 'Carga & Utilización',  href: '/equipos/carga',     description: 'Carga real por máquina desde la producción',          icon: Gauge,       color: 'bg-emerald-500/10 text-emerald-400' },
           { label: 'Economía',             href: '/equipos/economia',  description: 'Costo operativo, depreciación y ROI por máquina',     icon: Wallet,      color: 'bg-teal-500/10 text-teal-400' },
           { label: 'Alertas & Predictivo', href: '/equipos/alertas',   description: 'Avisos activos y mantenimiento preventivo/predictivo', icon: AlertCircle, color: 'bg-amber-500/10 text-amber-400' },
         ],

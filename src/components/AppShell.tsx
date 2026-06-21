@@ -109,7 +109,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
   // Public routes — no shell needed
   const isPublicRoute = pathname === '/' || pathname === '/login';
-  const isFullscreenRoute = pathname === '/operaciones/floor' || pathname.startsWith('/track/');
+  const isFullscreenRoute = pathname === '/operaciones/floor' || pathname === '/estacion' || pathname.startsWith('/track/');
 
   // While auth is loading, render children (Login/root) or show a spinner
   if (loading) {
