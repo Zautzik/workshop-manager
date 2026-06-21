@@ -63,7 +63,7 @@ const Login = () => {
       toast.error(error.message);
       setLoading(false);
     } else {
-      toast.success(t('login') + ' successful');
+      toast.success('Sesión iniciada');
       setDidLogin(true);
       // useEffect will handle redirect once session updates
     }
@@ -82,9 +82,9 @@ const Login = () => {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-primary/5 to-accent/10 p-4">
         <div className="w-full max-w-md space-y-4 rounded-lg border border-primary/20 bg-card p-6 text-center shadow-xl">
-          <h2 className="text-xl font-semibold text-foreground">Already signed in</h2>
+          <h2 className="text-xl font-semibold text-foreground">Ya iniciaste sesión</h2>
           <p className="text-sm text-muted-foreground">
-            Choose where to go next or sign out to switch accounts.
+            Elige a dónde ir o cierra sesión para cambiar de cuenta.
           </p>
           <div className="flex flex-col gap-2">
             <Button
@@ -92,7 +92,7 @@ const Login = () => {
                 router.push('/home');
               }}
             >
-              Continue to Dashboard
+              Continuar al panel
             </Button>
             <Button
               variant="outline"
@@ -101,7 +101,7 @@ const Login = () => {
                 router.push('/');
               }}
             >
-              Sign out
+              Cerrar sesión
             </Button>
           </div>
         </div>
@@ -171,16 +171,16 @@ const Login = () => {
                 aria-required="true"
                 autoComplete="current-password"
                 className="border-primary/30 focus:border-primary"
-                placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢"
+                placeholder="••••••••"
               />
             </div>
             <Button 
               type="submit" 
               className="w-full bg-primary hover:bg-primary/90 transition-all" 
               disabled={loading}
-              aria-label={loading ? 'Logging in...' : 'Login to dashboard'}
+              aria-label={loading ? 'Iniciando sesión...' : 'Iniciar sesión'}
             >
-              {loading ? 'Logging in...' : t('login')}
+              {loading ? 'Iniciando sesión...' : t('login')}
             </Button>
           </form>
         </CardContent>

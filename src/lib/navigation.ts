@@ -20,6 +20,7 @@ import {
   Cpu, AlertCircle, BarChart3, PieChart, DollarSign,
   LayoutDashboard, ClipboardCheck, GitMerge,
   Bell, Settings, Activity, BadgeCheck, Receipt, FileCheck, Gauge,
+  Award, FileText, Gift,
 } from 'lucide-react';
 
 export interface NavLeaf {
@@ -211,6 +212,7 @@ export const MODULES: NavModule[] = [
         items: [
           { label: 'Empleados',  href: '/personas/empleados', description: 'Perfiles, contratos y datos de cada persona', icon: Users,     color: 'bg-amber-500/10 text-amber-400' },
           { label: 'Asistencia', href: '/personas/licencias', description: 'Presencia, licencias y permisos del equipo',  icon: UserCheck, color: 'bg-sky-500/10 text-sky-400' },
+          { label: 'Contratos',  href: '/personas/contratos', description: 'Contratos y documentos laborales',            icon: FileText,  color: 'bg-slate-500/10 text-slate-400' },
         ],
       },
       {
@@ -218,8 +220,10 @@ export const MODULES: NavModule[] = [
         color: 'from-green-500/10 to-violet-500/5', border: 'border-green-500/20', heading: 'text-green-400',
         items: [
           { label: 'Retribución',  href: '/personas/nomina',      description: 'Nómina, bonos y programas de reconocimiento',   icon: Wallet,        color: 'bg-green-500/10 text-green-400' },
-          { label: 'Habilidades',  href: '/personas/habilidades', description: 'Competencias, niveles de maestría y certificaciones', icon: Network, color: 'bg-violet-500/10 text-violet-400' },
-          { label: 'Capacitación', href: '/personas/capacitacion', description: 'Cursos, formación y planes de desarrollo',       icon: GraduationCap, color: 'bg-teal-500/10 text-teal-400' },
+          { label: 'Habilidades',    href: '/personas/habilidades',    description: 'Competencias, niveles de maestría y certificaciones', icon: Network,       color: 'bg-violet-500/10 text-violet-400' },
+          { label: 'Capacitación',   href: '/personas/capacitacion',   description: 'Cursos, formación y planes de desarrollo',       icon: GraduationCap, color: 'bg-teal-500/10 text-teal-400' },
+          { label: 'Certificaciones',href: '/personas/certificaciones',description: 'Certificaciones y acreditaciones del personal',  icon: Award,         color: 'bg-amber-500/10 text-amber-400' },
+          { label: 'Incentivos',     href: '/personas/incentivos',     description: 'Bonos, premios y reconocimientos',               icon: Gift,          color: 'bg-rose-500/10 text-rose-400' },
         ],
       },
     ],
