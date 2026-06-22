@@ -114,8 +114,6 @@ export const MODULES: NavModule[] = [
         items: [
           { label: 'Tablero',     href: '/operaciones/kanban',             description: 'Pipeline y estado en tiempo real de todas las OTs', icon: ClipboardList,   color: 'bg-cyan-500/10 text-cyan-400' },
           { label: 'En Proceso',  href: '/operaciones/ordenes-en-proceso', description: 'Órdenes activas en producción',                     icon: ClipboardCheck,  color: 'bg-sky-500/10 text-sky-400' },
-          { label: 'Cronograma',   href: '/operaciones/gantt',              description: 'Línea de tiempo, carga semanal y planificación',    icon: GanttChart,      color: 'bg-violet-500/10 text-violet-400' },
-          { label: 'Prog. Máquinas',href: '/operaciones/shifts',           description: 'Gantt de máquinas y sus OTs asignadas',             icon: Cpu,             color: 'bg-rose-500/10 text-rose-400' },
           { label: 'Hoja de Prod.',href: '/operaciones/hoja-produccion',   description: 'Hoja de trabajo de producción',                     icon: FileSpreadsheet, color: 'bg-fuchsia-500/10 text-fuchsia-400' },
           { label: 'Archivo OT',   href: '/operaciones/production',         description: 'Archivo histórico de órdenes de producción',        icon: Archive,         color: 'bg-teal-500/10 text-teal-400' },
         ],
@@ -127,7 +125,7 @@ export const MODULES: NavModule[] = [
           { label: 'Modo Planta',   href: '/operaciones/floor',    description: 'Pantalla de piso a pantalla completa',           icon: MonitorPlay,   color: 'bg-emerald-500/10 text-emerald-400' },
           { label: 'Estación',      href: '/estacion',             description: 'Kiosko de fichaje por credencial QR (sin login)', icon: Clock,        color: 'bg-cyan-500/10 text-cyan-400' },
           { label: 'Planta',        href: '/operaciones/planta',   description: 'Estaciones y asignación de operarios',           icon: Factory,       color: 'bg-emerald-500/10 text-emerald-400' },
-          { label: 'Planificación', href: '/operaciones/calendar', description: 'Calendario de vencimientos y plan semanal por máquina', icon: CalendarRange, color: 'bg-sky-500/10 text-sky-400' },
+          { label: 'Planificación', href: '/operaciones/calendar', description: 'Cronograma de OTs, máquinas, calendario y plan semanal', icon: CalendarRange, color: 'bg-sky-500/10 text-sky-400' },
         ],
       },
       {

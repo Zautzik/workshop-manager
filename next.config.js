@@ -133,9 +133,13 @@ const nextConfig = {
 
 			// ── Operaciones consolidation (/workflow → /operaciones; abastecimiento pulled from /admin) ──
 			{ source: '/workflow',           destination: '/operaciones',             permanent: false },
-			// Planificación consolidation: plan-semanal merged into the calendar tabs.
-			{ source: '/operaciones/plan-semanal', destination: '/operaciones/calendar?tab=semanal', permanent: false },
-			{ source: '/workflow/plan-semanal',    destination: '/operaciones/calendar?tab=semanal', permanent: false },
+			// Planificación hub: cronograma (gantt) + máquinas (shifts) + plan-semanal merged into the calendar tabs.
+			{ source: '/operaciones/plan-semanal', destination: '/operaciones/calendar?tab=semanal',     permanent: false },
+			{ source: '/workflow/plan-semanal',    destination: '/operaciones/calendar?tab=semanal',     permanent: false },
+			{ source: '/operaciones/gantt',        destination: '/operaciones/calendar?tab=cronograma',  permanent: false },
+			{ source: '/workflow/gantt',           destination: '/operaciones/calendar?tab=cronograma',  permanent: false },
+			{ source: '/operaciones/shifts',       destination: '/operaciones/calendar?tab=maquinas',    permanent: false },
+			{ source: '/workflow/shifts',          destination: '/operaciones/calendar?tab=maquinas',    permanent: false },
 			{ source: '/workflow/:path*',    destination: '/operaciones/:path*',      permanent: false },
 			{ source: '/admin/inventory',    destination: '/operaciones/inventario',  permanent: false },
 			{ source: '/admin/purchases',    destination: '/operaciones/compras',     permanent: false },

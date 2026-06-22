@@ -5,9 +5,10 @@ import { ChevronLeft, ExternalLink } from 'lucide-react';
 
 // ─── Hex geometry (flat-top: flat edges at top/bottom, points at left/right) ──
 const HEX_CLIP = 'polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%)';
-const HEX_W = 132;
-const HEX_H = Math.round(HEX_W * Math.sqrt(3) / 2); // 114 px — flat-top is wider than tall
-const GAP = 6;
+const HEX_W = 124;
+const HEX_H = Math.round(HEX_W * Math.sqrt(3) / 2); // ~107 px — flat-top is wider than tall
+const COL_STEP = Math.round(HEX_W * 0.75);          // ~93 px — columns overlap → interlock
+const ROW_OFFSET = Math.round(HEX_H / 2);           // ~54 px — alternate hexes shift down
 
 // ─── Tailwind color name → RGB channels ──────────────────────────────────────
 const RGB: Record<string, string> = {
@@ -182,20 +183,34 @@ export default function ModuleHexLanding({ title, subtitle, groups }: Props) {
         <p className="text-sm text-muted-foreground mt-1">{subtitle}</p>
       </div>
 
-      {/* Group bands */}
-      <div className="space-y-4">
-        {groups.map((group) => (
-          <section key={group.label}>
-            <h2 className={`mb-2 text-[11px] font-bold uppercase tracking-widest ${group.heading}`}>
-              {group.label}
-            </h2>
-            <div className="flex flex-wrap" style={{ gap: GAP }}>
-              {group.items.map((item) => (
-                <HexTile key={item.href + item.label} item={item} />
-              ))}
-            </div>
-          </section>
-        ))}
+      {/* Group bands — each an interlaced honeycomb cluster */}
+      <div className="space-y-3">
+        {groups.map((group) => {
+          const n = group.items.length;
+          return (
+            <section key={group.label}>
+              <h2 className={`mb-1.5 text-[11px] font-bold uppercase tracking-widest ${group.heading}`}>
+                {group.label}
+              </h2>
+              <div
+                style={{
+                  position: 'relative',
+                  width: (n - 1) * COL_STEP + HEX_W,
+                  height: HEX_H + (n > 1 ? ROW_OFFSET : 0),
+                }}
+              >
+                {group.items.map((item, i) => (
+                  <div
+                    key={item.href + item.label}
+                    style={{ position: 'absolute', left: i * COL_STEP, top: (i % 2) * ROW_OFFSET }}
+                  >
+                    <HexTile item={item} />
+                  </div>
+                ))}
+              </div>
+            </section>
+          );
+        })}
       </div>
     </div>
   );
