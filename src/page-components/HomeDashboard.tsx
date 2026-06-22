@@ -7,7 +7,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useVitals, type FlowStatus } from '@/hooks/use-vitals';
-import { SYSTEMS, type OrganSystem } from '@/lib/navigation';
+import { useHomePrefs } from '@/hooks/use-home-prefs';
+import { type OrganSystem } from '@/lib/navigation';
 import {
   Factory,
   TrendingUp,
@@ -119,6 +120,8 @@ const HEX_CLIP = 'polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%)'
 const HEX_W = 180;                                    // px – bounding-box width
 const HEX_H = Math.round(HEX_W * Math.sqrt(3) / 2); // 156 px – flat-top is wider than tall
 const GAP = 12;                                       // px – breathing room between cells
+const COL_STEP = Math.round(HEX_W * 0.75) + GAP;     // column center-to-center (interlocking)
+const ROW_STEP = HEX_H + GAP;                         // row center-to-center within a column
 const HOVER_SCALE = 1 + (2 * GAP) / HEX_W;           // ≈ 1.133 — growth fills the spread
 
 const STATUS_DOT: Record<FlowStatus, string> = {
@@ -272,10 +275,32 @@ export default function HomeDashboard() {
   const isDark = theme === 'dark';
   const router = useRouter();
   const { data: vitals } = useVitals();
+  const { prefs } = useHomePrefs();
 
   const visibleActions = quickActions.filter(
     (action) => action.roles.includes(role || '')
   );
+
+  // ── Interlaced honeycomb cluster (2-3-2 for up to 7 organs; flat-top hexes,
+  //    columns overlap horizontally and alternate columns shift half a row so
+  //    the cells interlock). Positions are normalized to a (0,0) bounding box. ──
+  const colSizes = [2, 3, 2];
+  const columns: QuickAction[][] = [];
+  let colStart = 0;
+  for (const size of colSizes) {
+    if (colStart >= visibleActions.length) break;
+    columns.push(visibleActions.slice(colStart, colStart + size));
+    colStart += size;
+  }
+  const placed = columns.flatMap((col, ci) => {
+    const yOffset = ci % 2 === 1 ? -ROW_STEP / 2 : 0; // middle column up → centered cluster
+    return col.map((action, ri) => ({ action, x: ci * COL_STEP, y: yOffset + ri * ROW_STEP }));
+  });
+  const minY = placed.length ? Math.min(...placed.map((p) => p.y)) : 0;
+  const honeyWidth = columns.length > 0 ? (columns.length - 1) * COL_STEP + HEX_W : 0;
+  const honeyHeight = placed.length
+    ? Math.max(...placed.map((p) => p.y - minY + HEX_H))
+    : 0;
 
   // Live vital per organ (module), drawn from the vital-signs endpoint.
   const vitalFor = (href: string): OrganVital | null => {
@@ -312,34 +337,21 @@ export default function HomeDashboard() {
         </h1>
       </div>
 
-      {/* Vital signs — the body sensing itself */}
-      <VitalStrip />
+      {/* Vital signs — opt-in via the Personalizar dialog */}
+      {prefs.showVitals && <VitalStrip />}
 
-      {/* Organ honeycomb grouped by body system (threefold + viscera) */}
-      <div className="flex flex-wrap justify-center items-stretch gap-x-5 gap-y-8">
-        {SYSTEMS.map((sys) => {
-          const items = visibleActions.filter((a) => a.system === sys.key);
-          if (!items.length) return null;
-          return (
-            <div key={sys.key} className="flex flex-col items-center">
-              <div className="mb-3 text-center">
-                <p className="text-xs font-bold uppercase tracking-widest text-foreground/70">{sys.label}</p>
-                <p className="text-[10px] text-muted-foreground">{sys.organ}</p>
-              </div>
-              <div className="flex flex-1 flex-col justify-center" style={{ gap: GAP }}>
-                {items.map((action) => (
-                  <HexCell
-                    key={action.href}
-                    action={action}
-                    vital={vitalFor(action.href)}
-                    onClick={() => router.push(action.href)}
-                    isDark={isDark}
-                  />
-                ))}
-              </div>
-            </div>
-          );
-        })}
+      {/* Interlaced organ honeycomb — tight cluster, absolutely positioned */}
+      <div style={{ position: 'relative', width: honeyWidth, height: honeyHeight }}>
+        {placed.map(({ action, x, y }) => (
+          <div key={action.href} style={{ position: 'absolute', left: x, top: y - minY }}>
+            <HexCell
+              action={action}
+              vital={vitalFor(action.href)}
+              onClick={() => router.push(action.href)}
+              isDark={isDark}
+            />
+          </div>
+        ))}
       </div>
 
       {/* Personalized quick links */}
