@@ -326,7 +326,12 @@ export default function HomeDashboard() {
   const firstName = user?.name?.split(' ')[0] || user?.email?.split('@')[0] || '';
 
   return (
-    <div className="min-h-full flex flex-col items-center justify-center gap-10 px-6 py-10 md:px-12">
+    <div className="relative min-h-full flex flex-col items-center justify-center gap-10 px-6 py-10 md:px-12">
+      {/* Quick links — compact pill, top-right */}
+      <div className="absolute right-4 top-4 md:right-6 md:top-6 z-10">
+        <QuickLinks />
+      </div>
+
       {/* Hero */}
       <div className="max-w-2xl text-center">
         <p className="text-sm font-medium text-muted-foreground mb-2">
@@ -353,9 +358,6 @@ export default function HomeDashboard() {
           </div>
         ))}
       </div>
-
-      {/* Personalized quick links */}
-      <QuickLinks />
     </div>
   );
 }
