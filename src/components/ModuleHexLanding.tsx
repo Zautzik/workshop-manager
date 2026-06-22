@@ -4,10 +4,10 @@ import Link from 'next/link';
 import { ChevronLeft, ExternalLink } from 'lucide-react';
 
 // ─── Hex geometry (flat-top: flat edges at top/bottom, points at left/right) ──
-// Width : Height = 2 : √3  →  Height = Width × (√3/2) ≈ Width × 0.866
 const HEX_CLIP = 'polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%)';
-const HEX_W = 148;
-const HEX_H = Math.round(HEX_W * Math.sqrt(3) / 2); // 128 px — flat-top is wider than tall
+const HEX_W = 132;
+const HEX_H = Math.round(HEX_W * Math.sqrt(3) / 2); // 114 px — flat-top is wider than tall
+const GAP = 6;
 
 // ─── Tailwind color name → RGB channels ──────────────────────────────────────
 const RGB: Record<string, string> = {
@@ -43,7 +43,7 @@ export interface HexLandingGroup {
   color: string;
   /** Tailwind border class, e.g. "border-sky-500/20" */
   border: string;
-  /** Tailwind text class for the column heading, e.g. "text-sky-400" */
+  /** Tailwind text class for the heading, e.g. "text-sky-400" */
   heading: string;
   items: HexLandingItem[];
 }
@@ -61,34 +61,32 @@ function HexTile({ item }: { item: HexLandingItem }) {
 
   return (
     <Link href={item.href} className="outline-none select-none" style={{ display: 'block' }}>
-      {/* drop-shadow wrapper follows the clipped hex shape */}
       <div
         style={{
-          filter: `drop-shadow(0 3px 8px rgb(${r} / 0.28))`,
+          filter: `drop-shadow(0 3px 8px rgb(${r} / 0.26))`,
           transition: 'filter 0.2s ease, transform 0.2s ease',
         }}
         onMouseEnter={e => {
           const el = e.currentTarget as HTMLDivElement;
-          el.style.filter = `drop-shadow(0 5px 18px rgb(${r} / 0.65))`;
-          el.style.transform = 'scale(1.07)';
+          el.style.filter = `drop-shadow(0 5px 16px rgb(${r} / 0.6))`;
+          el.style.transform = 'scale(1.06)';
           el.style.zIndex = '10';
           el.style.position = 'relative';
         }}
         onMouseLeave={e => {
           const el = e.currentTarget as HTMLDivElement;
-          el.style.filter = `drop-shadow(0 3px 8px rgb(${r} / 0.28))`;
+          el.style.filter = `drop-shadow(0 3px 8px rgb(${r} / 0.26))`;
           el.style.transform = 'scale(1)';
           el.style.zIndex = '';
           el.style.position = '';
         }}
       >
-        {/* Flat-top hex face — content fully inside the clipped shape */}
         <div
           style={{
             width: HEX_W,
             height: HEX_H,
             clipPath: HEX_CLIP,
-            background: `rgb(${r} / 0.18)`,
+            background: `rgb(${r} / 0.16)`,
             position: 'relative',
           }}
         >
@@ -97,13 +95,12 @@ function HexTile({ item }: { item: HexLandingItem }) {
             style={{
               position: 'absolute',
               inset: 0,
-              background:
-                'radial-gradient(ellipse 60% 50% at 35% 28%, rgba(255,255,255,0.14) 0%, transparent 70%)',
+              background: 'radial-gradient(ellipse 60% 50% at 35% 28%, rgba(255,255,255,0.14) 0%, transparent 70%)',
               pointerEvents: 'none',
             }}
           />
 
-          {/* Content — centered inside hex */}
+          {/* Content */}
           <div
             style={{
               position: 'absolute',
@@ -112,55 +109,47 @@ function HexTile({ item }: { item: HexLandingItem }) {
               flexDirection: 'column',
               alignItems: 'center',
               justifyContent: 'center',
-              gap: 4,
+              gap: 3,
+              padding: '0 18px',
             }}
           >
-            {/* Icon circle */}
             <div
               style={{
                 borderRadius: '50%',
-                padding: 7,
-                background: `rgb(${r} / 0.28)`,
-                border: `1.5px solid rgb(${r} / 0.55)`,
+                padding: 6,
+                background: `rgb(${r} / 0.26)`,
+                border: `1.5px solid rgb(${r} / 0.5)`,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 flexShrink: 0,
               }}
             >
-              <Icon
-                style={{ width: 20, height: 20, color: `rgb(${r})`, filter: 'brightness(1.5)' }}
-              />
+              <Icon style={{ width: 17, height: 17, color: `rgb(${r})`, filter: 'brightness(1.5)' }} />
             </div>
 
-            {/* Label */}
             <span
               className="text-foreground"
               style={{
-                fontSize: 12,
+                fontSize: 11.5,
                 fontWeight: 700,
                 textAlign: 'center',
-                lineHeight: 1.2,
-                maxWidth: 92,
+                lineHeight: 1.15,
                 display: 'flex',
                 alignItems: 'center',
                 gap: 2,
               }}
             >
               {item.label}
-              {item.external && (
-                <ExternalLink style={{ width: 8, height: 8, opacity: 0.6, flexShrink: 0 }} />
-              )}
+              {item.external && <ExternalLink style={{ width: 8, height: 8, opacity: 0.6, flexShrink: 0 }} />}
             </span>
 
-            {/* Description — small text, inside the hex */}
             <p
               className="text-muted-foreground"
               style={{
-                fontSize: 9.5,
+                fontSize: 8.5,
                 textAlign: 'center',
-                lineHeight: 1.3,
-                maxWidth: 80,
+                lineHeight: 1.25,
                 display: '-webkit-box',
                 WebkitLineClamp: 2,
                 WebkitBoxOrient: 'vertical',
@@ -176,12 +165,12 @@ function HexTile({ item }: { item: HexLandingItem }) {
   );
 }
 
-// ─── Main component ───────────────────────────────────────────────────────────
+// ─── Main component — one honeycomb row per group, whole module at a glance ────
 export default function ModuleHexLanding({ title, subtitle, groups }: Props) {
   return (
-    <div className="px-6 pt-6 pb-10">
-      {/* Page header */}
-      <div className="mb-8">
+    <div className="px-6 pt-5 pb-8 md:px-10">
+      {/* Header */}
+      <div className="mb-5">
         <Link
           href="/home"
           className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors mb-1"
@@ -193,35 +182,19 @@ export default function ModuleHexLanding({ title, subtitle, groups }: Props) {
         <p className="text-sm text-muted-foreground mt-1">{subtitle}</p>
       </div>
 
-      {/* Kanban hex columns — flat-top hexes snugged, odd columns offset HEX_H/2 for honeycomb */}
-      <div className="flex flex-row gap-4 overflow-x-auto pb-4 items-start">
-        {groups.map((group, groupIdx) => (
-          <div key={group.label} className="flex flex-col gap-3 shrink-0" style={{ width: HEX_W }}>
-            {/* Column header */}
-            <div
-              className={`rounded-lg border bg-gradient-to-r ${group.color} ${group.border} py-2 px-2`}
-            >
-              <h2
-                className={`text-[10px] font-bold uppercase tracking-widest text-center leading-tight ${group.heading}`}
-              >
-                {group.label}
-              </h2>
-            </div>
-
-            {/* Hex tiles — 0px gap (flat edges touching), odd columns shift down HEX_H/2 */}
-            <div
-              style={{
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 0,
-                marginTop: groupIdx % 2 === 1 ? HEX_H / 2 : 0,
-              }}
-            >
-              {group.items.map(item => (
+      {/* Group bands */}
+      <div className="space-y-4">
+        {groups.map((group) => (
+          <section key={group.label}>
+            <h2 className={`mb-2 text-[11px] font-bold uppercase tracking-widest ${group.heading}`}>
+              {group.label}
+            </h2>
+            <div className="flex flex-wrap" style={{ gap: GAP }}>
+              {group.items.map((item) => (
                 <HexTile key={item.href + item.label} item={item} />
               ))}
             </div>
-          </div>
+          </section>
         ))}
       </div>
     </div>
