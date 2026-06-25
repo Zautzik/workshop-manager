@@ -9,7 +9,7 @@ const mod = getModule('analitica')!;
 export default function AnaliticaPage() {
   return (
     <ProtectedRoute allowedRoles={mod.roles}>
-      <ModuleHexLanding title={mod.label} subtitle={mod.subtitle} groups={mod.groups} />
+      <ModuleHexLanding title={mod.label} subtitle={mod.subtitle} groups={mod.groups} hubIcon={mod.icon} />
     </ProtectedRoute>
   );
 }
