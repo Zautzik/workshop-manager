@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { formatCLP } from '@/lib/format';
 import { 
   TrendingUp, TrendingDown, Target, AlertTriangle, CheckCircle2, 
   Clock, Zap, Activity, BarChart3, PieChart, ArrowUpRight, ArrowDownRight
@@ -96,6 +97,11 @@ const ExecutiveOverview = () => {
   const kpis = useMemo(() => {
     const activeOTs = ots.filter((ot: any) => ot.status !== 'completed').length;
     const completedThisMonth = ots.filter((ot: any) => ot.status === 'completed').length;
+    // Revenue billed in the selected period (sum of OT totals). Engine keeps
+    // decimals; the card rounds to whole pesos via formatCLP.
+    const monthlyRevenue = ots
+      .filter((ot: any) => inPeriod(ot.created_at, range))
+      .reduce((s: number, ot: any) => s + Number(ot.total_price || 0), 0);
     const runningMachines = machines.filter((m: any) => m.status === 'running').length;
     const totalMachines = machines.length || 1;
     const machineUtilization = Math.round((runningMachines / totalMachines) * 100);
@@ -128,6 +134,7 @@ const ExecutiveOverview = () => {
       machineUtilization,
       runningMachines,
       totalMachines,
+      monthlyRevenue,
       onTimeDelivery,
       onTimeDeliveryDelta,
       activeOTsDelta,
@@ -195,7 +202,20 @@ const ExecutiveOverview = () => {
           <Target className="h-5 w-5 text-primary" />
           KPIs Estratégicos - Cuadro de Mando
         </h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+          {/* Revenue — money billed this period */}
+          <Card className="border-l-4 border-l-emerald-600 hover:shadow-lg transition-shadow">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                Ingresos del Mes
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-foreground">{formatCLP(kpis.monthlyRevenue)}</div>
+              <p className="text-xs text-muted-foreground mt-1">Facturación del período</p>
+            </CardContent>
+          </Card>
+
           {/* Financial Perspective */}
           <Card className="border-l-4 border-l-green-500 hover:shadow-lg transition-shadow">
             <CardHeader className="pb-2">
