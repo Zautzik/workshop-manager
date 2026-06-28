@@ -1,5 +1,5 @@
 'use client';
-import { useMemo, useRef, useState } from "react";
+import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from '@tanstack/react-query';
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -48,6 +48,20 @@ const KANBAN_GROUPS = [
   { id: 'terminacion', label: 'Terminación',      rgb: '99 102 241', borderColor: 'border-indigo-500/30', bgColor: 'bg-indigo-500/5',  stages: ['workshop', 'outsourced', 'workshop_revision'] },
   { id: 'despacho',    label: 'Despacho',         rgb: '34 197 94',  borderColor: 'border-green-500/30',  bgColor: 'bg-green-500/5',   stages: ['ready_for_delivery', 'in_delivery', 'completed'] },
 ] as const;
+// -- Honeycomb board geometry (flat-top hexes; beehive of the 6 process stages) --
+// The beehive is sized to FILL its frame: hex WIDTH comes from the free width (the
+// cluster spans 3.25 hex-widths) and hex HEIGHT from the free height (two
+// interlocked rows). There is no uniform zoom, so labels keep a true, fixed
+// on-screen size (>= 16px) while the hexes grow to use every pixel — width and
+// height — with no dead space below. Geometry is derived per-render from the
+// measured frame inside the component.
+const HEX_CLIP = 'polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%)';
+const BOARD_PAD = 6;       // gutter around the beehive inside its frame
+const LANE_RESERVE = 60;   // height kept below the board for the urgent lane
+const WIDTH_UNITS = 3.25;  // beehive width, measured in hex-widths
+const HEIGHT_UNITS = 2;    // beehive height, measured in hex-heights
+const MOBILE_MAX_W = 768;  // below this the board switches to a vertical column
+const MOBILE_GAP = 12;     // vertical gap between stacked stage hexes on mobile
 
 function getPriorityColor(p: number) {
   if (p >= 8) return 'bg-red-500/20 text-red-400 border-red-500/40';
@@ -96,13 +110,63 @@ export function OTManagement({ onOTSelect }: OTManagementProps) {
   const [rollbackTarget,  setRollbackTarget]  = useState<{ ot: any; key: string; labelEs: string; fromLabelEs: string } | null>(null);
   const [searchTerm,      setSearchTerm]      = useState("");
   const [showCompleted,   setShowCompleted]   = useState(false);
-  const [collapsed,       setCollapsed]       = useState<Record<string, boolean>>({});
   const [draggedOT,       setDraggedOT]       = useState<any>(null);
   const [dragOverCol,     setDragOverCol]     = useState<string | null>(null);
   const [draggingId,      setDraggingId]      = useState<string | null>(null);
   const [hoveredOT,       setHoveredOT]       = useState<{ ot: any; rect: DOMRect } | null>(null);
   const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const dragCounter = useRef<Record<string, number>>({});
+  // Board scales to fill the available box (both axes) — never scrolls, and
+  // grows to use the freed vertical space instead of leaving a gap below.
+  const boardWrapRef = useRef<HTMLDivElement>(null);
+  // Measure the frame the beehive must fill: free width (the board's own width)
+  // and free height (its distance to the viewport bottom, minus the urgent lane).
+  // The cluster grows into reclaimed vertical space instead of leaving a void.
+  const [frame, setFrame] = useState({ w: 1280, h: 680 });
+  useLayoutEffect(() => {
+    const el = boardWrapRef.current;
+    if (!el) return;
+    let raf = 0;
+    const update = () => {
+      const w = el.clientWidth;
+      if (w <= 0) return;
+      const top = el.getBoundingClientRect().top;
+      const h = window.innerHeight - top - LANE_RESERVE;
+      setFrame({ w, h: Math.max(h, 420) });
+    };
+    update();
+    raf = requestAnimationFrame(update); // catch late layout (fonts, async content)
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    window.addEventListener('resize', update);
+    return () => { cancelAnimationFrame(raf); ro.disconnect(); window.removeEventListener('resize', update); };
+  }, []);
+
+  // A 3.25-wide beehive can't live on a phone, so below the breakpoint the board
+  // becomes a single full-width column of stage hexes that flows top -> bottom and
+  // scrolls vertically (natural on a tall screen). Above it, the desktop beehive
+  // fills both axes with no zoom.
+  const isMobile = frame.w < MOBILE_MAX_W;
+  const HEX_W = isMobile ? frame.w - BOARD_PAD * 2 : (frame.w - BOARD_PAD * 2) / WIDTH_UNITS;
+  const HEX_H = isMobile ? Math.round(HEX_W * 0.72) : (frame.h - BOARD_PAD * 2) / HEIGHT_UNITS;
+  const INSET_X = HEX_W * 0.12;
+  const INSET_Y = HEX_H * 0.06;
+  const X_STEP = isMobile ? 0 : HEX_W * 0.75;
+  const Y_STEP = isMobile ? HEX_H + MOBILE_GAP : HEX_H * 0.5;
+  const POSITIONS = isMobile
+    ? KANBAN_GROUPS.map((_, i) => ({ x: 0, y: i * Y_STEP }))
+    : [
+        { x: 0,          y: 0 },      // Diseño
+        { x: 0,          y: HEX_H },  // Compras & Bodega
+        { x: X_STEP,     y: Y_STEP }, // Corte & Impresión
+        { x: X_STEP * 2, y: 0 },      // Acabados
+        { x: X_STEP * 2, y: HEX_H },  // Terminación
+        { x: X_STEP * 3, y: Y_STEP }, // Despacho
+      ];
+  const CANVAS_W = isMobile ? HEX_W : X_STEP * 3 + HEX_W;
+  const CANVAS_H = isMobile
+    ? KANBAN_GROUPS.length * HEX_H + (KANBAN_GROUPS.length - 1) * MOBILE_GAP
+    : HEX_H * 2;
 
   const updateOTStatus = async (otId: string, newStatus: string, rollback = false) => {
     // 1. Snapshot the current list before we touch anything.
@@ -185,13 +249,7 @@ export function OTManagement({ onOTSelect }: OTManagementProps) {
   const getByStatus = (key: string) =>
     filteredOTs.filter(ot => ot.status === key).sort((a, b) => b.priority - a.priority);
 
-  const activeOTsCount = filteredOTs.filter(ot => ot.status !== 'completed').length;
-
-  const groupCounts = useMemo(() =>
-    Object.fromEntries(KANBAN_GROUPS.map(g => [
-      g.id, g.stages.reduce((s, k) => s + getByStatus(k).length, 0),
-    ])), [filteredOTs]);
-
+  // Totals per split group — used to show the % of a partially-advanced OT.
   const splitGroupTotals = useMemo(() => {
     const totals: Record<string, number> = {};
     (ots as any[]).forEach((ot: any) => {
@@ -200,6 +258,7 @@ export function OTManagement({ onOTSelect }: OTManagementProps) {
     });
     return totals;
   }, [ots]);
+
 
   // ── drag handlers ────────────────────────────────────────────────────────
   const onDragStart = (e: React.DragEvent, ot: any) => {
@@ -252,33 +311,28 @@ export function OTManagement({ onOTSelect }: OTManagementProps) {
   };
 
   return (
-    <div className="space-y-4">
-      {/* Header */}
-      <div className="flex items-center justify-between gap-2 flex-wrap">
-        <div className="flex items-baseline gap-2">
-          <h2 className="text-base font-bold text-foreground">Órdenes de Trabajo</h2>
-          <span className="text-xs text-muted-foreground">{activeOTsCount} activas</span>
+    <div className="space-y-2 overflow-x-hidden">
+      {/* Slim toolbar -- search + create (page chrome lives in the back button) */}
+      <div className="flex items-center justify-start sm:justify-end gap-2 flex-wrap">
+        <div className="relative w-full sm:w-auto">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+          <Input
+            placeholder="Buscar OT o cliente..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="bg-input border-border placeholder:text-muted-foreground w-full sm:w-56 pl-9 text-base"
+          />
         </div>
-        <div className="flex items-center gap-2">
-          <div className="relative">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
-            <Input
-              placeholder="Buscar OT o cliente..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="bg-input border-border placeholder:text-muted-foreground w-52 pl-8"
-            />
-          </div>
-          <Button
-            variant={showCompleted ? 'default' : 'outline'}
-            onClick={() => setShowCompleted(prev => !prev)}
-          >
-            {showCompleted ? 'Ocultar completadas' : 'Mostrar completadas'}
-          </Button>
-          <Button onClick={() => setCreateFlow('wizard')} className="bg-primary hover:bg-primary/90">
-            <Plus className="w-4 h-4 mr-1" />Nueva OT
-          </Button>
-        </div>
+        <Button
+          variant={showCompleted ? 'default' : 'outline'}
+          onClick={() => setShowCompleted(prev => !prev)}
+          className="text-sm sm:text-base"
+        >
+          {showCompleted ? 'Ocultar completadas' : 'Mostrar completadas'}
+        </Button>
+        <Button onClick={() => setCreateFlow('wizard')} className="bg-primary hover:bg-primary/90 text-sm sm:text-base">
+          <Plus className="w-4 h-4 mr-1" />Nueva OT
+        </Button>
       </div>
 
       {/* Floating drag hint */}
@@ -288,297 +342,195 @@ export function OTManagement({ onOTSelect }: OTManagementProps) {
         </div>
       )}
 
-      {/* ── Honeycomb Beehive Kanban ──
-          Flat-top hex: flat top/bottom sides, pointed left/right.
-          clip-path: polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%)
-          Column-based formation — 2 cols of 2 with staggered single between each:
-            same-column vertical step = HEX_H  (flat edges share directly)
-            staggered column: x += 0.75×W, y = 0.5×H  (interlocked centred)
-          Formation (left → right):
-            [Diseño]              [Acabados]
-                     [Corte]                [Despacho]
-            [Compras]             [Terminación]
-      ── */}
+      {/* -- Honeycomb stage board: 6 process hexes, scales to fit width -- */}
       {(() => {
-        const HEX_CLIP = 'polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%)';
-        const HEX_W = 280;
-        const HEX_H = 240;
-
-        // Flat-top: points are on left/right — inset more horizontally, less vertically
-        const INSET_X = Math.round(HEX_W * 0.16); // 45px — closer to edges for more content area
-        const INSET_Y = Math.round(HEX_H * 0.04); // 10px — flat top/bottom, minimal gap
-
-        const X_STEP = HEX_W * 0.75; // 210 — staggered column x offset
-        const Y_STEP = HEX_H * 0.5;  // 120 — staggered column y offset (midpoint)
-
-        const POSITIONS = [
-          { x: 0,            y: 0 },       // 0: Diseño       col-1 top
-          { x: 0,            y: HEX_H },   // 1: Compras      col-1 bottom (flat edge sharing)
-          { x: X_STEP,       y: Y_STEP },  // 2: Corte        staggered between col-1
-          { x: X_STEP * 2,   y: 0 },       // 3: Acabados     col-3 top
-          { x: X_STEP * 2,   y: HEX_H },   // 4: Terminación  col-3 bottom
-          { x: X_STEP * 3,   y: Y_STEP },  // 5: Despacho     staggered between col-3
-        ];
-        const CANVAS_W = X_STEP * 3 + HEX_W; // 910
-        const CANVAS_H = HEX_H * 2;           // 480
-
         return (
-          <div style={{ overflowX: 'auto', paddingBottom: 8 }}>
-            <div style={{ position: 'relative', width: CANVAS_W, height: CANVAS_H, margin: '0 auto' }}>
-              {/* Flow arrows between process hexes */}
-              <svg
-                width={CANVAS_W}
-                height={CANVAS_H}
-                style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 1, opacity: 0.85 }}
-              >
-                <defs>
-                  <marker id="flowArrowHead" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
-                    <polygon points="0 0, 6 3, 0 6" fill="rgba(148,163,184,0.8)" />
-                  </marker>
-                </defs>
-                {[
-                  [0, 2], // Diseño -> Corte
-                  [1, 2], // Compras -> Corte
-                  [2, 3], // Corte -> Acabados
-                  [2, 4], // Corte -> Terminación
-                  [3, 5], // Acabados -> Despacho
-                  [4, 5], // Terminación -> Despacho
-                ].map(([from, to], idx) => {
-                  const fromPos = POSITIONS[from as number];
-                  const toPos = POSITIONS[to as number];
-                  const x1 = fromPos.x + HEX_W / 2;
-                  const y1 = fromPos.y + HEX_H / 2;
-                  const x2 = toPos.x + HEX_W / 2;
-                  const y2 = toPos.y + HEX_H / 2;
+          <div
+            ref={boardWrapRef}
+            style={{ width: '100%', overflow: isMobile ? 'visible' : 'hidden', display: 'flex', justifyContent: 'center', paddingBottom: 4 }}
+          >
+            <div style={{ width: CANVAS_W, height: CANVAS_H, position: 'relative', flexShrink: 0 }}>
+              <div style={{ position: 'absolute', inset: 0 }}>
+                {/* Flow arrows between process hexes (desktop beehive only) */}
+                {!isMobile && (
+                <svg width={CANVAS_W} height={CANVAS_H} style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 1, opacity: 0.8 }}>
+                  <defs>
+                    <marker id="flowArrowHead" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+                      <polygon points="0 0, 6 3, 0 6" fill="rgba(148,163,184,0.8)" />
+                    </marker>
+                  </defs>
+                  {[[0, 2], [1, 2], [2, 3], [2, 4], [3, 5], [4, 5]].map(([from, to], idx) => {
+                    const fromPos = POSITIONS[from as number];
+                    const toPos = POSITIONS[to as number];
+                    const x1 = fromPos.x + HEX_W / 2;
+                    const y1 = fromPos.y + HEX_H / 2;
+                    const x2 = toPos.x + HEX_W / 2;
+                    const y2 = toPos.y + HEX_H / 2;
+                    const dx = x2 - x1, dy = y2 - y1;
+                    const len = Math.hypot(dx, dy) || 1;
+                    const pad = 54;
+                    return (
+                      <line
+                        key={`flow-${idx}`}
+                        x1={x1 + (dx / len) * pad} y1={y1 + (dy / len) * pad}
+                        x2={x2 - (dx / len) * pad} y2={y2 - (dy / len) * pad}
+                        stroke="rgba(148,163,184,0.8)" strokeWidth="2.5" strokeDasharray="6 5" markerEnd="url(#flowArrowHead)"
+                      />
+                    );
+                  })}
+                </svg>
+                )}
 
-                  // Pull endpoints inward so arrows don't sit directly on top of labels
-                  const dx = x2 - x1;
-                  const dy = y2 - y1;
-                  const len = Math.hypot(dx, dy) || 1;
-                  const pad = 56;
-                  const sx = x1 + (dx / len) * pad;
-                  const sy = y1 + (dy / len) * pad;
-                  const ex = x2 - (dx / len) * pad;
-                  const ey = y2 - (dy / len) * pad;
-
+                {KANBAN_GROUPS.map((group, idx) => {
+                  const { x, y } = POSITIONS[idx];
+                  const count = group.stages.reduce((s, k) => s + getByStatus(k).length, 0);
                   return (
-                    <line
-                      key={`flow-${idx}`}
-                      x1={sx}
-                      y1={sy}
-                      x2={ex}
-                      y2={ey}
-                      stroke="rgba(148,163,184,0.8)"
-                      strokeWidth="2.5"
-                      strokeDasharray="6 5"
-                      markerEnd="url(#flowArrowHead)"
-                    />
-                  );
-                })}
-              </svg>
-              {KANBAN_GROUPS.map((group, idx) => {
-                const { x, y } = POSITIONS[idx];
-                const count = groupCounts[group.id];
-                const isCollapsed = collapsed[group.id];
-
-                return (
-                  <div
-                    key={group.id}
-                    style={{
-                      position: 'absolute', left: x, top: y,
-                      width: HEX_W, height: HEX_H,
-                      zIndex: 2,
-                      filter: `drop-shadow(0 4px 16px rgb(${group.rgb} / 0.42))`,
-                      transition: 'filter 0.18s',
-                    }}
-                    onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.filter = `drop-shadow(0 6px 22px rgb(${group.rgb} / 0.68))`; }}
-                    onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.filter = `drop-shadow(0 4px 16px rgb(${group.rgb} / 0.42))`; }}
-                  >
-                    {/* ── Hex border: outer hex = border color, inner hex = fill ── */}
-                    <div style={{
-                      position: 'absolute', inset: 0,
-                      clipPath: HEX_CLIP,
-                      background: `rgb(${group.rgb})`,
-                    }}>
-                      {/* Inner hex fill — inset 8px to expose the outer as a border */}
-                      <div style={{
-                        position: 'absolute',
-                        inset: '8px',
-                        clipPath: HEX_CLIP,
-                        background: 'var(--hex-fill, #ffffff)',
-                      }}>
-                    {/* ── Content ── */}
-                    <div style={{
-                      position: 'absolute',
-                      left: INSET_X - 8, right: INSET_X - 8,
-                      top: INSET_Y - 8, bottom: INSET_Y - 8,
-                      display: 'flex', flexDirection: 'column',
-                      overflow: 'hidden',
-                    }}>
-                      {/* Title + count — centered */}
-                      <div style={{
-                        flexShrink: 0,
-                        textAlign: 'center',
-                        padding: '5px 4px 3px',
-                        borderBottom: `3px solid rgb(${group.rgb})`,
-                      }}>
-                        <div style={{ fontSize: 14, fontWeight: 900, color: `rgb(${group.rgb})`, lineHeight: 1.1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {group.label}
-                        </div>
-                        <div style={{ fontSize: 9, fontWeight: 600, color: `rgb(${group.rgb} / 0.70)`, lineHeight: 1.2, marginTop: 1 }}>
-                          {count} {count === 1 ? 'orden' : 'órdenes'}
-                        </div>
-                      </div>
-
-                      {/* Stage columns — colored header tab + white body */}
-                      <div style={{ flex: 1, display: 'flex', flexDirection: 'row', overflow: 'hidden' }}>
-                        {(group.stages as readonly string[]).map((stageKey, sIdx) => {
-                          const stInfo   = getStatusInfo(stageKey);
-                          const stageOTs = getByStatus(stageKey);
-                          const isOver   = dragOverCol === stageKey && !!draggingId;
-                          return (
-                            <div
-                              key={stageKey}
-                              style={{
-                                flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0,
-                                borderLeft: sIdx > 0 ? `1px solid rgb(${group.rgb} / 0.25)` : 'none',
-                                background: isOver ? `rgb(${group.rgb} / 0.08)` : 'transparent',
-                                transition: 'background 0.1s',
-                              }}
-                              onDragEnter={e => onColEnter(e, stageKey)}
-                              onDragLeave={e => onColLeave(e, stageKey)}
-                              onDragOver={onColOver}
-                              onDrop={e => onColDrop(e, stageKey)}
-                            >
-                              {/* Colored tab header */}
-                              <div style={{
-                                flexShrink: 0, textAlign: 'center',
-                                background: `rgb(${group.rgb})`,
-                                padding: '2px 2px',
-                              }}>
-                                <div style={{ fontSize: 8, fontWeight: 700, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: 1.3 }}>
-                                  {stInfo.labelEs}
-                                </div>
-                                <div style={{ fontSize: 7, fontWeight: 600, color: 'rgba(255,255,255,0.75)', lineHeight: 1 }}>
-                                  {stageOTs.length}
-                                </div>
+                    <div
+                      key={group.id}
+                      style={{
+                        position: 'absolute', left: x, top: y,
+                        width: HEX_W, height: HEX_H, zIndex: 2,
+                        filter: `drop-shadow(0 4px 16px rgb(${group.rgb} / 0.42))`,
+                        transition: 'filter 0.18s',
+                      }}
+                      onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.filter = `drop-shadow(0 6px 22px rgb(${group.rgb} / 0.68))`; }}
+                      onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.filter = `drop-shadow(0 4px 16px rgb(${group.rgb} / 0.42))`; }}
+                    >
+                      {/* outer hex = border colour */}
+                      <div style={{ position: 'absolute', inset: 0, clipPath: HEX_CLIP, background: `rgb(${group.rgb})` }}>
+                        {/* inner hex = fill */}
+                        <div style={{ position: 'absolute', inset: '7px', clipPath: HEX_CLIP, background: 'var(--hex-fill, #ffffff)' }}>
+                          {/* -- Content: title + horizontal sub-step columns -- */}
+                          <div style={{ position: 'absolute', left: INSET_X, right: INSET_X, top: INSET_Y, bottom: INSET_Y, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                            {/* Title + count */}
+                            <div style={{ flexShrink: 0, textAlign: 'center', padding: '4px 4px 3px', borderBottom: `3px solid rgb(${group.rgb})` }}>
+                              <div style={{ fontSize: 20, fontWeight: 900, color: `rgb(${group.rgb})`, lineHeight: 1.1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                {group.label}
                               </div>
-                              {/* OT cards hex grid in this column */}
-                              <div style={{ flex: 1, overflowY: 'auto', padding: '4px 3px', display: 'flex', flexWrap: 'wrap', gap: 3, alignContent: 'flex-start' }}>
-                                {isOver && stageOTs.length === 0 && (
-                                  <div style={{ border: `1px dashed rgb(${group.rgb} / 0.5)`, borderRadius: 2, textAlign: 'center', fontSize: 7, color: `rgb(${group.rgb})`, padding: '2px 0', marginTop: 2 }}>↓</div>
-                                )}
-                                {stageOTs.map(ot => {
-                                  const isDragging  = draggingId === ot.id;
-                                  const isPartial   = !!ot.is_partial;
-                                  const splitTotal = ot.split_group_id ? Number(splitGroupTotals[ot.split_group_id] ?? 0) : 0;
-                                  const splitPct = isPartial && splitTotal > 0
-                                    ? Math.max(1, Math.min(100, Math.round((Number(ot.quantity ?? 0) / splitTotal) * 100)))
-                                    : null;
-                                  const priDot      = ot.priority >= 8 ? '#ef4444' : ot.priority >= 5 ? '#f59e0b' : `rgb(${group.rgb})`;
-                                  const HEX_MINI_CLIP = 'polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%)';
-                                  const MINI_W = 48;
-                                  const MINI_H = 42;
-                                  return (
-                                    <div
-                                      key={ot.id}
-                                      draggable
-                                      onDragStart={e => onDragStart(e, ot)}
-                                      onDragEnd={onDragEnd}
-                                      onMouseEnter={e => {
-                                        if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
-                                        const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-                                        hoverTimerRef.current = setTimeout(() => setHoveredOT({ ot, rect }), 220);
-                                      }}
-                                      onMouseLeave={() => {
-                                        if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
-                                        hoverTimerRef.current = setTimeout(() => setHoveredOT(p => p?.ot.id === ot.id ? null : p), 80);
-                                      }}
-                                      style={{
-                                        width: MINI_W, height: MINI_H,
-                                        clipPath: HEX_MINI_CLIP,
-                                        background: isDragging
-                                          ? `rgb(${group.rgb} / 0.10)`
-                                          : isPartial
-                                            ? `rgb(${group.rgb} / 0.09)`
-                                            : `rgb(${group.rgb} / 0.18)`,
-                                        cursor: 'grab',
-                                        opacity: isDragging ? 0.30 : isPartial ? 0.60 : 1,
-                                        transition: 'opacity 0.1s, transform 0.1s',
-                                        display: 'flex', flexDirection: 'column',
-                                        alignItems: 'center', justifyContent: 'center',
-                                        position: 'relative', flexShrink: 0,
-                                        outline: isPartial ? `1.5px dashed rgb(${group.rgb} / 0.55)` : 'none',
-                                      }}
-                                      onClick={() => { if (!isDragging) onOTSelect(ot); }}
-                                    >
-                                      {/* Priority dot top-center */}
-                                      <div style={{
-                                        position: 'absolute', top: 8, left: '50%', transform: 'translateX(-50%)',
-                                        width: 4, height: 4, borderRadius: '50%', background: priDot,
-                                      }} />
-                                      <span style={{
-                                        fontSize: 7.5, fontWeight: 800,
-                                        color: `rgb(${group.rgb})`,
-                                        textAlign: 'center', lineHeight: 1.1,
-                                        padding: '0 6px', marginTop: 4,
-                                        overflow: 'hidden', maxWidth: '100%',
-                                        wordBreak: 'break-all',
-                                      }}>
-                                        {ot.ot_number.replace(/^OT-?/i, '')}
-                                      </span>
-                                      {isPartial && (
-                                        <span style={{ fontSize: 6, fontWeight: 800, color: '#f59e0b', lineHeight: 1 }}>
-                                          {splitPct !== null ? `${splitPct}%` : 'PAR'}
-                                        </span>
-                                      )}
-                                      {ot.product_image_url && (
-                                        <div style={{
-                                          position: 'absolute', inset: 0, clipPath: HEX_MINI_CLIP,
-                                          backgroundImage: `url(${ot.product_image_url})`,
-                                          backgroundSize: 'cover', backgroundPosition: 'center',
-                                          opacity: 0.18,
-                                        }} />
-                                      )}
-                                    </div>
-                                  );
-                                })}
+                              <div style={{ fontSize: 16, fontWeight: 600, color: `rgb(${group.rgb} / 0.7)`, lineHeight: 1.2, marginTop: 1 }}>
+                                {count} {count === 1 ? 'orden' : 'ordenes'}
                               </div>
                             </div>
-                          );
-                        })}
+                            {/* Sub-step columns -- colored header tab + cards body, each a drop target */}
+                            <div style={{ flex: 1, display: 'flex', flexDirection: 'row', overflow: 'hidden' }}>
+                              {(group.stages as readonly string[]).map((stageKey, sIdx) => {
+                                const stInfo = getStatusInfo(stageKey);
+                                const stageOTs = getByStatus(stageKey);
+                                const isOver = dragOverCol === stageKey && !!draggingId;
+                                return (
+                                  <div
+                                    key={stageKey}
+                                    style={{
+                                      flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0,
+                                      borderLeft: sIdx > 0 ? `1px solid rgb(${group.rgb} / 0.25)` : 'none',
+                                      background: isOver ? `rgb(${group.rgb} / 0.10)` : 'transparent',
+                                      transition: 'background 0.1s',
+                                    }}
+                                    onDragEnter={e => onColEnter(e, stageKey)}
+                                    onDragLeave={e => onColLeave(e, stageKey)}
+                                    onDragOver={onColOver}
+                                    onDrop={e => onColDrop(e, stageKey)}
+                                  >
+                                    <div style={{ flexShrink: 0, textAlign: 'center', background: `rgb(${group.rgb})`, padding: '3px 3px' }}>
+                                      <div style={{ fontSize: 14, fontWeight: 700, color: '#fff', lineHeight: 1.05, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', wordBreak: 'normal', overflowWrap: 'break-word' }}>
+                                        {stInfo.labelEs}
+                                      </div>
+                                      <div style={{ fontSize: 16, fontWeight: 600, color: 'rgba(255,255,255,0.85)', lineHeight: 1.1 }}>
+                                        {stageOTs.length}
+                                      </div>
+                                    </div>
+                                    <div style={{ flex: 1, overflowY: 'auto', padding: '5px 3px', display: 'flex', flexWrap: 'wrap', gap: 4, alignContent: 'flex-start', justifyContent: 'center' }}>
+                                      {isOver && stageOTs.length === 0 && (
+                                        <div style={{ width: '100%', border: `1px dashed rgb(${group.rgb} / 0.5)`, borderRadius: 3, textAlign: 'center', fontSize: 16, color: `rgb(${group.rgb})`, padding: '3px 0', marginTop: 2 }}>↓</div>
+                                      )}
+                                      {stageOTs.map(ot => {
+                                        const isDragging = draggingId === ot.id;
+                                        const isPartial = !!ot.is_partial;
+                                        const splitTotal = ot.split_group_id ? Number(splitGroupTotals[ot.split_group_id] ?? 0) : 0;
+                                        const splitPct = isPartial && splitTotal > 0
+                                          ? Math.max(1, Math.min(100, Math.round((Number(ot.quantity ?? 0) / splitTotal) * 100)))
+                                          : null;
+                                        const priDot = ot.priority >= 8 ? '#ef4444' : ot.priority >= 5 ? '#f59e0b' : `rgb(${group.rgb})`;
+                                        const MINI_W = Math.round(HEX_W * 0.2);
+                                        const MINI_H = Math.round(MINI_W * 0.88);
+                                        return (
+                                          <div
+                                            key={ot.id}
+                                            draggable
+                                            onDragStart={e => onDragStart(e, ot)}
+                                            onDragEnd={onDragEnd}
+                                            onMouseEnter={e => {
+                                              if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
+                                              const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                                              hoverTimerRef.current = setTimeout(() => setHoveredOT({ ot, rect }), 220);
+                                            }}
+                                            onMouseLeave={() => {
+                                              if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
+                                              hoverTimerRef.current = setTimeout(() => setHoveredOT(p => p?.ot.id === ot.id ? null : p), 80);
+                                            }}
+                                            onClick={() => { if (!isDragging) onOTSelect(ot); }}
+                                            title={`${ot.ot_number} - ${stInfo.labelEs} - ${ot.client_name}`}
+                                            style={{
+                                              width: MINI_W, height: MINI_H, clipPath: HEX_CLIP,
+                                              background: isDragging ? `rgb(${group.rgb} / 0.10)` : isPartial ? `rgb(${group.rgb} / 0.09)` : `rgb(${group.rgb} / 0.20)`,
+                                              cursor: 'grab', opacity: isDragging ? 0.3 : isPartial ? 0.6 : 1,
+                                              display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                                              position: 'relative', flexShrink: 0,
+                                              outline: isPartial ? `1.5px dashed rgb(${group.rgb} / 0.55)` : 'none',
+                                            }}
+                                          >
+                                            <div style={{ position: 'absolute', top: 7, left: '50%', transform: 'translateX(-50%)', width: 6, height: 6, borderRadius: '50%', background: priDot }} />
+                                            <span style={{ fontSize: 16, fontWeight: 800, color: `rgb(${group.rgb})`, textAlign: 'center', lineHeight: 1.05, padding: '0 4px', marginTop: 6, overflow: 'hidden', maxWidth: '100%', wordBreak: 'break-all' }}>
+                                              {ot.ot_number.replace(/^OT-?/i, '')}
+                                            </span>
+                                            {isPartial && (
+                                              <span style={{ fontSize: 16, fontWeight: 800, color: '#f59e0b', lineHeight: 1 }}>
+                                                {splitPct !== null ? `${splitPct}%` : 'PAR'}
+                                              </span>
+                                            )}
+                                            {ot.product_image_url && (
+                                              <div style={{ position: 'absolute', inset: 0, clipPath: HEX_CLIP, backgroundImage: `url(${ot.product_image_url})`, backgroundSize: 'cover', backgroundPosition: 'center', opacity: 0.18 }} />
+                                            )}
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        </div>
                       </div>
                     </div>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
             </div>
           </div>
         );
       })()}
 
-      {/* ── Fast Lane: Urgent OTs ── */}
+      {/* -- Via Rapida: urgent OTs -- */}
       {(() => {
         const urgentOTs = filteredOTs.filter(ot => ot.priority >= 8 && ot.status !== 'completed');
-        const LANE_W = 910;
         return (
-          <div style={{ width: LANE_W, margin: '10px auto 0' }}>
+          <div style={{ width: '100%', maxWidth: CANVAS_W, margin: '6px auto 0' }}>
             <div style={{
               background: 'linear-gradient(90deg, rgba(239,68,68,0.13) 0%, rgba(234,179,8,0.10) 100%)',
-              border: '1.5px solid rgba(239,68,68,0.50)',
-              borderRadius: 10, padding: '6px 12px',
+              border: '1.5px solid rgba(239,68,68,0.45)',
+              borderRadius: 10, padding: '8px 14px',
+              display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap',
             }}>
-              <div style={{ fontSize: 10, fontWeight: 800, color: '#fca5a5', letterSpacing: '0.07em', marginBottom: urgentOTs.length ? 6 : 0, display: 'flex', alignItems: 'center', gap: 5 }}>
-                ⚡ Vía Rápida para OT's Urgentes
-              </div>
+              <span style={{ fontSize: 16, fontWeight: 800, color: '#ef4444', letterSpacing: '0.03em', display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap' }}>
+                Via Rapida -- Urgentes
+              </span>
               {urgentOTs.length === 0 ? (
-                <span style={{ fontSize: 8.5, color: 'rgba(255,255,255,0.30)', fontStyle: 'italic' }}>Sin OTs urgentes</span>
+                <span className="text-muted-foreground" style={{ fontSize: 16, fontStyle: 'italic' }}>Sin OTs urgentes</span>
               ) : (
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
                   {urgentOTs.map(ot => {
-                    const stInfo    = getStatusInfo(ot.status);
+                    const stInfo = getStatusInfo(ot.status);
                     const isDragging = draggingId === ot.id;
                     return (
                       <div
@@ -586,18 +538,18 @@ export function OTManagement({ onOTSelect }: OTManagementProps) {
                         draggable
                         onDragStart={e => onDragStart(e, ot)}
                         onDragEnd={onDragEnd}
-                        style={{
-                          background: isDragging ? 'rgba(239,68,68,0.08)' : 'rgba(239,68,68,0.22)',
-                          border: '1px solid rgba(239,68,68,0.55)',
-                          borderRadius: 5, padding: '3px 8px', cursor: 'grab',
-                          opacity: isDragging ? 0.3 : 1,
-                          display: 'flex', alignItems: 'center', gap: 6,
-                        }}
                         onClick={() => { if (!isDragging) onOTSelect(ot); }}
+                        title={`${ot.ot_number} - ${stInfo.labelEs} - ${ot.client_name}`}
+                        style={{
+                          background: isDragging ? 'rgba(239,68,68,0.08)' : 'rgba(239,68,68,0.18)',
+                          border: '1px solid rgba(239,68,68,0.5)',
+                          borderRadius: 7, padding: '4px 10px', cursor: 'grab',
+                          opacity: isDragging ? 0.3 : 1,
+                          display: 'flex', alignItems: 'center', gap: 8,
+                        }}
                       >
-                        <span style={{ fontSize: 9, fontWeight: 800, color: '#fca5a5' }}>{ot.ot_number}</span>
-                        <span style={{ fontSize: 7.5, color: 'rgba(255,255,255,0.55)' }}>{stInfo.labelEs}</span>
-                        <span style={{ fontSize: 7.5, color: 'rgba(255,255,255,0.38)' }}>{ot.client_name}</span>
+                        <span style={{ fontSize: 16, fontWeight: 800, color: '#ef4444' }}>{ot.ot_number}</span>
+                        <span className="text-muted-foreground" style={{ fontSize: 16 }}>{stInfo.labelEs}</span>
                       </div>
                     );
                   })}
