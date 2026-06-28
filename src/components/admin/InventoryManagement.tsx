@@ -56,6 +56,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Plus, Pencil, Trash2, AlertTriangle, Calculator, Boxes, ChevronDown } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { formatCLP } from '@/lib/format';
 import {
   useInventoryItems,
   useInventoryLots,
@@ -407,7 +408,7 @@ const InventoryManagement = () => {
             <CardTitle className="text-sm text-primary">Valor estimado de stock</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold">${totalStockValue.toFixed(2)}</p>
+            <p className="text-2xl font-bold">{formatCLP(totalStockValue)}</p>
           </CardContent>
         </Card>
 
@@ -518,7 +519,7 @@ const InventoryManagement = () => {
                       <TableCell>{getCategoryLabel(item.category)}</TableCell>
                       <TableCell>{Number(item.current_stock || 0).toFixed(3)} {item.unit}</TableCell>
                       <TableCell>{Number(item.min_stock || 0).toFixed(3)} {item.unit}</TableCell>
-                      <TableCell>${Number(item.weighted_unit_cost || item.estimated_unit_cost || 0).toFixed(4)}</TableCell>
+                      <TableCell>{formatCLP(Number(item.weighted_unit_cost || item.estimated_unit_cost || 0))}</TableCell>
                       <TableCell>
                         <div className="flex gap-2">
                           <Button variant="outline" size="icon" onClick={() => openEditDialog(item)}>
@@ -562,7 +563,7 @@ const InventoryManagement = () => {
                       <TableCell>{lot.certification_code || '-'}</TableCell>
                       <TableCell>{lot.certification_expires_on || '-'}</TableCell>
                       <TableCell>{Number(lot.quantity_available || 0).toFixed(3)}</TableCell>
-                      <TableCell>${Number(lot.unit_cost || 0).toFixed(4)}</TableCell>
+                      <TableCell>{formatCLP(Number(lot.unit_cost || 0))}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -598,7 +599,7 @@ const InventoryManagement = () => {
                       <TableCell>{tx.lot_number || '-'}</TableCell>
                       <TableCell>{Number(tx.quantity).toFixed(3)} {tx.unit}</TableCell>
                       <TableCell>{tx.ot_number ? `${tx.ot_number} (${tx.client_name || 'No client'})` : '-'}</TableCell>
-                      <TableCell>${Number(tx.estimated_total_cost || 0).toFixed(4)}</TableCell>
+                      <TableCell>{formatCLP(Number(tx.estimated_total_cost || 0))}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -649,9 +650,9 @@ const InventoryManagement = () => {
                     <div className="rounded-md border p-3 bg-muted/30 text-sm">
                       <p><strong>Item:</strong> {estimatedSelection.name}</p>
                       <p><strong>Available stock:</strong> {estimatedSelection.stock.toFixed(3)} {estimatedSelection.unit}</p>
-                      <p><strong>Estimated unit cost:</strong> ${estimatedSelection.unitCost.toFixed(4)}</p>
+                      <p><strong>Estimated unit cost:</strong> {formatCLP(estimatedSelection.unitCost)}</p>
                       <p className="text-base font-semibold mt-2">
-                        Estimated total: ${estimatedSelection.total.toFixed(4)}
+                        Estimated total: {formatCLP(estimatedSelection.total)}
                       </p>
                     </div>
                   )}

@@ -101,6 +101,9 @@ const CreateOTSchema = z.object({
 	// Operations (child rows)
 	operations: z.array(OTOperationSchema).optional(),
 	notes: z.string().max(5000).optional().nullable(),
+	// Full production bundle (montaje, finishing, machine, tapas, pliegos, admin)
+	// persisted as JSONB — replaces the prior per-browser localStorage stash.
+	production_detail: z.any().optional().nullable(),
 });
 
 // ── Pagination ──────────────────────────────────────────────────────────────
@@ -253,6 +256,7 @@ export async function POST(req: NextRequest) {
 					total_price: d.total_price || 0,
 					unit_price: d.unit_price || 0,
 					notes: d.notes || null,
+						production_detail: d.production_detail ?? null,
 				},
 			])
 			.select('*')

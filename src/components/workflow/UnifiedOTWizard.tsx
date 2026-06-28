@@ -290,6 +290,19 @@ export function UnifiedOTWizard({ onClose, onSuccess }: Props) {
           .join('\n') || null,
         // Machine assignment from Machines module
         assigned_machine_id: form.machine.machine_id || null,
+        // Full production bundle — persisted to the DB (was localStorage-only).
+        production_detail: {
+          production_detail: form.production_detail,
+          tapas: form.tapas,
+          items: form.items,
+          pliegos: form.pliegos,
+          montaje: form.montaje,
+          montaje_shapes: form.montaje_shapes,
+          machine: form.machine,
+          finishing: form.finishing,
+          admin: form.admin,
+          work_category: form.work_category,
+        },
       };
 
       const res = await fetch('/api/ots', {
