@@ -85,7 +85,7 @@ function StatsContent() {
 
 export default function MaintenanceStatsPage() {
   return (
-    <ProtectedRoute allowedRoles={['admin', 'technician', 'supervisor']}>
+    <ProtectedRoute allowedRoles={['admin', 'manager', 'supervisor']}>
       <div className="p-6 space-y-6">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Estadísticas de Mantenimiento</h1>

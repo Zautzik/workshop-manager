@@ -43,6 +43,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Badge } from '@/components/ui/badge';
 import {
   Select,
@@ -53,7 +54,7 @@ import {
 } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Plus, Pencil, Trash2, AlertTriangle, Calculator, Boxes } from 'lucide-react';
+import { Plus, Pencil, Trash2, AlertTriangle, Calculator, Boxes, ChevronDown } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import {
   useInventoryItems,
@@ -105,6 +106,7 @@ const InventoryManagement = () => {
   const [editingItem, setEditingItem] = useState<any>(null);
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [scanSearch, setScanSearch] = useState('');
+  const [alertsOpen, setAlertsOpen] = useState(false);
 
   const [itemForm, setItemForm] = useState({
     sku: '',
@@ -423,26 +425,32 @@ const InventoryManagement = () => {
       </div>
 
       {alerts.length > 0 && (
-        <Card className="border-destructive/30">
-          <CardHeader>
-            <CardTitle className="text-destructive">Alertas de stock bajo</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              {alerts.map((alert: any) => (
-                <div key={alert.id} className="flex items-center justify-between rounded-md border border-destructive/30 p-2">
-                  <div>
-                    <p className="font-medium">{alert.name}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {getCategoryLabel(alert.category)} • Stock: {Number(alert.current_stock).toFixed(3)} / Mín: {Number(alert.min_stock).toFixed(3)}
-                    </p>
+        <Collapsible open={alertsOpen} onOpenChange={setAlertsOpen} className="ml-auto w-full sm:max-w-sm">
+          <div className="rounded-md border border-destructive/40 bg-destructive/5">
+            <CollapsibleTrigger className="flex w-full items-center justify-between gap-2 rounded-md px-3 py-2 text-sm font-medium text-destructive hover:bg-destructive/10">
+              <span className="flex items-center gap-2">
+                <AlertTriangle className="h-4 w-4" />
+                {alerts.length} alertas de stock bajo
+              </span>
+              <ChevronDown className={`h-4 w-4 transition-transform ${alertsOpen ? 'rotate-180' : ''}`} />
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <div className="max-h-72 space-y-1.5 overflow-y-auto px-3 pb-3">
+                {alerts.map((alert: any) => (
+                  <div key={alert.id} className="flex items-center justify-between gap-2 rounded-md border border-destructive/30 bg-background/60 px-2 py-1.5">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium">{alert.name}</p>
+                      <p className="truncate text-xs text-muted-foreground">
+                        {getCategoryLabel(alert.category)} • {Number(alert.current_stock).toFixed(0)}/{Number(alert.min_stock).toFixed(0)} {alert.unit ?? ''}
+                      </p>
+                    </div>
+                    <Badge variant="destructive" className="shrink-0 text-[10px]">{SEVERITY_LABELS[String(alert.severity || 'medium')] ?? String(alert.severity || 'medium').toUpperCase()}</Badge>
                   </div>
-                  <Badge variant="destructive">{SEVERITY_LABELS[String(alert.severity || 'medium')] ?? String(alert.severity || 'medium').toUpperCase()}</Badge>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+                ))}
+              </div>
+            </CollapsibleContent>
+          </div>
+        </Collapsible>
       )}
 
       <Card className="border-primary/20">

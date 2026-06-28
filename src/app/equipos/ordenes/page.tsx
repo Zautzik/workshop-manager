@@ -68,10 +68,10 @@ function OrdersList() {
 
 export default function MaintenanceOrdenesPage() {
   return (
-    <ProtectedRoute allowedRoles={['admin', 'technician', 'supervisor']}>
+    <ProtectedRoute allowedRoles={['admin', 'manager', 'supervisor']}>
       <div className="p-6 space-y-6">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Órdenes de Trabajo</h1>
+          <h1 className="text-2xl font-bold text-foreground">Plan & Órdenes</h1>
           <p className="text-sm text-muted-foreground mt-1">Listado completo de órdenes de mantenimiento</p>
         </div>
         <Suspense fallback={<div className="space-y-3">{[...Array(5)].map((_, i) => <Skeleton key={i} className="h-20 w-full" />)}</div>}>

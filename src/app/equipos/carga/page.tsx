@@ -4,7 +4,7 @@ import MachineActivityReport from '@/components/maintenance/MachineActivityRepor
 
 export default function EquiposCargaPage() {
   return (
-    <ProtectedRoute allowedRoles={['admin', 'manager', 'supervisor', 'technician']}>
+    <ProtectedRoute allowedRoles={['admin', 'manager', 'supervisor']}>
       <div className="p-6 space-y-6">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Carga & Utilización</h1>

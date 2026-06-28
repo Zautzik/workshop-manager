@@ -48,8 +48,8 @@ const Login = () => {
 
   useEffect(() => {
     if (didLogin && user) {
-      // All roles go to the unified home dashboard
-      router.push('/home');
+      // Technicians only interact through the WhatsApp capture surface; everyone else gets the app.
+      router.push(role === 'technician' ? '/operaciones/whatsapp/operator' : '/home');
     }
   }, [didLogin, user, role, router]);
 
@@ -89,7 +89,7 @@ const Login = () => {
           <div className="flex flex-col gap-2">
             <Button
               onClick={() => {
-                router.push('/home');
+                router.push(role === 'technician' ? '/operaciones/whatsapp/operator' : '/home');
               }}
             >
               Continuar al panel

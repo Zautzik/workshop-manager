@@ -4,7 +4,7 @@ import { PredictiveMaintenancePanel } from '@/components/maintenance/PredictiveM
 
 export default function PredictiveMaintenancePage() {
   return (
-    <ProtectedRoute allowedRoles={['admin', 'technician', 'supervisor', 'manager']}>
+    <ProtectedRoute allowedRoles={['admin', 'supervisor', 'manager']}>
       <div className="p-6">
         <div className="mb-5">
           <h1 className="text-2xl font-bold">Mantenimiento Predictivo</h1>

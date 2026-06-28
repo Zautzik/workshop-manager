@@ -19,7 +19,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 
 export default function MaintenanceChecklistPage() {
   return (
-    <ProtectedRoute allowedRoles={['admin', 'technician', 'supervisor']}>
+    <ProtectedRoute allowedRoles={['admin', 'manager', 'supervisor']}>
       <Suspense
         fallback={
           <div className="space-y-6 p-6">

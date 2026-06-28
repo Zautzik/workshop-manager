@@ -45,7 +45,7 @@ const quickActions: QuickAction[] = [
     rgb: '59 130 246',
     textCls: 'text-blue-100',
     lightTextCls: 'text-blue-900',
-    roles: ['admin', 'supervisor', 'manager', 'technician'],
+    roles: ['admin', 'supervisor', 'manager'],
   },
   {
     label: 'Calidad',
@@ -89,7 +89,7 @@ const quickActions: QuickAction[] = [
     rgb: '249 115 22',
     textCls: 'text-orange-100',
     lightTextCls: 'text-orange-900',
-    roles: ['admin', 'technician', 'supervisor'],
+    roles: ['admin', 'supervisor', 'manager'],
   },
   {
     label: 'Analítica',

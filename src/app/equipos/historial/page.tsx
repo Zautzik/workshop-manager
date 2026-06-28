@@ -113,7 +113,7 @@ function HistorialList() {
 
 export default function MaintenanceHistorialPage() {
   return (
-    <ProtectedRoute allowedRoles={['admin', 'technician', 'supervisor']}>
+    <ProtectedRoute allowedRoles={['admin', 'manager', 'supervisor']}>
       <div className="p-6 space-y-6 max-w-2xl">
         <div>
           <h1 className="text-2xl font-bold text-foreground tracking-tight">Historial de Intervenciones</h1>
