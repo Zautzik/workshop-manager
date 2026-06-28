@@ -173,11 +173,17 @@ export function proxy(req: NextRequest) {
 	// ── 2. Per-request CSP nonce ─────────────────────────────────────────────
 	// Base64-encode a UUID so it is safe to embed directly in a header value.
 	const nonce = Buffer.from(crypto.randomUUID()).toString('base64');
+	const csp = buildCsp(nonce);
 
 	// ── 3. Build the forwarded request headers ───────────────────────────────
+	// Next.js reads the nonce from the *request* Content-Security-Policy header
+	// to stamp its inline hydration scripts. Without this, that inline bootstrap
+	// script carries no nonce and is blocked by the response CSP (surfacing as the
+	// app-wide "1 Issue" dev-overlay error).
 	const requestHeaders = new Headers(req.headers);
 	requestHeaders.set('x-request-id', requestId);
 	requestHeaders.set('x-nonce', nonce);
+	requestHeaders.set('Content-Security-Policy', csp);
 
 	const res = NextResponse.next({
 		request: { headers: requestHeaders },
@@ -188,7 +194,7 @@ export function proxy(req: NextRequest) {
 	res.headers.set('x-request-id', requestId);
 
 	// Per-request CSP with nonce — overrides any static CSP from next.config.js.
-	res.headers.set('Content-Security-Policy', buildCsp(nonce));
+	res.headers.set('Content-Security-Policy', csp);
 
 	return res;
 }

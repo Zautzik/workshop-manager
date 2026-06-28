@@ -34,7 +34,7 @@ import { ReactNode, useState } from 'react';
  * Global providers wrapper for the entire application
  * Establishes the context layer that all pages and components depend on
  */
-export function Providers({ children }: { children: ReactNode }) {
+export function Providers({ children, nonce }: { children: ReactNode; nonce?: string }) {
 	const [queryClient] = useState(
 		() =>
 			new QueryClient({
@@ -57,7 +57,7 @@ export function Providers({ children }: { children: ReactNode }) {
 	return (
 		<SessionProvider>
 			<QueryClientProvider client={queryClient}>
-				<ThemeProvider>
+				<ThemeProvider nonce={nonce}>
 					<LanguageProvider>
 						<AuthProvider>
 							<TooltipProvider>

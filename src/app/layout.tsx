@@ -35,13 +35,12 @@ export default async function RootLayout({
   // Calling headers() here makes this layout dynamic so Next.js propagates
   // the nonce to the inline hydration <script> tags it generates.
   // If you add explicit <Script> components in future, pass nonce to them.
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const nonce = (await headers()).get('x-nonce') ?? '';
 
   return (
     <html lang="es" suppressHydrationWarning>
       <body>
-        <Providers>
+        <Providers nonce={nonce}>
           {children}
         </Providers>
       </body>

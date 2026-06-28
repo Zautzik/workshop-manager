@@ -54,6 +54,10 @@ interface TaskEntry {
   completionId?: string;
 }
 
+// Stable empty default: an undefined query result must not create a new array
+// reference each render, or the tasks effect below re-fires forever (page hangs).
+const EMPTY_FK_TASKS: any[] = [];
+
 export default function WorkOrderExecution() {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -63,7 +67,7 @@ export default function WorkOrderExecution() {
   const [tasks, setTasks] = useState<TaskEntry[]>([]);
   const [executing, setExecuting] = useState(false);
   const [taskNotes, setTaskNotes] = useState<Record<string, string>>({});
-  const { data: fkTasks = [] } = useMaintenanceTaskCompletions(selectedOrder?.id);
+  const { data: fkTasks = EMPTY_FK_TASKS } = useMaintenanceTaskCompletions(selectedOrder?.id);
 
   useEffect(() => {
     if (!selectedOrder) {

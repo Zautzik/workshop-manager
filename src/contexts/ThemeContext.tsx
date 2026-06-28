@@ -17,13 +17,14 @@ import React, { ReactNode } from 'react';
  * - enableSystem for OS-level preference detection
  * - storageKey matches previous localStorage key
  */
-export const ThemeProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+export const ThemeProvider: React.FC<{ children: ReactNode; nonce?: string }> = ({ children, nonce }) => {
   return (
     <NextThemesProvider
       attribute="class"
       defaultTheme="system"
       enableSystem
       storageKey="theme"
+      nonce={nonce}
     >
       {children}
     </NextThemesProvider>
