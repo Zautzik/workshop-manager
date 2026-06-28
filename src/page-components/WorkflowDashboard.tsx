@@ -13,6 +13,7 @@ import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { WorkerStatsPanel } from "@/components/workflow/WorkerStatsPanel";
 import { ShiftManagement } from "@/components/workflow/ShiftManagement";
 import { OTManagement } from "@/components/workflow/OTManagement";
+import { WeekendShiftRotation } from "@/components/workflow/WeekendShiftRotation";
 const WorkstationLayout = dynamic(() => import('@/components/workflow/WorkstationLayout').then((m) => m.WorkstationLayout));
 const OTRetrievalSystem = dynamic(() => import('@/components/workflow/OTRetrievalSystem'));
 const ClientManager = dynamic(() => import('@/components/workflow/ClientManager').then((m) => m.ClientManager));
@@ -134,6 +135,21 @@ export default function WorkflowDashboard({ initialTab = 'en_proceso' }: Workflo
   });
 
   const canManageCostModel = role === 'admin';
+
+  // Collapse raw shift rows (often stored per-date) into a few clean toggles
+  // (e.g. "Turno Día" / "Turno Tarde") instead of an unwieldy per-date list.
+  const shiftToggleOptions = useMemo(() => {
+    // The shop runs two logical shifts. Bucket the (often messy) shift rows into
+    // "Día" / "Tarde" by keyword so the toggle stays to two clean options.
+    const dia = { label: 'Día', ids: [] as string[] };
+    const tarde = { label: 'Tarde', ids: [] as string[] };
+    for (const s of shifts as any[]) {
+      const n = String(s?.name ?? '').toLowerCase();
+      const isTarde = /tarde|afternoon|noche|night|evening/.test(n);
+      (isTarde ? tarde : dia).ids.push(s.id);
+    }
+    return [dia, tarde].filter((g) => g.ids.length > 0);
+  }, [shifts]);
 
   useEffect(() => {
     setActiveTab(initialTab);
@@ -1174,38 +1190,7 @@ export default function WorkflowDashboard({ initialTab = 'en_proceso' }: Workflo
 
   return (
     <DndContext onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-      <div className="px-4 pt-3 pb-4 space-y-2">
-        {/* Header */}
-        <div className="flex items-center gap-2">
-          <h1 className="text-sm font-semibold text-foreground">{t('workflow.title')}</h1>
-          <span className="text-xs text-muted-foreground">{workers.length} op · {workstations.length} est</span>
-          <div className="ml-auto flex items-center gap-0.5">
-            <button
-              onClick={() => router.push('/operaciones/floor')}
-              title="Modo Planta (pantalla completa)"
-              className="w-7 h-7 rounded-md flex items-center justify-center transition-colors text-muted-foreground hover:text-foreground hover:bg-muted/60 mr-1"
-            >
-              <Monitor className="w-3.5 h-3.5" />
-            </button>
-            <div className="w-px h-4 bg-border mr-1" />
-            {workflowTabMeta.map((tab) => {
-              const Icon = tab.icon;
-              const isActive = activeTab === tab.value;
-              return (
-                <button
-                  key={tab.value}
-                  onClick={() => setActiveTab(tab.value)}
-                  title={tab.label}
-                  className={`w-7 h-7 rounded-md flex items-center justify-center transition-colors ${
-                    isActive ? 'bg-primary/20 text-primary' : 'text-muted-foreground hover:text-foreground hover:bg-muted/60'
-                  }`}
-                >
-                  <Icon className="w-3.5 h-3.5" />
-                </button>
-              );
-            })}
-          </div>
-        </div>
+      <div className="px-3 pt-2 pb-3 space-y-2">
 
         {/* Selected OT Banner */}
         {selectedOT && (
@@ -1254,23 +1239,26 @@ export default function WorkflowDashboard({ initialTab = 'en_proceso' }: Workflo
           </TabsContent>
 
           <TabsContent value="layout" className="mt-2">
-            {shifts.length > 0 && (
+            {shiftToggleOptions.length > 0 && (
               <div className="flex items-center gap-1.5 mb-3">
                 <Clock className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
                 <span className="text-xs text-muted-foreground">Turno:</span>
-                {shifts.map((shift: any) => (
-                  <Button
-                    key={shift.id}
-                    size="sm"
-                    onClick={() => setSelectedShiftId(shift.id)}
-                    variant={selectedShiftId === shift.id ? "default" : "outline"}
-                    className={`h-6 px-2 text-xs ${selectedShiftId === shift.id
-                      ? "bg-primary hover:bg-primary/90 text-primary-foreground"
-                      : "border-border bg-card/50 hover:bg-card"}`}
-                  >
-                    {shift.name}
-                  </Button>
-                ))}
+                {shiftToggleOptions.map((opt) => {
+                  const active = opt.ids.includes(selectedShiftId || '');
+                  return (
+                    <Button
+                      key={opt.label}
+                      size="sm"
+                      onClick={() => setSelectedShiftId(opt.ids[0])}
+                      variant={active ? "default" : "outline"}
+                      className={`h-6 px-2 text-xs ${active
+                        ? "bg-primary hover:bg-primary/90 text-primary-foreground"
+                        : "border-border bg-card/50 hover:bg-card"}`}
+                    >
+                      {opt.label}
+                    </Button>
+                  );
+                })}
               </div>
             )}
 
@@ -1357,6 +1345,9 @@ export default function WorkflowDashboard({ initialTab = 'en_proceso' }: Workflo
                     </div>
                   )}
                 </Card>
+
+                {/* Weekend shift rotation — two templates rotating weekly */}
+                <WeekendShiftRotation workers={workers} weekStart={weekStartDate} />
 
                 {/* Worker Stats */}
                 <WorkerStatsPanel
