@@ -51,7 +51,7 @@ export default function FloorPage() {
       {/* Top bar */}
       <header className="flex items-center justify-between px-6 py-3 bg-gray-900 border-b border-gray-800">
         <button
-          onClick={() => router.push('/workflow')}
+          onClick={() => router.push('/operaciones')}
           className="flex items-center gap-2 text-sm text-gray-400 hover:text-white transition-colors"
         >
           <ArrowLeft className="h-4 w-4" />
