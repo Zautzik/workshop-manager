@@ -126,6 +126,8 @@ const ExecutiveOverview = () => {
       activeOTs,
       completedThisMonth,
       machineUtilization,
+      runningMachines,
+      totalMachines,
       onTimeDelivery,
       onTimeDeliveryDelta,
       activeOTsDelta,
@@ -236,14 +238,14 @@ const ExecutiveOverview = () => {
           <Card className="border-l-4 border-l-purple-500 hover:shadow-lg transition-shadow">
             <CardHeader className="pb-2">
               <CardTitle className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                Utilización de Máquinas
+                Máquinas Activas
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="flex items-end justify-between">
                 <div>
                   <div className="text-3xl font-bold text-foreground">{kpis.machineUtilization}%</div>
-                  <p className="text-xs text-muted-foreground mt-1">Referencia OEE</p>
+                  <p className="text-xs text-muted-foreground mt-1">{kpis.runningMachines} de {kpis.totalMachines} en marcha</p>
                 </div>
                 <Badge variant={kpis.machineUtilization >= 75 ? 'default' : 'destructive'} className="text-xs">
                   {kpis.machineUtilization >= 75 ? 'Óptimo' : 'Bajo objetivo'}
@@ -458,7 +460,7 @@ const ExecutiveOverview = () => {
                 <h4 className="font-semibold text-foreground">Excelencia Operacional</h4>
                 <p className="text-sm text-muted-foreground mt-1">
                   El rendimiento de producción está {kpis.machineUtilization >= 70 ? 'cumpliendo' : 'por debajo de'} los objetivos. 
-                  OEE actual: {kpis.machineUtilization}%
+                  Máquinas activas: {kpis.runningMachines}/{kpis.totalMachines} ({kpis.machineUtilization}%)
                 </p>
               </div>
             </div>

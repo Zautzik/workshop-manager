@@ -309,7 +309,7 @@ export default function HomeDashboard() {
     switch (href) {
       case '/personas':      return { label: `Integridad ${v.circulacion.value}%`, status: v.circulacion.status };
       case '/operaciones':   return { label: `Validadas ${v.agni.value}%`, status: v.agni.status };
-      case '/equipos':       return { label: `Uso ${v.carga.value}%`, status: v.carga.status };
+      case '/equipos':       return { label: `Activas ${v.carga.running}/${v.carga.total}`, status: v.carga.status };
       case '/analitica':     return { label: `Salud ${vitals.health.score}`, status: vitals.health.score >= 80 ? 'flowing' : vitals.health.score >= 60 ? 'stagnant' : 'clotted' };
       case '/administracion':return { label: v.toxinas.value ? `${v.toxinas.value} pendientes` : 'Al día', status: v.toxinas.status };
       default:               return null;
