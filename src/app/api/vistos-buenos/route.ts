@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { isAuthError, requireAuth } from '@/lib/api-middleware';
 import { supabaseAdmin } from '@/integrations/supabase/server';
+import { resolveSalesScope, scopeFilterId } from '@/lib/sales-scope';
 
 const ROLES = ['admin', 'manager', 'supervisor', 'vendedor'] as const;
 
@@ -9,12 +10,20 @@ export async function GET(_req: NextRequest) {
   const auth = await requireAuth([...ROLES]);
   if (isAuthError(auth)) return auth;
 
-  // NOTE: vendedor row-scoping (salesman_id = me) needs the auth↔employee map;
-  // until verified, non-admins see all. Tighten here once that mapping is known.
-  const { data, error } = await supabaseAdmin
+  // Row-scoping: a vendedor sees only their own quotes (salesman_id = me);
+  // ops/management roles see all. See sales-scope.ts for the auth↔employee map.
+  const scope = await resolveSalesScope(auth);
+
+  let query = supabaseAdmin
     .from('vistos_buenos' as any)
     .select('*')
     .order('created_at', { ascending: false });
+
+  if (!scope.all) {
+    query = query.eq('salesman_id', scopeFilterId(scope));
+  }
+
+  const { data, error } = await query;
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ data: data ?? [] });
@@ -28,10 +37,21 @@ export async function POST(req: NextRequest) {
   const b = await req.json().catch(() => null);
   if (!b) return NextResponse.json({ error: 'Cuerpo inválido' }, { status: 400 });
 
+  // Ownership: a vendedor can only create quotes under their own name. Ops/
+  // management roles may attribute the quote to any salesman (b.salesman_id).
+  const scope = await resolveSalesScope(auth);
+  if (!scope.all && !scope.salesmanId) {
+    return NextResponse.json(
+      { error: 'Tu usuario no está vinculado a un vendedor.' },
+      { status: 403 }
+    );
+  }
+  const ownerSalesmanId = scope.all ? (b.salesman_id ?? null) : scope.salesmanId;
+
   const row = {
     client_id: b.client_id ?? null,
     client_name: b.client_name ?? null,
-    salesman_id: b.salesman_id ?? null,
+    salesman_id: ownerSalesmanId,
     product_name: b.product_name ?? null,
     product_type: b.product_type ?? null,
     quantity: b.quantity ?? null,

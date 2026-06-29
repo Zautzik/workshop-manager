@@ -12,6 +12,7 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ShieldAlert } from 'lucide-react';
+import { landingRouteForRole } from '@/lib/navigation';
 import type { AppRole } from '@/types/app-role';
 
 interface ProtectedRouteProps {
@@ -53,7 +54,7 @@ export default function ProtectedRoute({ children, allowedRoles }: ProtectedRout
             <p className="text-sm text-muted-foreground">
               Tu rol actual (<span className="font-medium capitalize">{role?.replace('_', ' ')}</span>) no tiene permiso para acceder a esta sección.
             </p>
-            <Button variant="outline" onClick={() => router.push('/home')}>
+            <Button variant="outline" onClick={() => router.push(landingRouteForRole(role))}>
               Volver al Inicio
             </Button>
           </CardContent>

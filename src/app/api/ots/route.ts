@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { requireAuth, isAuthError } from '@/lib/api-middleware';
 import { supabaseAdmin } from '@/integrations/supabase/server';
+import { resolveSalesScope, scopeFilterId } from '@/lib/sales-scope';
 import { buildRateLimitActor, enforceRouteRateLimit } from '@/lib/api-rate-limit';
 import { OTStatusSchema } from '@/lib/ot-state-machine';
 
@@ -139,6 +140,10 @@ export async function GET(req: NextRequest) {
 	const { page, limit, active } = pagination.data;
 	const offset = (page - 1) * limit;
 
+	// Row-scoping: a vendedor sees only their own OTs (salesman_id = me);
+	// ops/management roles see the whole plant.
+	const scope = await resolveSalesScope(auth);
+
 	try {
 		let query = supabaseAdmin
 			.from('ots')
@@ -148,6 +153,10 @@ export async function GET(req: NextRequest) {
 			)
 			.order('priority', { ascending: false })
 			.order('created_at', { ascending: false });
+
+		if (!scope.all) {
+			query = query.eq('salesman_id', scopeFilterId(scope));
+		}
 
 		if (active === 'true') {
 			query = query.in('status', [...ACTIVE_OT_STATUSES]);

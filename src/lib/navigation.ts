@@ -89,7 +89,9 @@ export const HOME_ITEM = {
   label: 'Inicio',
   href: '/home',
   icon: Home,
-  roles: ['admin', 'manager', 'supervisor', 'hr_manager', 'vendedor'] as AppRole[],
+  // vendedor is intentionally absent: /home is gated to ops roles, and a
+  // vendedor's home is the Comercial module (see landingRouteForRole).
+  roles: ['admin', 'manager', 'supervisor', 'hr_manager'] as AppRole[],
   dot: 'bg-slate-400',
   activeBg: 'bg-slate-200 dark:bg-slate-500/20',
   activeIcon: 'text-slate-600 dark:text-slate-300',
@@ -319,6 +321,18 @@ export const MODULES: NavModule[] = [
     ],
   },
 ];
+
+/**
+ * The route a role should land on after login (and the "go home" fallback).
+ * - technician → WhatsApp capture surface (their only touchpoint).
+ * - vendedor   → Comercial (their only module; /home is gated to ops roles).
+ * - everyone else → the Living Home.
+ */
+export function landingRouteForRole(role: AppRole | null | undefined): string {
+  if (role === 'technician') return '/operaciones/whatsapp/operator';
+  if (role === 'vendedor') return '/comercial';
+  return '/home';
+}
 
 /** Look up a module by its base href (e.g. '/operaciones'). */
 export function getModule(key: string): NavModule | undefined {

@@ -28,6 +28,7 @@ import { Label } from '@/components/ui/label';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useTheme } from '@/contexts/ThemeContext';
+import { landingRouteForRole } from '@/lib/navigation';
 import { Moon, Sun, Globe } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -48,8 +49,9 @@ const Login = () => {
 
   useEffect(() => {
     if (didLogin && user) {
-      // Technicians only interact through the WhatsApp capture surface; everyone else gets the app.
-      router.push(role === 'technician' ? '/operaciones/whatsapp/operator' : '/home');
+      // Land each role on the surface it's allowed to use (technician → WhatsApp,
+      // vendedor → Comercial, ops roles → Home).
+      router.push(landingRouteForRole(role));
     }
   }, [didLogin, user, role, router]);
 
@@ -89,7 +91,7 @@ const Login = () => {
           <div className="flex flex-col gap-2">
             <Button
               onClick={() => {
-                router.push(role === 'technician' ? '/operaciones/whatsapp/operator' : '/home');
+                router.push(landingRouteForRole(role));
               }}
             >
               Continuar al panel

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { requireAuth, isAuthError } from '@/lib/api-middleware';
 import { supabaseAdmin } from '@/integrations/supabase/server';
+import { resolveSalesScope, scopeFilterId } from '@/lib/sales-scope';
 
 // Helper: transform empty strings to null so optional fields don't fail validation
 const optStr = (max: number) =>
@@ -34,12 +35,19 @@ export async function GET(req: NextRequest) {
 	const { searchParams } = new URL(req.url);
 	const q = searchParams.get('q')?.trim() || '';
 
+	// Row-scoping: a vendedor sees only their own clients; ops/management see all.
+	const scope = await resolveSalesScope(auth);
+
 	try {
 		let query = supabaseAdmin
 			.from('clients')
 			.select('*')
 			.eq('is_active', true)
 			.order('name');
+
+		if (!scope.all) {
+			query = query.eq('salesman_id', scopeFilterId(scope));
+		}
 
 		if (q) {
 			query = query.ilike('name', `%${q}%`);

@@ -1,8 +1,11 @@
 'use client';
 
+import { useMemo } from 'react';
 import Link from 'next/link';
 import { ChevronLeft, ExternalLink, Hexagon } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { useAuth } from '@/contexts/AuthContext';
+import type { AppRole } from '@/types/app-role';
 
 // ─── Hex geometry (flat-top) ──────────────────────────────────────────────────
 // These constants are tuned together against a vertical budget: the tallest
@@ -39,6 +42,8 @@ export interface HexLandingItem {
   href: string;
   color: string;
   external?: boolean;
+  /** Roles that can reach this tile. Omit = visible to any role with module access. */
+  roles?: AppRole[];
 }
 export interface HexLandingGroup {
   label: string;
@@ -129,7 +134,23 @@ function HexTile({ item, size }: { item: HexLandingItem; size: number }) {
 }
 
 // ─── Main — hub & spokes radial ───────────────────────────────────────────────
-export default function ModuleHexLanding({ title, subtitle, groups, hubIcon }: Props) {
+export default function ModuleHexLanding({ title, subtitle, groups: rawGroups, hubIcon }: Props) {
+  const { role } = useAuth();
+
+  // Only show tiles the current role can actually open — a leaf's `roles` (when
+  // present) gates it, and groups left empty after filtering are dropped. This
+  // keeps the honeycomb honest (e.g. a vendedor never sees the Pipeline tile).
+  const groups = useMemo(
+    () =>
+      rawGroups
+        .map((gr) => ({
+          ...gr,
+          items: gr.items.filter((it) => !it.roles || !role || it.roles.includes(role)),
+        }))
+        .filter((gr) => gr.items.length > 0),
+    [rawGroups, role]
+  );
+
   const g = groups.length;
   const centers = groupCenters(g);
   const hasHub = g >= 2;
