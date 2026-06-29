@@ -35,31 +35,23 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import type { CostCenterItem, CostCategory } from '@/types/work-category';
+import { COST_CATEGORIES } from '@/types/work-category';
 import {
-  COST_CATEGORIES,
-  DEFAULT_COST_CENTER,
-} from '@/types/work-category';
+  useCostCatalog,
+  useSaveCostItem,
+  useDeleteCostItem,
+  useToggleCostItem,
+} from '@/hooks/use-cost-catalog';
 
 /* ================================================================ */
-/*  Cost Center Management — Financial Report admin tab              */
+/*  Cost Center Management — shared cost catalog (DB-backed)         */
 /* ================================================================ */
-
-const STORAGE_KEY = 'workshop_cost_center';
-
-function loadCostCenter(): CostCenterItem[] {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) return JSON.parse(raw);
-  } catch { /* ignore */ }
-  return [...DEFAULT_COST_CENTER];
-}
-
-function saveCostCenter(items: CostCenterItem[]) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
-}
 
 export function CostCenterManager() {
-  const [items, setItems] = useState<CostCenterItem[]>(loadCostCenter);
+  const { data: items = [] } = useCostCatalog();
+  const saveItem = useSaveCostItem();
+  const deleteItem = useDeleteCostItem();
+  const toggleItem = useToggleCostItem();
   const [search, setSearch] = useState('');
   const [filterCategory, setFilterCategory] = useState<CostCategory | 'all'>('all');
   const [editingItem, setEditingItem] = useState<CostCenterItem | null>(null);
@@ -90,59 +82,42 @@ export function CostCenterManager() {
     return map;
   }, [filtered]);
 
-  /* ─── CRUD operations ─────────────────────────────────────── */
-  const handleSave = (item: CostCenterItem) => {
-    let updated: CostCenterItem[];
-    const existing = items.find((i) => i.id === item.id);
-    if (existing) {
-      updated = items.map((i) => (i.id === item.id ? item : i));
-    } else {
-      updated = [...items, item];
+  /* ─── CRUD operations (DB-backed) ─────────────────────────── */
+  const handleSave = async (item: CostCenterItem) => {
+    const isExisting = items.some((i) => i.id === item.id);
+    try {
+      // A freshly-created item carries a client-generated id that isn't in the
+      // catalog yet → POST (no id); an edited one → PATCH by id.
+      await saveItem.mutateAsync(isExisting ? item : { ...item, id: undefined });
+      setIsDialogOpen(false);
+      setEditingItem(null);
+      toast.success(isExisting ? 'Costo actualizado' : 'Costo agregado');
+    } catch (e: any) {
+      toast.error(e?.message ?? 'No se pudo guardar');
     }
-    setItems(updated);
-    saveCostCenter(updated);
-    setIsDialogOpen(false);
-    setEditingItem(null);
-    toast.success(existing ? 'Costo actualizado' : 'Costo agregado');
   };
 
-  const handleDelete = (id: string) => {
-    const updated = items.filter((i) => i.id !== id);
-    setItems(updated);
-    saveCostCenter(updated);
-    toast.success('Costo eliminado');
+  const handleDelete = async (id: string) => {
+    try {
+      await deleteItem.mutateAsync(id);
+      toast.success('Costo eliminado');
+    } catch (e: any) {
+      toast.error(e?.message ?? 'No se pudo eliminar');
+    }
   };
 
   const handleToggle = (id: string, active: boolean) => {
-    const updated = items.map((i) => (i.id === id ? { ...i, is_active: active } : i));
-    setItems(updated);
-    saveCostCenter(updated);
-  };
-
-  const handleResetDefaults = () => {
-    const defaults = [...DEFAULT_COST_CENTER];
-    setItems(defaults);
-    saveCostCenter(defaults);
-    toast.success('Costos restablecidos a valores predeterminados');
+    toggleItem.mutate({ id, is_active: active });
   };
 
   /* ─── Summary stats ───────────────────────────────────────── */
   const totalActive = items.filter((i) => i.is_active).length;
   const totalInactive = items.filter((i) => !i.is_active).length;
-  const avgCostByCategory = useMemo(() => {
-    const catTotals: Record<string, { sum: number; count: number }> = {};
-    for (const item of items.filter((i) => i.is_active)) {
-      if (!catTotals[item.category]) catTotals[item.category] = { sum: 0, count: 0 };
-      catTotals[item.category].sum += item.unit_cost;
-      catTotals[item.category].count += 1;
-    }
-    return catTotals;
-  }, [items]);
 
   return (
     <div className="space-y-6">
       {/* ── Summary Cards ─────────────────────────────────────── */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm text-muted-foreground">Total Items</CardTitle>
@@ -162,21 +137,6 @@ export function CostCenterManager() {
           <CardContent>
             <div className="text-2xl font-bold">{new Set(items.map((i) => i.category)).size}</div>
             <p className="text-xs text-muted-foreground">centros de costo</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm text-muted-foreground">Costo Promedio</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              ${Math.round(
-                items.filter((i) => i.is_active && i.unit !== '%').reduce((s, i) => s + i.unit_cost, 0) /
-                  Math.max(items.filter((i) => i.is_active && i.unit !== '%').length, 1),
-              ).toLocaleString('es-CL')}
-            </div>
-            <p className="text-xs text-muted-foreground">por unidad (excl. %)</p>
           </CardContent>
         </Card>
 
@@ -252,10 +212,6 @@ export function CostCenterManager() {
           </DialogContent>
         </Dialog>
 
-        <Button variant="outline" size="sm" onClick={handleResetDefaults}>
-          <Settings className="h-4 w-4 mr-1" />
-          Restablecer
-        </Button>
       </div>
 
       {/* ── Cost Items by Category ────────────────────────────── */}
