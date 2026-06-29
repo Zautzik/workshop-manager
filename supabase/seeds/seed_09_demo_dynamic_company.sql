@@ -130,3 +130,13 @@ BEGIN
   WHERE o.ot_number BETWEEN 'OT-40481' AND 'OT-40500'
     AND NOT EXISTS (SELECT 1 FROM public.ot_financials f WHERE f.ot_id = o.id);
 END $$;
+
+-- ── 2. Timezone-safe timestamps ──────────────────────────────
+-- The dates above are bare (midnight UTC). In America/Santiago (UTC-4) a
+-- midnight-UTC date falls on the PREVIOUS local day, so a day-1 OT buckets into
+-- the wrong month and skews the monthly revenue total. Shift to noon UTC so the
+-- calendar day is the same in any sane timezone. Idempotent (only midnight rows).
+UPDATE public.ots
+SET created_at = created_at + interval '12 hours'
+WHERE ot_number BETWEEN 'OT-40481' AND 'OT-40500'
+  AND created_at::time = '00:00:00';
