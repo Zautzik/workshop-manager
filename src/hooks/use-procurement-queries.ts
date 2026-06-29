@@ -107,3 +107,32 @@ export function useUpdateFactura() {
     },
   });
 }
+
+export interface StockItem {
+  id: string;
+  name: string;
+  sku: string;
+  unit: string;
+}
+
+/** Inventory items for the goods-receipt picker (server route, dev-safe). */
+export function useStockItems(search = '') {
+  return useQuery<StockItem[]>({
+    queryKey: ['inventory', 'stock-items', search],
+    queryFn: async () => {
+      const res = await fetch(`/api/inventory/stock${search ? `?q=${encodeURIComponent(search)}` : ''}`);
+      if (!res.ok) throw new Error('Failed to fetch items');
+      return (await res.json()) as StockItem[];
+    },
+  });
+}
+
+/** Receive a material from an OC into a lot (purchase_id linked); advances the OC. */
+export function useReceiveOC() {
+  const invalidate = useInvalidateProcurement();
+  return useMutation({
+    mutationFn: ({ purchaseId, ...payload }: { purchaseId: string } & Record<string, unknown>) =>
+      postJSON(`/api/purchases/${purchaseId}/receive`, payload),
+    onSuccess: invalidate,
+  });
+}

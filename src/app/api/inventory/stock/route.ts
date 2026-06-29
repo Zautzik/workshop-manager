@@ -14,10 +14,11 @@ export async function GET(req: NextRequest) {
 	const q = searchParams.get('q')?.trim() || '';
 
 	try {
-		// Try the stock view first, then fallback to raw table
+		// inventory_items_stock_v carries current_stock (the raw table does not).
 		let query = supabaseAdmin
-			.from('inventory_items')
+			.from('inventory_items_stock_v')
 			.select('id, name, sku, unit, current_stock, min_stock, category')
+			.eq('is_active', true)
 			.order('name');
 
 		if (q) {

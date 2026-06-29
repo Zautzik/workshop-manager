@@ -16,12 +16,14 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
 import { toast } from 'sonner';
-import { Plus, Receipt, FileText, Link2, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { QRCodeSVG } from 'qrcode.react';
+import { Plus, Receipt, FileText, Link2, AlertTriangle, CheckCircle2, PackageCheck } from 'lucide-react';
 import { formatCLP } from '@/lib/format';
 import { usePurchases } from '@/hooks/use-admin-queries';
 import { useOTs } from '@/hooks/use-operations-queries';
 import {
   usePurchaseInvoices, useCreateOC, useCreateFactura, useUpdateFactura,
+  useStockItems, useReceiveOC,
   type OCRow, type FacturaCompra,
 } from '@/hooks/use-procurement-queries';
 
@@ -47,6 +49,7 @@ const PurchasesManagement = () => {
 
   const [showNew, setShowNew] = useState(false);
   const [facturasFor, setFacturasFor] = useState<OCRow | null>(null);
+  const [receiveFor, setReceiveFor] = useState<OCRow | null>(null);
   const [form, setForm] = useState({
     supplier: '', supplier_rut: '', ot_id: '', total_cost: 0,
     expected_date: '', certification_details: '', notes: '',
@@ -157,9 +160,16 @@ const PurchasesManagement = () => {
                     {oc.invoice_count > 0 ? formatCLP(oc.variance) : '—'}
                   </TableCell>
                   <TableCell className="text-right">
-                    <Button variant="outline" size="sm" className="gap-1" onClick={() => setFacturasFor(oc)}>
-                      <Receipt className="h-3.5 w-3.5" /> Facturas {oc.invoice_count > 0 && `(${oc.invoice_count})`}
-                    </Button>
+                    <div className="flex justify-end gap-1.5">
+                      {['draft', 'sent'].includes(oc.status) && (
+                        <Button variant="outline" size="sm" className="gap-1" onClick={() => setReceiveFor(oc)}>
+                          <PackageCheck className="h-3.5 w-3.5" /> Recibir
+                        </Button>
+                      )}
+                      <Button variant="outline" size="sm" className="gap-1" onClick={() => setFacturasFor(oc)}>
+                        <Receipt className="h-3.5 w-3.5" /> Facturas {oc.invoice_count > 0 && `(${oc.invoice_count})`}
+                      </Button>
+                    </div>
                   </TableCell>
                 </TableRow>
               );
@@ -222,9 +232,96 @@ const PurchasesManagement = () => {
 
       {/* Facturas de una OC */}
       <FacturasDialog oc={facturasFor} onClose={() => setFacturasFor(null)} />
+
+      {/* Recepción de mercadería contra OC */}
+      <ReceiveDialog oc={receiveFor} onClose={() => setReceiveFor(null)} />
     </Card>
   );
 };
+
+// ── Goods receipt against an OC (creates a lot linked to the OC) ─────────────
+function ReceiveDialog({ oc, onClose }: { oc: OCRow | null; onClose: () => void }) {
+  const { data: items = [] } = useStockItems();
+  const receive = useReceiveOC();
+  const [itemId, setItemId] = useState('');
+  const [qty, setQty] = useState(0);
+  const [unitCost, setUnitCost] = useState(0);
+  const [lotNumber, setLotNumber] = useState('');
+  const [certCode, setCertCode] = useState('');
+
+  if (!oc) return null;
+
+  const submit = async () => {
+    if (!itemId) { toast.error('Selecciona el material recibido'); return; }
+    if (qty <= 0) { toast.error('Cantidad inválida'); return; }
+    try {
+      await receive.mutateAsync({
+        purchaseId: oc.id, item_id: itemId, quantity: qty,
+        unit_cost: unitCost || null, lot_number: lotNumber || null, cert_code: certCode || null,
+      });
+      toast.success('Recibido — lote creado y vinculado a la OC');
+      setItemId(''); setQty(0); setUnitCost(0); setLotNumber(''); setCertCode('');
+      onClose();
+    } catch (e: any) { toast.error(e?.message ?? 'No se pudo recibir'); }
+  };
+
+  return (
+    <Dialog open={!!oc} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2"><PackageCheck className="h-5 w-5" /> Recibir — {oc.oc_number}</DialogTitle>
+          <DialogDescription>{oc.supplier}{oc.ot_number ? ` · ${oc.ot_number}` : ' · stock'} · crea un lote trazable (FSSC) vinculado a la OC.</DialogDescription>
+        </DialogHeader>
+        <div className="flex gap-4">
+          <div className="flex-1 space-y-3">
+            <div className="space-y-1.5">
+              <Label>Material recibido</Label>
+              <Select value={itemId} onValueChange={setItemId}>
+                <SelectTrigger><SelectValue placeholder="Selecciona material…" /></SelectTrigger>
+                <SelectContent>
+                  {items.map((it) => (
+                    <SelectItem key={it.id} value={it.id}>{it.name} ({it.sku})</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label>Cantidad</Label>
+                <Input type="number" value={qty || ''} onChange={(e) => setQty(parseFloat(e.target.value) || 0)} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Costo unitario</Label>
+                <Input type="number" value={unitCost || ''} onChange={(e) => setUnitCost(parseFloat(e.target.value) || 0)} />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label>N° lote (opcional)</Label>
+                <Input value={lotNumber} onChange={(e) => setLotNumber(e.target.value)} placeholder="auto" />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Cert. FSSC (opcional)</Label>
+                <Input value={certCode} onChange={(e) => setCertCode(e.target.value)} />
+              </div>
+            </div>
+          </div>
+          {/* Scannable OC label — operator scans + reporta por WhatsApp */}
+          <div className="flex flex-col items-center justify-start gap-1.5 pt-6">
+            <div className="rounded-lg border bg-white p-2">
+              <QRCodeSVG value={`WH:RECV:OC:${oc.oc_number}`} size={92} />
+            </div>
+            <span className="text-[10px] text-muted-foreground">{oc.oc_number}</span>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>Cancelar</Button>
+          <Button onClick={submit} disabled={receive.isPending}>{receive.isPending ? 'Recibiendo…' : 'Confirmar recepción'}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
 
 // ── Facturas detail + matching ──────────────────────────────────────────────
 function FacturasDialog({ oc, onClose }: { oc: OCRow | null; onClose: () => void }) {
