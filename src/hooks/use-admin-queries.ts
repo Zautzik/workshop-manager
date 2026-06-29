@@ -115,12 +115,12 @@ export function usePurchases() {
   return useQuery<any[]>({
     queryKey: queryKeys.purchases,
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('purchases' as any)
-        .select('*')
-        .order('purchase_date', { ascending: false });
-      if (error) throw error;
-      return (data ?? []) as any[];
+      // Server route (supabaseAdmin) — RLS blanks client-side reads under the
+      // dev bypass, and this returns the oc_billing roll-up (OC + OT + variance).
+      const res = await fetch('/api/purchases');
+      if (!res.ok) throw new Error('Failed to fetch purchases');
+      const json = await res.json();
+      return (json.data ?? []) as any[];
     },
   });
 }
