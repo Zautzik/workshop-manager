@@ -169,3 +169,23 @@ BEGIN
 
   RAISE NOTICE 'seed_10 done: WhatsApp logs + real costs seeded.';
 END $$;
+
+-- ── Sync into the cost ledger (idempotent — mirrors the L1 backfill) ─────────
+-- Lets ot_cost_summary pick up the operations/real-costs above even if the L1
+-- migration ran before they existed. Requires 20260628130000_cost_ledger.sql.
+INSERT INTO public.ot_cost_lines (ot_id, kind, category, source, description, quantity, unit, unit_cost, ref_type, ref_id, occurred_at)
+SELECT op.ot_id, 'estimate',
+  (CASE op.category::text WHEN 'materiales' THEN 'material' WHEN 'impresion' THEN 'machine'
+     WHEN 'terminaciones' THEN 'finishing' WHEN 'tercerizado' THEN 'outsourced' ELSE 'other' END)::public.cost_line_category,
+  'wizard', op.name, op.quantity, op.unit, op.unit_cost, 'operation', op.id, op.created_at
+FROM public.ot_operations op
+WHERE NOT EXISTS (SELECT 1 FROM public.ot_cost_lines cl WHERE cl.ref_type = 'operation' AND cl.ref_id = op.id);
+
+INSERT INTO public.ot_cost_lines (ot_id, kind, category, source, description, quantity, unit, unit_cost, ref_type, ref_id, occurred_at)
+SELECT rc.ot_id, 'actual',
+  (CASE rc.category WHEN 'materiales' THEN 'material' WHEN 'impresion' THEN 'machine'
+     WHEN 'terminaciones' THEN 'finishing' WHEN 'tercerizado' THEN 'outsourced' ELSE 'other' END)::public.cost_line_category,
+  (CASE WHEN rc.operation_code LIKE 'WA-%' THEN 'whatsapp' ELSE 'manual' END),
+  rc.description, rc.quantity, rc.unit, rc.unit_cost, 'real_cost', rc.id, rc.created_at
+FROM public.ot_real_costs rc
+WHERE NOT EXISTS (SELECT 1 FROM public.ot_cost_lines cl WHERE cl.ref_type = 'real_cost' AND cl.ref_id = rc.id);

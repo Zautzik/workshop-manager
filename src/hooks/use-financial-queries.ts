@@ -74,6 +74,33 @@ export function useOTFinancials() {
   });
 }
 
+export interface OtCostSummaryRow {
+  ot_id: string;
+  ot_number: string;
+  client_name: string;
+  revenue: number;
+  estimated_cost: number;
+  actual_cost: number;
+  material_actual: number;
+  labor_actual: number;
+  machine_actual: number;
+  other_actual: number;
+  gross_margin: number;
+}
+
+/** Unified cost ledger roll-up per OT (estimate vs actual vs revenue). */
+export function useOtCostSummary() {
+  return useQuery<OtCostSummaryRow[]>({
+    queryKey: ['otCostSummary'],
+    queryFn: async () => {
+      const res = await fetch('/api/ots/cost-summary', { credentials: 'include' });
+      if (!res.ok) throw new Error(`Failed to fetch cost summary: ${res.status}`);
+      const payload = await res.json();
+      return (payload?.data ?? []) as OtCostSummaryRow[];
+    },
+  });
+}
+
 export function useMonthlyPayroll(year: number, month: number) {
   const safeYear = Number.isFinite(year) ? Math.trunc(year) : NaN;
   const safeMonth = Number.isFinite(month) ? Math.trunc(month) : NaN;
