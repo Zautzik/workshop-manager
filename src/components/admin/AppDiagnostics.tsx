@@ -192,7 +192,6 @@ function HealthPanel({ data }: { data: DiagnosticsData }) {
 					{ label: 'OTs (14 d)',    value: counts.otsLast14d,      icon: TrendingUp },
 					{ label: 'Máquinas',      value: counts.machines,        icon: Cpu        },
 					{ label: 'Empleados act.', value: counts.activeEmployees, icon: Users      },
-					{ label: 'Operarios',     value: counts.workers,         icon: Users      },
 				].map(({ label, value, icon: Icon }) => (
 					<Card key={label}>
 						<CardContent className="pt-4 pb-3">

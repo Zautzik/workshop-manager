@@ -46,7 +46,12 @@ function TrendsDashboard() {
       byMonth[key].total += 1;
       if (ot.status === 'completed') byMonth[key].completed += 1;
     }
-    return Object.values(byMonth).slice(-12);
+    // Chronological order — OTs arrive newest-first, so sort by month key
+    // ascending before taking the last 12 (the axis read jun→may→abr otherwise).
+    return Object.entries(byMonth)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([, v]) => v)
+      .slice(-12);
   }, [ots]);
 
   const statusData = useMemo(() => {
