@@ -20,7 +20,7 @@ import {
   Cpu, AlertCircle, BarChart3, PieChart, DollarSign,
   LayoutDashboard, ClipboardCheck, GitMerge,
   Bell, Settings, Activity, BadgeCheck, Receipt, FileCheck, Gauge,
-  Award, FileText, Gift, Truck,
+  Award, FileText, Gift, Truck, Inbox,
 } from 'lucide-react';
 
 export interface NavLeaf {
@@ -142,6 +142,7 @@ export const MODULES: NavModule[] = [
         label: 'Captura en Campo',
         color: 'from-green-500/10 to-emerald-500/5', border: 'border-green-500/20', heading: 'text-green-400',
         items: [
+          { label: 'Capturas',  href: '/operaciones/captures', description: 'Bandeja unificada: producción y bodega vía WhatsApp / QR', icon: Inbox,         color: 'bg-green-500/10 text-green-400' },
           { label: 'WhatsApp', href: '/operaciones/whatsapp', description: 'Captura de producción en campo en tiempo real', icon: MessageSquare, color: 'bg-green-500/10 text-green-400' },
         ],
       },
