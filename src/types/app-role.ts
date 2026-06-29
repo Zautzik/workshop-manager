@@ -14,4 +14,4 @@
  * Every user must have exactly one of these roles.
  * Used throughout the application for access control and UI customization.
  */
-export type AppRole = 'supervisor' | 'manager' | 'hr_manager' | 'admin' | 'technician';
+export type AppRole = 'supervisor' | 'manager' | 'hr_manager' | 'admin' | 'technician' | 'vendedor';

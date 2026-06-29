@@ -139,7 +139,7 @@ export async function POST(request: NextRequest) {
 			.from('user_roles')
 			.insert({
 				user_id: authUser.id,
-				role: parsed.data.role as AppRole,
+				role: parsed.data.role as any,
 				department: parsed.data.department || null,
 				manager_domain: parsed.data.manager_domain || null,
 			});

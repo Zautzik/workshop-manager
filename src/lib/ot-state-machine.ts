@@ -35,6 +35,7 @@ const ROLE_ACCESS: Record<AppRole, OTWorkflowStatus[]> = {
   manager: ['pre_press', 'visto_bueno', 'ready_for_delivery', 'in_delivery', 'completed'],
   hr_manager: ['pre_press', 'visto_bueno'],
   technician: ['guillotine_first_cut', 'offset_printing', 'digital_printing', 'die_cutting', 'guillotine_final_cut', 'workshop', 'outsourced', 'workshop_revision'],
+  vendedor: [], // sales role — no OT workflow transitions
 };
 
 export interface TransitionValidationInput {
