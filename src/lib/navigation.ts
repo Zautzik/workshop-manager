@@ -188,6 +188,7 @@ export const MODULES: NavModule[] = [
         items: [
           { label: 'Cotizaciones', href: '/comercial/cotizaciones', description: 'Visto Bueno con estimación de costos → OT', icon: FileSpreadsheet, color: 'bg-cyan-500/10 text-cyan-400' },
           { label: 'Clientes',     href: '/comercial/clientes',     description: 'CRM, agenda de OTs y seguimiento comercial',   icon: Users,           color: 'bg-cyan-500/10 text-cyan-400' },
+          { label: 'Pipeline',     href: '/comercial/pipeline',     description: 'Embudo de ventas: cotización → OT (gerencia)', icon: GitMerge,        color: 'bg-cyan-500/10 text-cyan-400', roles: ['admin', 'manager'] },
         ],
       },
     ],
