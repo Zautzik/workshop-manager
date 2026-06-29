@@ -159,13 +159,9 @@ BEGIN
   WHERE o.ot_number BETWEEN 'OT-40481' AND 'OT-40500'
     AND NOT EXISTS (SELECT 1 FROM public.ot_operations op WHERE op.ot_id = o.id LIMIT 1);
 
-  -- ── Enable the labor-margin date filter (Rentabilidad) ──────────────────
-  -- NOTE: the labor-margin TAB also needs worker_assignments rows (employee_id +
-  -- hours_worked + ot_id). That table is a legacy/new hybrid (worker_id NOT NULL
-  -- → legacy `workers`, plus NOT NULL workstation_id/shift_id) and is unsafe to
-  -- seed blind, so it is intentionally left out — see the audit notes.
-  UPDATE public.ots SET order_date = created_at::date
-  WHERE ot_number BETWEEN 'OT-40481' AND 'OT-40500' AND order_date IS NULL;
+  -- Note: ots has NO order_date column — the labor-margin tab derives the date
+  -- from created_at. (That tab also needs worker_assignments, a legacy/new hybrid
+  -- that is unsafe to seed blind — see the audit notes.)
 
   RAISE NOTICE 'seed_10 done: WhatsApp logs + real costs seeded.';
 END $$;
