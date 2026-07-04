@@ -29,14 +29,55 @@ const WASTE_FACTOR = 1.05;
 /** Minimum extra sheets for press setup */
 const SETUP_SHEETS = 50;
 
-/** Ink coverage per sheet in kg (approximate for offset) */
+/**
+ * Base ink load in kg per sheet per colour pass, at *medium* coverage on a
+ * *coated* stock. The real consumption scales off this anchor by coverage class
+ * and substrate absorbency (below) — so the baseline (medium/coated) matches the
+ * shop's historically-tuned figure while gaining the sensitivity the flat
+ * constant ignored (audit #1).
+ */
 const INK_KG_PER_SHEET = 0.003;
 
-/** Sheets per hour on offset press (average speed) */
+/** Coverage class → ink multiplier (fraction of sheet carrying ink × density). */
+const INK_COVERAGE_FACTOR: Record<InkCoverage, number> = {
+  light: 0.5,   // tints / line work
+  medium: 1.0,  // typical
+  heavy: 1.8,   // solids / photographic
+};
+
+/** Substrate absorbency → ink multiplier (uncoated stock drinks more ink). */
+const SUBSTRATE_INK_FACTOR: Record<string, number> = {
+  couche: 1.0, cauche: 1.0,   // coated
+  cartulina: 1.15,
+  adhesivo: 1.1,
+  bond: 1.35,                 // uncoated, absorbent
+  kraft: 1.4,
+  vinilo: 0.9,                // non-absorbent film
+  otro: 1.1,
+};
+
+/** Fixed setup ink laid down per colour, independent of run length (make-ready). */
+const INK_MAKEREADY_KG_PER_COLOR = 0.1;
+
+/** Sheets per hour on offset press — fallback when no machine speed is given. */
 const SHEETS_PER_HOUR = 3000;
 
 /** Hours per finishing operation (base estimate) */
 const FINISH_BASE_HOURS = 0.5;
+
+export type InkCoverage = 'light' | 'medium' | 'heavy';
+
+/** Optional real-world inputs that sharpen the estimate (all backward-compatible). */
+export interface OTCalcOptions {
+  /** Ink coverage class of the artwork; defaults to 'medium'. */
+  inkCoverage?: InkCoverage;
+  /** Selected machine's real speed (nominal_speed_sheets_hr); defaults to 3000. */
+  machineSpeedSheetsHr?: number;
+}
+
+function substrateInkFactor(substrate: string): number {
+  return SUBSTRATE_INK_FACTOR[substrate] ?? 1.1;
+}
 
 /* ─── Helpers ───────────────────────────────────────────────── */
 
@@ -77,8 +118,8 @@ function posesPerSheet(widthCm: number, heightCm: number): number {
 
 /* ─── Main calculation ──────────────────────────────────────── */
 
-export function computeOTCalculations(form: OTFormData): OTCalculations {
-  const { quantity, width_cm, height_cm, grammage_gsm, color_front, color_back, finishes } = form;
+export function computeOTCalculations(form: OTFormData, opts: OTCalcOptions = {}): OTCalculations {
+  const { quantity, width_cm, height_cm, grammage_gsm, color_front, color_back, finishes, substrate_type } = form;
 
   // Sheets (pliegos)
   const poses = posesPerSheet(width_cm, height_cm);
@@ -95,18 +136,25 @@ export function computeOTCalculations(form: OTFormData): OTCalculations {
     ((totalSheets * sheetAreaM2 * grammage_gsm) / 1000).toFixed(2)
   );
 
-  // Ink consumption
+  // Ink consumption — coverage class × substrate absorbency, plus fixed
+  // make-ready ink per colour. Anchored so medium/coated ≈ the legacy figure
+  // (audit #1: coverage & density were previously ignored entirely).
   const frontColors = colorCount(color_front);
   const backColors = colorCount(color_back);
   const totalColorPasses = frontColors + backColors;
-  const inkKg = Number((totalSheets * INK_KG_PER_SHEET * totalColorPasses).toFixed(3));
+  const coverageFactor = INK_COVERAGE_FACTOR[opts.inkCoverage ?? 'medium'];
+  const substrateFactor = substrateInkFactor(substrate_type || 'otro');
+  const inkVariable = totalSheets * INK_KG_PER_SHEET * totalColorPasses * coverageFactor * substrateFactor;
+  const inkMakeReady = totalColorPasses * INK_MAKEREADY_KG_PER_COLOR;
+  const inkKg = totalColorPasses > 0 ? Number((inkVariable + inkMakeReady).toFixed(3)) : 0;
 
   // CTP plates (one plate per color per side)
   const plates = totalColorPasses;
 
-  // Estimated print time
+  // Estimated print time — off the selected machine's real speed when known.
+  const speed = opts.machineSpeedSheetsHr && opts.machineSpeedSheetsHr > 0 ? opts.machineSpeedSheetsHr : SHEETS_PER_HOUR;
   const printPasses = Math.max(frontColors, 1) + (backColors > 0 ? Math.max(backColors, 1) : 0);
-  const printHours = Number(((totalSheets * printPasses) / SHEETS_PER_HOUR).toFixed(2));
+  const printHours = Number(((totalSheets * printPasses) / speed).toFixed(2));
 
   // Finishing time estimate
   const activeFinishes = Object.values(finishes).filter(Boolean).length;
@@ -124,8 +172,8 @@ export function computeOTCalculations(form: OTFormData): OTCalculations {
 
 /* ─── Default operations from calculations ──────────────────── */
 
-/** Unit cost defaults (reasonable industry estimates in CLP-like currency) */
-const DEFAULT_COSTS = {
+/** Unit cost defaults (fallback when the DB catalog doesn't override them). */
+export const DEFAULT_COSTS = {
   substrate_per_kg: 1500,
   ink_per_kg: 31915,
   plate_per_unit: 8500,
@@ -146,10 +194,15 @@ const DEFAULT_COSTS = {
   numeracion_per_hour: 2500,
 };
 
+export type CostOverrides = Partial<typeof DEFAULT_COSTS>;
+
 export function generateDefaultOperations(
   form: OTFormData,
-  calcs: OTCalculations
+  calcs: OTCalculations,
+  costOverrides: CostOverrides = {}
 ): OTOperation[] {
+  // DB catalog / real-cost rates override the built-in defaults where provided.
+  const DEFAULT_COSTS_MERGED = { ...DEFAULT_COSTS, ...costOverrides };
   const ops: OTOperation[] = [];
   let order = 0;
 
@@ -161,8 +214,8 @@ export function generateDefaultOperations(
       name: 'Sustrato/Papel',
       unit: 'kg',
       quantity: calcs.calc_substrate_kg,
-      unit_cost: DEFAULT_COSTS.substrate_per_kg,
-      total_cost: Math.round(calcs.calc_substrate_kg * DEFAULT_COSTS.substrate_per_kg),
+      unit_cost: DEFAULT_COSTS_MERGED.substrate_per_kg,
+      total_cost: Math.round(calcs.calc_substrate_kg * DEFAULT_COSTS_MERGED.substrate_per_kg),
       sort_order: order++,
     });
   }
@@ -175,8 +228,8 @@ export function generateDefaultOperations(
       name: 'Tintas',
       unit: 'kg',
       quantity: calcs.calc_ink_kg,
-      unit_cost: DEFAULT_COSTS.ink_per_kg,
-      total_cost: Math.round(calcs.calc_ink_kg * DEFAULT_COSTS.ink_per_kg),
+      unit_cost: DEFAULT_COSTS_MERGED.ink_per_kg,
+      total_cost: Math.round(calcs.calc_ink_kg * DEFAULT_COSTS_MERGED.ink_per_kg),
       sort_order: order++,
     });
   }
@@ -189,8 +242,8 @@ export function generateDefaultOperations(
       name: 'Placas CTP',
       unit: 'und',
       quantity: calcs.calc_plates,
-      unit_cost: DEFAULT_COSTS.plate_per_unit,
-      total_cost: Math.round(calcs.calc_plates * DEFAULT_COSTS.plate_per_unit),
+      unit_cost: DEFAULT_COSTS_MERGED.plate_per_unit,
+      total_cost: Math.round(calcs.calc_plates * DEFAULT_COSTS_MERGED.plate_per_unit),
       sort_order: order++,
     });
   }
@@ -206,8 +259,8 @@ export function generateDefaultOperations(
       name: 'Impresión Offset',
       unit: 'hours',
       quantity: calcs.calc_print_hours,
-      unit_cost: DEFAULT_COSTS.offset_print_per_hour,
-      total_cost: Math.round(calcs.calc_print_hours * DEFAULT_COSTS.offset_print_per_hour),
+      unit_cost: DEFAULT_COSTS_MERGED.offset_print_per_hour,
+      total_cost: Math.round(calcs.calc_print_hours * DEFAULT_COSTS_MERGED.offset_print_per_hour),
       sort_order: order++,
     });
   }
@@ -237,9 +290,9 @@ export function generateDefaultOperations(
     name: 'Corte y Guillotinado',
     unit: 'hours',
     quantity: Math.max(calcs.calc_finish_hours, 1),
-    unit_cost: DEFAULT_COSTS.cut_per_hour,
+    unit_cost: DEFAULT_COSTS_MERGED.cut_per_hour,
     total_cost: Math.round(
-      Math.max(calcs.calc_finish_hours, 1) * DEFAULT_COSTS.cut_per_hour
+      Math.max(calcs.calc_finish_hours, 1) * DEFAULT_COSTS_MERGED.cut_per_hour
     ),
     sort_order: order++,
   });
@@ -253,8 +306,8 @@ export function generateDefaultOperations(
         name: fm.name,
         unit: 'hours',
         quantity: hours,
-        unit_cost: DEFAULT_COSTS[fm.costKey],
-        total_cost: Math.round(hours * DEFAULT_COSTS[fm.costKey]),
+        unit_cost: DEFAULT_COSTS_MERGED[fm.costKey],
+        total_cost: Math.round(hours * DEFAULT_COSTS_MERGED[fm.costKey]),
         sort_order: order++,
       });
     }

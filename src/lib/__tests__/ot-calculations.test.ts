@@ -97,4 +97,36 @@ describe('computeOTCalculations — ink', () => {
 		const c = computeOTCalculations({ ...FORM_10x14, color_front: 'sin_impresion', color_back: 'sin_impresion' });
 		expect(c.calc_ink_kg).toBe(0);
 	});
+
+	it('ink scales with coverage class (heavy > medium > light)', () => {
+		const base = { ...FORM_10x14, color_front: 'cmyk' as const, substrate_type: 'couche' as const };
+		const light  = computeOTCalculations(base, { inkCoverage: 'light' });
+		const medium = computeOTCalculations(base, { inkCoverage: 'medium' });
+		const heavy  = computeOTCalculations(base, { inkCoverage: 'heavy' });
+		expect(heavy.calc_ink_kg).toBeGreaterThan(medium.calc_ink_kg);
+		expect(medium.calc_ink_kg).toBeGreaterThan(light.calc_ink_kg);
+	});
+
+	it('ink scales with substrate absorbency (uncoated bond > coated couche)', () => {
+		const base = { ...FORM_10x14, color_front: 'cmyk' as const };
+		const coated   = computeOTCalculations({ ...base, substrate_type: 'couche' });
+		const uncoated = computeOTCalculations({ ...base, substrate_type: 'bond' });
+		expect(uncoated.calc_ink_kg).toBeGreaterThan(coated.calc_ink_kg);
+	});
+});
+
+describe('computeOTCalculations — machine speed', () => {
+	it('a faster machine yields fewer print hours', () => {
+		const form = { ...FORM_10x14, color_front: 'cmyk' as const };
+		const slow = computeOTCalculations(form, { machineSpeedSheetsHr: 2000 });
+		const fast = computeOTCalculations(form, { machineSpeedSheetsHr: 8000 });
+		expect(fast.calc_print_hours).toBeLessThan(slow.calc_print_hours);
+	});
+
+	it('defaults to the 3000 sheets/hr baseline when no machine given', () => {
+		const form = { ...FORM_10x14, color_front: 'cmyk' as const };
+		const def     = computeOTCalculations(form);
+		const at3000  = computeOTCalculations(form, { machineSpeedSheetsHr: 3000 });
+		expect(def.calc_print_hours).toBe(at3000.calc_print_hours);
+	});
 });
