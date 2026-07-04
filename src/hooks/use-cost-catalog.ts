@@ -60,3 +60,29 @@ export function useToggleCostItem() {
     onSuccess: () => qc.invalidateQueries({ queryKey: KEY }),
   });
 }
+
+export interface MaterialCost {
+  item_id: string;
+  sku: string;
+  name: string;
+  unit: string;
+  category: string;
+  estimated_unit_cost: number;
+  weighted_cost: number;
+  lot_count: number;
+  total_received: number;
+  latest_cost: number | null;
+  latest_received: string | null;
+}
+
+/** Per-SKU catalog estimate vs purchase-weighted real cost (material_cost_v). */
+export function useMaterialCost() {
+  return useQuery<MaterialCost[]>({
+    queryKey: ['material-cost'],
+    queryFn: async () => {
+      const res = await fetch('/api/inventory/material-cost');
+      if (!res.ok) throw new Error('Failed to fetch material cost');
+      return (await res.json()).data ?? [];
+    },
+  });
+}
