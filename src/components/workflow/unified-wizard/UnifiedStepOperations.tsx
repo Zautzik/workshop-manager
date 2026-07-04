@@ -40,6 +40,8 @@ import {
   generateDefaultOperations,
   computeOTCalculations,
 } from '@/lib/ot-calculations';
+import { resolveCostOverrides } from '@/lib/costing-resolver';
+import { useCostCatalog, useMaterialCost } from '@/hooks/use-cost-catalog';
 import type { UnifiedOTForm } from '@/types/ot-unified';
 
 interface Props {
@@ -50,6 +52,9 @@ interface Props {
 export function UnifiedStepOperations({ form, updateForm }: Props) {
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [editingOp, setEditingOp] = useState<Partial<OTOperation> | null>(null);
+  // Real rates for the estimate: shared DB catalog + purchase-weighted material cost.
+  const { data: catalog = [] } = useCostCatalog();
+  const { data: materialCost = [] } = useMaterialCost();
 
   /* ── Operations grouped by category ─────────────────────────── */
   const groupedOps = useMemo(() => {
@@ -103,7 +108,13 @@ export function UnifiedStepOperations({ form, updateForm }: Props) {
     };
 
     const calcs = computeOTCalculations(calcInput);
-    const ops = generateDefaultOperations(calcInput, calcs);
+    const costOverrides = resolveCostOverrides(catalog, {
+      color_front: form.color_front,
+      color_back: form.color_back,
+      substrate_type: form.substrate_type,
+      grammage_gsm: form.grammage_gsm,
+    }, materialCost);
+    const ops = generateDefaultOperations(calcInput, calcs, costOverrides);
     const pricing = computeOTPricing(
       ops,
       form.quantity,

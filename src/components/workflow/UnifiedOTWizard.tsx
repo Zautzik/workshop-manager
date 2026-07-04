@@ -27,6 +27,8 @@ import {
   generateDefaultOperations,
   computeOTPricing,
 } from '@/lib/ot-calculations';
+import { resolveCostOverrides } from '@/lib/costing-resolver';
+import { useCostCatalog, useMaterialCost } from '@/hooks/use-cost-catalog';
 import type { OTFormData } from '@/types/ot';
 
 /* ── Step Components ──────────────────────────────────────────── */
@@ -50,6 +52,9 @@ export function UnifiedOTWizard({ onClose, onSuccess }: Props) {
   const [step, setStep] = useState(0);
   const [form, setForm] = useState<UnifiedOTForm>({ ...EMPTY_UNIFIED_FORM });
   const [submitting, setSubmitting] = useState(false);
+  // Real rates for the estimate: shared DB catalog + purchase-weighted material cost.
+  const { data: catalog = [] } = useCostCatalog();
+  const { data: materialCost = [] } = useMaterialCost();
   const { toast } = useToast();
 
   /* ── Draft persistence ──────────────────────────────────────── */
@@ -150,9 +155,13 @@ export function UnifiedOTWizard({ onClose, onSuccess }: Props) {
 
       const calcs = computeOTCalculations(calcInput);
       const impo = computeImposition(form.width_cm, form.height_cm, form.quantity);
+      const costOverrides = resolveCostOverrides(catalog, {
+        color_front: form.color_front, color_back: form.color_back,
+        substrate_type: form.substrate_type, grammage_gsm: form.grammage_gsm,
+      }, materialCost);
       const ops =
         form.operations.length === 0
-          ? generateDefaultOperations(calcInput, calcs)
+          ? generateDefaultOperations(calcInput, calcs, costOverrides)
           : form.operations;
       const pricing = computeOTPricing(
         ops,
