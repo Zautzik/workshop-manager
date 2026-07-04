@@ -11,18 +11,8 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { WorkerStatsPanel } from "@/components/workflow/WorkerStatsPanel";
-import { ShiftManagement } from "@/components/workflow/ShiftManagement";
-import { OTManagement } from "@/components/workflow/OTManagement";
 import { WeekendShiftRotation } from "@/components/workflow/WeekendShiftRotation";
 const WorkstationLayout = dynamic(() => import('@/components/workflow/WorkstationLayout').then((m) => m.WorkstationLayout));
-const OTRetrievalSystem = dynamic(() => import('@/components/workflow/OTRetrievalSystem'));
-const ClientManager = dynamic(() => import('@/components/workflow/ClientManager').then((m) => m.ClientManager));
-const OrdenesEnProceso = dynamic(() => import('@/components/workflow/OrdenesEnProceso').then((m) => m.OrdenesEnProceso));
-const HojaProduccion = dynamic(() => import('@/components/workflow/HojaProduccion').then((m) => m.HojaProduccion));
-const PlanSemanal = dynamic(() => import('@/components/workflow/PlanSemanal').then((m) => m.PlanSemanal));
-const OTGanttBoard = dynamic(() => import('@/components/workflow/OTGanttBoard').then((m) => m.OTGanttBoard));
-const UnifiedCalendar = dynamic(() => import('@/components/UnifiedCalendar').then((m) => m.UnifiedCalendar));
-const WhatsAppDashboard = dynamic(() => import('@/components/workflow/WhatsAppDashboard'));
 import { Users, Factory, Clock, ClipboardList, ChevronLeft, ChevronRight, CalendarDays, WandSparkles, Replace, Shuffle, UploadCloud, ShieldAlert, CheckCircle2, Copy, RotateCcw, Printer, LayoutList, FileSpreadsheet, GanttChart, MessageSquare, Monitor } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
@@ -1218,26 +1208,6 @@ export default function WorkflowDashboard({ initialTab = 'en_proceso' }: Workflo
         <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as WorkflowTab)} className="w-full">
 
 
-          <TabsContent value="en_proceso" className="mt-4">
-            <OrdenesEnProceso />
-          </TabsContent>
-
-            <TabsContent value="hoja_prod" className="mt-4">
-              <HojaProduccion />
-            </TabsContent>
-
-            <TabsContent value="plan_semanal" className="mt-4">
-              <PlanSemanal />
-            </TabsContent>
-
-          <TabsContent value="ots" className="mt-4">
-            <OTManagement onOTSelect={setSelectedOT} />
-          </TabsContent>
-
-          <TabsContent value="clients" className="mt-4">
-            <ClientManager />
-          </TabsContent>
-
           <TabsContent value="layout" className="mt-2">
             {shiftToggleOptions.length > 0 && (
               <div className="flex items-center gap-1.5 mb-3">
@@ -1598,25 +1568,6 @@ export default function WorkflowDashboard({ initialTab = 'en_proceso' }: Workflo
             )}
           </TabsContent>
 
-          <TabsContent value="shifts" className="mt-4">
-            <ShiftManagement onShiftChange={() => refetchAssignments()} />
-          </TabsContent>
-
-          <TabsContent value="production" className="mt-4">
-            <OTRetrievalSystem />
-          </TabsContent>
-
-          <TabsContent value="gantt" className="mt-4">
-            <OTGanttBoard />
-          </TabsContent>
-
-          <TabsContent value="calendar" className="mt-4">
-            <UnifiedCalendar />
-          </TabsContent>
-
-          <TabsContent value="whatsapp" className="mt-4">
-            <WhatsAppDashboard />
-          </TabsContent>
         </Tabs>
 
         <DragOverlay>
