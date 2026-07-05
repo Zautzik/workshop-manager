@@ -56,6 +56,9 @@ const COMMON_PASSWORDS = new Set<string>([
 	'root1234', 'test1234', 'guest123', 'login123', 'user1234',
 ]);
 
+/** Size of the common/breached-password deny-list (for surfacing the policy in UI). */
+export const COMMON_PASSWORD_COUNT = COMMON_PASSWORDS.size;
+
 export interface PasswordCheckResult {
 	ok: boolean;
 	/** Human-readable reason when ok === false. Safe to surface to the user. */

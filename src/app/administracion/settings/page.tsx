@@ -5,9 +5,10 @@ import ProtectedRoute from '@/components/ProtectedRoute';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Globe, Bell, Shield, Database, Palette, Moon, Sun, ArrowRight } from 'lucide-react';
+import { Globe, Bell, Shield, Database, Palette, Moon, Sun, ArrowRight, KeyRound, Check } from 'lucide-react';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { MIN_PASSWORD_LENGTH, MAX_PASSWORD_LENGTH, COMMON_PASSWORD_COUNT } from '@/lib/password-policy';
 
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -108,7 +109,29 @@ export default function AdminSettingsPage() {
             <CardContent className="space-y-1">
               <Row label="Usuarios y roles"><ManageLink href="/administracion/users" /></Row>
               <Row label="Log de auditoría y seguridad"><ManageLink href="/administracion/diagnostics" /></Row>
-              <Row label="Política de contraseñas"><Soon /></Row>
+              <Row label="Política de contraseñas"><Badge variant="secondary" className="text-xs">NIST 800-63B</Badge></Row>
+            </CardContent>
+          </Card>
+
+          {/* Política de contraseñas — real, enforced on user creation */}
+          <Card className="md:col-span-2">
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <KeyRound className="h-4 w-4 text-muted-foreground" /> Política de contraseñas
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-1">
+              <Row label="Longitud mínima"><Badge variant="secondary" className="text-xs">{MIN_PASSWORD_LENGTH} caracteres</Badge></Row>
+              <Row label="Longitud máxima"><Badge variant="secondary" className="text-xs">{MAX_PASSWORD_LENGTH} caracteres</Badge></Row>
+              <Row label="Lista de bloqueo (contraseñas comunes / filtradas)">
+                <Badge className="gap-1 bg-green-500/15 text-green-600 text-xs"><Check className="h-3 w-3" /> {COMMON_PASSWORD_COUNT} activas</Badge>
+              </Row>
+              <Row label="Complejidad obligatoria / rotación periódica">
+                <Badge variant="outline" className="text-xs text-muted-foreground">Desactivadas (NIST 800-63B)</Badge>
+              </Row>
+              <p className="text-xs text-muted-foreground pt-2">
+                Aplicada al crear o cambiar contraseñas de usuario. Alineada con NIST SP 800-63B: mínimo 8, sin complejidad forzada ni caducidad, con verificación contra contraseñas comprometidas.
+              </p>
             </CardContent>
           </Card>
 
