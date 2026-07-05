@@ -24,31 +24,12 @@ import { isWorkerQualifiedForStation } from "@/lib/workstation-skills";
 
 type WorkflowTab = 'en_proceso' | 'ots' | 'clients' | 'layout' | 'shifts' | 'production' | 'hoja_prod' | 'plan_semanal' | 'gantt' | 'calendar' | 'whatsapp';
 
-const workflowTabMeta: Array<{
-  value: WorkflowTab;
-  label: string;
-  subtitle: string;
-  icon: any;
-  rgb: string;
-}> = [
-  { value: 'en_proceso',   label: 'En Proceso',  subtitle: 'Seguimiento activo',  icon: LayoutList,    rgb: '14 165 233'  }, // sky-500
-  { value: 'ots',          label: 'Kanban',       subtitle: 'Flujo por estado',    icon: ClipboardList, rgb: '6 182 212'   }, // cyan-500
-  { value: 'clients',      label: 'Clientes',     subtitle: 'Gestión comercial',   icon: Users,         rgb: '139 92 246'  }, // violet-500
-  { value: 'layout',       label: 'Planta',       subtitle: 'Vista de piso',       icon: Factory,       rgb: '16 185 129'  }, // emerald-500
-  { value: 'shifts',       label: 'Turnos',       subtitle: 'Asignación diaria',   icon: Clock,         rgb: '245 158 11'  }, // amber-500
-  { value: 'production',   label: 'Archivo OT',   subtitle: 'Documentos OT',       icon: Printer,       rgb: '249 115 22'  }, // orange-500
-  { value: 'hoja_prod',    label: 'Hoja Prod.',   subtitle: 'Control operativo',   icon: FileSpreadsheet, rgb: '217 70 239' }, // fuchsia-500
-  { value: 'plan_semanal', label: 'Plan Semanal', subtitle: 'Panorama semanal',    icon: CalendarDays,  rgb: '99 102 241'  }, // indigo-500
-  { value: 'gantt',        label: 'Gantt',        subtitle: '4 semanas',           icon: GanttChart,    rgb: '139 92 246'  }, // violet-500
-  { value: 'calendar',     label: 'Calendario',   subtitle: 'Vista unificada',     icon: CalendarDays,  rgb: '6 182 212'   }, // cyan-500
-  { value: 'whatsapp',     label: 'WhatsApp',     subtitle: 'Producción live',     icon: MessageSquare, rgb: '16 185 129'  }, // emerald-500
-];
-
-interface WorkflowDashboardProps {
+interface PlantaBoardProps {
+  /** Retained for compatibility; the board now renders only the planta layout. */
   initialTab?: WorkflowTab;
 }
 
-export default function WorkflowDashboard({ initialTab = 'en_proceso' }: WorkflowDashboardProps) {
+export default function PlantaBoard({ initialTab = 'layout' }: PlantaBoardProps) {
   const router = useRouter();
   useRealtimeProduction();
 

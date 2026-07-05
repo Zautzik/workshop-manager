@@ -1,17 +1,18 @@
 /**
  * @fileoverview Planta — Classic Workshop Floor Scheduler
  *
- * Restores the original drag/drop scheduling and workstation layout.
+ * Drag/drop scheduling and workstation layout (formerly the WorkflowDashboard
+ * monolith, now a focused planta board).
  */
 'use client';
 
 import ProtectedRoute from '@/components/ProtectedRoute';
-import WorkflowDashboard from '@/page-components/WorkflowDashboard';
+import PlantaBoard from '@/page-components/PlantaBoard';
 
 export default function PlantaPage() {
   return (
     <ProtectedRoute allowedRoles={['admin', 'supervisor', 'manager']}>
-      <WorkflowDashboard initialTab="layout" />
+      <PlantaBoard />
     </ProtectedRoute>
   );
 }
