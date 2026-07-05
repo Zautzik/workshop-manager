@@ -137,24 +137,86 @@ export function useReceiveOC() {
   });
 }
 
+export interface SupplierCertification {
+  name: string;
+  code?: string | null;
+  expires_on?: string | null;
+}
+
 export interface Supplier {
   supplier: string;
   supplier_rut: string | null;
   supplier_giro: string | null;
+  email: string | null;
+  phone: string | null;
   oc_count: number;
   total_spend: number;
   open_count: number;
   last_purchase_date: string | null;
+  category_ids: string[];
+  categories: string[];
+  certifications: SupplierCertification[];
+  has_profile: boolean;
 }
 
-/** Supplier directory derived from purchases (OCs). */
+export interface SupplierCategory {
+  id: string;
+  name: string;
+  kind: 'material' | 'service' | null;
+}
+
+/** Supplier directory derived from purchases (OCs) + profile overlay. */
 export function useSuppliers() {
-  return useQuery<{ data: Supplier[]; totals: { count: number; spend: number; open: number } }>({
+  return useQuery<{ data: Supplier[]; totals: { count: number; spend: number; open: number; pefc: number } }>({
     queryKey: ['suppliers'],
     queryFn: async () => {
       const res = await fetch('/api/suppliers');
       if (!res.ok) throw new Error('Failed to fetch suppliers');
       return res.json();
     },
+  });
+}
+
+/** Flexible supplier-category catalog. */
+export function useSupplierCategories() {
+  return useQuery<SupplierCategory[]>({
+    queryKey: ['supplier-categories'],
+    queryFn: async () => {
+      const res = await fetch('/api/supplier-categories');
+      if (!res.ok) throw new Error('Failed to fetch categories');
+      return (await res.json()).data ?? [];
+    },
+  });
+}
+
+export function useCreateSupplierCategory() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: { name: string; kind?: string | null }) => postJSON('/api/supplier-categories', payload),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['supplier-categories'] }),
+  });
+}
+
+export function useSaveSupplierProfile() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: Record<string, unknown>) => postJSON('/api/suppliers', payload, 'PATCH'),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['suppliers'] }),
+  });
+}
+
+export function useCreateSupplier() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: Record<string, unknown>) => postJSON('/api/suppliers', payload),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['suppliers'] }),
+  });
+}
+
+export function useDeleteSupplier() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (name: string) => postJSON(`/api/suppliers?name=${encodeURIComponent(name)}`, undefined, 'DELETE'),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['suppliers'] }),
   });
 }
