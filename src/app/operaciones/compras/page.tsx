@@ -4,6 +4,7 @@ import { Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import PurchasesManagement from '@/components/admin/PurchasesManagement';
+import { SuppliersDirectory } from '@/components/admin/SuppliersDirectory';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ShoppingCart, Truck } from 'lucide-react';
@@ -40,13 +41,7 @@ function ComprasTabs() {
         <PurchasesManagement />
       </TabsContent>
       <TabsContent value="proveedores" className="mt-6">
-        <div className="rounded-xl border border-border/60 bg-card/60 p-8 text-center">
-          <Truck className="mx-auto mb-3 h-10 w-10 text-muted-foreground/40" />
-          <p className="text-sm font-medium text-foreground">Directorio de proveedores</p>
-          <p className="mt-1 text-xs text-muted-foreground">
-            Directorio y condiciones comerciales de proveedores — en desarrollo.
-          </p>
-        </div>
+        <SuppliersDirectory />
       </TabsContent>
     </Tabs>
   );

@@ -136,3 +136,25 @@ export function useReceiveOC() {
     onSuccess: invalidate,
   });
 }
+
+export interface Supplier {
+  supplier: string;
+  supplier_rut: string | null;
+  supplier_giro: string | null;
+  oc_count: number;
+  total_spend: number;
+  open_count: number;
+  last_purchase_date: string | null;
+}
+
+/** Supplier directory derived from purchases (OCs). */
+export function useSuppliers() {
+  return useQuery<{ data: Supplier[]; totals: { count: number; spend: number; open: number } }>({
+    queryKey: ['suppliers'],
+    queryFn: async () => {
+      const res = await fetch('/api/suppliers');
+      if (!res.ok) throw new Error('Failed to fetch suppliers');
+      return res.json();
+    },
+  });
+}
