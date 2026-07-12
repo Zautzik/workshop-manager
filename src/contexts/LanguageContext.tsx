@@ -1,268 +1,173 @@
 /**
- * @fileoverview Language/Localization Context — thin wrapper over i18next
+ * @fileoverview UI label dictionary — Spanish native.
  *
- * Provides backward-compatible useLanguage().t('flatKey') API while delegating
- * to the real i18next instance. New code should prefer useTranslation() from
- * react-i18next directly with namespaced keys (e.g. t('auth.login')).
+ * The app is Spanish-only by decision (2026-07-05, demo-readiness plan §4.3):
+ * the former i18next stack translated exactly one component and shipped a
+ * language toggle that did nothing, so it was removed. This module keeps the
+ * useLanguage().t('flatKey') API that ~18 components already use, backed by a
+ * plain dictionary instead of a translation runtime.
+ *
+ * Adding a label: add the key here and call t('myKey'). Unknown keys return
+ * the key itself so a typo is visible in the UI rather than a crash.
  */
-'use client';
 
-import React, { createContext, useContext, useCallback, useEffect, ReactNode } from 'react';
-import { useTranslation } from 'react-i18next';
-import i18n from '@/i18n/config';
-
-type Language = 'en' | 'es';
-
-/** Maps legacy flat keys → namespaced i18next keys */
-const keyMap: Record<string, string> = {
-  // Auth
-  login: 'auth.login',
-  email: 'auth.email',
-  password: 'auth.password',
-  logout: 'auth.logout',
-
-  // Dashboards
-  supervisorDashboard: 'dashboard.supervisor',
-  managerDashboard: 'dashboard.manager',
-  adminDashboard: 'dashboard.admin',
-  totalUsers: 'dashboard.totalUsers',
-  totalWorkers: 'dashboard.totalWorkers',
-  totalJobs: 'dashboard.totalJobs',
-
-  // Navigation
-  machines: 'nav.machines',
-  jobs: 'nav.jobs',
-  reports: 'nav.reports',
-  users: 'nav.users',
-  workers: 'nav.workers',
-  inventory: 'nav.inventory',
-  purchases: 'nav.purchases',
-
-  // User management
-  userManagement: 'userMgmt.title',
-  addUser: 'userMgmt.addUser',
-  editUser: 'userMgmt.editUser',
-  role: 'userMgmt.role',
-  department: 'userMgmt.department',
-  managerDomain: 'userMgmt.managerDomain',
-  addUserDescription: 'userMgmt.addDescription',
-  editUserDescription: 'userMgmt.editDescription',
-
-  // Worker management
-  workersManagement: 'workerMgmt.title',
-  addWorker: 'workerMgmt.addWorker',
-  editWorker: 'workerMgmt.editWorker',
-  addWorkerDescription: 'workerMgmt.addDescription',
-  editWorkerDescription: 'workerMgmt.editDescription',
-  workerRoster: 'workerMgmt.roster',
-  createRoster: 'workerMgmt.createRoster',
-  rosterName: 'workerMgmt.rosterName',
-  addToRoster: 'workerMgmt.addToRoster',
-  removeFromRoster: 'workerMgmt.removeFromRoster',
-  allWorkers: 'workerMgmt.allWorkers',
-  filterByDept: 'workerMgmt.filterByDept',
-  sortBy: 'workerMgmt.sortBy',
-  workerStats: 'workerMgmt.stats',
-  viewStats: 'workerMgmt.viewStats',
-  performance: 'workerMgmt.performance',
-  avgTime: 'workerMgmt.avgTime',
-  rating: 'workerMgmt.rating',
-  efficiencyScore: 'workerMgmt.efficiencyScore',
-  totalTasks: 'workerMgmt.totalTasks',
-  logTask: 'workerMgmt.logTask',
-  taskType: 'workerMgmt.taskType',
-  timeSpent: 'workerMgmt.timeSpent',
-  notes: 'workerMgmt.notes',
-
-  // Inventory management
-  inventoryManagement: 'inventoryMgmt.title',
-  addItem: 'inventoryMgmt.addItem',
-  editItem: 'inventoryMgmt.editItem',
-  itemName: 'inventoryMgmt.itemName',
-  quantity: 'inventoryMgmt.quantity',
-  costPerUnit: 'inventoryMgmt.costPerUnit',
-  supplier: 'inventoryMgmt.supplier',
-  totalCost: 'inventoryMgmt.totalCost',
-  certificationDetails: 'inventoryMgmt.certificationDetails',
-  addItemDescription: 'inventoryMgmt.addDescription',
-  editItemDescription: 'inventoryMgmt.editDescription',
-
-  // Purchases management
-  purchasesManagement: 'purchasesMgmt.title',
-  addPurchase: 'purchasesMgmt.addPurchase',
-  editPurchase: 'purchasesMgmt.editPurchase',
-  addPurchaseDescription: 'purchasesMgmt.addDescription',
-  editPurchaseDescription: 'purchasesMgmt.editDescription',
-
-  // Roles
-  admin: 'roles.admin',
-  manager: 'roles.manager',
-  supervisor: 'roles.supervisor',
-
-  // Departments
-  press: 'departments.press',
-  deliveries: 'departments.deliveries',
-  administration: 'departments.administration',
-  pre_press: 'departments.pre_press',
-  manual_workshop: 'departments.manual_workshop',
-
-  // Manager domains
-  cost: 'domains.cost',
-  production: 'domains.production',
-  quality: 'domains.quality',
-
-  // Machine statuses
-  idle: 'machineStatus.idle',
-  running: 'machineStatus.running',
-  maintenance: 'machineStatus.maintenance',
-  offline: 'machineStatus.offline',
-  setup: 'machineStatus.setup',
-  breakdown: 'machineStatus.breakdown',
-
-  // Job statuses
-  pending: 'jobStatus.pending',
-  in_progress: 'jobStatus.in_progress',
-  completed: 'jobStatus.completed',
-  delivered: 'jobStatus.delivered',
-
-  // Machine types
-  offset_printer: 'machineTypes.offset_printer',
-  die_cutter: 'machineTypes.die_cutter',
-  guillotine: 'machineTypes.guillotine',
-  digital_printer: 'machineTypes.digital_printer',
-
-  // Actions
-  addJob: 'actions.addJob',
-  updateStatus: 'actions.updateStatus',
-  addOT: 'actions.addOT',
-  addBatch: 'actions.addBatch',
-  viewTraceability: 'actions.viewTraceability',
-  exportPDF: 'actions.exportPDF',
-  assignWorker: 'actions.assignWorker',
-  assignBatch: 'actions.assignBatch',
-
-  // OT
-  ot: 'ot.title',
-  otNumber: 'ot.otNumber',
-  otList: 'ot.list',
-  createOT: 'ot.create',
-
-  // Batches
-  batch: 'batch.title',
-  batches: 'batch.batches',
-  batchNumber: 'batch.number',
-  paperType: 'batch.paperType',
-  quantityRemaining: 'batch.quantityRemaining',
-  certifications: 'batch.certifications',
-
-  // Costs
-  totalJobCost: 'costs.totalJobCost',
-  materialCost: 'costs.materialCost',
-  laborCost: 'costs.laborCost',
-  machineCost: 'costs.machineCost',
-  costBreakdown: 'costs.breakdown',
-
-  // Reports
-  costReport: 'reports.cost',
-  efficiencyReport: 'reports.efficiency',
-  traceabilityReport: 'reports.traceability',
-
-  // Stats
-  completedJobs: 'stats.completedJobs',
-  pendingJobs: 'stats.pendingJobs',
-  efficiency: 'stats.efficiency',
-  totalOTs: 'stats.totalOTs',
-  jobsPerDay: 'stats.jobsPerDay',
-
-  // Process
-  processFlow: 'process.flow',
-  timeline: 'process.timeline',
-
-  // Tasks
-  detachment: 'tasks.detachment',
-  revision: 'tasks.revision',
-  packaging: 'tasks.packaging',
-  printing: 'tasks.printing',
-  cutting: 'tasks.cutting',
-
-  // Common
-  name: 'common.name',
-  actions: 'common.actions',
-  date: 'common.date',
-  description: 'common.description',
-  status: 'common.status',
-  submit: 'common.submit',
-  cancel: 'common.cancel',
-  save: 'common.save',
-  edit: 'common.edit',
-  delete: 'common.delete',
-  view: 'common.view',
-  overview: 'common.overview',
-  noData: 'common.noData',
-  search: 'common.search',
-  createdAt: 'common.createdAt',
-  confirmDelete: 'common.confirmDelete',
-  create: 'common.create',
-  update: 'common.update',
-
-  // Singular nouns (used in some components)
-  machine: 'nav.machines',
-  worker: 'nav.workers',
-  delivery: 'departments.deliveries',
+const LABELS: Record<string, string> = {
+  login: "Iniciar Sesión",
+  email: "Correo Electrónico",
+  password: "Contraseña",
+  logout: "Cerrar Sesión",
+  supervisorDashboard: "Panel del Supervisor",
+  managerDashboard: "Panel del Gerente",
+  adminDashboard: "Panel de Administración",
+  totalUsers: "Total de Usuarios",
+  totalWorkers: "Total de Trabajadores",
+  totalJobs: "Total de Trabajos",
+  machines: "Máquinas",
+  jobs: "Trabajos",
+  reports: "Reportes",
+  users: "Usuarios",
+  workers: "Trabajadores",
+  inventory: "Inventario",
+  purchases: "Compras",
+  userManagement: "Gestión de Usuarios",
+  addUser: "Agregar Usuario",
+  editUser: "Editar Usuario",
+  role: "Rol",
+  department: "Departamento",
+  managerDomain: "Dominio del Gerente",
+  addUserDescription: "Crear un nuevo usuario con rol y departamento",
+  editUserDescription: "Modificar rol y departamento del usuario",
+  workersManagement: "Gestión de Trabajadores",
+  addWorker: "Agregar Trabajador",
+  editWorker: "Editar Trabajador",
+  addWorkerDescription: "Agregar un nuevo trabajador al sistema",
+  editWorkerDescription: "Modificar información del trabajador",
+  workerRoster: "Planilla de Trabajadores",
+  createRoster: "Crear Planilla",
+  rosterName: "Nombre de Planilla",
+  addToRoster: "Agregar a Planilla",
+  removeFromRoster: "Quitar de Planilla",
+  allWorkers: "Todos los Trabajadores",
+  filterByDept: "Filtrar por Departamento",
+  sortBy: "Ordenar por",
+  workerStats: "Estadísticas de Trabajadores",
+  viewStats: "Ver Estadísticas",
+  performance: "Rendimiento",
+  avgTime: "Tiempo Promedio",
+  rating: "Calificación",
+  efficiencyScore: "Eficiencia",
+  totalTasks: "Total de Tareas",
+  logTask: "Registrar Tarea",
+  taskType: "Tipo de Tarea",
+  timeSpent: "Tiempo Dedicado (min)",
+  notes: "Notas",
+  inventoryManagement: "Gestión de Inventario",
+  addItem: "Agregar Artículo",
+  editItem: "Editar Artículo",
+  itemName: "Nombre del Artículo",
+  quantity: "Cantidad",
+  costPerUnit: "Costo por Unidad",
+  supplier: "Proveedor",
+  totalCost: "Costo Total",
+  certificationDetails: "Detalles de Certificación",
+  addItemDescription: "Agregar un artículo al inventario",
+  editItemDescription: "Modificar información del artículo",
+  purchasesManagement: "Gestión de Compras",
+  addPurchase: "Agregar Compra",
+  editPurchase: "Editar Compra",
+  addPurchaseDescription: "Registrar una nueva compra",
+  editPurchaseDescription: "Modificar detalles de la compra",
+  admin: "Administrador",
+  manager: "Gerente",
+  supervisor: "Supervisor",
+  press: "Prensa",
+  deliveries: "Entregas",
+  administration: "Administración",
+  pre_press: "Pre-Prensa",
+  manual_workshop: "Taller Manual",
+  cost: "Costos",
+  production: "Producción",
+  quality: "Calidad",
+  idle: "Inactiva",
+  running: "En Marcha",
+  maintenance: "En Mantenimiento",
+  offline: "Fuera de Línea",
+  setup: "En Preparación",
+  breakdown: "Avería",
+  pending: "Pendiente",
+  in_progress: "En Progreso",
+  completed: "Completado",
+  delivered: "Entregado",
+  offset_printer: "Impresora Offset",
+  die_cutter: "Troqueladora",
+  guillotine: "Guillotina",
+  digital_printer: "Impresora Digital",
+  addJob: "Agregar Trabajo",
+  updateStatus: "Actualizar Estado",
+  addOT: "Agregar OT",
+  addBatch: "Agregar Lote",
+  viewTraceability: "Ver Trazabilidad",
+  exportPDF: "Exportar PDF",
+  assignWorker: "Asignar Trabajador",
+  assignBatch: "Asignar Lote",
+  ot: "Órdenes de Trabajo (OT)",
+  otNumber: "Número de OT",
+  otList: "Órdenes de Trabajo",
+  createOT: "Crear Orden de Trabajo",
+  batch: "Lote",
+  batches: "Lotes",
+  batchNumber: "Número de Lote",
+  paperType: "Tipo de Papel",
+  quantityRemaining: "Cantidad Restante",
+  certifications: "Certificaciones",
+  totalJobCost: "Costo Total del Trabajo",
+  materialCost: "Costo de Materiales",
+  laborCost: "Costo de Mano de Obra",
+  machineCost: "Costo de Máquinas",
+  costBreakdown: "Desglose de Costos",
+  costReport: "Reporte de Costos",
+  efficiencyReport: "Reporte de Eficiencia",
+  traceabilityReport: "Reporte de Trazabilidad",
+  completedJobs: "Trabajos Completados",
+  pendingJobs: "Trabajos Pendientes",
+  efficiency: "Eficiencia",
+  totalOTs: "Total de OTs",
+  jobsPerDay: "Trabajos por Día",
+  processFlow: "Flujo de Proceso",
+  timeline: "Línea de Tiempo",
+  detachment: "Desprendimiento",
+  revision: "Revisión",
+  packaging: "Empaque",
+  printing: "Impresión",
+  cutting: "Corte",
+  name: "Nombre",
+  actions: "Acciones",
+  date: "Fecha",
+  description: "Descripción",
+  status: "Estado",
+  submit: "Enviar",
+  cancel: "Cancelar",
+  save: "Guardar",
+  edit: "Editar",
+  delete: "Eliminar",
+  view: "Ver",
+  overview: "Resumen",
+  noData: "No hay datos disponibles",
+  search: "Buscar",
+  createdAt: "Creado el",
+  confirmDelete: "¿Estás seguro de que quieres eliminar esto?",
+  create: "Crear",
+  update: "Actualizar",
+  machine: "Máquinas",
+  worker: "Trabajadores",
+  delivery: "Entregas",
 };
 
-interface LanguageContextType {
-  language: Language;
-  setLanguage: (lang: Language) => void;
-  t: (key: string) => string;
+function t(key: string): string {
+  return LABELS[key] ?? key;
 }
 
-const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
-
-export const LanguageProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const { t: i18nT } = useTranslation();
-
-  // i18next is initialised to 'es', so SSR and the first client paint always
-  // agree. After mount we restore any language the user explicitly saved.
-  const language = (i18n.language === 'en' ? 'en' : 'es') as Language;
-
-  useEffect(() => {
-    const stored = localStorage.getItem('i18nextLng') as Language | null;
-    if (stored === 'en' || stored === 'es') {
-      i18n.changeLanguage(stored);
-    }
-  }, []);
-
-  const setLanguage = useCallback((lang: Language) => {
-    i18n.changeLanguage(lang);
-    localStorage.setItem('i18nextLng', lang);
-  }, []);
-
-  const t = useCallback(
-    (key: string): string => {
-      // Try the key mapped to its namespace first, then as-is (for new code)
-      const mapped = keyMap[key];
-      if (mapped) return i18nT(mapped);
-      // Try directly (supports namespaced keys like 'auth.login')
-      const result = i18nT(key);
-      if (result !== key) return result;
-      // Fallback: return the key itself
-      return key;
-    },
-    [i18nT],
-  );
-
-  return (
-    <LanguageContext.Provider value={{ language, setLanguage, t }}>
-      {children}
-    </LanguageContext.Provider>
-  );
-};
-
-export const useLanguage = () => {
-  const context = useContext(LanguageContext);
-  if (!context) {
-    throw new Error('useLanguage must be used within a LanguageProvider');
-  }
-  return context;
-};
+/** Kept name/shape so existing `const { t } = useLanguage()` call sites work unchanged. */
+export function useLanguage(): { t: (key: string) => string } {
+  return { t };
+}

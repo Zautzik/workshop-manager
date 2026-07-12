@@ -4,7 +4,6 @@ import { useRouter } from 'next/navigation';
 import QuickLinks from '@/components/home/QuickLinks';
 import VitalStrip from '@/components/home/VitalStrip';
 import { useAuth } from '@/contexts/AuthContext';
-import { useLanguage } from '@/contexts/LanguageContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useVitals, type FlowStatus } from '@/hooks/use-vitals';
 import { useHomePrefs } from '@/hooks/use-home-prefs';
@@ -270,7 +269,6 @@ function HexCell({ action, vital, onClick, isDark }: HexCellProps) {
 
 export default function HomeDashboard() {
   const { user, role } = useAuth();
-  const { language } = useLanguage();
   const { theme } = useTheme();
   const isDark = theme === 'dark';
   const router = useRouter();
@@ -318,9 +316,9 @@ export default function HomeDashboard() {
 
   const getGreeting = () => {
     const hour = new Date().getHours();
-    if (hour < 12) return language === 'es' ? 'Buenos días' : 'Good morning';
-    if (hour < 18) return language === 'es' ? 'Buenas tardes' : 'Good afternoon';
-    return language === 'es' ? 'Buenas noches' : 'Good evening';
+    if (hour < 12) return 'Buenos días';
+    if (hour < 18) return 'Buenas tardes';
+    return 'Buenas noches';
   };
 
   const firstName = user?.name?.split(' ')[0] || user?.email?.split('@')[0] || '';
@@ -338,7 +336,7 @@ export default function HomeDashboard() {
           {getGreeting()}, <span className="text-foreground capitalize">{firstName}</span>
         </p>
         <h1 className="text-3xl md:text-4xl font-bold text-foreground tracking-tight">
-          {language === 'es' ? '¿Cómo puedo ayudarte hoy?' : 'How can I help you today?'}
+          ¿Cómo puedo ayudarte hoy?
         </h1>
       </div>
 

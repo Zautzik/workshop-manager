@@ -3,7 +3,6 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import { useLanguage } from '@/contexts/LanguageContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { ForgeHexLogo } from '@/components/branding/ForgeHexLogo';
 import { cn } from '@/lib/utils';
@@ -19,7 +18,6 @@ import {
   LogOut,
   Moon,
   Sun,
-  Globe,
   ChevronLeft,
   ChevronRight,
   Menu,
@@ -73,7 +71,6 @@ const navItems: NavItem[] = [
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const { user, role, loading, signOut } = useAuth();
-  const { language, setLanguage } = useLanguage();
   const { theme, setTheme } = useTheme();
   const router = useRouter();
   const pathname = usePathname();
@@ -280,25 +277,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           </TooltipTrigger>
           {collapsed && mounted && (
             <TooltipContent side="right">{theme === 'light' ? 'Modo Oscuro' : 'Modo Claro'}</TooltipContent>
-          )}
-        </Tooltip>
-
-        {/* Language toggle */}
-        <Tooltip delayDuration={0}>
-          <TooltipTrigger asChild>
-            <button
-              onClick={() => setLanguage(language === 'en' ? 'es' : 'en')}
-              className={cn(
-                "w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-muted-foreground hover:bg-muted transition-colors",
-                collapsed && "justify-center px-2"
-              )}
-            >
-              <Globe className="w-4 h-4 shrink-0" />
-              {!collapsed && <span>{language === 'en' ? 'Español' : 'English'}</span>}
-            </button>
-          </TooltipTrigger>
-          {collapsed && (
-            <TooltipContent side="right">{language === 'en' ? 'Español' : 'English'}</TooltipContent>
           )}
         </Tooltip>
 

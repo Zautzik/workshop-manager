@@ -29,7 +29,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { landingRouteForRole } from '@/lib/navigation';
-import { Moon, Sun, Globe } from 'lucide-react';
+import { Moon, Sun } from 'lucide-react';
 import { toast } from 'sonner';
 
 const Login = () => {
@@ -39,7 +39,7 @@ const Login = () => {
   const [didLogin, setDidLogin] = useState(false);
   const [mounted, setMounted] = useState(false);
   const { signIn, signOut, user, role } = useAuth();
-  const { language, setLanguage, t } = useLanguage();
+  const { t } = useLanguage();
   const { theme, setTheme } = useTheme();
   const router = useRouter();
 
@@ -123,16 +123,6 @@ const Login = () => {
         >
           {theme === 'light' ? <Moon className="h-5 w-5" /> : <Sun className="h-5 w-5" />}
           <span className="sr-only">{theme === 'light' ? 'Dark mode' : 'Light mode'}</span>
-        </Button>
-        <Button
-          variant="outline"
-          size="icon"
-          onClick={() => setLanguage(language === 'en' ? 'es' : 'en')}
-          className="hover:bg-primary/10"
-          aria-label={`Switch to ${language === 'en' ? 'Spanish' : 'English'}`}
-        >
-          <Globe className="h-5 w-5" aria-hidden="true" />
-          <span className="ml-1 text-xs">{language.toUpperCase()}</span>
         </Button>
       </nav>
 

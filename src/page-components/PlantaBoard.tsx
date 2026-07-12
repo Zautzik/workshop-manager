@@ -19,7 +19,6 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useCompensationRatesForDate, useSchedulingCostModel, useWorkerAssignments, useWorkerMonthlyOvertime, useWorkflowCertificationAlerts, useWorkflowContracts, useWorkflowIncentiveStatuses, useWorkflowLeaveStatuses, useWorkflowWeeklyHours, useWorkersByRating, useWorkstations, useShifts } from "@/hooks/use-workflow-queries";
 import { useRealtimeProduction } from "@/hooks/use-realtime-production";
 import { DndContext, DragEndEvent, DragOverlay } from "@dnd-kit/core";
-import { useTranslation } from "react-i18next";
 import { isWorkerQualifiedForStation } from "@/lib/workstation-skills";
 
 type WorkflowTab = 'en_proceso' | 'ots' | 'clients' | 'layout' | 'shifts' | 'production' | 'hoja_prod' | 'plan_semanal' | 'gantt' | 'calendar' | 'whatsapp';
@@ -93,7 +92,6 @@ export default function PlantaBoard({ initialTab = 'layout' }: PlantaBoardProps)
   } | null>(null);
   const { toast } = useToast();
   const { role } = useAuth();
-  const { t } = useTranslation();
 
   const [fallbackWorkers, setFallbackWorkers] = useState<any[]>([]);
   const [fallbackWorkstations, setFallbackWorkstations] = useState<any[]>([]);
