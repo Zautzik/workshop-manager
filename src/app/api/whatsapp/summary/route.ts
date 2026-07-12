@@ -60,6 +60,9 @@ export async function GET(_req: NextRequest) {
 
     const confidences = (pendingLogs ?? [])
       .map((l: any) => l.parsed_data?.confidence ?? 0)
+      // Normalize: the parser emits 0–100, but legacy seed rows stored a
+      // 0–1 fraction — without this the dashboard showed "1%" (audit P3.4).
+      .map((c: number) => (c > 0 && c <= 1 ? c * 100 : c))
       .filter((c: number) => c > 0);
     const avgConfidence = confidences.length > 0
       ? Math.round(confidences.reduce((a: number, b: number) => a + b, 0) / confidences.length)
