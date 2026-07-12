@@ -33,6 +33,8 @@ Order matters: phases 1→3 are strictly sequential; 4–5 can interleave; 6 is 
 ## PHASE 2 — Reconnect the golden thread
 *The pipeline exists module by module; these are the missing wires between modules.*
 
+> **STATUS 2026-07-12: DONE AND FULLY VERIFIED IN DB.** All eight items live-verified after `db push` (tsc clean, 98/98 tests, lint 0 errors): single correlative numbering — now **bare digits** per owner decision (`generate_ot_number()` → `40502`; existing `OT-4xxxx` rows stripped; lookups tolerate both); wizard machine persists; **OC receipt → real cost verified: receiving 500 kg moved `total_actual` 0 → 725.000 with auto line `oc_receipt`, lot at exactly 500 (no doubling)**; dossier shows the received lot (source `recepcion`) + WhatsApp photo evidence — only "Sin aprobación" remains, which is correct; certifications = recall universe; simulator round-trip incl. the founding compound message → END+START. Operator hints teach the short form ("INICIO 40502"). Purge list for 3.1: OT-AUDIT-9001, OT-TEST-P1/P2, lots AUDIT-LOT-777 / TEST-FIX-12 / TEST-COST-01 (+ their OCs 12/13), simulator logs on 40500/40501, junk lot "2".
+
 | # | Fix | Where | How | Accept when | Size |
 |---|-----|-------|-----|-------------|------|
 | 2.1 | One OT numbering scheme (plant correlative `OT-4XXXX`) | `src/app/api/ots/generate-number/route.ts` | replace with the converter's correlative logic (`MAX(substring(ot_number from 4)::bigint)+1` over `^OT-[0-9]+$`) — single generator used by wizard AND converter | wizard mints `OT-40502`-style; WhatsApp parser extracts it correctly ("fin ot 40502") | S |
