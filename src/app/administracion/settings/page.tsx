@@ -7,8 +7,9 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Globe, Bell, Shield, Database, Palette, Moon, Sun, ArrowRight, KeyRound, Check } from 'lucide-react';
 import { useTheme } from '@/contexts/ThemeContext';
-import { useLanguage } from '@/contexts/LanguageContext';
 import { MIN_PASSWORD_LENGTH, MAX_PASSWORD_LENGTH, COMMON_PASSWORD_COUNT } from '@/lib/password-policy';
+import { CostOverrunAlerts } from '@/components/financial/CostOverrunAlerts';
+import { useCostAlerts } from '@/hooks/use-cost-alerts';
 
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -27,13 +28,9 @@ function ManageLink({ href }: { href: string }) {
   );
 }
 
-function Soon() {
-  return <Badge variant="outline" className="text-xs text-muted-foreground">Próximamente</Badge>;
-}
-
 export default function AdminSettingsPage() {
   const { setTheme, resolvedTheme } = useTheme();
-  const { language, setLanguage } = useLanguage();
+  const { data: costAlerts } = useCostAlerts();
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
@@ -50,7 +47,7 @@ export default function AdminSettingsPage() {
         </div>
 
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          {/* Idioma y Región — live language toggle + regional info */}
+          {/* Idioma y Región — Spanish native (decision 2026-07-05); regional info */}
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="flex items-center gap-2 text-base">
@@ -58,11 +55,7 @@ export default function AdminSettingsPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-1">
-              <Row label="Idioma del sistema">
-                <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => setLanguage(language === 'es' ? 'en' : 'es')}>
-                  {language === 'es' ? 'Español' : 'English'}
-                </Button>
-              </Row>
+              <Row label="Idioma del sistema"><Badge variant="secondary" className="text-xs">Español</Badge></Row>
               <Row label="Zona horaria"><Badge variant="secondary" className="text-xs">America/Santiago</Badge></Row>
               <Row label="Formato de moneda"><Badge variant="secondary" className="text-xs">CLP $</Badge></Row>
             </CardContent>
@@ -95,7 +88,11 @@ export default function AdminSettingsPage() {
             <CardContent className="space-y-1">
               <Row label="Alertas y avisos del sistema"><ManageLink href="/administracion/notifications" /></Row>
               <Row label="Notificaciones WhatsApp"><ManageLink href="/operaciones/whatsapp" /></Row>
-              <Row label="Umbral de alerta de costos OT"><Soon /></Row>
+              <Row label="Alerta de sobrecosto de OT">
+                <Badge className={costAlerts && costAlerts.count > 0 ? 'bg-red-500/15 text-red-600 text-xs' : 'bg-green-500/15 text-green-600 text-xs'}>
+                  {costAlerts ? (costAlerts.count > 0 ? `${costAlerts.count} sobre ${costAlerts.threshold}%` : 'sin alertas') : '—'}
+                </Badge>
+              </Row>
             </CardContent>
           </Card>
 
@@ -147,10 +144,13 @@ export default function AdminSettingsPage() {
               <Row label="Diagnóstico de conexión"><ManageLink href="/administracion/diagnostics" /></Row>
             </CardContent>
           </Card>
+
+          {/* Alerta de sobrecosto — configurable threshold + live over-budget OTs */}
+          <CostOverrunAlerts />
         </div>
 
         <p className="text-xs text-muted-foreground">
-          Idioma y tema se aplican al instante. El resto de los parámetros se gestiona en su módulo correspondiente.
+          El tema se aplica al instante. El resto de los parámetros se gestiona en su módulo correspondiente.
         </p>
       </div>
     </ProtectedRoute>
