@@ -46,11 +46,15 @@ function DevBypassProvider({ children }: { children: ReactNode }) {
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
 	// ── Dev bypass — set NEXT_PUBLIC_DEV_BYPASS=true in .env.local ────────
+	// Branching between components (instead of before hooks in one component)
+	// keeps every hook call unconditional per component (rules-of-hooks).
 	if (isDevBypassEnabled) {
 		return <DevBypassProvider>{children}</DevBypassProvider>;
 	}
+	return <SessionAuthProvider>{children}</SessionAuthProvider>;
+};
 
-	// ── Normal auth ──────────────────────────────────────────────────────
+const SessionAuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
 	const { data: session, status } = useSession();
 	const loading = status === 'loading';
 

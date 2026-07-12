@@ -37,7 +37,6 @@ function getRgb(colorCls: string): string {
 export interface HexLandingItem {
   label: string;
   description: string;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   icon: React.ElementType<any>;
   href: string;
   color: string;
@@ -56,7 +55,6 @@ interface Props {
   title: string;
   subtitle: string;
   groups: HexLandingGroup[];
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   hubIcon?: React.ElementType<any>;
 }
 

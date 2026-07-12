@@ -67,13 +67,16 @@ function DraggableWorker({
 		legalHourConflict?: boolean;
 	};
 }) {
-	if (!worker) return null;
-
+	// Hooks must run unconditionally — the null guard comes after, and the
+	// draggable is disabled so the placeholder registration is inert.
 	const { attributes, listeners, setNodeRef, transform, isDragging } =
 		useDraggable({
-			id: assignmentId || `worker-${worker.id}`,
+			id: assignmentId || `worker-${worker?.id ?? 'none'}`,
 			data: { worker, assignmentId, isOvertime },
+			disabled: !worker,
 		});
+
+	if (!worker) return null;
 
 	const style = transform
 		? {

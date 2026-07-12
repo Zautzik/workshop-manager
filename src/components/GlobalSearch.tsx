@@ -169,7 +169,7 @@ export function GlobalSearch() {
             <p className="text-xs text-muted-foreground text-center py-8">Empieza a escribir para buscar</p>
           )}
           {query.trim() !== '' && results.length === 0 && (
-            <p className="text-xs text-muted-foreground text-center py-8">Sin resultados para "{query}"</p>
+            <p className="text-xs text-muted-foreground text-center py-8">Sin resultados para &quot;{query}&quot;</p>
           )}
           {results.map((item, idx) => {
             const meta = TYPE_META[item.type];

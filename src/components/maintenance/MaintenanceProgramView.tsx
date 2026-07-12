@@ -326,7 +326,7 @@ export default function MaintenanceProgramView() {
 
       <AlertDialog open={showDeleteProgram} onOpenChange={setShowDeleteProgram}>
         <AlertDialogContent>
-          <AlertDialogHeader><AlertDialogTitle>Eliminar programa "{activeProgram?.name}"?</AlertDialogTitle><AlertDialogDescription>El programa se desactivara junto con todas sus tareas. Los datos no se borran permanentemente.</AlertDialogDescription></AlertDialogHeader>
+          <AlertDialogHeader><AlertDialogTitle>Eliminar programa &quot;{activeProgram?.name}&quot;?</AlertDialogTitle><AlertDialogDescription>El programa se desactivara junto con todas sus tareas. Los datos no se borran permanentemente.</AlertDialogDescription></AlertDialogHeader>
           <AlertDialogFooter><AlertDialogCancel>Cancelar</AlertDialogCancel><AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={delProg}>Eliminar programa</AlertDialogAction></AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

@@ -678,7 +678,7 @@ const SkillTreeManager = () => {
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Skill?</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete "{skillToDelete?.name}"? This
+              Are you sure you want to delete &quot;{skillToDelete?.name}&quot;? This
               action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
