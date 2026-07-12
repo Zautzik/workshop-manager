@@ -39,6 +39,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     p_lot_number: d.lot_number ?? null,
     p_cert_code: d.cert_code ?? null,
     p_cert_expires: d.cert_expires ?? null,
+    // Receipt against an OT-linked OC auto-records the material as a real
+    // cost (workflow_step 'oc_receipt') — attribute it to the acting user.
+    p_recorded_by: auth.id,
   });
 
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });

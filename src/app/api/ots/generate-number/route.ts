@@ -7,21 +7,26 @@ export async function GET(_req: NextRequest) {
 	if (isAuthError(auth)) return auth;
 
 	try {
+		// generate_ot_number() returns the plant correlative (OT-NNNNN) — single
+		// numbering source shared with convert_vb_to_ot(). No random fallback:
+		// minting an off-format number breaks WhatsApp reporting (the parser
+		// reads the short correlative), so failing visibly beats succeeding wrong.
 		const { data, error } = await supabaseAdmin.rpc('generate_ot_number');
 
 		if (error) {
 			console.error('Error generating OT number:', error);
-			// Fallback: generate client-side
-			const year = new Date().getFullYear();
-			const rand = String(Math.floor(Math.random() * 9999)).padStart(4, '0');
-			return NextResponse.json({ ot_number: `OT-${year}-${rand}` });
+			return NextResponse.json(
+				{ error: 'No se pudo generar el número de OT. Reintenta en unos segundos.' },
+				{ status: 503 }
+			);
 		}
 
 		return NextResponse.json({ ot_number: data });
 	} catch (error) {
 		console.error('Error generating OT number:', error);
-		const year = new Date().getFullYear();
-		const rand = String(Math.floor(Math.random() * 9999)).padStart(4, '0');
-		return NextResponse.json({ ot_number: `OT-${year}-${rand}` });
+		return NextResponse.json(
+			{ error: 'No se pudo generar el número de OT. Reintenta en unos segundos.' },
+			{ status: 503 }
+		);
 	}
 }

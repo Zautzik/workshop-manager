@@ -102,6 +102,10 @@ const CreateOTSchema = z.object({
 	commission_amount: z.coerce.number().min(0).optional(),
 	total_price: z.coerce.number().min(0).optional(),
 	unit_price: z.coerce.number().min(0).optional(),
+	// Machine chosen in the wizard's Máquina step. This field was silently
+	// dropped for months (not in the schema → Zod stripped it), which is why
+	// every OT showed machine: null (2026-07 audit).
+	assigned_machine_id: z.string().uuid().optional().nullable(),
 	// Operations (child rows)
 	operations: z.array(OTOperationSchema).optional(),
 	notes: z.string().max(5000).optional().nullable(),
@@ -261,8 +265,9 @@ export async function POST(req: NextRequest) {
 					commission_amount: d.commission_amount || 0,
 					total_price: d.total_price || 0,
 					unit_price: d.unit_price || 0,
+					assigned_machine_id: d.assigned_machine_id || null,
 					notes: d.notes || null,
-						production_detail: d.production_detail ?? null,
+					production_detail: d.production_detail ?? null,
 				},
 			])
 			.select('*')

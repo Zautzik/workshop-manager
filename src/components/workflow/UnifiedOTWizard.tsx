@@ -240,9 +240,13 @@ export function UnifiedOTWizard({ onClose, onSuccess }: Props) {
   const handleSubmit = async () => {
     setSubmitting(true);
     try {
-      // 1) Generate OT number
+      // 1) Generate OT number (plant correlative, e.g. OT-40502)
       const numRes = await fetch('/api/ots/generate-number');
-      const { ot_number } = await numRes.json();
+      const numBody = await numRes.json().catch(() => null);
+      if (!numRes.ok || !numBody?.ot_number) {
+        throw new Error(numBody?.error || 'No se pudo generar el número de OT. Reintenta.');
+      }
+      const { ot_number } = numBody;
 
       // 2) Prepare API payload
       const payload = {
