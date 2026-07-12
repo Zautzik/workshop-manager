@@ -109,11 +109,11 @@ export default function OperatorWhatsAppView() {
         <AlertDescription className="text-sm">
           Aquí puedes ver el estado de tus mensajes de producción. Envía por WhatsApp:
           <br />
-          <code className="text-xs bg-muted px-1 rounded">INICIO OT-1234</code> — para iniciar
+          <code className="text-xs bg-muted px-1 rounded">INICIO 40502</code> — para iniciar
           <br />
-          <code className="text-xs bg-muted px-1 rounded">FIN OT-1234 500 pliegos, 3 merma, doblado ok</code> — para finalizar
+          <code className="text-xs bg-muted px-1 rounded">FIN 40502 500 pliegos, 3 merma, doblado ok</code> — para finalizar
           <br />
-          <code className="text-xs bg-muted px-1 rounded">CANCELAR OT-1234</code> — para anular un inicio
+          <code className="text-xs bg-muted px-1 rounded">CANCELAR 40502</code> — para anular un inicio
         </AlertDescription>
       </Alert>
 

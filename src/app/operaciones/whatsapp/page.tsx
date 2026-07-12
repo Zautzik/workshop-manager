@@ -20,6 +20,7 @@
 
 import ProtectedRoute from '@/components/ProtectedRoute';
 import WhatsAppDashboard from '@/components/workflow/WhatsAppDashboard';
+import WhatsAppSimulatorPanel from '@/components/workflow/WhatsAppSimulatorPanel';
 
 export default function WhatsAppPage() {
   return (
@@ -33,6 +34,8 @@ export default function WhatsAppPage() {
             Reportes de producción en tiempo real desde el taller. Los operarios envían inicio y fin de trabajo vía WhatsApp.
           </p>
         </div>
+        {/* Dev/demo only — hides itself when the simulator API is disabled */}
+        <WhatsAppSimulatorPanel />
         <WhatsAppDashboard />
       </div>
     </ProtectedRoute>

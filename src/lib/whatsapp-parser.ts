@@ -94,35 +94,42 @@ export function extractOTNumber(raw: string): string | null {
 
 /* ─── Classify Message Type ──────────────────────────────────── */
 
+/** Word-bounded keyword test: 'entro' must not match inside 'centro',
+ * nor 'fin' inside 'finde'. Multi-word keywords ('paso a') work too. */
+function hasKeyword(text: string, keyword: string): boolean {
+  const escaped = keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return new RegExp(`\\b${escaped}\\b`).test(text);
+}
+
 export function classifyMessage(raw: string): WhatsAppMessageType {
   const text = normalize(raw);
   const words = text.split(/\s+/);
 
-  // Check first 3 words for keywords (most operators start with the action)
+  // Check first 4 words for keywords (most operators start with the action)
   const firstWords = words.slice(0, 4).join(' ');
 
   // Cancel check first (highest priority to allow aborting)
   for (const kw of CANCEL_KEYWORDS) {
-    if (firstWords.includes(kw)) return 'cancel';
+    if (hasKeyword(firstWords, kw)) return 'cancel';
   }
 
   for (const kw of START_KEYWORDS) {
-    if (firstWords.includes(kw)) return 'start';
+    if (hasKeyword(firstWords, kw)) return 'start';
   }
 
   for (const kw of END_KEYWORDS) {
-    if (firstWords.includes(kw)) return 'end';
+    if (hasKeyword(firstWords, kw)) return 'end';
   }
 
   // Check entire message if not found in first words
   for (const kw of CANCEL_KEYWORDS) {
-    if (text.includes(kw)) return 'cancel';
+    if (hasKeyword(text, kw)) return 'cancel';
   }
   for (const kw of END_KEYWORDS) {
-    if (text.includes(kw)) return 'end';
+    if (hasKeyword(text, kw)) return 'end';
   }
   for (const kw of START_KEYWORDS) {
-    if (text.includes(kw)) return 'start';
+    if (hasKeyword(text, kw)) return 'start';
   }
 
   // If there are production numbers (pliegos, merma, etc.) it's likely an end message
@@ -383,6 +390,83 @@ export function parseWhatsAppMessage(rawMessage: string): ParseResult {
     ot_number: otNumber,
     production_data: productionData,
   };
+}
+
+/* ─── Compound messages ──────────────────────────────────────── */
+
+/**
+ * Parse a message that may contain SEVERAL actions into one event per action.
+ *
+ * The plant's canonical report is compound: "Fin OT 40879, 7600 pliegos,
+ * entro OT 40965" — one END (with production data) plus one START. The single
+ * parser can only represent one action, so the START half was silently lost
+ * (2026-07 audit).
+ *
+ * Approach: find every action anchor (a word-bounded start/end/cancel keyword
+ * that has an OT number between itself and the next anchor). Two or more
+ * anchors with OT numbers → split the normalized text at the anchors and
+ * parse each segment independently. Anything else falls back to the single
+ * parser, so simple messages behave exactly as before.
+ */
+export function parseWhatsAppEvents(rawMessage: string): ParseResult[] {
+  const text = normalize(rawMessage);
+
+  type Anchor = { index: number; kind: WhatsAppMessageType };
+  const anchors: Anchor[] = [];
+  const kwSets: Array<[readonly string[], WhatsAppMessageType]> = [
+    [CANCEL_KEYWORDS, 'cancel'],
+    [END_KEYWORDS, 'end'],
+    [START_KEYWORDS, 'start'],
+  ];
+  for (const [keywords, kind] of kwSets) {
+    for (const kw of keywords) {
+      const escaped = kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const re = new RegExp(`\\b${escaped}\\b`, 'g');
+      let m: RegExpExecArray | null;
+      while ((m = re.exec(text)) !== null) {
+        anchors.push({ index: m.index, kind });
+      }
+    }
+  }
+  anchors.sort((a, b) => a.index - b.index);
+
+  // Drop overlapping anchors of the same segment start (e.g. 'termine' also
+  // matching 'termino' variants at the same position).
+  const distinct: Anchor[] = [];
+  for (const a of anchors) {
+    if (distinct.length === 0 || a.index > distinct[distinct.length - 1].index) {
+      distinct.push(a);
+    }
+  }
+
+  // Keep only anchors whose segment (up to the next anchor) contains an OT
+  // number — a bare "listo" inside a sentence is not a second action.
+  const otInSegment = (from: number, to: number) =>
+    extractOTNumber(text.slice(from, to)) !== null;
+  const actionable = distinct.filter((a, i) =>
+    otInSegment(a.index, distinct[i + 1]?.index ?? text.length)
+  );
+
+  if (actionable.length < 2) {
+    return [parseWhatsAppMessage(rawMessage)];
+  }
+
+  const events: ParseResult[] = [];
+  for (let i = 0; i < actionable.length; i++) {
+    const from = actionable[i].index;
+    const to = actionable[i + 1]?.index ?? text.length;
+    const segment = text.slice(from, to).replace(/[,;.\s]+$/, '');
+    events.push(parseWhatsAppMessage(segment));
+  }
+
+  // Same OT reported twice in one message (e.g. "fin 100 listo 100") is one
+  // event, not two — collapse consecutive duplicates of the same type + OT.
+  return events.filter(
+    (e, i) =>
+      i === 0 ||
+      e.message_type !== events[i - 1].message_type ||
+      e.ot_number !== events[i - 1].ot_number
+  );
 }
 
 /**

@@ -148,10 +148,15 @@ export interface OperatorSession {
 
 /* ─── Constants ──────────────────────────────────────────────── */
 
-/** Keywords that signal a START message */
+/** Keywords that signal a START message.
+ * 'entro/entra/sigo/retomo/paso a' cover the plant's real phrasing — the
+ * founding example "Fin OT 40879, 7600 pliegos, entro OT 40965" was
+ * unparseable because 'entro' was missing (2026-07 audit). Matching is
+ * word-bounded in the parser, so 'centro' or 'encuentro' can't false-match. */
 export const START_KEYWORDS = [
   'inicio', 'empiezo', 'comienzo', 'arranco', 'start',
   'empezamos', 'comenzamos', 'arrancamos', 'iniciamos',
+  'entro', 'entra', 'sigo', 'retomo', 'paso a',
 ];
 
 /** Keywords that signal an END message */

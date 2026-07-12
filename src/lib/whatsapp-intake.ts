@@ -96,10 +96,18 @@ export interface NormalizedInbound {
   body: string;
   timestamp?: string;
   ProfileName?: string;
+  /** Meta media id of an accompanying photo/video/document (caption became
+   * the body). Downloaded via the Graph API when WHATSAPP_ACCESS_TOKEN is set. */
+  media_id?: string;
+  media_mime?: string;
 }
 
 const MetaMediaSchema = z
-  .object({ id: z.string().optional(), caption: z.string().optional() })
+  .object({
+    id: z.string().optional(),
+    caption: z.string().optional(),
+    mime_type: z.string().optional(),
+  })
   .passthrough();
 
 const MetaMessageSchema = z
@@ -201,10 +209,8 @@ export function extractMetaInbound(rawJson: unknown): MetaIntakeResult {
       }
 
       for (const msg of value.messages ?? []) {
-        const body =
-          msg.type === 'text'
-            ? msg.text?.body
-            : msg.image?.caption ?? msg.video?.caption ?? msg.document?.caption;
+        const media = msg.image ?? msg.video ?? msg.document;
+        const body = msg.type === 'text' ? msg.text?.body : media?.caption;
 
         if (!body) {
           ignored += 1;
@@ -217,6 +223,7 @@ export function extractMetaInbound(rawJson: unknown): MetaIntakeResult {
           body,
           timestamp: metaTimestampToIso(msg.timestamp),
           ProfileName: nameByWaId.get(msg.from) ?? nameByWaId.values().next().value,
+          ...(media?.id ? { media_id: media.id, media_mime: media.mime_type } : {}),
         });
       }
     }
