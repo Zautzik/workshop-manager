@@ -6,13 +6,19 @@ import { certStatusAtUse, evaluateDossierCompliance, type CertStatusAtUse } from
 // GET /api/ots/[id]/dossier
 // The FSSC 22000 traceability dossier ("Expediente de OT"): assembles, from data
 // already captured, the full one-up/one-down record for a printed-label OT —
-// the consumed material lots (+ food-grade cert validity), the deliverable photo
+// the traced material lots (+ food-grade cert validity), the deliverable photo
 // evidence + quality sign-off, and a compliance verdict. Read-side only; no new
-// infra. Backward trace: OT → consumed lots → supplier (+ cert).
+// infra. Backward trace: OT → lots → supplier (+ cert).
+//
+// Materials come from TWO sources (2026-07 audit: receipts were invisible, so
+// an OT with certified paper in bodega still read "Sin insumos trazados"):
+//   * 'consumo'   — stock transactions consumed against the OT (strong tier)
+//   * 'recepcion' — lots received via an OC linked to the OT (arrival tier)
 type CertStatus = CertStatusAtUse;
 
 interface MaterialRow {
   tx_id: string;
+  source: 'consumo' | 'recepcion';
   quantity: number;
   unit_cost: number | null;
   consumed_at: string;
@@ -99,6 +105,7 @@ export async function GET(
       const cert_status: CertStatus = certStatusAtUse({ certRequired, code, expiresOn: expires, consumedAt: tx.created_at });
       return {
         tx_id: tx.id,
+        source: 'consumo' as const,
         quantity: Number(tx.quantity ?? 0),
         unit_cost: tx.unit_cost,
         consumed_at: tx.created_at,
@@ -116,6 +123,52 @@ export async function GET(
         cert_status,
       };
     });
+
+    // ── Receipt tier: lots received via OCs linked to this OT ──
+    // Skip lots already present as consumption rows (the stronger record wins).
+    const { data: otPurchases } = await supabaseAdmin
+      .from('purchases')
+      .select('id, purchase_date, supplier_rut')
+      .eq('ot_id', id);
+    const otPurchaseList = otPurchases ?? [];
+    if (otPurchaseList.length > 0) {
+      const { data: receivedLots } = await supabaseAdmin
+        .from('inventory_lots')
+        .select('id, lot_number, quantity_received, unit_cost, received_date, supplier_name, purchase_id, certification_code, certification_expires_on, item:inventory_items(name, sku, unit, is_certification_required)')
+        .in('purchase_id', otPurchaseList.map((p) => p.id));
+      const consumedLotNumbers = new Set(materials.map((m) => m.lot_number).filter(Boolean));
+      const purchaseById = new Map(otPurchaseList.map((p) => [p.id, p]));
+      for (const lot of (receivedLots ?? []) as Array<{
+        id: string; lot_number: string | null; quantity_received: number | null; unit_cost: number | null;
+        received_date: string | null; supplier_name: string | null; purchase_id: string | null;
+        certification_code: string | null; certification_expires_on: string | null;
+        item: { name: string | null; sku: string | null; unit: string | null; is_certification_required: boolean | null } | null;
+      }>) {
+        if (lot.lot_number && consumedLotNumbers.has(lot.lot_number)) continue;
+        const certRequired = !!lot.item?.is_certification_required;
+        const receivedAt = lot.received_date ?? new Date().toISOString();
+        const purchase = lot.purchase_id ? purchaseById.get(lot.purchase_id) : undefined;
+        materials.push({
+          tx_id: `lot-${lot.id}`,
+          source: 'recepcion' as const,
+          quantity: Number(lot.quantity_received ?? 0),
+          unit_cost: lot.unit_cost,
+          consumed_at: receivedAt,
+          item_name: lot.item?.name ?? null,
+          item_sku: lot.item?.sku ?? null,
+          unit: lot.item?.unit ?? null,
+          cert_required: certRequired,
+          lot_number: lot.lot_number,
+          supplier_name: lot.supplier_name,
+          purchase_id: lot.purchase_id,
+          oc_date: purchase?.purchase_date ?? null,
+          supplier_rut: purchase?.supplier_rut ?? null,
+          certification_code: lot.certification_code,
+          certification_expires_on: lot.certification_expires_on,
+          cert_status: certStatusAtUse({ certRequired, code: lot.certification_code, expiresOn: lot.certification_expires_on, consumedAt: receivedAt }),
+        });
+      }
+    }
 
     const attachments = (attRes.data ?? []) as Array<{ id: string; filename: string; storage_path: string; mime_type: string | null; created_at: string }>;
     const approvals = (apprRes.data ?? []) as Array<{ id: string; status: string; comments: string | null; resolved_at: string | null; created_at: string }>;

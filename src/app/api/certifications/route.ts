@@ -4,9 +4,12 @@ import { supabaseAdmin } from '@/integrations/supabase/server';
 import { certStatusNow, type CertStatusNow } from '@/lib/fssc';
 
 // GET /api/certifications
-// FSSC 22000 incoming-material register: every lot of a certification-required
-// item, with the validity status of its food-grade certificate. Powers the
-// supplier-approval / incoming-goods control in Calidad.
+// FSSC 22000 incoming-material register. The universe is the SAME lot ledger
+// Recall reads: every lot of a certification-required item PLUS any lot that
+// actually carries a certificate (2026-07 audit: the old flagged-items-only
+// filter made a PEFC-certified received lot invisible here while Recall showed
+// it — two contradicting truths in Calidad). `cert_required` is a dimension on
+// each row, not an existence condition.
 type CertState = CertStatusNow;
 
 export async function GET(_req: NextRequest) {
@@ -30,18 +33,25 @@ export async function GET(_req: NextRequest) {
 
     const items = itemsRes.data ?? [];
     const lots = lotsRes.data ?? [];
-    const certItems = new Map(items.filter((i) => i.is_certification_required).map((i) => [i.id, i]));
+    const itemById = new Map(items.map((i) => [i.id, i]));
 
+    // In scope: lots of cert-required items (even uncertified — those are the
+    // 'faltante' alerts) + any lot carrying a certificate.
     const rows = lots
-      .filter((l) => certItems.has(l.item_id))
+      .filter((l) => {
+        const required = !!itemById.get(l.item_id)?.is_certification_required;
+        return required || !!l.certification_code;
+      })
       .map((l) => {
-        const item = certItems.get(l.item_id);
+        const item = itemById.get(l.item_id);
+        const certRequired = !!item?.is_certification_required;
         const state: CertState = certStatusNow({ code: l.certification_code, expiresOn: l.certification_expires_on });
         return {
           lot_id: l.id,
           lot_number: l.lot_number,
           item_name: item?.name ?? null,
           item_sku: item?.sku ?? null,
+          cert_required: certRequired,
           supplier_name: l.supplier_name,
           certification_code: l.certification_code,
           certification_expires_on: l.certification_expires_on,
