@@ -103,11 +103,14 @@ export async function POST(
     // (.eq('status', fromStatus)). If another request changed the OT between
     // our read and this write, zero rows match and we report a 409 instead of
     // silently clobbering their transition. Mirrors the bulk-transition route.
+    // completed_at follows the status: stamped on completion, cleared when a
+    // rollback takes the OT back out of completed (lead-time analytics read it).
     const { data: updatedOt, error: updateError } = await supabaseAdmin
       .from('ots')
       .update({
         status: toStatus,
         updated_at: nowIso,
+        completed_at: toStatus === 'completed' ? nowIso : fromStatus === 'completed' ? null : undefined,
       })
       .eq('id', id)
       .eq('status', fromStatus)

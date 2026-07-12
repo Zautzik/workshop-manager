@@ -146,11 +146,18 @@ export async function POST(req: NextRequest) {
 
       // Run one UPDATE per fromStatus group — each scoped by .eq('status', fromStatus)
       // so rows modified since our pre-fetch are left untouched.
+      // completed_at follows the status (stamped on completion, cleared when a
+      // rollback leaves completed) — mirrors the single-transition route.
       const updateResults = await Promise.all(
         [...byFromStatus.entries()].map(([fromStatus, ids]) =>
           supabaseAdmin
             .from('ots')
-            .update({ status: toStatus, updated_at: nowIso })
+            .update({
+              status: toStatus,
+              updated_at: nowIso,
+              completed_at:
+                toStatus === 'completed' ? nowIso : fromStatus === 'completed' ? null : undefined,
+            })
             .in('id', ids)
             .eq('status', fromStatus as OTWorkflowStatus)   // ← concurrency guard
             .select('id'),

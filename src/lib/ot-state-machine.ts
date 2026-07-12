@@ -25,6 +25,17 @@ export type OTWorkflowStatus = z.infer<typeof OTStatusSchema>;
 /** Ordered list of statuses — derived from the schema so it never drifts. */
 const STATUS_ORDER: OTWorkflowStatus[] = OTStatusSchema.options;
 
+/**
+ * Statuses that represent an OT actively moving through the workflow —
+ * everything except `completed`, derived from the schema so a new status can
+ * never silently fall out of the active boards. (The old hand-maintained
+ * copies in ots/route.ts and use-workflow-queries.ts both omitted
+ * `digital_printing`, making digital jobs vanish from the kanban — 2026-07 audit.)
+ */
+export const ACTIVE_OT_STATUSES: OTWorkflowStatus[] = STATUS_ORDER.filter(
+  (status) => status !== 'completed'
+);
+
 const FORWARD_TRANSITIONS = new Map<OTWorkflowStatus, OTWorkflowStatus[]>(
   STATUS_ORDER.map((status, index) => [status, STATUS_ORDER.slice(index + 1)])
 );

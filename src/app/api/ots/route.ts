@@ -4,7 +4,7 @@ import { requireAuth, isAuthError } from '@/lib/api-middleware';
 import { supabaseAdmin } from '@/integrations/supabase/server';
 import { resolveSalesScope, scopeFilterId } from '@/lib/sales-scope';
 import { buildRateLimitActor, enforceRouteRateLimit } from '@/lib/api-rate-limit';
-import { OTStatusSchema } from '@/lib/ot-state-machine';
+import { ACTIVE_OT_STATUSES, OTStatusSchema } from '@/lib/ot-state-machine';
 
 // OTs are mutable and auth-gated — never cache at the HTTP layer.
 export const dynamic = 'force-dynamic';
@@ -53,7 +53,10 @@ const CreateOTSchema = z.object({
 	client_name: z.string().min(1).max(255),
 	description: z.string().max(2000).optional().nullable(),
 	quantity: z.coerce.number().int().min(0),
-	priority: z.coerce.number().int().min(1).max(10).optional().default(1),
+	// No default here: `d.priority ?? priorityMap[priority_level]` below must see
+	// undefined when the caller only sends priority_level, or the mapping never
+	// fires and every "urgente" OT lands at priority 1 (2026-07 audit).
+	priority: z.coerce.number().int().min(1).max(10).optional(),
 	deadline: DeadlineSchema.optional(),
 	status: OTStatusSchema.optional(),
 	// New professional fields
@@ -116,14 +119,8 @@ const PageSchema = z.object({
 	active: z.string().optional(), // 'true' → filter to in-flight statuses only
 });
 
-// Statuses that represent an OT actively moving through the workflow.
-// Mirrors activeOTStatuses in use-workflow-queries.ts.
-const ACTIVE_OT_STATUSES = [
-	'pre_press', 'visto_bueno', 'paper_purchase', 'in_storage',
-	'guillotine_first_cut', 'offset_printing', 'die_cutting',
-	'guillotine_final_cut', 'workshop', 'outsourced', 'workshop_revision',
-	'ready_for_delivery', 'in_delivery',
-] as const;
+// Active statuses come from the state machine (single source) — see
+// ACTIVE_OT_STATUSES in ot-state-machine.ts.
 
 export async function GET(req: NextRequest) {
 	const auth = await requireAuth();
@@ -272,6 +269,13 @@ export async function POST(req: NextRequest) {
 			.single();
 
 		if (otError) {
+			// Unique violation on ot_number → tell the user, don't 500 opaquely.
+			if (otError.code === '23505') {
+				return NextResponse.json(
+					{ error: `El número de OT "${d.ot_number}" ya existe. Usa otro número.`, code: 'OT_NUMBER_TAKEN' },
+					{ status: 409 }
+				);
+			}
 			console.error('Error creating OT:', otError);
 			return NextResponse.json({ error: 'Failed to create OT' }, { status: 500 });
 		}

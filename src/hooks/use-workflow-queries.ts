@@ -2,6 +2,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { ACTIVE_OT_STATUSES } from '@/lib/ot-state-machine';
 
 export const queryKeys = {
   ots: ['ots'] as const,
@@ -40,21 +41,9 @@ const SCHEDULE_SELECT = `
   machine:machines(id, name, type, status)
 ` as const;
 
-export const activeOTStatuses = [
-  'pre_press',
-  'visto_bueno',
-  'paper_purchase',
-  'in_storage',
-  'guillotine_first_cut',
-  'offset_printing',
-  'die_cutting',
-  'guillotine_final_cut',
-  'workshop',
-  'outsourced',
-  'workshop_revision',
-  'ready_for_delivery',
-  'in_delivery',
-] as const;
+// Single source: derived from the state machine so a new status can't fall out
+// of the boards (the old hand-written copy here omitted digital_printing).
+export const activeOTStatuses = ACTIVE_OT_STATUSES;
 
 export function useWorkersByRating() {
   return useQuery({

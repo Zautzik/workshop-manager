@@ -3,12 +3,44 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from './auth';
 import type { AppRole } from '@/types/app-role';
 import { isDevBypassEnabled } from '@/lib/dev-bypass-guard';
+import { supabaseAdmin } from '@/integrations/supabase/server';
 
 interface SessionUser {
 	id: string;
 	email: string;
 	name?: string | null;
 	role: AppRole | null;
+}
+
+// Dev bypass must impersonate a REAL user: several tables FK their *_by /
+// recorded_by columns to auth.users, so the old nil-UUID stand-in made every
+// such insert 500 in dev (2026-07 audit). Resolution order: DEV_BYPASS_USER_ID
+// env var, else the first admin in user_roles. Cached after first lookup.
+let devBypassUser: SessionUser | null = null;
+async function resolveDevBypassUser(): Promise<SessionUser> {
+	if (devBypassUser) return devBypassUser;
+
+	let id = process.env.DEV_BYPASS_USER_ID ?? null;
+	if (!id) {
+		const { data, error } = await supabaseAdmin
+			.from('user_roles')
+			.select('user_id')
+			.eq('role', 'admin')
+			.limit(1)
+			.maybeSingle();
+		if (error) console.error('[dev-bypass] admin lookup failed:', error);
+		id = data?.user_id ?? null;
+	}
+
+	devBypassUser = {
+		// Nil UUID only as a last resort (empty database) — FK inserts will fail
+		// there, but reads keep working.
+		id: id ?? '00000000-0000-0000-0000-000000000000',
+		email: 'dev@local',
+		name: 'Dev Admin',
+		role: 'admin' as const,
+	};
+	return devBypassUser;
 }
 
 /**
@@ -21,9 +53,7 @@ export async function requireAuth(
 	// Development bypass — mirrors the client-side bypass in AuthContext.tsx.
 	// Safety assertion runs at module load via auth.ts import chain.
 	if (isDevBypassEnabled) {
-		// Use a valid nil UUID so any route that passes auth.id to a uuid column
-		// (e.g. notifications.user_id) doesn't get a Postgres type error.
-		return { id: '00000000-0000-0000-0000-000000000000', email: 'dev@local', name: 'Dev Admin', role: 'admin' as const };
+		return resolveDevBypassUser();
 	}
 
 	const session = await getServerSession(authOptions);

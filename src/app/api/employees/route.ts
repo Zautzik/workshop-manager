@@ -106,7 +106,7 @@ export async function GET(request: NextRequest) {
 					? `
 				id,
 				full_name,
-				employee_number,
+				employee_code,
 				department,
 				status,
 				hire_date,
@@ -114,7 +114,7 @@ export async function GET(request: NextRequest) {
 				employment_contracts(
 					id,
 					contract_type,
-					hours_per_week,
+					hours_per_week:base_hours_per_week,
 					overtime_allowed,
 					start_date,
 					end_date
@@ -131,7 +131,7 @@ export async function GET(request: NextRequest) {
 					: `
 				id,
 				full_name,
-				employee_number,
+				employee_code,
 				department,
 				status,
 				hire_date,
@@ -139,7 +139,7 @@ export async function GET(request: NextRequest) {
 				employment_contracts(
 					id,
 					contract_type,
-					hours_per_week,
+					hours_per_week:base_hours_per_week,
 					overtime_allowed,
 					start_date,
 					end_date
@@ -204,7 +204,7 @@ export async function GET(request: NextRequest) {
  *   full_name: string (required)
  *   department: string (required)
  *   hire_date: string (required, ISO date)
- *   employee_number?: string
+ *   employee_code?: string
  *   contract_type?: 'permanent' | 'temporary' | 'contract'
  *   hours_per_week?: number
  *   overtime_allowed?: boolean
@@ -238,7 +238,7 @@ export async function POST(request: NextRequest) {
 		}
 
 		// Validate required fields
-		const { full_name, department, hire_date, employee_number } = body;
+		const { full_name, department, hire_date, employee_code } = body;
 
 		if (!full_name || !department || !hire_date) {
 			return NextResponse.json(
@@ -255,7 +255,7 @@ export async function POST(request: NextRequest) {
 					full_name,
 					department,
 					hire_date,
-					employee_number: employee_number || `EMP-${Date.now()}`,
+					employee_code: employee_code || `EMP-${Date.now()}`,
 					...(canManageSensitive
 						? {
 							email: body.email,

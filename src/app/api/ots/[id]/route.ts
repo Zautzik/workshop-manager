@@ -3,7 +3,6 @@ import { z } from 'zod';
 import { requireAuth, isAuthError } from '@/lib/api-middleware';
 import { supabaseAdmin } from '@/integrations/supabase/server';
 import { buildRateLimitActor, enforceRouteRateLimit } from '@/lib/api-rate-limit';
-import { OTStatusSchema } from '@/lib/ot-state-machine';
 
 const DeadlineSchema = z.preprocess((value) => {
 	if (value === null || value === undefined || value === '') {
@@ -42,7 +41,11 @@ const UpdateOTSchema = z.object({
 	quantity: z.coerce.number().int().min(0).optional(),
 	priority: z.coerce.number().int().min(1).max(10).optional(),
 	deadline: DeadlineSchema.optional(),
-	status: OTStatusSchema.optional(),
+	// `status` is intentionally NOT updatable here. Every status change must go
+	// through POST /api/ots/[id]/transition, which enforces the state machine
+	// (role access, forward-only, approval/cost gates), writes ot_status_history
+	// and stamps completed_at. This PATCH used to accept `status` and silently
+	// bypass all of that (2026-07 audit).
 	// Specs
 	product_name: z.string().max(500).optional().nullable(),
 	product_type: z.string().max(100).optional().nullable(),

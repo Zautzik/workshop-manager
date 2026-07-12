@@ -49,12 +49,38 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   return NextResponse.json({ data });
 }
 
-// DELETE /api/purchases/[id] — remove an OC (cascades facturas) and its ledger line.
+// DELETE /api/purchases/[id] — remove an OC and its ledger line.
+// FSSC guard: an OC with received lots or registered facturas is part of the
+// traceability chain (lote → OC → proveedor) and must not vanish — deleting it
+// orphaned lots with dangling purchase_id (found in the 2026-07 audit).
+// Those OCs can only be cancelled (status = 'cancelled'), never deleted.
 export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const auth = await requireAuth([...OPS]);
   if (isAuthError(auth)) return auth;
 
   const { id } = await params;
+
+  const [lotsResult, invoicesResult] = await Promise.all([
+    supabaseAdmin
+      .from('inventory_lots' as any)
+      .select('id', { count: 'exact', head: true })
+      .eq('purchase_id', id),
+    supabaseAdmin
+      .from('purchase_invoices' as any)
+      .select('id', { count: 'exact', head: true })
+      .eq('purchase_id', id),
+  ]);
+
+  if ((lotsResult.count ?? 0) > 0 || (invoicesResult.count ?? 0) > 0) {
+    return NextResponse.json(
+      {
+        error:
+          'No se puede eliminar: la OC tiene lotes recibidos o facturas asociadas (trazabilidad FSSC). Anúlala en su lugar.',
+        code: 'OC_HAS_TRACEABILITY',
+      },
+      { status: 409 }
+    );
+  }
 
   // Drop the OC's ledger line first (no FK from cost lines to purchases).
   await supabaseAdmin.from('ot_cost_lines' as any).delete().eq('ref_type', 'oc').eq('ref_id', id);

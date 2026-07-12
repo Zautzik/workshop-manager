@@ -94,14 +94,17 @@ export async function POST(
 
 		const { workflow_step, costs } = parsed.data;
 
-		// Delete existing costs for this OT + step (allows correction)
-		await supabaseAdmin
+		// Replace = insert-first, then delete the previous rows. The old order
+		// (delete → insert) lost the step's existing costs whenever the insert
+		// failed (2026-07 audit). Now a failed insert leaves the old rows intact;
+		// the worst case of a failed cleanup is visible duplicates, not loss.
+		const { data: previousRows } = await supabaseAdmin
 			.from('ot_real_costs')
-			.delete()
+			.select('id')
 			.eq('ot_id', id)
 			.eq('workflow_step', workflow_step);
+		const previousIds = (previousRows ?? []).map((r) => r.id);
 
-		// Insert new costs
 		const rows = costs.map((c) => ({
 			ot_id: id,
 			workflow_step,
@@ -123,6 +126,17 @@ export async function POST(
 		if (error) {
 			console.error('Error inserting real costs:', error);
 			return NextResponse.json({ error: 'Failed to record real costs' }, { status: 500 });
+		}
+
+		if (previousIds.length > 0) {
+			const { error: cleanupError } = await supabaseAdmin
+				.from('ot_real_costs')
+				.delete()
+				.in('id', previousIds);
+			if (cleanupError) {
+				// New rows are in; old ones linger visibly. Log loud, don't fail the request.
+				console.error('Error removing replaced real costs (duplicates remain):', cleanupError);
+			}
 		}
 
 		return NextResponse.json(data, { status: 201 });
