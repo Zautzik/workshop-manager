@@ -14,7 +14,7 @@ import type { AppRole } from '@/types/app-role';
 import {
   Home, Factory, Users, Wrench, TrendingUp, ShieldCheck,
   ClipboardList, GanttChart, FileSpreadsheet, Archive,
-  Clock, Calendar, CalendarRange, MonitorPlay,
+  Clock, Calendar, CalendarRange,
   Package, ShoppingCart, MessageSquare,
   UserCheck, Wallet, Network, GraduationCap, HardHat,
   Cpu, AlertCircle, BarChart3, PieChart, DollarSign,
@@ -115,16 +115,14 @@ export const MODULES: NavModule[] = [
         color: 'from-sky-500/10 to-cyan-500/5', border: 'border-sky-500/20', heading: 'text-sky-400',
         items: [
           { label: 'Tablero',     href: '/operaciones/kanban',             description: 'Pipeline y estado en tiempo real de todas las OTs', icon: ClipboardList,   color: 'bg-cyan-500/10 text-cyan-400' },
-          { label: 'En Proceso',  href: '/operaciones/ordenes-en-proceso', description: 'Órdenes activas en producción',                     icon: ClipboardCheck,  color: 'bg-sky-500/10 text-sky-400' },
+          { label: 'En Proceso',  href: '/operaciones/ordenes-en-proceso', description: 'Tabla de planificación diaria: banderas ORD/PRO/VBP/PLN/PAP y proceso actual', icon: ClipboardCheck, color: 'bg-sky-500/10 text-sky-400' },
           { label: 'Hoja de Prod.',href: '/operaciones/hoja-produccion',   description: 'Hoja de trabajo de producción',                     icon: FileSpreadsheet, color: 'bg-fuchsia-500/10 text-fuchsia-400' },
-          { label: 'Archivo OT',   href: '/operaciones/production',         description: 'Archivo histórico de órdenes de producción',        icon: Archive,         color: 'bg-teal-500/10 text-teal-400' },
         ],
       },
       {
         label: 'Piso & Planificación',
         color: 'from-emerald-500/10 to-teal-500/5', border: 'border-emerald-500/20', heading: 'text-emerald-400',
         items: [
-          { label: 'Modo Planta',   href: '/operaciones/floor',    description: 'Pantalla de piso a pantalla completa',           icon: MonitorPlay,   color: 'bg-emerald-500/10 text-emerald-400' },
           { label: 'Estación',      href: '/estacion',             description: 'Kiosko de fichaje por credencial QR (sin login)', icon: Clock,        color: 'bg-cyan-500/10 text-cyan-400' },
           { label: 'Planta',        href: '/operaciones/planta',   description: 'Estaciones y asignación de operarios',           icon: Factory,       color: 'bg-emerald-500/10 text-emerald-400' },
           { label: 'Planificación', href: '/operaciones/calendar', description: 'Cronograma de OTs, máquinas, calendario y plan semanal', icon: CalendarRange, color: 'bg-sky-500/10 text-sky-400' },
