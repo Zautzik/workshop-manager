@@ -72,8 +72,14 @@ function blobPositions(n: number): { x: number; y: number }[] {
 }
 
 // ── Where each group sits relative to the hub at (0,0) — biased horizontally ──
+// Compacted 2026-07 (owner request): a 2-column cluster is ~243px wide and up
+// to ~280px tall with its label, so the old ellipse (218/178) left ~190px of
+// dead air between clusters. 160/150 brings edge gaps to ~45–80px while still
+// clearing the hover scale-up and the labels floating 32px above each cluster.
+// The 5+ polar ring keeps the wide radii: its neighbor chord is already
+// narrower than a cluster, so shrinking it would make clusters collide.
 function groupCenters(g: number): { x: number; y: number }[] {
-  const Rx = 218, Ry = 178;
+  const Rx = 160, Ry = 150;
   switch (g) {
     case 1: return [{ x: 0, y: 0 }];
     case 2: return [{ x: -Rx, y: 0 }, { x: Rx, y: 0 }];
@@ -82,11 +88,13 @@ function groupCenters(g: number): { x: number; y: number }[] {
       { x: -Rx * 0.86, y: -Ry }, { x: Rx * 0.86, y: -Ry },
       { x: -Rx * 0.86, y: Ry }, { x: Rx * 0.86, y: Ry },
     ];
-    default: // 5+ — even polar ring
+    default: { // 5+ — even polar ring (wide radii: see note above)
+      const ringRx = 218, ringRy = 178;
       return Array.from({ length: g }, (_, i) => {
         const a = -Math.PI / 2 + (i * 2 * Math.PI) / g;
-        return { x: Math.cos(a) * Rx, y: Math.sin(a) * Ry };
+        return { x: Math.cos(a) * ringRx, y: Math.sin(a) * ringRy };
       });
+    }
   }
 }
 
