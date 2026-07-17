@@ -53,6 +53,8 @@ Order matters: phases 1→3 are strictly sequential; 4–5 can interleave; 6 is 
 ## PHASE 3 — Demo data & analytics light-up
 *The app must look alive and truthful on demo day.*
 
+> **STATUS 2026-07-13: DONE AND VERIFIED IN DB.** Purge applied (0 test artifacts, dollar OCs gone, Mirror Test gone, zombie sessions 57→0 via view redefinition); backfill lit cycle analytics (81 completed, ~21-day lead time, 12 stages); confidence 1→84. Demo seed `scripts/seed-demo.sql` ran: VB-09001 signed (convert live on stage), OT 40502 in press (active session + pending review + auto cost $2,975M vs $4,085M est), OT 40503 completed with **COMPLIANT dossier**, GD-09001 + FV-09001 paid. Re-run the seed each demo morning + 30-second photo post-step (documented in the script header).
+
 | # | Fix | How | Accept when | Size |
 |---|-----|-----|-------------|------|
 | 3.1 | Purge poisoned seeds | one repair script: delete dollar-scale OCs (OC-00001..05), "Mirror Test" captures, 2025-dated shifts + schedule rows, audit leftovers (`OT-AUDIT-9001`, lot `AUDIT-LOT-777` + its 2 stock txs) | compras/analytics totals are all CLP-scale; no 2025 rows in programa | M |
@@ -68,6 +70,8 @@ Order matters: phases 1→3 are strictly sequential; 4–5 can interleave; 6 is 
 
 ## PHASE 4 — Prune the fluff
 *Fewer, truer surfaces. Each removal is a diff that deletes code — cheap and satisfying.*
+
+> **STATUS 2026-07-17: DONE (code).** Two evidence-driven plan corrections: (1) **Órdenes en Proceso KEPT** — it's the daily planning table (ORD/PRO/VBP/PLN/PAP flag pills + proceso_actual inline editing), not kanban-redundant; its nav description now says so. (2) **Archivo OT was the real fluff** — OTRetrievalSystem ran on a hardcoded SAMPLE_OTS array with invented statuses; deleted (2 routes + component + tile). Also deleted: Floor Mode (page/tile/AppShell ref), the legacy jobs stack (5 supervisor components + /api/jobs + useJobs — WorkerCard kept, consumed by analitica/rendimiento), /api/ot-drafts + hook, /api/reports/export. Honeycomb compacted (ellipse 218/178→160/150; 5+-ring kept wide to avoid collisions) — **owner eyeball pending on /operaciones**. Templates seed migration `20260716120000` — **pending db push**. Gates: tsc 0, 98/98 tests, lint 0 errors, kept routes 200 / deleted routes 404. (Ops note: an orphaned dev-server process was holding port 3000 with a stale cache; killed + clean restart.)
 
 | # | Action | Notes | Size |
 |---|--------|-------|------|
