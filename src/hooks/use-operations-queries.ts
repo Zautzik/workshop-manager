@@ -8,7 +8,6 @@ const queryKeys = {
   workerStats: (dept?: string) => ['workerStats', { dept }] as const,
   workerName: (id?: string | null) => ['workerName', { id }] as const,
   machines: ['machines'] as const,
-  jobs: ['jobs'] as const,
   ots: ['ots'] as const,
   batchesAvailable: ['batches', 'available'] as const,
 };
@@ -93,20 +92,6 @@ export function useMachines() {
       }
 
       return (payload ?? []) as any[];
-    },
-  });
-}
-
-export function useJobs() {
-  return useQuery<any[]>({
-    queryKey: queryKeys.jobs,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('jobs')
-        .select('*, machines(name)')
-        .order('created_at', { ascending: false });
-      if (error) throw error;
-      return (data ?? []) as any[];
     },
   });
 }
