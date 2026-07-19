@@ -13,7 +13,10 @@ import {
   DollarSign,
   CalendarDays,
   Layers,
+  AlertTriangle,
 } from 'lucide-react';
+
+const IVA_RATE = 0.19;
 import { cn } from '@/lib/utils';
 import { WORK_CATEGORIES } from '@/types/work-category';
 import { PRODUCT_TYPES, SUBSTRATE_TYPES, COLOR_MODES, PRIORITY_LEVELS, FINISH_OPTIONS } from '@/types/ot';
@@ -67,6 +70,20 @@ export function UnifiedStepSummary({ form }: Props) {
 
   const activeFinishes = FINISH_OPTIONS.filter((f) => form.finishes[f.key]);
 
+  // Completeness checklist: non-blocking warnings for fields that are legal to
+  // omit but usually shouldn't be (an OT with no deadline/substrate/machine is
+  // a half-order). The header/operations price mismatch is a data-integrity
+  // check — the two must agree or the cost engine lies later (2026-07 audit).
+  const opsSubtotal = form.operations.reduce((s, op) => s + (op.total_cost ?? 0), 0);
+  const priceMismatch = form.pricing.subtotal > 0
+    && Math.abs(opsSubtotal - form.pricing.subtotal) > Math.max(1, form.pricing.subtotal * 0.01);
+  const warnings: string[] = [];
+  if (!form.deadline) warnings.push('Sin fecha de entrega');
+  if (!form.substrate_type) warnings.push('Sin sustrato definido');
+  if (!form.machine.machine_id) warnings.push('Sin máquina asignada');
+  if (form.operations.length === 0) warnings.push('Sin operaciones (la cotización quedará en $0)');
+  if (priceMismatch) warnings.push('El subtotal no coincide con la suma de operaciones');
+
   return (
     <div className="space-y-6">
       <div className="text-center mb-4">
@@ -82,6 +99,23 @@ export function UnifiedStepSummary({ form }: Props) {
           (pendiente de aprobación).
         </p>
       </div>
+
+      {warnings.length > 0 && (
+        <Card className="p-4 border-amber-500/40 bg-amber-500/5">
+          <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400 font-semibold text-sm mb-2">
+            <AlertTriangle className="h-4 w-4" />
+            Puede crear la OT igual, pero revise:
+          </div>
+          <ul className="space-y-1 text-sm text-muted-foreground">
+            {warnings.map((w) => (
+              <li key={w} className="flex items-center gap-2">
+                <span className="h-1.5 w-1.5 rounded-full bg-amber-500 shrink-0" />
+                {w}
+              </li>
+            ))}
+          </ul>
+        </Card>
+      )}
 
       {/* Category */}
       {cat && (
@@ -257,20 +291,25 @@ export function UnifiedStepSummary({ form }: Props) {
 
         <Separator />
 
-        <div className="flex items-center justify-between">
-          <span className="text-xl font-bold">Total</span>
+        {/* Neto → IVA → Total: total_price is the NET quote; show the 19% IVA
+            line so nobody confuses net with gross when talking to the client. */}
+        <Row label="Neto" value={`$${Math.round(form.pricing.total_price).toLocaleString('es-CL')}`} />
+        <Row label="IVA (19%)" value={`+$${Math.round(form.pricing.total_price * IVA_RATE).toLocaleString('es-CL')}`} />
+
+        <div className="flex items-center justify-between pt-1">
+          <span className="text-xl font-bold">Total con IVA</span>
           <span className="text-3xl font-bold text-primary">
-            ${form.pricing.total_price.toLocaleString()}
+            ${Math.round(form.pricing.total_price * (1 + IVA_RATE)).toLocaleString('es-CL')}
           </span>
         </div>
 
         <div className="text-right text-sm text-muted-foreground">
-          Precio unitario: $
-          {form.pricing.unit_price.toLocaleString(undefined, {
+          Precio unitario neto: $
+          {form.pricing.unit_price.toLocaleString('es-CL', {
             minimumFractionDigits: 2,
             maximumFractionDigits: 4,
           })}{' '}
-          × {form.quantity.toLocaleString()} = ${form.pricing.total_price.toLocaleString()}
+          × {form.quantity.toLocaleString('es-CL')} = ${Math.round(form.pricing.total_price).toLocaleString('es-CL')} neto
         </div>
       </Card>
 
