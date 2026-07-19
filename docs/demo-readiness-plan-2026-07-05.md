@@ -106,6 +106,10 @@ Order matters: phases 1→3 are strictly sequential; 4–5 can interleave; 6 is 
 ## PHASE 6 — Quote-engine credibility (parallel track with the offset team)
 *Not demo-blocking (demo uses seeded quotes) but sales-blocking. Run alongside phases 4–5.*
 
+> **STATUS 2026-07-19: engine v2 DONE (items 1–5); calibration gate (6.6) awaits owner input.** Rewrote `ot-calculations.ts`: multi-format imposition (70×100 / 77×110 / 55×77 / 50×70) with gripper 1.2cm + bleed, single model shared with the preview; pass-through-press hours (4/0 on 4 bodies = 1 pass — was 4× overestimated) + make-ready 0.5h/pass; process-aware waste (120 make-ready sheets/pass, die 150, hot-stamp 100, base 2%); per-finish time formulas (troquelado 13k sheets ≈ 12h, not 1.3h); **labor (Operador de Prensa/Terminaciones) + overhead 8% lines from the catalog**. Resolver v2 matches by stable `catalog_key` (migration `20260719120000` — **pending db push**) with name fallback, killing the rename→toy-default mispricing bomb. Wizard passes the selected machine's real speed + bodies into the calc. All tunables centralized in `CALIBRATION`. Tests: 103/103 (new pins derived by hand match the implementation).
+>
+> **6.6 CALIBRATION GATE — owner action:** Guillermo picks 3 historical jobs (etiqueta, caja, volante ideally) with known real sheets/hours/costs; run each through the wizard and tune `CALIBRATION` until estimates land within ±10%. Until then, treat quotes as strong drafts.
+
 1. Pass `machineSpeedSheetsHr` + press bodies from wizard machine step into `computeOTCalculations`; model passes = pass-through-press, not per-color (fixes 4× hour overestimate). **M**
 2. Add labor (`mano_de_obra`) + overhead (8%) lines from the existing catalog to `generateDefaultOperations`. **M**
 3. Stable `catalog_key` matching in `costing-resolver.ts` (kill exact-name fragility); UI shows which rates are catalog vs fallback. **M**
