@@ -9,7 +9,7 @@ const mod = getModule('personas')!;
 export default function HrPage() {
   return (
     <ProtectedRoute allowedRoles={mod.roles}>
-      <ModuleHexLanding title={mod.label} subtitle={mod.subtitle} groups={mod.groups} hubIcon={mod.icon} />
+      <ModuleHexLanding title={mod.label} subtitle={mod.subtitle} groups={mod.groups} hubIcon={mod.icon} tint={mod.tint} />
     </ProtectedRoute>
   );
 }

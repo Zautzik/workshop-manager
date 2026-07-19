@@ -9,7 +9,7 @@ const mod = getModule('operaciones')!;
 export default function OperacionesPage() {
   return (
     <ProtectedRoute allowedRoles={mod.roles}>
-      <ModuleHexLanding title={mod.label} subtitle={mod.subtitle} groups={mod.groups} hubIcon={mod.icon} />
+      <ModuleHexLanding title={mod.label} subtitle={mod.subtitle} groups={mod.groups} hubIcon={mod.icon} tint={mod.tint} />
     </ProtectedRoute>
   );
 }

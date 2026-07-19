@@ -30,6 +30,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { landingRouteForRole } from '@/lib/navigation';
 import { Moon, Sun } from 'lucide-react';
+import WatercolorBackdrop from '@/components/branding/WatercolorBackdrop';
 import { toast } from 'sonner';
 
 const Login = () => {
@@ -112,8 +113,9 @@ const Login = () => {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-primary/5 to-accent/10 p-4">
-      <nav className="absolute top-4 right-4 flex gap-2" aria-label="Theme and language settings">
+    <div className="relative min-h-screen flex items-center justify-center overflow-hidden bg-background p-4">
+      <WatercolorBackdrop intensity="hero" />
+      <nav className="absolute top-4 right-4 z-10 flex gap-2" aria-label="Theme and language settings">
         <Button
           variant="outline"
           size="icon"
@@ -126,7 +128,7 @@ const Login = () => {
         </Button>
       </nav>
 
-      <Card className="w-full max-w-md shadow-xl border-primary/20">
+      <Card className="relative z-10 w-full max-w-md border-primary/20 bg-card/85 shadow-xl backdrop-blur-sm">
         <CardHeader className="text-center space-y-4">
           <ForgeHexLogo size={80} showWordmark={false} className="justify-center" />
           <CardTitle className="text-3xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">

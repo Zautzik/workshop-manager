@@ -2,10 +2,10 @@
 
 import { useRouter } from 'next/navigation';
 import QuickLinks from '@/components/home/QuickLinks';
+import WatercolorBackdrop from '@/components/branding/WatercolorBackdrop';
 import VitalStrip from '@/components/home/VitalStrip';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
-import { useVitals, type FlowStatus } from '@/hooks/use-vitals';
 import { useHomePrefs } from '@/hooks/use-home-prefs';
 import { type OrganSystem } from '@/lib/navigation';
 import {
@@ -123,28 +123,15 @@ const COL_STEP = Math.round(HEX_W * 0.75) + GAP;     // column center-to-center 
 const ROW_STEP = HEX_H + GAP;                         // row center-to-center within a column
 const HOVER_SCALE = 1 + (2 * GAP) / HEX_W;           // ≈ 1.133 — growth fills the spread
 
-const STATUS_DOT: Record<FlowStatus, string> = {
-  flowing: 'rgb(16 185 129)',
-  stagnant: 'rgb(245 158 11)',
-  clotted: 'rgb(244 63 94)',
-};
-
-interface OrganVital {
-  label: string;
-  status: FlowStatus;
-}
-
 interface HexCellProps {
   action: QuickAction;
-  vital: OrganVital | null;
   onClick: () => void;
   isDark: boolean;
 }
 
-function HexCell({ action, vital, onClick, isDark }: HexCellProps) {
+function HexCell({ action, onClick, isDark }: HexCellProps) {
   const Icon = action.icon;
   // Light mode: richer fills + dark text; dark mode: translucent fills + light text
-  const fillOpacity   = isDark ? { c: 0.58, m: 0.24, e: 0.42 } : { c: 0.72, m: 0.42, e: 0.60 };
   const gleamOpacity  = isDark ? 0.18 : 0.28;
   const iconBrightness = isDark ? 1.7 : 0.65;
   const labelCls      = isDark ? action.textCls : action.lightTextCls;
@@ -172,29 +159,44 @@ function HexCell({ action, vital, onClick, isDark }: HexCellProps) {
       }}
       onClick={onClick}
     >
-      {/* Hex face — bubbly radial gradient + clipped */}
+      {/* Glass hex: rim + frosted pane so the watercolor breathes through,
+          with the module color as an inner tint instead of an opaque fill. */}
       <div
         style={{
           width: '100%',
           height: '100%',
           clipPath: HEX_CLIP,
-          background: `
-            radial-gradient(
-              ellipse 65% 60% at 38% 30%,
-              rgb(${action.rgb} / ${fillOpacity.c}) 0%,
-              rgb(${action.rgb} / ${fillOpacity.m}) 55%,
-              rgb(${action.rgb} / ${fillOpacity.e}) 100%
-            )
-          `,
+          background: `rgb(${action.rgb} / 0.38)`,
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center',
           gap: 6,
           position: 'relative',
-          backdropFilter: 'blur(1px)',
         }}
       >
+        {/* faux-frost pane — no backdrop-filter (per-frame cost + square
+            backdrop artifact under drop-shadow + clip-path); a denser
+            translucent fill over the already-soft wash reads as glass. */}
+        <div
+          style={{
+            position: 'absolute',
+            inset: 2,
+            clipPath: HEX_CLIP,
+            background: 'linear-gradient(155deg, hsl(var(--card) / 0.68) 0%, hsl(var(--card) / 0.42) 100%)',
+            pointerEvents: 'none',
+          }}
+        />
+        {/* module-color breath */}
+        <div
+          style={{
+            position: 'absolute',
+            inset: 2,
+            clipPath: HEX_CLIP,
+            background: `radial-gradient(ellipse 70% 62% at 38% 30%, rgb(${action.rgb} / ${isDark ? 0.34 : 0.30}) 0%, rgb(${action.rgb} / ${isDark ? 0.12 : 0.10}) 60%, transparent 85%)`,
+            pointerEvents: 'none',
+          }}
+        />
         {/* Highlight gleam – top-left bubble sheen */}
         <div
           style={{
@@ -209,9 +211,11 @@ function HexCell({ action, vital, onClick, isDark }: HexCellProps) {
           }}
         />
 
-        {/* Icon */}
+        {/* Icon — position:relative lifts it above the frosted panes */}
         <div
           style={{
+            position: 'relative',
+            zIndex: 1,
             width: 40,
             height: 40,
             borderRadius: '50%',
@@ -236,6 +240,8 @@ function HexCell({ action, vital, onClick, isDark }: HexCellProps) {
         <span
           className={`font-bold text-center leading-tight ${labelCls}`}
           style={{
+            position: 'relative',
+            zIndex: 1,
             fontSize: 15,
             maxWidth: '80%',
             lineHeight: 1.2,
@@ -246,22 +252,6 @@ function HexCell({ action, vital, onClick, isDark }: HexCellProps) {
           {action.label}
         </span>
 
-        {/* Organ pulse — live vital + flow-status dot */}
-        {vital && (
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 4,
-              padding: '2px 8px',
-              borderRadius: 9999,
-              background: isDark ? 'rgba(0,0,0,0.28)' : 'rgba(255,255,255,0.5)',
-            }}
-          >
-            <span style={{ width: 6, height: 6, borderRadius: '50%', background: STATUS_DOT[vital.status] }} />
-            <span className={labelCls} style={{ fontSize: 10, fontWeight: 600 }}>{vital.label}</span>
-          </div>
-        )}
       </div>
     </div>
   );
@@ -272,7 +262,6 @@ export default function HomeDashboard() {
   const { theme } = useTheme();
   const isDark = theme === 'dark';
   const router = useRouter();
-  const { data: vitals } = useVitals();
   const { prefs } = useHomePrefs();
 
   const visibleActions = quickActions.filter(
@@ -300,20 +289,6 @@ export default function HomeDashboard() {
     ? Math.max(...placed.map((p) => p.y - minY + HEX_H))
     : 0;
 
-  // Live vital per organ (module), drawn from the vital-signs endpoint.
-  const vitalFor = (href: string): OrganVital | null => {
-    if (!vitals) return null;
-    const v = vitals.vitals;
-    switch (href) {
-      case '/personas':      return { label: `Integridad ${v.circulacion.value}%`, status: v.circulacion.status };
-      case '/operaciones':   return { label: `Validadas ${v.agni.value}%`, status: v.agni.status };
-      case '/equipos':       return { label: `Activas ${v.carga.running}/${v.carga.total}`, status: v.carga.status };
-      case '/analitica':     return { label: `Salud ${vitals.health.score}`, status: vitals.health.score >= 80 ? 'flowing' : vitals.health.score >= 60 ? 'stagnant' : 'clotted' };
-      case '/administracion':return { label: v.toxinas.value ? `${v.toxinas.value} pendientes` : 'Al día', status: v.toxinas.status };
-      default:               return null;
-    }
-  };
-
   const getGreeting = () => {
     const hour = new Date().getHours();
     if (hour < 12) return 'Buenos días';
@@ -324,7 +299,8 @@ export default function HomeDashboard() {
   const firstName = user?.name?.split(' ')[0] || user?.email?.split('@')[0] || '';
 
   return (
-    <div className="relative min-h-full flex flex-col items-center justify-center gap-10 px-6 py-10 md:px-12">
+    <div className="relative min-h-full flex flex-col items-center justify-center gap-10 overflow-hidden px-6 py-10 md:px-12">
+      <WatercolorBackdrop intensity="ambient" />
       {/* Quick links — compact pill, top-right */}
       <div className="absolute right-4 top-4 md:right-6 md:top-6 z-10">
         <QuickLinks />
@@ -349,7 +325,6 @@ export default function HomeDashboard() {
           <div key={action.href} style={{ position: 'absolute', left: x, top: y - minY }}>
             <HexCell
               action={action}
-              vital={vitalFor(action.href)}
               onClick={() => router.push(action.href)}
               isDark={isDark}
             />

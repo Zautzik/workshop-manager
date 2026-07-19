@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { ChevronLeft, ExternalLink, Hexagon } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useAuth } from '@/contexts/AuthContext';
+import WatercolorBackdrop, { type WashTint } from '@/components/branding/WatercolorBackdrop';
 import type { AppRole } from '@/types/app-role';
 
 // ─── Hex geometry (flat-top) ──────────────────────────────────────────────────
@@ -56,6 +57,8 @@ interface Props {
   subtitle: string;
   groups: HexLandingGroup[];
   hubIcon?: React.ElementType<any>;
+  /** Watercolor temperament — the wash leans toward the module's color. */
+  tint?: WashTint;
 }
 
 // ── Positions of a group's hexes (centered on its own origin) — 2-col honeycomb ──
@@ -118,8 +121,20 @@ function HexTile({ item, size }: { item: HexLandingItem; size: number }) {
             onMouseEnter={e => { const el = e.currentTarget as HTMLDivElement; el.style.filter = `drop-shadow(0 6px 18px rgb(${r} / 0.6))`; el.style.transform = 'scale(1.07)'; el.style.zIndex = '20'; el.style.position = 'relative'; }}
             onMouseLeave={e => { const el = e.currentTarget as HTMLDivElement; el.style.filter = `drop-shadow(0 3px 8px rgb(${r} / 0.28))`; el.style.transform = 'scale(1)'; el.style.zIndex = ''; el.style.position = ''; }}
           >
-            <div style={{ width: size, height: h, clipPath: HEX_CLIP, background: `rgb(${r} / 0.18)`, position: 'relative' }}>
-              <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse 60% 50% at 35% 28%, rgba(255,255,255,0.14) 0%, transparent 70%)', pointerEvents: 'none' }} />
+            {/* Glass hex: an outer rim + inner frosted pane, so the watercolor
+                flows THROUGH the tile instead of being blocked by solid tint.
+                (clip-path can't render borders, hence the two-layer rim trick.) */}
+            <div style={{ width: size, height: h, clipPath: HEX_CLIP, background: `rgb(${r} / 0.38)`, position: 'relative' }}>
+              {/* faux-frost: the wash is already soft — a denser translucent
+                  pane reads as glass without backdrop-filter (which both cost
+                  per-frame re-rasterization and leaked a square backdrop
+                  artifact under the ancestor drop-shadow + clip-path). */}
+              <div style={{
+                position: 'absolute', inset: 1.5, clipPath: HEX_CLIP,
+                background: `linear-gradient(155deg, hsl(var(--card) / 0.74) 0%, hsl(var(--card) / 0.48) 100%)`,
+              }} />
+              {/* module-color breath inside the glass */}
+              <div style={{ position: 'absolute', inset: 1.5, clipPath: HEX_CLIP, background: `radial-gradient(ellipse 75% 65% at 35% 28%, rgb(${r} / 0.20) 0%, rgb(${r} / 0.06) 55%, transparent 80%)`, pointerEvents: 'none' }} />
               {/* Icon sits in the upper quarter; label is centred on the hex's
                   widest band (mid-line) so even long single words clear the
                   slanted sides. */}
@@ -140,7 +155,7 @@ function HexTile({ item, size }: { item: HexLandingItem; size: number }) {
 }
 
 // ─── Main — hub & spokes radial ───────────────────────────────────────────────
-export default function ModuleHexLanding({ title, subtitle, groups: rawGroups, hubIcon }: Props) {
+export default function ModuleHexLanding({ title, subtitle, groups: rawGroups, hubIcon, tint = 'neutral' }: Props) {
   const { role } = useAuth();
 
   // Only show tiles the current role can actually open — a leaf's `roles` (when
@@ -207,9 +222,10 @@ export default function ModuleHexLanding({ title, subtitle, groups: rawGroups, h
 
   return (
     <TooltipProvider delayDuration={150}>
-      <div className="min-h-full flex flex-col px-6 pt-5 pb-6 md:px-10">
+      <div className="relative min-h-full flex flex-col overflow-hidden px-6 pt-5 pb-6 md:px-10">
+        <WatercolorBackdrop intensity="ambient" tint={tint} />
         {/* Header */}
-        <div className="shrink-0">
+        <div className="relative z-10 shrink-0">
           <Link href="/home" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors">
             <ChevronLeft className="w-4 h-4" /> Inicio
           </Link>
@@ -218,7 +234,7 @@ export default function ModuleHexLanding({ title, subtitle, groups: rawGroups, h
         </div>
 
         {/* Radial canvas */}
-        <div className="flex-1 flex items-center justify-center">
+        <div className="relative z-10 flex-1 flex items-center justify-center">
           <div style={{ position: 'relative', width: W, height: H }}>
             {/* Decorative hub */}
             {hasHub && (

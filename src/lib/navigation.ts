@@ -70,6 +70,8 @@ export const SYSTEMS: SystemMeta[] = [
 
 export interface NavModule {
   key: string;
+  /** Watercolor temperament for the module landing (WatercolorBackdrop tint). */
+  tint?: 'neutral' | 'blue' | 'cyan' | 'rose' | 'amber' | 'orange' | 'green' | 'violet';
   label: string;
   href: string;
   subtitle: string;
@@ -100,6 +102,7 @@ export const HOME_ITEM = {
 export const MODULES: NavModule[] = [
   {
     key: 'operaciones',
+    tint: 'blue',
     label: 'Operaciones',
     href: '/operaciones',
     subtitle: 'Gestión de órdenes, producción y piso de taller',
@@ -148,6 +151,7 @@ export const MODULES: NavModule[] = [
   },
   {
     key: 'calidad',
+    tint: 'rose',
     label: 'Calidad',
     href: '/calidad',
     subtitle: 'Trazabilidad, control de calidad y cumplimiento FSSC 22000',
@@ -173,6 +177,7 @@ export const MODULES: NavModule[] = [
   },
   {
     key: 'comercial',
+    tint: 'cyan',
     label: 'Comercial',
     href: '/comercial',
     subtitle: 'Clientes, ventas y facturación electrónica',
@@ -197,6 +202,7 @@ export const MODULES: NavModule[] = [
   },
   {
     key: 'personas',
+    tint: 'amber',
     label: 'Personas',
     href: '/personas',
     subtitle: 'Empleados, compensación y desarrollo del talento',
@@ -231,6 +237,7 @@ export const MODULES: NavModule[] = [
   },
   {
     key: 'equipos',
+    tint: 'orange',
     label: 'Equipos',
     href: '/equipos',
     subtitle: 'Mantenimiento, órdenes de trabajo y gestión de la flota',
@@ -264,6 +271,7 @@ export const MODULES: NavModule[] = [
   },
   {
     key: 'analitica',
+    tint: 'green',
     label: 'Analítica',
     href: '/analitica',
     subtitle: 'Costos, finanzas, KPIs y reportes del taller',
@@ -297,6 +305,7 @@ export const MODULES: NavModule[] = [
   },
   {
     key: 'administracion',
+    tint: 'violet',
     label: 'Administración',
     href: '/administracion',
     subtitle: 'Usuarios, integraciones y configuración del sistema',
