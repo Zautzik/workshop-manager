@@ -7,6 +7,7 @@
  */
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
@@ -59,6 +60,18 @@ export function UnifiedOTWizard({ onClose, onSuccess }: Props) {
   // Real rates for the estimate: shared DB catalog + purchase-weighted material cost.
   const { data: catalog = [] } = useCostCatalog();
   const { data: materialCost = [] } = useMaterialCost();
+  // Machines: the selected press feeds real speed + colour bodies into the
+  // engine (P6.1 — a 4/0 job on a 4-body press is ONE pass, not four).
+  const { data: wizardMachines = [] } = useQuery<any[]>({
+    queryKey: ['machines', 'wizard-calc'],
+    queryFn: async () => {
+      const res = await fetch('/api/machines?limit=100', { credentials: 'include' });
+      if (!res.ok) return [];
+      const payload = await res.json();
+      return Array.isArray(payload) ? payload : (payload?.data ?? []);
+    },
+    staleTime: 5 * 60_000,
+  });
   const { toast } = useToast();
 
   /* ── Draft persistence ──────────────────────────────────────── */
@@ -168,7 +181,13 @@ export function UnifiedOTWizard({ onClose, onSuccess }: Props) {
         extra_quantities: form.extra_quantities,
       };
 
-      const calcs = computeOTCalculations(calcInput);
+      // The chosen machine sharpens the estimate (real speed + colour bodies).
+      const machine = wizardMachines.find((m) => m.id === form.machine.machine_id);
+      const calcOpts = {
+        machineSpeedSheetsHr: machine?.nominal_speed_sheets_hr ?? undefined,
+        pressBodies: machine?.colors ?? undefined,
+      };
+      const calcs = computeOTCalculations(calcInput, calcOpts);
       const impo = computeImposition(form.width_cm, form.height_cm, form.quantity);
       const costOverrides = resolveCostOverrides(catalog, {
         color_front: form.color_front, color_back: form.color_back,
@@ -203,6 +222,9 @@ export function UnifiedOTWizard({ onClose, onSuccess }: Props) {
     form.color_front,
     form.color_back,
     form.substrate_type,
+    // Machine selection re-runs the estimate with real speed/bodies (P6.1).
+    form.machine.machine_id,
+    wizardMachines,
     // Don't include form.operations/pricing to avoid loop
   ]);
 

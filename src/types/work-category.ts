@@ -479,6 +479,8 @@ export const CATEGORY_DEFAULTS: Record<WorkCategoryKey, CategoryDefaults> = {
 
 export interface CostCenterItem {
   id: string;
+  /** Stable machine-readable key (survives renames; resolver matches on it). */
+  catalog_key?: string | null;
   /** Process / item name */
   name: string;
   /** Category for grouping */

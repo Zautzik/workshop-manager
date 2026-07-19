@@ -90,8 +90,13 @@ export interface ImpositionResult {
   rows: number;
   waste_pct: number;
   sheet_utilization_pct: number;
+  /** NET run (qty ÷ poses) — process waste is added by computeOTCalculations. */
   sheets_needed: number;
   rotated: boolean;
+  /** Chosen print-sheet format (engine v2 picks among the plant's formats). */
+  format_label?: string;
+  format_w?: number;
+  format_h?: number;
 }
 
 /* ─── Multi-quantity quote ───────────────────────────────────── */

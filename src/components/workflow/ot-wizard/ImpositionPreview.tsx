@@ -76,8 +76,13 @@ export function ImpositionPreview({ imposition, widthCm, heightCm }: Props) {
           <div>
             <p className="text-sm font-bold text-foreground flex items-center gap-2">
               {poses_per_sheet} poses/pliego
+              {imposition.format_label && (
+                <span className="text-[10px] bg-sky-500/15 text-sky-600 dark:text-sky-400 px-1.5 py-0.5 rounded font-medium">
+                  {imposition.format_label}
+                </span>
+              )}
               {rotated && (
-                <span className="text-[10px] bg-amber-500/15 text-amber-400 px-1.5 py-0.5 rounded font-medium">
+                <span className="text-[10px] bg-amber-500/15 text-amber-600 dark:text-amber-400 px-1.5 py-0.5 rounded font-medium">
                   ↻ Rotado
                 </span>
               )}
@@ -115,7 +120,7 @@ export function ImpositionPreview({ imposition, widthCm, heightCm }: Props) {
             </div>
 
             <div className="flex items-center justify-between text-xs">
-              <span className="text-muted-foreground">Pliegos necesarios:</span>
+              <span className="text-muted-foreground">Pliegos netos (sin merma):</span>
               <span className="text-foreground font-bold">{sheets_needed.toLocaleString()}</span>
             </div>
 

@@ -1,10 +1,26 @@
 /**
- * @fileoverview Calculation engine for OT (Work Order) production estimates
+ * @fileoverview Calculation engine v2 for OT (Work Order) production estimates
  *
- * Computes sheets needed, substrate weight, ink consumption, CTP plates,
- * and estimated production times based on product specs.
+ * Computes imposition, sheets, substrate weight, ink, CTP plates and
+ * production times for offset work. v2 (demo plan §Phase 6) replaces the toy
+ * model the 2026-07 audit dismantled:
  *
- * All formulas use industry-standard approximations for offset printing.
+ *  - MULTI-FORMAT imposition with gripper margin and bleed, shared by the
+ *    cost engine AND the preview (they used to disagree — audit OF-14).
+ *  - PASS-THROUGH-PRESS hours: a 4/0 job on a 4-body press is ONE pass, not
+ *    four (audit OF-15 — hours were overestimated up to 4×), plus explicit
+ *    make-ready time per pass (audit OF-16).
+ *  - PROCESS-AWARE waste: make-ready sheets per pass and setup sheets for
+ *    die-cutting / hot stamping, instead of a flat 5%+50 (audit OF-17).
+ *  - PER-FINISH time formulas: die-cutting 13k sheets is ~12h, not 1.3h
+ *    (audit OF-19 — every finish shared one formula).
+ *  - LABOR and OVERHEAD default operations from the cost catalog
+ *    (audit OF-20 — quotes omitted both entirely).
+ *
+ * Every tunable lives in CALIBRATION so the plant can adjust from one place.
+ * CALIBRATION GATE (§6.6, pending owner input): before trusting quotes
+ * commercially, run 3 historical jobs picked by the plant supervisor through
+ * the wizard and tune these constants until estimates land within ±10%.
  */
 
 import type {
@@ -17,148 +33,251 @@ import type {
   MultiQuantityQuote,
 } from '@/types/ot';
 
-/* ─── Constants ─────────────────────────────────────────────── */
+/* ─── Calibration (all plant-tunable constants in one place) ── */
 
-/** Standard offset press sheet size in cm */
-const PRESS_SHEET_WIDTH = 70;
-const PRESS_SHEET_HEIGHT = 100;
-
-/** Waste factor for offset printing (5% spoilage + setup) */
-const WASTE_FACTOR = 1.05;
-
-/** Minimum extra sheets for press setup */
-const SETUP_SHEETS = 50;
+export const CALIBRATION = {
+  /** Print-sheet formats the plant actually buys/cuts, in cm. */
+  SHEET_FORMATS: [
+    { w: 70, h: 100, label: '70×100' },
+    { w: 77, h: 110, label: '77×110' },
+    { w: 55, h: 77, label: '55×77' },
+    { w: 50, h: 70, label: '50×70' },
+  ],
+  /** Gripper (pinza) — unprintable strip along one long edge, cm. */
+  GRIPPER_CM: 1.2,
+  /** Bleed (sangrado) per side, cm. */
+  BLEED_CM: 0.3,
+  /** Running spoilage on top of make-ready, fraction. */
+  BASE_WASTE_PCT: 0.02,
+  /** Make-ready sheets consumed per press pass. */
+  MAKEREADY_SHEETS_PER_PASS: 120,
+  /** Extra setup sheets when the job is die-cut / hot-stamped. */
+  DIE_SETUP_SHEETS: 150,
+  HOTSTAMP_SETUP_SHEETS: 100,
+  /** Make-ready (alistamiento) time per press pass, hours. */
+  MAKEREADY_HOURS_PER_PASS: 0.5,
+  /** Assumed press bodies when no machine is selected yet (the plant's main
+   *  press is a 4-colour) — the wizard overrides with the real machine. */
+  DEFAULT_PRESS_BODIES: 4,
+  /** Fallback running speed when the machine has no nominal speed. */
+  DEFAULT_SHEETS_PER_HOUR: 3000,
+  /** Per-finish time model: fixed setup + sheets/hour throughput. */
+  FINISH_RATES: {
+    corte: { setupH: 0.3, sheetsPerHour: 3000 },
+    troquelado: { setupH: 1.5, sheetsPerHour: 1200 },
+    plegado: { setupH: 0.5, sheetsPerHour: 3000 },
+    pegado: { setupH: 0.5, sheetsPerHour: 2500 },
+    laminado: { setupH: 0.5, sheetsPerHour: 2000 },
+    barniz: { setupH: 0.3, sheetsPerHour: 4000 },
+    relieve: { setupH: 1.0, sheetsPerHour: 1000 },
+    perforado: { setupH: 0.3, sheetsPerHour: 3000 },
+    hot_stamping: { setupH: 1.5, sheetsPerHour: 800 },
+    uv_localizado: { setupH: 1.0, sheetsPerHour: 1500 },
+    numeracion: { setupH: 0.3, sheetsPerHour: 2500 },
+  } as Record<string, { setupH: number; sheetsPerHour: number }>,
+} as const;
 
 /**
- * Base ink load in kg per sheet per colour pass, at *medium* coverage on a
- * *coated* stock. The real consumption scales off this anchor by coverage class
- * and substrate absorbency (below) — so the baseline (medium/coated) matches the
- * shop's historically-tuned figure while gaining the sensitivity the flat
- * constant ignored (audit #1).
+ * Base ink load in kg per 70×100 sheet per colour pass, at *medium* coverage
+ * on a *coated* stock; scaled by the chosen format's area, coverage class and
+ * substrate absorbency.
  */
-const INK_KG_PER_SHEET = 0.003;
+const INK_KG_PER_SHEET_70x100 = 0.003;
+const REF_SHEET_AREA_M2 = 0.7; // 70×100 cm
 
-/** Coverage class → ink multiplier (fraction of sheet carrying ink × density). */
 const INK_COVERAGE_FACTOR: Record<InkCoverage, number> = {
-  light: 0.5,   // tints / line work
-  medium: 1.0,  // typical
-  heavy: 1.8,   // solids / photographic
+  light: 0.5,
+  medium: 1.0,
+  heavy: 1.8,
 };
 
-/** Substrate absorbency → ink multiplier (uncoated stock drinks more ink). */
 const SUBSTRATE_INK_FACTOR: Record<string, number> = {
-  couche: 1.0, cauche: 1.0,   // coated
+  couche: 1.0, cauche: 1.0,
   cartulina: 1.15,
   adhesivo: 1.1,
-  bond: 1.35,                 // uncoated, absorbent
+  bond: 1.35,
   kraft: 1.4,
-  vinilo: 0.9,                // non-absorbent film
+  vinilo: 0.9,
   otro: 1.1,
 };
 
-/** Fixed setup ink laid down per colour, independent of run length (make-ready). */
+/** Fixed make-ready ink laid down per colour, independent of run length. */
 const INK_MAKEREADY_KG_PER_COLOR = 0.1;
-
-/** Sheets per hour on offset press — fallback when no machine speed is given. */
-const SHEETS_PER_HOUR = 3000;
-
-/** Hours per finishing operation (base estimate) */
-const FINISH_BASE_HOURS = 0.5;
 
 export type InkCoverage = 'light' | 'medium' | 'heavy';
 
-/** Optional real-world inputs that sharpen the estimate (all backward-compatible). */
+/** Optional real-world inputs that sharpen the estimate. */
 export interface OTCalcOptions {
   /** Ink coverage class of the artwork; defaults to 'medium'. */
   inkCoverage?: InkCoverage;
-  /** Selected machine's real speed (nominal_speed_sheets_hr); defaults to 3000. */
+  /** Selected machine's real speed (nominal_speed_sheets_hr). */
   machineSpeedSheetsHr?: number;
+  /** Selected machine's colour bodies (machines.colors) — drives the
+   *  pass-through-press model. Defaults to DEFAULT_PRESS_BODIES. */
+  pressBodies?: number;
 }
 
 function substrateInkFactor(substrate: string): number {
   return SUBSTRATE_INK_FACTOR[substrate] ?? 1.1;
 }
 
+const round2 = (n: number) => Math.round(n * 100) / 100;
+
 /* ─── Helpers ───────────────────────────────────────────────── */
 
 function colorCount(mode: OTColorMode): number {
   switch (mode) {
-    case 'cmyk':
-      return 4;
-    case 'cmyk_pantone':
-      return 5;
-    case '3_color':
-      return 3;
-    case '2_color':
-      return 2;
-    case '1_color':
-      return 1;
-    case 'sin_impresion':
-      return 0;
+    case 'cmyk': return 4;
+    case 'cmyk_pantone': return 5;
+    case '3_color': return 3;
+    case '2_color': return 2;
+    case '1_color': return 1;
+    case 'sin_impresion': return 0;
   }
 }
 
+/** Press passes for a job: colours per side ÷ press bodies, per side. */
+function pressPasses(front: number, back: number, bodies: number): number {
+  const b = Math.max(1, bodies);
+  const fp = front > 0 ? Math.ceil(front / b) : 0;
+  const bp = back > 0 ? Math.ceil(back / b) : 0;
+  return fp + bp;
+}
+
+/** Per-finish time: fixed setup + throughput over the run. */
+export function finishHoursFor(finishKey: string, sheets: number): number {
+  const rate = CALIBRATION.FINISH_RATES[finishKey] ?? { setupH: 0.5, sheetsPerHour: 2500 };
+  return round2(rate.setupH + sheets / rate.sheetsPerHour);
+}
+
+/* ─── Imposition (single model: engine AND preview use this) ── */
+
 /**
- * How many product pieces fit on one press sheet (poses per sheet).
- * Simple grid layout without rotation optimization.
+ * Best imposition across the plant's sheet formats, honouring gripper and
+ * bleed. Chosen by sheet utilization (ties → more poses). `sheets_needed`
+ * is the NET run (qty ÷ poses) — process waste is added by
+ * computeOTCalculations, not here.
  */
-function posesPerSheet(widthCm: number, heightCm: number): number {
-  if (widthCm <= 0 || heightCm <= 0) return 1;
+export function computeImposition(
+  widthCm: number,
+  heightCm: number,
+  quantity: number
+): ImpositionResult {
+  const { SHEET_FORMATS, GRIPPER_CM, BLEED_CM } = CALIBRATION;
 
-  const landscape =
-    Math.floor(PRESS_SHEET_WIDTH / widthCm) *
-    Math.floor(PRESS_SHEET_HEIGHT / heightCm);
+  if (widthCm <= 0 || heightCm <= 0) {
+    const f = SHEET_FORMATS[0];
+    return {
+      poses_per_sheet: 1, cols: 1, rows: 1,
+      waste_pct: 0, sheet_utilization_pct: 100,
+      sheets_needed: Math.max(1, quantity), rotated: false,
+      format_label: f.label, format_w: f.w, format_h: f.h,
+    };
+  }
 
-  const portrait =
-    Math.floor(PRESS_SHEET_WIDTH / heightCm) *
-    Math.floor(PRESS_SHEET_HEIGHT / widthCm);
+  const wB = widthCm + BLEED_CM * 2;
+  const hB = heightCm + BLEED_CM * 2;
 
-  return Math.max(landscape, portrait, 1);
+  let best: ImpositionResult | null = null;
+  for (const f of SHEET_FORMATS) {
+    const usableH = f.h - GRIPPER_CM; // gripper eats one edge
+    for (const rotated of [false, true]) {
+      const pw = rotated ? hB : wB;
+      const ph = rotated ? wB : hB;
+      const cols = Math.floor(f.w / pw);
+      const rows = Math.floor(usableH / ph);
+      const poses = cols * rows;
+      if (poses <= 0) continue;
+      const utilization = round2((poses * widthCm * heightCm) / (f.w * f.h) * 100);
+      const candidate: ImpositionResult = {
+        poses_per_sheet: poses, cols, rows, rotated,
+        sheet_utilization_pct: utilization,
+        waste_pct: round2(100 - utilization),
+        sheets_needed: Math.max(1, Math.ceil(quantity / poses)),
+        format_label: f.label, format_w: f.w, format_h: f.h,
+      };
+      if (
+        !best ||
+        candidate.sheet_utilization_pct > best.sheet_utilization_pct ||
+        (candidate.sheet_utilization_pct === best.sheet_utilization_pct &&
+          candidate.poses_per_sheet > best.poses_per_sheet)
+      ) {
+        best = candidate;
+      }
+    }
+  }
+
+  if (!best) {
+    // Piece larger than every format: 1 pose on the biggest sheet.
+    const f = SHEET_FORMATS.reduce((a, b) => (a.w * a.h >= b.w * b.h ? a : b));
+    best = {
+      poses_per_sheet: 1, cols: 1, rows: 1, rotated: false,
+      sheet_utilization_pct: round2((widthCm * heightCm) / (f.w * f.h) * 100),
+      waste_pct: 0,
+      sheets_needed: Math.max(1, quantity),
+      format_label: f.label, format_w: f.w, format_h: f.h,
+    };
+  }
+  return best;
 }
 
 /* ─── Main calculation ──────────────────────────────────────── */
 
 export function computeOTCalculations(form: OTFormData, opts: OTCalcOptions = {}): OTCalculations {
   const { quantity, width_cm, height_cm, grammage_gsm, color_front, color_back, finishes, substrate_type } = form;
+  const C = CALIBRATION;
 
-  // Sheets (pliegos)
-  const poses = posesPerSheet(width_cm, height_cm);
-  const rawSheets = Math.ceil(quantity / poses);
-  const totalSheets = Math.max(
-    Math.ceil(rawSheets * WASTE_FACTOR) + SETUP_SHEETS,
-    rawSheets
-  );
+  // Imposition — same model the preview shows (audit OF-14: they diverged).
+  const impo = computeImposition(width_cm, height_cm, quantity);
+  const rawSheets = impo.sheets_needed;
+  const sheetW = impo.format_w ?? 70;
+  const sheetH = impo.format_h ?? 100;
 
-  // Substrate weight in kg
-  // Weight = sheets × (sheet area in m²) × grammage (g/m²) / 1000
-  const sheetAreaM2 = (PRESS_SHEET_WIDTH / 100) * (PRESS_SHEET_HEIGHT / 100);
-  const substrateKg = Number(
-    ((totalSheets * sheetAreaM2 * grammage_gsm) / 1000).toFixed(2)
-  );
-
-  // Ink consumption — coverage class × substrate absorbency, plus fixed
-  // make-ready ink per colour. Anchored so medium/coated ≈ the legacy figure
-  // (audit #1: coverage & density were previously ignored entirely).
+  // Press passes (pass-through-press: 4/0 on a 4-body press = 1 pass).
   const frontColors = colorCount(color_front);
   const backColors = colorCount(color_back);
+  const bodies = opts.pressBodies && opts.pressBodies > 0 ? opts.pressBodies : C.DEFAULT_PRESS_BODIES;
+  const passes = pressPasses(frontColors, backColors, bodies);
+
+  // Process-aware waste: base spoilage + make-ready per pass + finish setups.
+  const setupSheets =
+    passes * C.MAKEREADY_SHEETS_PER_PASS +
+    (finishes.finish_troquelado ? C.DIE_SETUP_SHEETS : 0) +
+    (finishes.finish_hot_stamping ? C.HOTSTAMP_SETUP_SHEETS : 0);
+  const totalSheets = Math.ceil(rawSheets * (1 + C.BASE_WASTE_PCT)) + setupSheets;
+
+  // Substrate weight on the CHOSEN format (not a hardcoded 70×100).
+  const sheetAreaM2 = (sheetW / 100) * (sheetH / 100);
+  const substrateKg = round2((totalSheets * sheetAreaM2 * grammage_gsm) / 1000);
+
+  // Ink — colour passes × coverage × absorbency, scaled by sheet area.
   const totalColorPasses = frontColors + backColors;
   const coverageFactor = INK_COVERAGE_FACTOR[opts.inkCoverage ?? 'medium'];
   const substrateFactor = substrateInkFactor(substrate_type || 'otro');
-  const inkVariable = totalSheets * INK_KG_PER_SHEET * totalColorPasses * coverageFactor * substrateFactor;
+  const inkPerSheet = INK_KG_PER_SHEET_70x100 * (sheetAreaM2 / REF_SHEET_AREA_M2);
+  const inkVariable = totalSheets * inkPerSheet * totalColorPasses * coverageFactor * substrateFactor;
   const inkMakeReady = totalColorPasses * INK_MAKEREADY_KG_PER_COLOR;
-  const inkKg = totalColorPasses > 0 ? Number((inkVariable + inkMakeReady).toFixed(3)) : 0;
+  const inkKg = totalColorPasses > 0 ? Math.round((inkVariable + inkMakeReady) * 1000) / 1000 : 0;
 
-  // CTP plates (one plate per color per side)
+  // CTP plates (one per colour per side; work-and-turn montaje is a manual
+  // decision the plant applies by editing operations — not auto-assumed).
   const plates = totalColorPasses;
 
-  // Estimated print time — off the selected machine's real speed when known.
-  const speed = opts.machineSpeedSheetsHr && opts.machineSpeedSheetsHr > 0 ? opts.machineSpeedSheetsHr : SHEETS_PER_HOUR;
-  const printPasses = Math.max(frontColors, 1) + (backColors > 0 ? Math.max(backColors, 1) : 0);
-  const printHours = Number(((totalSheets * printPasses) / speed).toFixed(2));
+  // Print time = make-ready per pass + run time per pass at real speed.
+  const speed = opts.machineSpeedSheetsHr && opts.machineSpeedSheetsHr > 0
+    ? opts.machineSpeedSheetsHr
+    : C.DEFAULT_SHEETS_PER_HOUR;
+  const printHours = passes > 0
+    ? round2(passes * C.MAKEREADY_HOURS_PER_PASS + (passes * totalSheets) / speed)
+    : 0;
 
-  // Finishing time estimate
-  const activeFinishes = Object.values(finishes).filter(Boolean).length;
-  const finishHours = Number((activeFinishes * FINISH_BASE_HOURS * (totalSheets / 5000)).toFixed(2));
+  // Finishing: per-finish formulas (die-cutting ≠ varnish — audit OF-19).
+  const activeFinishKeys = Object.entries(finishes)
+    .filter(([, v]) => v)
+    .map(([k]) => k.replace(/^finish_/, ''));
+  const finishHours = round2(
+    activeFinishKeys.reduce((sum, key) => sum + finishHoursFor(key, totalSheets), 0)
+  );
 
   return {
     calc_sheets: totalSheets,
@@ -172,14 +291,11 @@ export function computeOTCalculations(form: OTFormData, opts: OTCalcOptions = {}
 
 /* ─── Default operations from calculations ──────────────────── */
 
-/** Unit cost defaults (fallback when the DB catalog doesn't override them). */
+/** Unit cost defaults — overridden by the DB cost catalog when resolvable. */
 export const DEFAULT_COSTS = {
   substrate_per_kg: 1500,
   ink_per_kg: 31915,
   plate_per_unit: 8500,
-  // Offset press time. The calculation engine is offset-based (CTP plates, ink
-  // per sheet, press sheets), so printing is priced per press-hour — not per
-  // digital click. Adjust to your real press rate; this is a starting estimate.
   offset_print_per_hour: 25000,
   cut_per_hour: 2500,
   troquelado_per_hour: 5000,
@@ -192,6 +308,12 @@ export const DEFAULT_COSTS = {
   hot_stamping_per_hour: 8000,
   uv_localizado_per_hour: 7000,
   numeracion_per_hour: 2500,
+  // Labor + overhead (audit OF-20: quotes omitted both; the catalog carries
+  // real rates — Operador de Prensa, Operador de Terminaciones, Gastos
+  // Generales % — which the resolver maps onto these keys).
+  press_labor_per_hour: 8500,
+  finish_labor_per_hour: 6500,
+  overhead_pct: 8,
 };
 
 export type CostOverrides = Partial<typeof DEFAULT_COSTS>;
@@ -201,116 +323,65 @@ export function generateDefaultOperations(
   calcs: OTCalculations,
   costOverrides: CostOverrides = {}
 ): OTOperation[] {
-  // DB catalog / real-cost rates override the built-in defaults where provided.
-  const DEFAULT_COSTS_MERGED = { ...DEFAULT_COSTS, ...costOverrides };
+  const RATES = { ...DEFAULT_COSTS, ...costOverrides };
   const ops: OTOperation[] = [];
   let order = 0;
-
-  // Substrate / Paper
-  if (calcs.calc_substrate_kg > 0) {
+  const push = (category: OTOperation['category'], name: string, unit: string, quantity: number, unit_cost: number) => {
     ops.push({
       id: crypto.randomUUID(),
-      category: 'materiales',
-      name: 'Sustrato/Papel',
-      unit: 'kg',
-      quantity: calcs.calc_substrate_kg,
-      unit_cost: DEFAULT_COSTS_MERGED.substrate_per_kg,
-      total_cost: Math.round(calcs.calc_substrate_kg * DEFAULT_COSTS_MERGED.substrate_per_kg),
+      category, name, unit,
+      quantity, unit_cost,
+      total_cost: Math.round(quantity * unit_cost),
       sort_order: order++,
     });
-  }
+  };
 
-  // Ink
-  if (calcs.calc_ink_kg > 0) {
-    ops.push({
-      id: crypto.randomUUID(),
-      category: 'materiales',
-      name: 'Tintas',
-      unit: 'kg',
-      quantity: calcs.calc_ink_kg,
-      unit_cost: DEFAULT_COSTS_MERGED.ink_per_kg,
-      total_cost: Math.round(calcs.calc_ink_kg * DEFAULT_COSTS_MERGED.ink_per_kg),
-      sort_order: order++,
-    });
-  }
+  // ── Materials ──
+  if (calcs.calc_substrate_kg > 0) push('materiales', 'Sustrato/Papel', 'kg', calcs.calc_substrate_kg, RATES.substrate_per_kg);
+  if (calcs.calc_ink_kg > 0) push('materiales', 'Tintas', 'kg', calcs.calc_ink_kg, RATES.ink_per_kg);
+  if (calcs.calc_plates > 0) push('materiales', 'Placas CTP', 'und', calcs.calc_plates, RATES.plate_per_unit);
 
-  // CTP Plates
-  if (calcs.calc_plates > 0) {
-    ops.push({
-      id: crypto.randomUUID(),
-      category: 'materiales',
-      name: 'Placas CTP',
-      unit: 'und',
-      quantity: calcs.calc_plates,
-      unit_cost: DEFAULT_COSTS_MERGED.plate_per_unit,
-      total_cost: Math.round(calcs.calc_plates * DEFAULT_COSTS_MERGED.plate_per_unit),
-      sort_order: order++,
-    });
-  }
-
-  // Printing — offset press time, consistent with the offset calculation
-  // engine above. Only emitted when the job actually prints (it has colors);
-  // a "sin impresión" job must not get a printing line.
+  // ── Printing (machine hour incl. make-ready) + press labor ──
   const totalColorPasses = colorCount(form.color_front) + colorCount(form.color_back);
   if (totalColorPasses > 0 && calcs.calc_print_hours > 0) {
-    ops.push({
-      id: crypto.randomUUID(),
-      category: 'impresion',
-      name: 'Impresión Offset',
-      unit: 'hours',
-      quantity: calcs.calc_print_hours,
-      unit_cost: DEFAULT_COSTS_MERGED.offset_print_per_hour,
-      total_cost: Math.round(calcs.calc_print_hours * DEFAULT_COSTS_MERGED.offset_print_per_hour),
-      sort_order: order++,
-    });
+    push('impresion', 'Impresión Offset', 'hrs', calcs.calc_print_hours, RATES.offset_print_per_hour);
+    push('impresion', 'Operador de Prensa', 'hrs', calcs.calc_print_hours, RATES.press_labor_per_hour);
   }
 
-  // Finishing operations
-  const finishMap: Array<{
-    key: keyof typeof form.finishes;
-    name: string;
-    costKey: keyof typeof DEFAULT_COSTS;
-  }> = [
-    { key: 'finish_troquelado', name: 'Troquelado', costKey: 'troquelado_per_hour' },
-    { key: 'finish_plegado', name: 'Plegado', costKey: 'plegado_per_hour' },
-    { key: 'finish_pegado', name: 'Pegado', costKey: 'pegado_per_hour' },
-    { key: 'finish_laminado', name: 'Laminado', costKey: 'laminado_per_hour' },
-    { key: 'finish_barniz', name: 'Barniz', costKey: 'barniz_per_hour' },
-    { key: 'finish_relieve', name: 'Relieve', costKey: 'relieve_per_hour' },
-    { key: 'finish_perforado', name: 'Perforado', costKey: 'perforado_per_hour' },
-    { key: 'finish_hot_stamping', name: 'Hot Stamping', costKey: 'hot_stamping_per_hour' },
-    { key: 'finish_uv_localizado', name: 'UV Localizado', costKey: 'uv_localizado_per_hour' },
-    { key: 'finish_numeracion', name: 'Numeración', costKey: 'numeracion_per_hour' },
+  // ── Finishing: cut always, then each active finish with its OWN hours ──
+  const cutHours = finishHoursFor('corte', calcs.calc_sheets);
+  push('terminaciones', 'Corte y Guillotinado', 'hrs', cutHours, RATES.cut_per_hour);
+
+  const finishMap: Array<{ key: keyof typeof form.finishes; rateKey: string; name: string; costKey: keyof typeof DEFAULT_COSTS }> = [
+    { key: 'finish_troquelado', rateKey: 'troquelado', name: 'Troquelado', costKey: 'troquelado_per_hour' },
+    { key: 'finish_plegado', rateKey: 'plegado', name: 'Plegado', costKey: 'plegado_per_hour' },
+    { key: 'finish_pegado', rateKey: 'pegado', name: 'Pegado', costKey: 'pegado_per_hour' },
+    { key: 'finish_laminado', rateKey: 'laminado', name: 'Laminado', costKey: 'laminado_per_hour' },
+    { key: 'finish_barniz', rateKey: 'barniz', name: 'Barniz', costKey: 'barniz_per_hour' },
+    { key: 'finish_relieve', rateKey: 'relieve', name: 'Relieve', costKey: 'relieve_per_hour' },
+    { key: 'finish_perforado', rateKey: 'perforado', name: 'Perforado', costKey: 'perforado_per_hour' },
+    { key: 'finish_hot_stamping', rateKey: 'hot_stamping', name: 'Hot Stamping', costKey: 'hot_stamping_per_hour' },
+    { key: 'finish_uv_localizado', rateKey: 'uv_localizado', name: 'UV Localizado', costKey: 'uv_localizado_per_hour' },
+    { key: 'finish_numeracion', rateKey: 'numeracion', name: 'Numeración', costKey: 'numeracion_per_hour' },
   ];
 
-  // Always add cut & guillotine
-  ops.push({
-    id: crypto.randomUUID(),
-    category: 'terminaciones',
-    name: 'Corte y Guillotinado',
-    unit: 'hours',
-    quantity: Math.max(calcs.calc_finish_hours, 1),
-    unit_cost: DEFAULT_COSTS_MERGED.cut_per_hour,
-    total_cost: Math.round(
-      Math.max(calcs.calc_finish_hours, 1) * DEFAULT_COSTS_MERGED.cut_per_hour
-    ),
-    sort_order: order++,
-  });
-
+  let finishLaborHours = cutHours;
   for (const fm of finishMap) {
     if (form.finishes[fm.key]) {
-      const hours = Math.max(calcs.calc_finish_hours, 1);
-      ops.push({
-        id: crypto.randomUUID(),
-        category: 'terminaciones',
-        name: fm.name,
-        unit: 'hours',
-        quantity: hours,
-        unit_cost: DEFAULT_COSTS_MERGED[fm.costKey],
-        total_cost: Math.round(hours * DEFAULT_COSTS_MERGED[fm.costKey]),
-        sort_order: order++,
-      });
+      const hours = finishHoursFor(fm.rateKey, calcs.calc_sheets);
+      finishLaborHours += hours;
+      push('terminaciones', fm.name, 'hrs', hours, RATES[fm.costKey]);
     }
+  }
+  if (finishLaborHours > 0) {
+    push('terminaciones', 'Operador de Terminaciones', 'hrs', round2(finishLaborHours), RATES.finish_labor_per_hour);
+  }
+
+  // ── Overhead: % over everything above (catalog 'Gastos Generales') ──
+  const subtotal = ops.reduce((s, op) => s + op.total_cost, 0);
+  const overheadAmount = Math.round(subtotal * (RATES.overhead_pct / 100));
+  if (overheadAmount > 0) {
+    push('otros', `Gastos Generales (${RATES.overhead_pct}%)`, 'global', 1, overheadAmount);
   }
 
   return ops;
@@ -347,73 +418,12 @@ export function computeOTPricing(
   };
 }
 
-/* ─── Imposition Optimizer ──────────────────────────────────── */
-
-/**
- * Compute optimal imposition layout on a 70×100 cm press sheet.
- * Tests both orientations and returns the best grid with utilization stats.
- */
-export function computeImposition(
-  widthCm: number,
-  heightCm: number,
-  quantity: number
-): ImpositionResult {
-  if (widthCm <= 0 || heightCm <= 0) {
-    return {
-      poses_per_sheet: 1,
-      cols: 1,
-      rows: 1,
-      waste_pct: 0,
-      sheet_utilization_pct: 100,
-      sheets_needed: quantity,
-      rotated: false,
-    };
-  }
-
-  // Add 3mm bleed on each side
-  const wBleed = widthCm + 0.6;
-  const hBleed = heightCm + 0.6;
-
-  // Test normal orientation
-  const colsNormal = Math.floor(PRESS_SHEET_WIDTH / wBleed);
-  const rowsNormal = Math.floor(PRESS_SHEET_HEIGHT / hBleed);
-  const posesNormal = colsNormal * rowsNormal;
-
-  // Test rotated 90°
-  const colsRotated = Math.floor(PRESS_SHEET_WIDTH / hBleed);
-  const rowsRotated = Math.floor(PRESS_SHEET_HEIGHT / wBleed);
-  const posesRotated = colsRotated * rowsRotated;
-
-  const rotated = posesRotated > posesNormal;
-  const cols = rotated ? colsRotated : colsNormal;
-  const rows = rotated ? rowsRotated : rowsNormal;
-  const poses = Math.max(rotated ? posesRotated : posesNormal, 1);
-
-  const usedArea = poses * widthCm * heightCm;
-  const sheetArea = PRESS_SHEET_WIDTH * PRESS_SHEET_HEIGHT;
-  const utilization = Number(((usedArea / sheetArea) * 100).toFixed(1));
-  const wastePct = Number((100 - utilization).toFixed(1));
-
-  const rawSheets = Math.ceil(quantity / poses);
-  const totalSheets = Math.ceil(rawSheets * WASTE_FACTOR) + SETUP_SHEETS;
-
-  return {
-    poses_per_sheet: poses,
-    cols,
-    rows,
-    waste_pct: wastePct,
-    sheet_utilization_pct: utilization,
-    sheets_needed: totalSheets,
-    rotated,
-  };
-}
-
 /* ─── Multi-quantity quoting ────────────────────────────────── */
 
 /**
- * Generate price quotes for multiple quantities.
- * Uses the same operations but scales material costs proportionally.
- * Fixed costs (plates, setup) stay constant — only variable costs scale.
+ * Price quotes for multiple quantities. Fixed costs (plates, per-pass setups
+ * embedded in hours, overhead base) don't rescale perfectly here — this is a
+ * commercial approximation: plates fixed, everything else proportional.
  */
 export function computeMultiQuantityQuotes(
   baseQuantity: number,
@@ -423,17 +433,12 @@ export function computeMultiQuantityQuotes(
   incrementPct: number = 10,
   commissionPct: number = 1
 ): MultiQuantityQuote[] {
-  // Classify operations as fixed vs variable
-  const fixedCategories = new Set(['materiales']); // plates are fixed but listed under materials
-  const fixedOpNames = new Set(['Placas CTP']); // These don't scale
+  const fixedOpNames = new Set(['Placas CTP']);
 
   const baseCosts = baseOperations.reduce(
     (acc, op) => {
-      if (fixedOpNames.has(op.name)) {
-        acc.fixed += op.total_cost;
-      } else {
-        acc.variable += op.total_cost;
-      }
+      if (fixedOpNames.has(op.name)) acc.fixed += op.total_cost;
+      else acc.variable += op.total_cost;
       return acc;
     },
     { fixed: 0, variable: 0 }

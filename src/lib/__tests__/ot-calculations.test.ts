@@ -2,12 +2,16 @@ import { describe, it, expect } from 'vitest';
 import { computeOTCalculations } from '@/lib/ot-calculations';
 import { INITIAL_OT_FORM, EMPTY_FINISHES } from '@/types/ot';
 
-// Concrete form with known dimensions so we can derive expected values.
-// 10×14 cm product on 70×100 cm press sheet:
-//   landscape: floor(70/10)*floor(100/14) = 7*7 = 49
-//   portrait:  floor(70/14)*floor(100/10) = 5*10 = 50  → poses = 50
+// Concrete form with known dimensions so we can derive expected values under
+// engine v2 (multi-format + gripper 1.2 + bleed 0.3/side, qty 1000, 10×14 cm):
+//   77×110 (usable H 108.8), piece w/bleed 10.6×14.6:
+//     normal:  floor(77/10.6)=7 × floor(108.8/14.6)=7 → 49 poses
+//     rotated: floor(77/14.6)=5 × floor(108.8/10.6)=10 → 50 poses · util 82.6%
+//   (70×100 tops out at 36 poses / 72%) → best: 77×110 rotated, 50 poses.
 // rawSheets = ceil(1000/50) = 20
-// totalSheets = max(ceil(20*1.05)+50, 20) = max(71, 20) = 71
+// INITIAL_OT_FORM is cmyk front / sin_impresion back → 4 colours on the
+// default 4-body press = 1 pass → make-ready 120 sheets:
+// totalSheets = ceil(20*1.02) + 1*120 = 21 + 120 = 141
 const FORM_10x14 = { ...INITIAL_OT_FORM, width_cm: 10, height_cm: 14 };
 
 describe('computeOTCalculations — sheet counting', () => {
@@ -16,14 +20,26 @@ describe('computeOTCalculations — sheet counting', () => {
 		expect(c.calc_sheets).toBeGreaterThan(0);
 	});
 
-	it('applies waste factor and setup sheets (71 for 1000 qty, 10×14 cm)', () => {
+	it('applies base waste + make-ready sheets (141 for 1000 qty, 10×14 cm, 1 pass)', () => {
 		const c = computeOTCalculations(FORM_10x14);
-		expect(c.calc_sheets).toBe(71);
+		expect(c.calc_sheets).toBe(141);
+	});
+
+	it('more passes on a smaller press → more make-ready sheets', () => {
+		const onePass = computeOTCalculations(FORM_10x14, { pressBodies: 4 }); // 4/0 → 1 pass
+		const fourPasses = computeOTCalculations(FORM_10x14, { pressBodies: 1 }); // 4/0 → 4 passes
+		expect(fourPasses.calc_sheets).toBe(onePass.calc_sheets + 3 * 120);
+	});
+
+	it('die-cutting adds its setup sheets', () => {
+		const plain = computeOTCalculations(FORM_10x14);
+		const die = computeOTCalculations({ ...FORM_10x14, finishes: { ...FORM_10x14.finishes, finish_troquelado: true } });
+		expect(die.calc_sheets).toBe(plain.calc_sheets + 150);
 	});
 
 	it('always returns at least the raw sheet count', () => {
 		const c = computeOTCalculations(FORM_10x14);
-		const rawSheets = Math.ceil(FORM_10x14.quantity / 50); // poses=50
+		const rawSheets = Math.ceil(FORM_10x14.quantity / 50); // 77×110 rotated → 50 poses
 		expect(c.calc_sheets).toBeGreaterThanOrEqual(rawSheets);
 	});
 
@@ -128,5 +144,27 @@ describe('computeOTCalculations — machine speed', () => {
 		const def     = computeOTCalculations(form);
 		const at3000  = computeOTCalculations(form, { machineSpeedSheetsHr: 3000 });
 		expect(def.calc_print_hours).toBe(at3000.calc_print_hours);
+	});
+});
+
+describe('computeOTCalculations — pass-through-press model (v2)', () => {
+	it('4/0 on a 4-body press is ONE pass; on a 1-body press it is FOUR', () => {
+		const form = { ...FORM_10x14, color_front: 'cmyk' as const, color_back: 'sin_impresion' as const };
+		const speedmaster = computeOTCalculations(form, { pressBodies: 4, machineSpeedSheetsHr: 3000 });
+		const singleBody  = computeOTCalculations(form, { pressBodies: 1, machineSpeedSheetsHr: 3000 });
+		// More passes → more make-ready hours AND more run time.
+		expect(singleBody.calc_print_hours).toBeGreaterThan(speedmaster.calc_print_hours * 2);
+	});
+
+	it('4/4 doubles the passes of 4/0 on the same press', () => {
+		const f40 = computeOTCalculations({ ...FORM_10x14, color_front: 'cmyk' as const, color_back: 'sin_impresion' as const }, { pressBodies: 4 });
+		const f44 = computeOTCalculations({ ...FORM_10x14, color_front: 'cmyk' as const, color_back: 'cmyk' as const }, { pressBodies: 4 });
+		expect(f44.calc_print_hours).toBeGreaterThan(f40.calc_print_hours);
+	});
+
+	it('finish hours differ by process (troquelado ≫ barniz)', () => {
+		const die = computeOTCalculations({ ...FORM_10x14, finishes: { ...FORM_10x14.finishes, finish_troquelado: true } });
+		const varnish = computeOTCalculations({ ...FORM_10x14, finishes: { ...FORM_10x14.finishes, finish_barniz: true } });
+		expect(die.calc_finish_hours).toBeGreaterThan(varnish.calc_finish_hours);
 	});
 });
