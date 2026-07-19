@@ -148,35 +148,43 @@ export async function POST(
 
     const db = supabaseAdmin;
 
-    const approverRoles: Array<Database['public']['Enums']['app_role']> = ['admin', 'supervisor', 'manager'];
-    const { data: candidateUsers } = await db
-      .from('user_roles')
-      .select('user_id, role')
-      .in('role', approverRoles)
-      .neq('user_id', auth.id)
-      .limit(20);
+    // Notify only on milestone transitions — ready-for-delivery and completion.
+    // Every intermediate plant move used to notify up to 20 managers, which is
+    // ~20 pings per OT per day → notification fatigue (2026-07 audit). A digest
+    // for the rest can come later.
+    const MILESTONE_STATUSES: OTWorkflowStatus[] = ['ready_for_delivery', 'completed'];
+    if (MILESTONE_STATUSES.includes(toStatus)) {
+      const approverRoles: Array<Database['public']['Enums']['app_role']> = ['admin', 'supervisor', 'manager'];
+      const { data: candidateUsers } = await db
+        .from('user_roles')
+        .select('user_id, role')
+        .in('role', approverRoles)
+        .neq('user_id', auth.id)
+        .limit(20);
 
-    if (Array.isArray(candidateUsers) && candidateUsers.length > 0) {
-      const notifications = candidateUsers.map((row: { user_id: string; role: string }) => ({
-        user_id: row.user_id,
-        type: 'ot_status_changed' as const,
-        title: `OT ${updatedOt.ot_number} moved to ${toStatus}`,
-        message: `Changed by ${auth.name ?? auth.email}`,
-        resource_type: 'ot',
-        resource_id: id,
-        metadata: {
-          from_status: fromStatus,
-          to_status: toStatus,
-          by_role: auth.role,
-          reason: parsed.data.reason ?? null,
-          rollback: parsed.data.rollback ?? false,
-          transition_metadata: parsed.data.metadata ?? {},
-        },
-      }));
+      if (Array.isArray(candidateUsers) && candidateUsers.length > 0) {
+        const statusLabel = toStatus === 'completed' ? 'completada' : 'lista para despacho';
+        const notifications = candidateUsers.map((row: { user_id: string; role: string }) => ({
+          user_id: row.user_id,
+          type: 'ot_status_changed' as const,
+          title: `OT ${updatedOt.ot_number} ${statusLabel}`,
+          message: `Cambiada por ${auth.name ?? auth.email}`,
+          resource_type: 'ot',
+          resource_id: id,
+          metadata: {
+            from_status: fromStatus,
+            to_status: toStatus,
+            by_role: auth.role,
+            reason: parsed.data.reason ?? null,
+            rollback: parsed.data.rollback ?? false,
+            transition_metadata: parsed.data.metadata ?? {},
+          },
+        }));
 
-      const { error: notificationError } = await db.from('notifications').insert(notifications);
-      if (notificationError) {
-        console.error('Error creating notifications:', notificationError);
+        const { error: notificationError } = await db.from('notifications').insert(notifications);
+        if (notificationError) {
+          console.error('Error creating notifications:', notificationError);
+        }
       }
     }
 

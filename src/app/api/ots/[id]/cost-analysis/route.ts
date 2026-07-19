@@ -111,7 +111,13 @@ export async function GET(
 
 			const estCost = Number(b.estimated_cost ?? 0);
 			const actCost = real ? real.actual_cost : 0;
-			const deviationPct = estCost > 0 ? Math.round(((actCost - estCost) / estCost) * 10000) / 100 : null;
+			// Deviation only exists once there's an actual to compare. With an
+			// estimate but no actual yet the arithmetic gives -100%, which the UI
+			// painted as a red overrun alarm on every un-started line (2026-07
+			// audit) — it's "pendiente", so leave it null → renders as "—".
+			const deviationPct = real && estCost > 0
+				? Math.round(((actCost - estCost) / estCost) * 10000) / 100
+				: null;
 
 			return {
 				code: b.code,
@@ -157,7 +163,10 @@ export async function GET(
 		// Totals
 		const totalEstimated = lineItems.reduce((s, l) => s + l.estimated_cost, 0);
 		const totalActual = lineItems.reduce((s, l) => s + l.actual_cost, 0);
-		const overallDeviation = totalEstimated > 0
+		const anyActuals = lineItems.some(l => l.has_actual);
+		// Same rule as line items: no overall deviation until at least one actual
+		// exists, so a fully-estimated OT doesn't read as "-100%".
+		const overallDeviation = anyActuals && totalEstimated > 0
 			? Math.round(((totalActual - totalEstimated) / totalEstimated) * 10000) / 100
 			: null;
 
