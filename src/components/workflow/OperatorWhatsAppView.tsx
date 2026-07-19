@@ -20,12 +20,14 @@ import { formatCLP } from '@/lib/whatsapp-cost-inference';
 import type { WhatsAppProductionLog } from '@/types/whatsapp-production';
 
 function StatusBadge({ status }: { status: string }) {
+  // Dual-theme: the old classes were dark-tuned only (text-*-400 on a /20
+  // wash fails contrast on light backgrounds — 2026-07 audit P5.4).
   const config: Record<string, { label: string; color: string; icon: typeof CheckCircle2 }> = {
-    pending: { label: 'En revisión', color: 'bg-amber-500/20 text-amber-400 border-amber-500/40', icon: Clock },
-    approved: { label: 'Aprobado', color: 'bg-green-500/20 text-green-400 border-green-500/40', icon: CheckCircle2 },
-    rejected: { label: 'Rechazado', color: 'bg-red-500/20 text-red-400 border-red-500/40', icon: XCircle },
-    needs_revision: { label: 'Corrección', color: 'bg-purple-500/20 text-purple-400 border-purple-500/40', icon: RotateCcw },
-    auto_approved: { label: 'Registrado', color: 'bg-blue-500/20 text-blue-400 border-blue-500/40', icon: Zap },
+    pending: { label: 'En revisión', color: 'bg-amber-500/20 text-amber-700 dark:text-amber-300 border-amber-500/40', icon: Clock },
+    approved: { label: 'Aprobado', color: 'bg-green-500/20 text-green-700 dark:text-green-300 border-green-500/40', icon: CheckCircle2 },
+    rejected: { label: 'Rechazado', color: 'bg-red-500/20 text-red-700 dark:text-red-300 border-red-500/40', icon: XCircle },
+    needs_revision: { label: 'Corrección', color: 'bg-purple-500/20 text-purple-700 dark:text-purple-300 border-purple-500/40', icon: RotateCcw },
+    auto_approved: { label: 'Registrado', color: 'bg-blue-500/20 text-blue-700 dark:text-blue-300 border-blue-500/40', icon: Zap },
   };
 
   const { label, color, icon: Icon } = config[status] || config.pending;

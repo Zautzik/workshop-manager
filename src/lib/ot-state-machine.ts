@@ -95,7 +95,7 @@ export function validateTransition(input: TransitionValidationInput): Transition
     return {
       ok: false,
       code: 'ROLE_FORBIDDEN',
-      message: 'Your role is not allowed to move OT to this status.',
+      message: 'Tu rol no puede mover la OT a este estado.',
     };
   }
 
@@ -104,7 +104,7 @@ export function validateTransition(input: TransitionValidationInput): Transition
     return {
       ok: false,
       code: 'INVALID_TRANSITION',
-      message: 'Only forward transitions are allowed in this workflow.',
+      message: 'El flujo solo permite avanzar de estado (retroceso requiere rollback).',
     };
   }
 
@@ -112,7 +112,7 @@ export function validateTransition(input: TransitionValidationInput): Transition
     return {
       ok: false,
       code: 'APPROVAL_REQUIRED',
-      message: 'An approved OT approval is required before delivery readiness.',
+      message: 'Se requiere una aprobación de calidad antes de marcar lista para despacho.',
     };
   }
 
@@ -120,7 +120,7 @@ export function validateTransition(input: TransitionValidationInput): Transition
     return {
       ok: false,
       code: 'COSTS_REQUIRED',
-      message: 'Real cost records are required before delivery or completion.',
+      message: 'Se requieren costos reales registrados antes de despachar o completar.',
     };
   }
 

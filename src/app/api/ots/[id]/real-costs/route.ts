@@ -32,7 +32,7 @@ export async function GET(
 	const { id } = await params;
 
 	if (!id || !z.string().uuid().safeParse(id).success) {
-		return NextResponse.json({ error: 'Valid OT id required' }, { status: 400 });
+		return NextResponse.json({ error: 'Se requiere un ID de OT válido' }, { status: 400 });
 	}
 
 	try {
@@ -45,13 +45,13 @@ export async function GET(
 
 		if (error) {
 			console.error('Error fetching real costs:', error);
-			return NextResponse.json({ error: 'Failed to fetch real costs' }, { status: 500 });
+			return NextResponse.json({ error: 'No se pudieron cargar los costos reales' }, { status: 500 });
 		}
 
 		return NextResponse.json(data ?? []);
 	} catch (error) {
 		console.error('Error fetching real costs:', error);
-		return NextResponse.json({ error: 'Failed to fetch real costs' }, { status: 500 });
+		return NextResponse.json({ error: 'No se pudieron cargar los costos reales' }, { status: 500 });
 	}
 }
 
@@ -70,7 +70,7 @@ export async function POST(
 		key: `ots:${buildRateLimitActor(req, auth.id)}:real-costs`,
 		limit: 30,
 		windowMs: 60_000,
-		message: 'Too many OT real-cost submissions. Please wait before retrying.',
+		message: 'Demasiados registros de costos seguidos. Espera un momento y reintenta.',
 	});
 	if (rl) return rl;
 
@@ -78,7 +78,7 @@ export async function POST(
 	const userId = typeof auth === 'object' && 'id' in auth ? auth.id : null;
 
 	if (!id || !z.string().uuid().safeParse(id).success) {
-		return NextResponse.json({ error: 'Valid OT id required' }, { status: 400 });
+		return NextResponse.json({ error: 'Se requiere un ID de OT válido' }, { status: 400 });
 	}
 
 	try {
@@ -87,7 +87,7 @@ export async function POST(
 
 		if (!parsed.success) {
 			return NextResponse.json(
-				{ error: 'Invalid input', details: parsed.error.flatten().fieldErrors },
+				{ error: 'Datos inválidos', details: parsed.error.flatten().fieldErrors },
 				{ status: 400 }
 			);
 		}
@@ -125,7 +125,7 @@ export async function POST(
 
 		if (error) {
 			console.error('Error inserting real costs:', error);
-			return NextResponse.json({ error: 'Failed to record real costs' }, { status: 500 });
+			return NextResponse.json({ error: 'No se pudieron registrar los costos reales' }, { status: 500 });
 		}
 
 		if (previousIds.length > 0) {
@@ -142,6 +142,6 @@ export async function POST(
 		return NextResponse.json(data, { status: 201 });
 	} catch (error) {
 		console.error('Error recording real costs:', error);
-		return NextResponse.json({ error: 'Failed to record real costs' }, { status: 500 });
+		return NextResponse.json({ error: 'No se pudieron registrar los costos reales' }, { status: 500 });
 	}
 }

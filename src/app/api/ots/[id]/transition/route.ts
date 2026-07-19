@@ -31,7 +31,7 @@ export async function POST(
     key: `ots:${buildRateLimitActor(req, auth.id)}:transition`,
     limit: 60,
     windowMs: 60_000,
-    message: 'Too many OT transition requests. Please wait before retrying.',
+    message: 'Demasiados cambios de estado seguidos. Espera un momento y reintenta.',
   });
   if (rl) return rl;
 
@@ -42,14 +42,14 @@ export async function POST(
 
     if (!parsed.success) {
       return NextResponse.json(
-        { error: 'Invalid input', details: parsed.error.flatten().fieldErrors },
+        { error: 'Datos inválidos', details: parsed.error.flatten().fieldErrors },
         { status: 400 }
       );
     }
 
     const toStatusRaw = parsed.data.to_status;
     if (!isValidStatus(toStatusRaw)) {
-      return NextResponse.json({ error: 'Invalid status value' }, { status: 400 });
+      return NextResponse.json({ error: 'Estado destino inválido' }, { status: 400 });
     }
 
     const toStatus = toStatusRaw as OTWorkflowStatus;
@@ -61,7 +61,7 @@ export async function POST(
       .single();
 
     if (otError || !ot) {
-      return NextResponse.json({ error: 'OT not found' }, { status: 404 });
+      return NextResponse.json({ error: 'OT no encontrada' }, { status: 404 });
     }
 
     const fromStatus = ot.status as OTWorkflowStatus;
@@ -119,7 +119,7 @@ export async function POST(
 
     if (updateError) {
       console.error('Error updating OT status:', updateError);
-      return NextResponse.json({ error: 'Failed to update OT status' }, { status: 500 });
+      return NextResponse.json({ error: 'No se pudo actualizar el estado de la OT' }, { status: 500 });
     }
 
     if (!updatedOt) {
@@ -191,6 +191,6 @@ export async function POST(
     return NextResponse.json(updatedOt);
   } catch (error) {
     console.error('Error transitioning OT:', error);
-    return NextResponse.json({ error: 'Failed to transition OT' }, { status: 500 });
+    return NextResponse.json({ error: 'No se pudo mover la OT de estado' }, { status: 500 });
   }
 }

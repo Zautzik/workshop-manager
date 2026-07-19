@@ -114,14 +114,14 @@ export async function PATCH(
 		key: `ots:${buildRateLimitActor(req, auth.id)}:update`,
 		limit: 40,
 		windowMs: 60_000,
-		message: 'Too many OT update requests. Please wait before retrying.',
+		message: 'Demasiadas actualizaciones seguidas. Espera un momento y reintenta.',
 	});
 	if (rl) return rl;
 
 	try {
 		const { id } = await context.params;
 		if (!id || !z.string().uuid().safeParse(id).success) {
-			return NextResponse.json({ error: 'Valid OT id required' }, { status: 400 });
+			return NextResponse.json({ error: 'Se requiere un ID de OT válido' }, { status: 400 });
 		}
 
 		const body = await req.json();
@@ -129,7 +129,7 @@ export async function PATCH(
 
 		if (!parsed.success) {
 			return NextResponse.json(
-				{ error: 'Invalid input', details: parsed.error.flatten().fieldErrors },
+				{ error: 'Datos inválidos', details: parsed.error.flatten().fieldErrors },
 				{ status: 400 }
 			);
 		}
@@ -148,11 +148,11 @@ export async function PATCH(
 			.single();
 
 		if (error) {
-			if (error.code === 'PGRST116') return NextResponse.json({ error: 'OT not found' }, { status: 404 });
+			if (error.code === 'PGRST116') return NextResponse.json({ error: 'OT no encontrada' }, { status: 404 });
 			console.error('Error updating OT:', error);
-			return NextResponse.json({ error: 'Failed to update OT' }, { status: 500 });
+			return NextResponse.json({ error: 'No se pudo actualizar la OT' }, { status: 500 });
 		}
-		if (!data) return NextResponse.json({ error: 'OT not found' }, { status: 404 });
+		if (!data) return NextResponse.json({ error: 'OT no encontrada' }, { status: 404 });
 		// If operations were provided, replace them (delete old, insert new)
 		if (operations && operations.length > 0) {
 			const { error: delError } = await supabaseAdmin
@@ -187,6 +187,6 @@ export async function PATCH(
 		return NextResponse.json(data);
 	} catch (error) {
 		console.error('Error updating OT:', error);
-		return NextResponse.json({ error: 'Failed to update OT' }, { status: 500 });
+		return NextResponse.json({ error: 'No se pudo actualizar la OT' }, { status: 500 });
 	}
 }

@@ -134,7 +134,7 @@ export async function GET(req: NextRequest) {
 	const pagination = PageSchema.safeParse(Object.fromEntries(searchParams));
 	if (!pagination.success) {
 		return NextResponse.json(
-			{ error: 'Invalid pagination params', details: pagination.error.flatten().fieldErrors },
+			{ error: 'Parámetros de paginación inválidos', details: pagination.error.flatten().fieldErrors },
 			{ status: 400 }
 		);
 	}
@@ -167,7 +167,7 @@ export async function GET(req: NextRequest) {
 
 		if (error) {
 			console.error('Error fetching OTs:', error);
-			return NextResponse.json({ error: 'Failed to fetch OTs' }, { status: 500 });
+			return NextResponse.json({ error: 'No se pudieron cargar las OTs' }, { status: 500 });
 		}
 
 		const total = count ?? 0;
@@ -180,7 +180,7 @@ export async function GET(req: NextRequest) {
 		});
 	} catch (error) {
 		console.error('Error fetching OTs:', error);
-		return NextResponse.json({ error: 'Failed to fetch OTs' }, { status: 500 });
+		return NextResponse.json({ error: 'No se pudieron cargar las OTs' }, { status: 500 });
 	}
 }
 
@@ -193,7 +193,7 @@ export async function POST(req: NextRequest) {
 		key: `ots:${buildRateLimitActor(req, auth.id)}:create`,
 		limit: 30,
 		windowMs: 60_000,
-		message: 'Too many OT creation requests. Please wait before retrying.',
+		message: 'Demasiadas OTs creadas seguidas. Espera un momento y reintenta.',
 	});
 	if (rl) return rl;
 
@@ -203,7 +203,7 @@ export async function POST(req: NextRequest) {
 
 		if (!parsed.success) {
 			return NextResponse.json(
-				{ error: 'Invalid input', details: parsed.error.flatten().fieldErrors },
+				{ error: 'Datos inválidos', details: parsed.error.flatten().fieldErrors },
 				{ status: 400 }
 			);
 		}
@@ -282,7 +282,7 @@ export async function POST(req: NextRequest) {
 				);
 			}
 			console.error('Error creating OT:', otError);
-			return NextResponse.json({ error: 'Failed to create OT' }, { status: 500 });
+			return NextResponse.json({ error: 'No se pudo crear la OT' }, { status: 500 });
 		}
 
 		// Insert operations if any
@@ -310,6 +310,6 @@ export async function POST(req: NextRequest) {
 		return NextResponse.json(ot, { status: 201 });
 	} catch (error) {
 		console.error('Error creating OT:', error);
-		return NextResponse.json({ error: 'Failed to create OT' }, { status: 500 });
+		return NextResponse.json({ error: 'No se pudo crear la OT' }, { status: 500 });
 	}
 }
