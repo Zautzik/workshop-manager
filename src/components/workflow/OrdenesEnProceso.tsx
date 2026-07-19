@@ -1,5 +1,6 @@
 'use client';
 import { useState, useRef, useCallback } from 'react';
+import { otStatusLabel, otStatusBadgeClass } from '@/lib/status-labels';
 import { useActiveOTs, queryKeys } from '@/hooks/use-workflow-queries';
 import { useRealtimeProduction } from '@/hooks/use-realtime-production';
 import { useQueryClient } from '@tanstack/react-query';
@@ -27,39 +28,6 @@ function formatColor(front?: string | null, back?: string | null): string {
   if (!front) return '—';
   return `${f}/${b}`;
 }
-
-const STATUS_LABELS: Record<string, string> = {
-  pre_press: 'Pre-Prensa',
-  visto_bueno: 'Visto Bueno',
-  paper_purchase: 'Compra Papel',
-  in_storage: 'En Bodega',
-  guillotine_first_cut: 'Primer Corte',
-  offset_printing: 'Impresión',
-  die_cutting: 'Troquelado',
-  guillotine_final_cut: 'Corte Final',
-  workshop: 'Taller',
-  outsourced: 'Tercerizado',
-  workshop_revision: 'Revisión',
-  ready_for_delivery: 'Listo',
-  in_delivery: 'En Entrega',
-  completed: 'Completado',
-};
-
-const STATUS_COLORS: Record<string, string> = {
-  pre_press: 'bg-violet-500/20 text-violet-700 border-violet-500/30',
-  visto_bueno: 'bg-amber-500/20 text-amber-700 border-amber-500/30',
-  paper_purchase: 'bg-slate-500/20 text-slate-700 border-slate-500/30',
-  in_storage: 'bg-cyan-500/20 text-cyan-700 border-cyan-500/30',
-  guillotine_first_cut: 'bg-orange-500/20 text-orange-700 border-orange-500/30',
-  offset_printing: 'bg-purple-500/20 text-purple-700 border-purple-500/30',
-  die_cutting: 'bg-pink-500/20 text-pink-700 border-pink-500/30',
-  guillotine_final_cut: 'bg-red-500/20 text-red-700 border-red-500/30',
-  workshop: 'bg-indigo-500/20 text-indigo-700 border-indigo-500/30',
-  outsourced: 'bg-yellow-500/20 text-yellow-700 border-yellow-500/30',
-  workshop_revision: 'bg-emerald-500/20 text-emerald-700 border-emerald-500/30',
-  ready_for_delivery: 'bg-green-500/20 text-green-700 border-green-500/30',
-  in_delivery: 'bg-teal-500/20 text-teal-700 border-teal-500/30',
-};
 
 function formatDeadline(deadline?: string | null): string {
   if (!deadline) return '—';
@@ -244,7 +212,7 @@ export function OrdenesEnProceso() {
             <option value="">Todos los estados</option>
             {presentStatuses.map((s) => (
               <option key={s} value={s}>
-                {STATUS_LABELS[s] ?? s}
+                {otStatusLabel(s)}
               </option>
             ))}
           </select>
@@ -389,10 +357,10 @@ export function OrdenesEnProceso() {
                           <Badge
                             variant="outline"
                             className={`text-[10px] px-1.5 py-0 border w-fit ${
-                              STATUS_COLORS[ot.status] ?? 'bg-muted/20 text-muted-foreground border-muted'
+                              otStatusBadgeClass(ot.status)
                             }`}
                           >
-                            {STATUS_LABELS[ot.status] ?? ot.status}
+                            {otStatusLabel(ot.status)}
                           </Badge>
                           <InlineEditable
                             value={procesoActual}

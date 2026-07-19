@@ -511,7 +511,7 @@ export function OTManagement({ onOTSelect }: OTManagementProps) {
         );
       })()}
 
-      {/* -- Via Rapida: urgent OTs -- */}
+      {/* Vía Rápida: urgent OTs */}
       {(() => {
         const urgentOTs = filteredOTs.filter(ot => ot.priority >= 8 && ot.status !== 'completed');
         return (
@@ -523,7 +523,7 @@ export function OTManagement({ onOTSelect }: OTManagementProps) {
               display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap',
             }}>
               <span style={{ fontSize: 16, fontWeight: 800, color: '#ef4444', letterSpacing: '0.03em', display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap' }}>
-                Via Rapida -- Urgentes
+                Vía Rápida — Urgentes
               </span>
               {urgentOTs.length === 0 ? (
                 <span className="text-muted-foreground" style={{ fontSize: 16, fontStyle: 'italic' }}>Sin OTs urgentes</span>

@@ -1,6 +1,6 @@
 'use client';
 import { useMemo } from 'react';
-import { otStatusLabel, machineStatusLabel } from '@/lib/status-labels';
+import { otStatusLabel, otStatusHex, machineStatusLabel } from '@/lib/status-labels';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
@@ -145,22 +145,9 @@ const ExecutiveOverview = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [machines, ots, pendingMaintenance, workerPerformance, range, comparison]);
 
-  const statusColors: Record<string, string> = {
-    pre_press: 'hsl(var(--primary))',
-    visto_bueno: 'hsl(var(--accent))',
-    paper_purchase: 'hsl(var(--manager))',
-    in_storage: 'hsl(var(--muted-foreground))',
-    guillotine_first_cut: 'hsl(45 93% 47%)',
-    offset_printing: 'hsl(199 89% 48%)',
-    die_cutting: 'hsl(280 65% 60%)',
-    guillotine_final_cut: 'hsl(45 93% 60%)',
-    workshop: 'hsl(230 70% 55%)',
-    outsourced: 'hsl(40 90% 50%)',
-    workshop_revision: 'hsl(160 60% 45%)',
-    ready_for_delivery: 'hsl(142 76% 36%)',
-    in_delivery: 'hsl(262 83% 58%)',
-    completed: 'hsl(142 76% 36%)',
-  };
+  // Chart slice colors come from the shared phase palette (single source) so
+  // a status reads the same hue here as on the board (2026-07 audit).
+  const statusColor = (status: string) => otStatusHex(status);
 
   const machineColors: Record<string, string> = {
     idle: 'hsl(var(--muted-foreground))',
@@ -352,11 +339,11 @@ const ExecutiveOverview = () => {
                     formatter={(value: number) => [value, 'OTs']}
                     labelFormatter={formatStatus}
                   />
-                  <Bar 
-                    dataKey="count" 
-                    fill="hsl(var(--primary))"
-                    radius={[0, 4, 4, 0]}
-                  />
+                  <Bar dataKey="count" radius={[0, 4, 4, 0]}>
+                    {otsByStatus.map((entry) => (
+                      <Cell key={entry.status} fill={statusColor(entry.status)} />
+                    ))}
+                  </Bar>
                 </BarChart>
               </ResponsiveContainer>
             </div>
