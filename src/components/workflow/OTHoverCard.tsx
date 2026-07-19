@@ -1,29 +1,14 @@
 'use client';
 
-import { useRef } from 'react';
-import { ArrowRight, Calendar, Layers, Package, Ruler, DollarSign, Image as ImageIcon, Scissors, Edit2 } from 'lucide-react';
+import { useRef, useState } from 'react';
+import { ArrowRight, Calendar, Layers, Package, Ruler, DollarSign, Image as ImageIcon, Scissors, Edit2, Share2, Check } from 'lucide-react';
 import { formatCLP } from '@/lib/format';
+import { OTStatusSchema } from '@/lib/ot-state-machine';
+import { otStatusLabel, otStatusHex } from '@/lib/status-labels';
 
-const STATUS_FLOW_KEYS = [
-  'pre_press', 'visto_bueno', 'paper_purchase', 'in_storage',
-  'guillotine_first_cut', 'offset_printing', 'digital_printing',
-  'die_cutting', 'guillotine_final_cut', 'workshop', 'outsourced',
-  'workshop_revision', 'ready_for_delivery', 'in_delivery', 'completed',
-];
-const STATUS_LABELS: Record<string, string> = {
-  pre_press: 'Pre-Prensa', visto_bueno: 'Visto Bueno', paper_purchase: 'Compra Papel',
-  in_storage: 'En Bodega', guillotine_first_cut: 'Primer Corte', offset_printing: 'Offset',
-  digital_printing: 'Digital', die_cutting: 'Troquelado', guillotine_final_cut: 'Corte Final',
-  workshop: 'Taller', outsourced: 'Tercerizado', workshop_revision: 'Revisión',
-  ready_for_delivery: 'Listo', in_delivery: 'En Entrega', completed: 'Completado',
-};
-const STATUS_COLORS: Record<string, string> = {
-  pre_press: '#8b5cf6', visto_bueno: '#f59e0b', paper_purchase: '#64748b',
-  in_storage: '#06b6d4', guillotine_first_cut: '#f97316', offset_printing: '#a855f7',
-  digital_printing: '#d946ef', die_cutting: '#ec4899', guillotine_final_cut: '#ef4444',
-  workshop: '#6366f1', outsourced: '#eab308', workshop_revision: '#10b981',
-  ready_for_delivery: '#22c55e', in_delivery: '#14b8a6', completed: '#6b7280',
-};
+// Single source: the ordered enum + the shared Spanish labels / phase hexes
+// (this card used to carry its own drifting copies — 2026-07 audit).
+const STATUS_FLOW_KEYS = OTStatusSchema.options;
 
 interface OTHoverCardProps {
   ot: any;
@@ -57,7 +42,22 @@ export function OTHoverCard({ ot, anchorRect, onClose, onAdvance, onSplit, onEdi
 
   const statusIdx = STATUS_FLOW_KEYS.indexOf(ot.status);
   const progressPct = statusIdx >= 0 ? Math.round(((statusIdx + 1) / STATUS_FLOW_KEYS.length) * 100) : 0;
-  const statusColor = STATUS_COLORS[ot.status] ?? '#6b7280';
+  const statusColor = otStatusHex(ot.status);
+
+  const [shareState, setShareState] = useState<'idle' | 'copied'>('idle');
+  const copyShareLink = async () => {
+    try {
+      const res = await fetch(`/api/ots/${ot.id}/share`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        credentials: 'include', body: JSON.stringify({}),
+      });
+      const d = await res.json();
+      if (!res.ok || !d.share_token) return;
+      await navigator.clipboard.writeText(`${window.location.origin}/track/${d.share_token}`);
+      setShareState('copied');
+      setTimeout(() => setShareState('idle'), 1800);
+    } catch { /* clipboard/red — silencioso, el usuario puede reintentar */ }
+  };
 
   const priColor = ot.priority >= 8 ? '#ef4444' : ot.priority >= 5 ? '#f59e0b' : '#3b82f6';
   const priLabel = ot.priority >= 8 ? 'Urgente' : ot.priority >= 5 ? 'Media' : 'Normal';
@@ -129,7 +129,7 @@ export function OTHoverCard({ ot, anchorRect, onClose, onAdvance, onSplit, onEdi
       <div style={{ padding: '8px 12px 4px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
           <span style={{ fontSize: 9, color: 'hsl(var(--muted-foreground))', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Progreso</span>
-          <span style={{ fontSize: 9, color: statusColor, fontWeight: 700 }}>{progressPct}% · {STATUS_LABELS[ot.status] ?? ot.status}</span>
+          <span style={{ fontSize: 9, color: statusColor, fontWeight: 700 }}>{progressPct}% · {otStatusLabel(ot.status)}</span>
         </div>
         <div style={{ height: 5, background: '#ffffff18', borderRadius: 99, overflow: 'hidden' }}>
           <div style={{ width: `${progressPct}%`, height: '100%', background: statusColor, borderRadius: 99, transition: 'width 0.3s' }} />
@@ -139,7 +139,7 @@ export function OTHoverCard({ ot, anchorRect, onClose, onAdvance, onSplit, onEdi
           {STATUS_FLOW_KEYS.slice(0, 12).map((k, i) => (
             <div key={k} style={{
               width: 6, height: 6, borderRadius: '50%',
-              background: i <= statusIdx ? STATUS_COLORS[k] : '#ffffff18',
+              background: i <= statusIdx ? otStatusHex(k) : '#ffffff18',
               flexShrink: 0,
             }} />
           ))}
@@ -159,12 +159,25 @@ export function OTHoverCard({ ot, anchorRect, onClose, onAdvance, onSplit, onEdi
       </div>
 
       {/* Action buttons */}
-      {(nextStatuses.length > 0 || onEdit) && (
-        <div style={{
-          padding: '6px 8px 8px',
-          borderTop: `1px solid ${statusColor}33`,
-          display: 'flex', flexWrap: 'wrap', gap: 4,
-        }}>
+      <div style={{
+        padding: '6px 8px 8px',
+        borderTop: `1px solid ${statusColor}33`,
+        display: 'flex', flexWrap: 'wrap', gap: 4,
+      }}>
+          {/* Share: copy the public tracker link for this OT */}
+          <button
+            onClick={e => { e.stopPropagation(); copyShareLink(); }}
+            title="Copiar enlace público de seguimiento"
+            style={{
+              fontSize: 9, fontWeight: 700, cursor: 'pointer',
+              border: shareState === 'copied' ? '1px solid #22c55e66' : '1px solid #06b6d466',
+              background: shareState === 'copied' ? '#22c55e22' : '#06b6d422',
+              color: shareState === 'copied' ? '#22c55e' : '#06b6d4', borderRadius: 4,
+              padding: '2px 7px', display: 'flex', alignItems: 'center', gap: 3,
+            }}
+          >
+            {shareState === 'copied' ? <><Check size={8} /> Copiado</> : <><Share2 size={8} /> Compartir</>}
+          </button>
           {nextStatuses.slice(0, 2).map(ns => (
             <button
               key={ns.key}
@@ -203,8 +216,7 @@ export function OTHoverCard({ ot, anchorRect, onClose, onAdvance, onSplit, onEdi
               <Edit2 size={8} /> Editar
             </button>
           )}
-        </div>
-      )}
+      </div>
     </div>
   );
 }
