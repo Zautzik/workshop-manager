@@ -85,6 +85,8 @@ Order matters: phases 1→3 are strictly sequential; 4–5 can interleave; 6 is 
 
 ## PHASE 5 — Coherence & polish (the "beautiful" pass)
 
+> **STATUS 2026-07-17: mostly DONE.** Owner added a **watercolor brand direction** (the founding artwork). Built `WatercolorBackdrop` (pure-CSS ink washes, no assets/CSP issues, theme-aware) on Login (hero), Home + all module landings (ambient), and the tracker (hero). **5.5 tracker jewel done**: dedicated `share_token` (migration 20260717120000 — revocable, not the PK), rewritten `/api/track/[token]` (client-safe fields + phase timeline from history), `/api/ots/[id]/share`, a rebuilt watercolor 5-phase timeline page, and a "Compartir" copy-link button on the kanban hover card. 5.1 status single source (new `otStatusHex`/`otStatusBadgeClass`; OTHoverCard/OrdenesEnProceso/ExecutiveOverview refactored off local maps). 5.3 deviation returns null instead of -100% until an actual exists (fixed at the API — verified live). 5.6 wizard completeness checklist + dismissible draft-restore banner. 5.7 Neto/IVA 19%/Total in the wizard summary. 5.8 notifications gated to ready_for_delivery/completed + Spanish copy. 5.9 accent fixes. Gates: tsc 0, 98/98, lint 0 errors. **Pending db push** (share_token). **Remaining (smaller):** 5.2 Spanish error contract, 5.4 broader translucent-badge light-mode audit.
+
 | # | Action | Where | Size |
 |---|--------|-------|------|
 | 5.1 | One status→label→color source | refactor `OTHoverCard`, `OrdenesEnProceso`, `ExecutiveOverview` onto `src/lib/status-labels.ts`; grep-guard in CI | M |
