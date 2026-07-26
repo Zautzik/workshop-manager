@@ -10,6 +10,7 @@ import { useRealtimeProduction } from '@/hooks/use-realtime-production';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { useQueryClient } from '@tanstack/react-query';
+import { AdvanceFlags } from '@/components/workflow/AdvanceFlags';
 import { CalendarCheck2, ChevronLeft, ChevronRight, Printer, RefreshCw, Wifi, WifiOff } from 'lucide-react';
 
 const COLOR_VALUE: Record<string, string> = {
@@ -68,20 +69,6 @@ function replaceDateKeepingUtcTime(targetDate: string, sourceIso?: string | null
 function isOverdue(deadline?: string | null) {
   if (!deadline) return false;
   return new Date(deadline) < new Date();
-}
-
-function FlagMini({ label, checked }: { label: string; checked?: boolean }) {
-  return (
-    <span
-      className={`inline-flex items-center justify-center h-4 min-w-[20px] px-1 rounded border text-[9px] font-bold ${
-        checked
-          ? 'bg-primary/20 text-primary border-primary/30'
-          : 'bg-muted/10 text-muted-foreground border-border/60'
-      }`}
-    >
-      {label}
-    </span>
-  );
 }
 
 export function PlanSemanal() {
@@ -342,12 +329,10 @@ export function PlanSemanal() {
                                   <div className="mt-0.5 text-muted-foreground">
                                     {formatTime(slot.scheduled_start)}-{formatTime(slot.scheduled_end)} | {Number(slot.hours_override ?? slot.estimated_hours ?? 0).toFixed(1)}h
                                   </div>
-                                  <div className="mt-1 flex flex-wrap gap-1">
-                                    <FlagMini label="ORD" checked={ot?.flag_ord} />
-                                    <FlagMini label="PRO" checked={ot?.flag_pro} />
-                                    <FlagMini label="VBP" checked={ot?.flag_vbp} />
-                                    <FlagMini label="PLN" checked={ot?.flag_plan} />
-                                    <FlagMini label="PAP" checked={ot?.flag_paper_arrived} />
+                                  <div className="mt-1">
+                                    {/* Read-only: planning view must never mutate
+                                        production state on a stray click. */}
+                                    <AdvanceFlags ot={ot ?? {}} readOnly size="sm" />
                                   </div>
                                 </div>
                               );

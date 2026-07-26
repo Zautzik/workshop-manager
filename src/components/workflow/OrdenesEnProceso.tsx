@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { Printer, Search, RefreshCw, Edit2, Check, X, Wifi, WifiOff } from 'lucide-react';
+import { AdvanceFlags } from '@/components/workflow/AdvanceFlags';
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -39,35 +40,6 @@ function formatDeadline(deadline?: string | null): string {
 function isOverdue(deadline?: string | null): boolean {
   if (!deadline) return false;
   return new Date(deadline) < new Date();
-}
-
-// ─── Inline editable cell ───────────────────────────────────────────────────
-// ─── Flag pill ──────────────────────────────────────────────────────────────
-
-function FlagPill({
-  label,
-  checked,
-  onChange,
-  activeColor = 'bg-emerald-500 text-white',
-}: {
-  label: string;
-  checked: boolean;
-  onChange: (next: boolean) => void;
-  activeColor?: string;
-}) {
-  return (
-    <button
-      onClick={() => onChange(!checked)}
-      title={`Toggle ${label}`}
-      className={`inline-flex items-center justify-center rounded px-1.5 py-0.5 text-[10px] font-bold border transition-colors leading-none ${
-        checked
-          ? `${activeColor} border-transparent`
-          : 'bg-transparent text-muted-foreground border-border hover:border-foreground/40'
-      }`}
-    >
-      {label}
-    </button>
-  );
 }
 
 // ─── Inline editable cell ───────────────────────────────────────────────────
@@ -112,7 +84,7 @@ function InlineEditable({
             if (e.key === 'Enter') commit();
             if (e.key === 'Escape') cancel();
           }}
-          className="h-7 text-xs px-2 py-0"
+          className="h-7 text-base px-2 py-0"
         />
         <Button size="icon" variant="ghost" className="h-6 w-6" onClick={commit}>
           <Check className="h-3 w-3 text-green-600" />
@@ -127,7 +99,7 @@ function InlineEditable({
   return (
     <button
       onClick={startEdit}
-      className="group flex items-center gap-1 text-left text-xs text-foreground hover:text-primary transition-colors"
+      className="group flex items-center gap-1 text-left text-base text-foreground hover:text-primary transition-colors"
     >
       <span className={value ? '' : 'text-muted-foreground italic'}>
         {value || placeholder || 'Sin nota'}
@@ -274,14 +246,10 @@ export function OrdenesEnProceso() {
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-sm border-collapse print:text-xs">
+            <table className="w-full text-base border-collapse print:text-xs">
               <thead>
-                <tr className="border-b border-border bg-muted/40 text-muted-foreground text-xs uppercase tracking-wide">
-                  <th className="px-2 py-2.5 text-center font-medium w-[30px]">ORD</th>
-                  <th className="px-2 py-2.5 text-center font-medium w-[30px]">PRO</th>
-                  <th className="px-2 py-2.5 text-center font-medium w-[30px]">VBP</th>
-                  <th className="px-2 py-2.5 text-center font-medium w-[30px]">PLN</th>
-                  <th className="px-2 py-2.5 text-center font-medium w-[30px]">PAP</th>
+                <tr className="border-b border-border bg-muted/40 text-muted-foreground text-base uppercase tracking-wide">
+                  <th className="px-2 py-2.5 text-left font-medium w-[180px]" title="Orden confirmada → Prueba lista → Visto Bueno cliente → Programada → Papel en bodega">Avance</th>
                   <th className="px-3 py-2.5 text-left font-medium w-[90px]">OT</th>
                   <th className="px-3 py-2.5 text-left font-medium">Cliente</th>
                   <th className="px-3 py-2.5 text-left font-medium">Trabajo</th>
@@ -309,21 +277,13 @@ export function OrdenesEnProceso() {
                           !(ot as any).flag_paper_arrived ? 'bg-amber-500/5' : idx % 2 === 0 ? '' : 'bg-muted/10'
                       }`}
                     >
-                        {/* FLAGS */}
-                        <td className="px-2 py-2 text-center">
-                          <FlagPill label="ORD" checked={!!(ot as any).flag_ord} onChange={(v) => patchOT(ot.id, { flag_ord: v })} activeColor="bg-blue-600 text-white" />
-                        </td>
-                        <td className="px-2 py-2 text-center">
-                          <FlagPill label="PRO" checked={!!(ot as any).flag_pro} onChange={(v) => patchOT(ot.id, { flag_pro: v })} activeColor="bg-violet-600 text-white" />
-                        </td>
-                        <td className="px-2 py-2 text-center">
-                          <FlagPill label="VBP" checked={!!(ot as any).flag_vbp} onChange={(v) => patchOT(ot.id, { flag_vbp: v })} activeColor="bg-amber-500 text-white" />
-                        </td>
-                        <td className="px-2 py-2 text-center">
-                          <FlagPill label="PLN" checked={!!(ot as any).flag_plan} onChange={(v) => patchOT(ot.id, { flag_plan: v })} activeColor="bg-cyan-600 text-white" />
-                        </td>
-                        <td className="px-2 py-2 text-center">
-                          <FlagPill label="PAP" checked={!!(ot as any).flag_paper_arrived} onChange={(v) => patchOT(ot.id, { flag_paper_arrived: v })} activeColor="bg-emerald-600 text-white" />
+                        {/* AVANCE — one control instead of 5 independent pills */}
+                        <td className="px-2 py-2">
+                          <AdvanceFlags
+                            ot={ot as Record<string, unknown>}
+                            onAdvance={(key) => patchOT(ot.id, { [key]: true })}
+                            onUndo={(key) => patchOT(ot.id, { [key]: false })}
+                          />
                         </td>
 
                         {/* OT # */}
@@ -356,7 +316,7 @@ export function OrdenesEnProceso() {
                         <div className="flex flex-col gap-1">
                           <Badge
                             variant="outline"
-                            className={`text-[10px] px-1.5 py-0 border w-fit ${
+                            className={`text-base px-2 py-0.5 border w-fit ${
                               otStatusBadgeClass(ot.status)
                             }`}
                           >
@@ -374,7 +334,7 @@ export function OrdenesEnProceso() {
 
                       {/* ENTREGA */}
                       {/* HRS */}
-                      <td className="px-3 py-2 text-right tabular-nums text-muted-foreground text-xs">
+                      <td className="px-3 py-2 text-right tabular-nums text-muted-foreground text-base">
                         {(ot as any).calc_print_hours != null || (ot as any).calc_finish_hours != null
                           ? (((ot as any).calc_print_hours ?? 0) + ((ot as any).calc_finish_hours ?? 0)).toFixed(1)
                           : '—'}
@@ -390,11 +350,11 @@ export function OrdenesEnProceso() {
                       </td>
 
                       {/* MAQ */}
-                      <td className="px-3 py-2 text-foreground text-xs">
+                      <td className="px-3 py-2 text-foreground text-base">
                         {machineName ? (
                           <span className="font-medium">{machineName}</span>
                         ) : (
-                          <span className="text-muted-foreground italic text-[11px]">Sin asignar</span>
+                          <span className="text-muted-foreground italic text-base">Sin asignar</span>
                         )}
                       </td>
                     </tr>

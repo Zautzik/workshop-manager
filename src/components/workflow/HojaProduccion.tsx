@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
+import { AdvanceFlags } from '@/components/workflow/AdvanceFlags';
 import {
   ChevronLeft, ChevronRight, Printer, RefreshCw, Plus,
   Clock, AlertTriangle, CheckCircle2, Wifi, WifiOff, Trash2,
@@ -67,26 +68,6 @@ const CONF_COLORS: Record<string, string> = {
   medium: 'bg-amber-500/20 text-amber-700 border-amber-500/30',
   low:    'bg-slate-400/20 text-slate-600 border-slate-400/30',
 };
-
-// ─── Flag pill ───────────────────────────────────────────────────────────────
-
-function FlagPill({
-  label, checked, onChange, color,
-}: { label: string; checked: boolean; onChange: () => void; color: string }) {
-  return (
-    <button
-      onClick={onChange}
-      title={label}
-      className={`h-5 px-1.5 rounded text-[9px] font-bold border transition-all select-none ${
-        checked
-          ? `${color} opacity-100`
-          : 'bg-muted/20 text-muted-foreground border-muted/40 opacity-50'
-      }`}
-    >
-      {label}
-    </button>
-  );
-}
 
 // ─── Shift load bar ──────────────────────────────────────────────────────────
 
@@ -331,11 +312,7 @@ export function HojaProduccion() {
                 <table className="w-full text-xs border-collapse">
                   <thead>
                     <tr className="border-b border-border bg-muted/20 text-muted-foreground uppercase tracking-wide text-[10px]">
-                      <th className="px-2 py-2 text-left w-5">ORD</th>
-                      <th className="px-2 py-2 text-left w-5">PRO</th>
-                      <th className="px-2 py-2 text-left w-5">VBP</th>
-                      <th className="px-2 py-2 text-left w-5">PLAN</th>
-                      <th className="px-2 py-2 text-left w-5">PAP</th>
+                      <th className="px-2 py-2 text-left w-[170px]">Avance</th>
                       <th className="px-2 py-2 text-left w-[70px]">O.T.</th>
                       <th className="px-2 py-2 text-left">Cliente</th>
                       <th className="px-2 py-2 text-left">Trabajo</th>
@@ -366,25 +343,12 @@ export function HojaProduccion() {
                             !ot.flag_paper_arrived ? 'opacity-70 bg-amber-500/5' : ''
                           } ${idx % 2 === 0 ? '' : 'bg-muted/5'}`}
                         >
-                          {/* Flags */}
-                          {(['flag_ord','flag_pro','flag_vbp','flag_plan'] as const).map(flag => (
-                            <td key={flag} className="px-1 py-1.5 text-center">
-                              <FlagPill
-                                label={flag.replace('flag_','').toUpperCase()}
-                                checked={!!ot[flag]}
-                                color="bg-primary/20 text-primary border-primary/30"
-                                onChange={() => patchFlag(ot.id, flag, !ot[flag])}
-                              />
-                            </td>
-                          ))}
-                          <td className="px-1 py-1.5 text-center">
-                            <FlagPill
-                              label="PAP"
-                              checked={!!ot.flag_paper_arrived}
-                              color={ot.flag_paper_arrived
-                                ? 'bg-green-500/20 text-green-700 border-green-500/30'
-                                : 'bg-amber-500/20 text-amber-700 border-amber-500/30'}
-                              onChange={() => patchFlag(ot.id, 'flag_paper_arrived', !ot.flag_paper_arrived)}
+                          {/* Avance — one control for the whole ORD→PAP chain */}
+                          <td className="px-2 py-1.5">
+                            <AdvanceFlags
+                              ot={ot}
+                              onAdvance={(key) => patchFlag(ot.id, key, true)}
+                              onUndo={(key) => patchFlag(ot.id, key, false)}
                             />
                           </td>
 
