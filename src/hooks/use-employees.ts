@@ -323,23 +323,24 @@ export function useCreateLeaveRequest() {
 			hours_requested?: number;
 			reason?: string;
 		}) => {
-			const { data: result, error } = await supabase
-				.from('leave_requests')
-				.insert([
-					{
-						employee_id: data.employee_id,
-						leave_type: data.leave_type as any,
-						start_date: data.start_date,
-						end_date: data.end_date,
-						hours_requested: data.hours_requested ?? 0,
-						reason: data.reason,
-						status: 'pending',
-					},
-				])
-				.select()
-				.single();
+			const res = await fetch('/api/leave-requests', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				credentials: 'include',
+				body: JSON.stringify({
+					employee_id: data.employee_id,
+					leave_type: data.leave_type,
+					start_date: data.start_date,
+					end_date: data.end_date,
+					hours_requested: data.hours_requested ?? 0,
+					reason: data.reason,
+				}),
+			});
 
-			if (error) throw error;
+			const result = await res.json().catch(() => null);
+			if (!res.ok) {
+				throw new Error(result?.error || 'No se pudo crear la solicitud');
+			}
 			return result;
 		},
 		onSuccess: (data) => {
@@ -364,15 +365,18 @@ export function useUpdateEmployee() {
 	return useMutation({
 		mutationFn: async (data: { id: string; [key: string]: any }) => {
 			const { id, ...updates } = data;
-			const { data: result, error } = await supabase
-				.from('employees')
-				.update(updates)
-				.eq('id', id)
-				.select()
-				.single();
+			const res = await fetch(`/api/employees/${id}`, {
+				method: 'PUT',
+				headers: { 'Content-Type': 'application/json' },
+				credentials: 'include',
+				body: JSON.stringify(updates),
+			});
 
-			if (error) throw error;
-			return result;
+			const payload = await res.json().catch(() => null);
+			if (!res.ok) {
+				throw new Error(payload?.error || 'No se pudo actualizar el empleado');
+			}
+			return payload?.data ?? payload;
 		},
 		onSuccess: (data) => {
 			// Invalidate relevant queries

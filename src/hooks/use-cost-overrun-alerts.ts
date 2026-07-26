@@ -43,18 +43,22 @@ export function useCostOverrunAlerts() {
       const pct       = Math.round(((actual - estimated) / estimated) * 100);
 
       try {
-        await supabase
-          .from('notifications')
-          .insert({
-            user_id:       user.id,
-            type:          'cost_overrun' as any,
+        // 'cost_overrun' is not a value of the notification_type enum — the old
+        // insert cast it with `as any`, so Postgres rejected every one of these
+        // and the catch below hid it. 'system_alert' is the real type.
+        await fetch('/api/notifications', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({
+            type:          'system_alert',
             title:         `⚠️ Desvío de costo: ${ot.ot_number ?? ot.id}`,
             message:       `OT "${ot.ot_number ?? ot.id}" supera el presupuesto en ${pct}%. Estimado: $${estimated.toFixed(0)} — Real: $${actual.toFixed(0)}`,
             resource_type: 'ot',
             resource_id:   ot.id,
             metadata:      { estimated, actual, pct, ot_number: ot.ot_number },
-            is_read:       false,
-          });
+          }),
+        });
       } catch {
         // Silent fail — notif is best-effort
       }

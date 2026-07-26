@@ -344,25 +344,18 @@ export function useUpsertMachineSupply() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (supply: Omit<MachineSupplyRequirement, 'id' | 'created_at' | 'updated_at' | 'inventory_items'> & { id?: string }) => {
-      const { id, ...rest } = supply;
-      if (id) {
-        const { data, error } = await supabase
-          .from('machine_supply_requirements')
-          .update({ ...rest, updated_at: new Date().toISOString() })
-          .eq('id', id)
-          .select()
-          .single();
-        if (error) throw error;
-        return data;
-      } else {
-        const { data, error } = await supabase
-          .from('machine_supply_requirements')
-          .insert(rest)
-          .select()
-          .single();
-        if (error) throw error;
-        return data;
+      // One call: the route decides insert vs update from the presence of `id`.
+      const res = await fetch('/api/machine-supplies', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(supply),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        throw new Error(data?.error || 'No se pudo guardar el insumo');
       }
+      return data;
     },
     onSuccess: (_d, vars) => {
       qc.invalidateQueries({ queryKey: Q.supplies(vars.machine_id) });
@@ -375,11 +368,14 @@ export function useDeleteMachineSupply() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ id, machineId }: { id: string; machineId: string }) => {
-      const { error } = await supabase
-        .from('machine_supply_requirements')
-        .delete()
-        .eq('id', id);
-      if (error) throw error;
+      const res = await fetch(`/api/machine-supplies?id=${encodeURIComponent(id)}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        throw new Error(body?.error || 'No se pudo eliminar el insumo');
+      }
       return machineId;
     },
     onSuccess: (_d, vars) => {
@@ -392,16 +388,17 @@ export function useUpsertMachineCost() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (entry: Omit<MachineCostEntry, 'id' | 'created_at'> & { id?: string }) => {
-      const { id, ...rest } = entry;
-      if (id) {
-        const { data, error } = await supabase.from('machine_cost_entries').update(rest).eq('id', id).select().single();
-        if (error) throw error;
-        return data;
-      } else {
-        const { data, error } = await supabase.from('machine_cost_entries').insert(rest).select().single();
-        if (error) throw error;
-        return data;
+      const res = await fetch('/api/machine-cost-entries', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(entry),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        throw new Error(data?.error || 'No se pudieron guardar los costos');
       }
+      return data;
     },
     onSuccess: (_d, vars) => {
       qc.invalidateQueries({ queryKey: Q.costs(vars.machine_id) });

@@ -274,32 +274,28 @@ export function useToggleProgramTaskLog() {
       completed: boolean;
       completedBy?: string | null;
     }) => {
-      if (isDevBypass) return;
-
-      if (completed) {
-        const { error } = await supabase
-          .from('program_task_logs')
-          .upsert(
-            {
+      // Through the API: works under dev bypass (requireAuth is satisfied
+      // server-side), and the server stamps who completed the task.
+      const res = completed
+        ? await fetch('/api/maintenance/programs/task-logs', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({
               task_id: taskId,
               program_id: programId,
               week_start: weekStart,
               day_of_week: dayOfWeek,
-              completed: true,
-              completed_by: completedBy ?? null,
-              completed_at: new Date().toISOString(),
-            },
-            { onConflict: 'task_id,week_start,day_of_week' }
+            }),
+          })
+        : await fetch(
+            `/api/maintenance/programs/task-logs?task_id=${encodeURIComponent(taskId)}&week_start=${encodeURIComponent(weekStart)}&day_of_week=${dayOfWeek}`,
+            { method: 'DELETE', credentials: 'include' }
           );
-        if (error) throw error;
-      } else {
-        const { error } = await supabase
-          .from('program_task_logs')
-          .delete()
-          .eq('task_id', taskId)
-          .eq('week_start', weekStart)
-          .eq('day_of_week', dayOfWeek);
-        if (error) throw error;
+
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        throw new Error(body?.error || 'No se pudo registrar la tarea');
       }
     },
     onSuccess: (_result, { programId, weekStart }) => {
@@ -323,13 +319,16 @@ export function useUpdateProgram() {
       source_language?: string;
       description?: string;
     }) => {
-      if (isDevBypass) return;
-
-      const { error } = await supabase
-        .from('maintenance_programs')
-        .update({ ...patch, updated_at: new Date().toISOString() })
-        .eq('id', id);
-      if (error) throw error;
+      const res = await fetch(`/api/maintenance/programs?id=${encodeURIComponent(id)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(patch),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        throw new Error(body?.error || 'No se pudo actualizar el programa');
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['maintenance-programs'] });
@@ -355,12 +354,16 @@ export function useCreateProgram() {
         } as { id: string; [key: string]: any };
       }
 
-      const { data, error } = await supabase
-        .from('maintenance_programs')
-        .insert({ ...program, is_active: true })
-        .select()
-        .single();
-      if (error) throw error;
+      const res = await fetch('/api/maintenance/programs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(program),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        throw new Error(data?.error || 'No se pudo crear el programa');
+      }
       return data as { id: string; [key: string]: any };
     },
     onSuccess: () => {
@@ -373,13 +376,16 @@ export function useDeleteProgram() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (id: string) => {
-      if (isDevBypass) return;
-
-      const { error } = await supabase
-        .from('maintenance_programs')
-        .update({ is_active: false, updated_at: new Date().toISOString() })
-        .eq('id', id);
-      if (error) throw error;
+      const res = await fetch(`/api/maintenance/programs?id=${encodeURIComponent(id)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ is_active: false }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        throw new Error(body?.error || 'No se pudo eliminar el programa');
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['maintenance-programs'] });
@@ -407,8 +413,16 @@ export function useUpdateTask() {
     }) => {
       if (isDevBypass) return;
 
-      const { error } = await supabase.from('program_tasks').update(patch as any).eq('id', id);
-      if (error) throw error;
+      const res = await fetch(`/api/maintenance/programs/tasks?id=${encodeURIComponent(id)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(patch),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        throw new Error(body?.error || 'No se pudo actualizar la tarea');
+      }
     },
     onSuccess: (_result, { programId }) => {
       queryClient.invalidateQueries({ queryKey: ['program-tasks', programId] });
@@ -439,12 +453,16 @@ export function useCreateTask() {
         };
       }
 
-      const { data, error } = await supabase
-        .from('program_tasks')
-        .insert({ ...task, is_active: true } as any)
-        .select()
-        .single();
-      if (error) throw error;
+      const res = await fetch('/api/maintenance/programs/tasks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(task),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        throw new Error(data?.error || 'No se pudo crear la tarea');
+      }
       return data;
     },
     onSuccess: (_result, { program_id }) => {
@@ -459,8 +477,16 @@ export function useDeleteTask() {
     mutationFn: async ({ id, programId }: { id: string; programId: string }) => {
       if (isDevBypass) return;
 
-      const { error } = await supabase.from('program_tasks').update({ is_active: false }).eq('id', id);
-      if (error) throw error;
+      const res = await fetch(`/api/maintenance/programs/tasks?id=${encodeURIComponent(id)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ is_active: false }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        throw new Error(body?.error || 'No se pudo eliminar la tarea');
+      }
     },
     onSuccess: (_result, { programId }) => {
       queryClient.invalidateQueries({ queryKey: ['program-tasks', programId] });
