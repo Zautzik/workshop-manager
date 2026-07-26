@@ -160,10 +160,16 @@ export async function POST(req: NextRequest) {
           ot_id: otId,
           workflow_step: WORKFLOW_STEP,
           operation_code: code,
-          description: `Mano de obra — ${who}${overtimeNote}`,
+          description: `Mano de obra ${line.currency} — ${who}${overtimeNote}`,
           category: 'impresion',
           quantity: line.hours,
           unit: 'hrs',
+          // ⚠ CURRENCY: `unit_cost` is written in the employee's own currency
+          // (compensation_rates.currency_code — 'USD' in the current data), while
+          // the rest of ot_real_costs comes from cost_catalog, which is CLP. A
+          // USD 16/h line sitting beside CLP 8.500/h lines understates labour by
+          // ~950×. The currency is stamped in `notes` below so the mix is at
+          // least visible, but the real fix is one money unit across the schema.
           unit_cost: line.hourlyRate,
           recorded_by: userId,
           notes: `Turno del ${date}. ${line.regularHours} h normales${
