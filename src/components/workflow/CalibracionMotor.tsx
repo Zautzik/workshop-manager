@@ -18,6 +18,7 @@
  */
 
 import { useMemo, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -147,11 +148,83 @@ function NumField({
   );
 }
 
+/**
+ * Real completed jobs, so the supervisor picks one instead of re-typing its
+ * specs from memory. Only the three numbers he actually knows — pliegos, press
+ * hours, finishing hours — are left for him to fill in.
+ */
+function useCompletedOTs() {
+  return useQuery<CompletedOT[]>({
+    queryKey: ['calibracion', 'completed-ots'],
+    queryFn: async () => {
+      const res = await fetch('/api/ots?limit=200', { credentials: 'include' });
+      if (!res.ok) return [];
+      const payload = await res.json().catch(() => null);
+      const list: any[] = Array.isArray(payload) ? payload : payload?.data ?? [];
+      return list
+        .filter(
+          (o) =>
+            o.status === 'completed' &&
+            o.width_cm &&
+            o.height_cm &&
+            o.grammage_gsm &&
+            Number(o.quantity) > 0 &&
+            !/SMOKE/i.test(String(o.ot_number ?? ''))
+        )
+        .map((o) => ({
+          id: o.id,
+          ot_number: o.ot_number,
+          product_name: o.product_name ?? '',
+          quantity: Number(o.quantity),
+          width_cm: Number(o.width_cm),
+          height_cm: Number(o.height_cm),
+          grammage_gsm: Number(o.grammage_gsm),
+          color_front: o.color_front ?? 'cmyk',
+          color_back: o.color_back ?? 'sin_impresion',
+        }));
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
+interface CompletedOT {
+  id: string;
+  ot_number: string;
+  product_name: string;
+  quantity: number;
+  width_cm: number;
+  height_cm: number;
+  grammage_gsm: number;
+  color_front: string;
+  color_back: string;
+}
+
 export function CalibracionMotor() {
   const [jobs, setJobs] = useState<HistoricalJob[]>(seedJobs);
+  const { data: completedOTs = [] } = useCompletedOTs();
 
   const update = (id: string, patch: Partial<HistoricalJob>) =>
     setJobs((prev) => prev.map((j) => (j.id === id ? { ...j, ...patch } : j)));
+
+  /** Load a real OT's specs into a card, leaving the actuals blank. */
+  const loadOT = (jobId: string, otId: string) => {
+    const ot = completedOTs.find((o) => o.id === otId);
+    if (!ot) return;
+    update(jobId, {
+      label: `${ot.ot_number} — ${ot.product_name}`,
+      quantity: ot.quantity,
+      width_cm: ot.width_cm,
+      height_cm: ot.height_cm,
+      grammage_gsm: ot.grammage_gsm,
+      color_front: ot.color_front,
+      color_back: ot.color_back,
+      // Deliberately NOT prefilled: these must come from the job jacket, not
+      // from the system, or the calibration just checks the engine against itself.
+      realSheets: 0,
+      realPrintHours: 0,
+      realFinishHours: 0,
+    });
+  };
 
   const rows = useMemo(
     () =>
@@ -232,6 +305,20 @@ export function CalibracionMotor() {
                 placeholder="Nombre del trabajo (ej: Etiqueta Cabernet 750ml)"
                 className="h-8 max-w-sm text-sm font-medium"
               />
+              {completedOTs.length > 0 && (
+                <Select value="" onValueChange={(v) => loadOT(job.id, v)}>
+                  <SelectTrigger className="h-8 w-56 text-xs">
+                    <SelectValue placeholder="Cargar una OT terminada…" />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-72">
+                    {completedOTs.map((o) => (
+                      <SelectItem key={o.id} value={o.id} className="text-xs">
+                        {o.ot_number} — {o.product_name || 'sin nombre'}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
               <Button
                 variant="ghost"
                 size="icon"
