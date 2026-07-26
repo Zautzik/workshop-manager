@@ -270,7 +270,12 @@ function ScoreBar({ label, value }: { label: string; value: number }) {
   );
 }
 
-export default function PersonasModule() {
+/**
+ * `embedded` — rendered inside the Consola Operativa tab, where the page already
+ * supplies the title and the talent section lives on its own route. Standalone
+ * rendering keeps both.
+ */
+export default function PersonasModule({ embedded = false }: { embedded?: boolean } = {}) {
   const { data: people = [], isLoading, isError, error } = useConsolidatedPeople();
   const { data: roster } = useLatestRoster();
   const { data: presentNow } = usePresentNow();
@@ -313,28 +318,32 @@ export default function PersonasModule() {
   }, [people]);
 
   return (
-    <div className="p-6 space-y-10 max-w-[1200px] mx-auto">
-      {/* ── Module header ─────────────────────────────────────── */}
-      <header className="space-y-1">
-        <div className="flex items-center gap-2 text-amber-500">
-          <Users className="h-5 w-5" />
-          <span className="text-xs font-semibold uppercase tracking-widest">Personas</span>
-        </div>
-        <h1 className="text-2xl font-bold text-foreground">Módulo de Personas</h1>
-        <p className="text-sm text-muted-foreground">
-          Una consola operativa para el día a día y un centro de desarrollo de talento, como secciones distintas.
-        </p>
-      </header>
+    <div className={embedded ? 'space-y-6' : 'p-6 space-y-10 max-w-[1200px] mx-auto'}>
+      {!embedded && (
+        <header className="space-y-1">
+          <div className="flex items-center gap-2 text-amber-500">
+            <Users className="h-5 w-5" />
+            <span className="text-xs font-semibold uppercase tracking-widest">Personas</span>
+          </div>
+          <h1 className="text-2xl font-bold text-foreground">Módulo de Personas</h1>
+          <p className="text-sm text-muted-foreground">
+            Una consola operativa para el día a día y un centro de desarrollo de talento, como secciones distintas.
+          </p>
+        </header>
+      )}
 
-      {/* ══ SECCIÓN 1 · CONSOLA OPERATIVA ═══════════════════════ */}
       <section className="space-y-4">
-        <div className="flex items-baseline gap-3">
-          <span className="font-mono text-xs font-semibold text-primary tracking-wide">SECCIÓN 1</span>
-          <h2 className="text-xl font-bold text-foreground">Consola Operativa</h2>
-        </div>
-        <p className="text-sm text-muted-foreground -mt-2">
-          Quién es cada persona, cuánto cuesta y qué sabe hacer — en una sola fila. Toca una fila para ver el detalle.
-        </p>
+        {!embedded && (
+          <>
+            <div className="flex items-baseline gap-3">
+              <span className="font-mono text-xs font-semibold text-primary tracking-wide">SECCIÓN 1</span>
+              <h2 className="text-xl font-bold text-foreground">Consola Operativa</h2>
+            </div>
+            <p className="text-sm text-muted-foreground -mt-2">
+              Quién es cada persona, cuánto cuesta y qué sabe hacer — en una sola fila. Toca una fila para ver el detalle.
+            </p>
+          </>
+        )}
 
         {/* Summary strip */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
@@ -435,30 +444,33 @@ export default function PersonasModule() {
         </p>
       </section>
 
-      {/* ══ SECCIÓN 2 · CENTRO DE DESARROLLO DE TALENTO ═════════ */}
-      <section className="space-y-4">
-        <div className="flex items-baseline gap-3">
-          <span className="font-mono text-xs font-semibold text-emerald-500 tracking-wide">SECCIÓN 2</span>
-          <h2 className="text-xl font-bold text-foreground">Centro de Desarrollo de Talento</h2>
-        </div>
-        <p className="text-sm text-muted-foreground -mt-2">
-          Cómo crece cada persona. Distinto de la operación: otra cadencia, otra intención — desarrollar, no despachar el turno.
-        </p>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-          {DEV_LINKS.map(link => (
-            <Link key={link.href} href={link.href} className="group">
-              <Card className="p-5 h-full border-border transition-colors hover:border-primary/40 hover:bg-muted/30">
-                <div className="flex items-center justify-between mb-3">
-                  <link.icon className={`h-6 w-6 ${link.accent}`} />
-                  <ArrowUpRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
-                </div>
-                <div className="font-semibold text-foreground">{link.label}</div>
-                <div className="text-xs text-muted-foreground mt-1 leading-relaxed">{link.desc}</div>
-              </Card>
-            </Link>
-          ))}
-        </div>
-      </section>
+      {/* Talent development is its own workspace at /personas/talento; when this
+          module is embedded in the operational console it must not duplicate it. */}
+      {!embedded && (
+        <section className="space-y-4">
+          <div className="flex items-baseline gap-3">
+            <span className="font-mono text-xs font-semibold text-emerald-500 tracking-wide">SECCIÓN 2</span>
+            <h2 className="text-xl font-bold text-foreground">Centro de Desarrollo de Talento</h2>
+          </div>
+          <p className="text-sm text-muted-foreground -mt-2">
+            Cómo crece cada persona. Distinto de la operación: otra cadencia, otra intención — desarrollar, no despachar el turno.
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            {DEV_LINKS.map(link => (
+              <Link key={link.href} href={link.href} className="group">
+                <Card className="p-5 h-full border-border transition-colors hover:border-primary/40 hover:bg-muted/30">
+                  <div className="flex items-center justify-between mb-3">
+                    <link.icon className={`h-6 w-6 ${link.accent}`} />
+                    <ArrowUpRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                  </div>
+                  <div className="font-semibold text-foreground">{link.label}</div>
+                  <div className="text-xs text-muted-foreground mt-1 leading-relaxed">{link.desc}</div>
+                </Card>
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
     </div>
   );
 }

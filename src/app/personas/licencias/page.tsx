@@ -38,7 +38,7 @@ function useAllLeaveRequests() {
   });
 }
 
-function LicenciasContent() {
+export function LicenciasContent() {
   const { data: requests = [], isLoading } = useAllLeaveRequests();
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');

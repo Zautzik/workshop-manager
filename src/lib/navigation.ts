@@ -213,27 +213,33 @@ export const MODULES: NavModule[] = [
     activeBg: 'bg-amber-100 dark:bg-amber-500/20',
     activeIcon: 'text-amber-600 dark:text-amber-300',
     groups: [
-      // Two sections with different jobs, kept visibly apart: the day-to-day
-      // operation of the team, and the long game of growing it.
+      // Two destinations, not two menus. Each one is an integrated workspace
+      // that absorbed the pages that used to be scattered around it: the team
+      // as it runs today, and the long game of growing it.
       {
-        label: 'Consola Operativa',
+        label: 'Operación',
         color: 'from-amber-500/10 to-orange-500/5', border: 'border-amber-500/20', heading: 'text-amber-400',
         items: [
-          { label: 'Consola',    href: '/personas/consola',   description: 'Todo el equipo en una fila por persona: contrato, tarifa y su puesto hoy', icon: LayoutDashboard, color: 'bg-amber-500/10 text-amber-400' },
-          { label: 'Empleados',  href: '/personas/empleados', description: 'Fichas: identidad, contrato y tarifa en un solo lugar',                    icon: Users,           color: 'bg-orange-500/10 text-orange-400' },
-          { label: 'Contratos',  href: '/personas/contratos', description: 'Contratos y documentos laborales',                                          icon: FileText,        color: 'bg-slate-500/10 text-slate-400' },
-          { label: 'Retribución',href: '/personas/nomina',    description: 'Nómina del mes y compensación por persona',                                 icon: Wallet,          color: 'bg-green-500/10 text-green-400' },
-          { label: 'Asistencia', href: '/personas/licencias', description: 'Presencia, licencias y permisos del equipo',                                 icon: UserCheck,       color: 'bg-sky-500/10 text-sky-400' },
+          {
+            label: 'Consola Operativa',
+            href: '/personas/consola',
+            description: 'El equipo hoy — fichas, contratos, retribución y asistencia en un solo lugar',
+            icon: LayoutDashboard,
+            color: 'bg-amber-500/10 text-amber-400',
+          },
         ],
       },
       {
-        label: 'Centro de Desarrollo de Talento',
+        label: 'Talento',
         color: 'from-violet-500/10 to-teal-500/5', border: 'border-violet-500/20', heading: 'text-violet-400',
         items: [
-          { label: 'Habilidades',    href: '/personas/habilidades',    description: 'Competencias, niveles de maestría y árbol de oficios', icon: Network,       color: 'bg-violet-500/10 text-violet-400' },
-          { label: 'Capacitación',   href: '/personas/capacitacion',   description: 'Cursos, formación y planes de desarrollo',             icon: GraduationCap, color: 'bg-teal-500/10 text-teal-400' },
-          { label: 'Certificaciones',href: '/personas/certificaciones',description: 'Certificaciones y acreditaciones del personal',        icon: Award,         color: 'bg-amber-500/10 text-amber-400' },
-          { label: 'Incentivos',     href: '/personas/incentivos',     description: 'Bonos, premios y reconocimientos',                     icon: Gift,          color: 'bg-rose-500/10 text-rose-400' },
+          {
+            label: 'Desarrollo de Talento',
+            href: '/personas/talento',
+            description: 'Habilidades, capacitación, certificaciones e incentivos',
+            icon: Network,
+            color: 'bg-violet-500/10 text-violet-400',
+          },
         ],
       },
     ],

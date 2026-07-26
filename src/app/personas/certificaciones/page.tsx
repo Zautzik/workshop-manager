@@ -25,7 +25,7 @@ function useAllSkillCerts() {
   });
 }
 
-function CertificacionesContent() {
+export function CertificacionesContent() {
   const { data: certs = [], isLoading } = useAllSkillCerts();
   const [search, setSearch] = useState('');
 

@@ -25,7 +25,7 @@ function useAllIncentives() {
   });
 }
 
-function IncentivosContent() {
+export function IncentivosContent() {
   const { data: incentives = [], isLoading } = useAllIncentives();
   const [search, setSearch] = useState('');
 

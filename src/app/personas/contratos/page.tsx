@@ -35,7 +35,7 @@ function useAllContracts() {
   });
 }
 
-function ContratosContent() {
+export function ContratosContent() {
   const { data: contracts = [], isLoading } = useAllContracts();
   const [search, setSearch] = useState('');
 
