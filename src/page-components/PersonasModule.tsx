@@ -310,11 +310,10 @@ export default function PersonasModule({ embedded = false }: { embedded?: boolea
     const active = people.length;
     const withComp = people.filter(p => p.comp?.hourly_rate != null);
     const hourlySum = withComp.reduce((s, p) => s + Number(p.comp.hourly_rate || 0), 0);
-    const currency = withComp[0]?.comp?.currency_code || 'USD';
     const ratings = people.filter(p => p.rating > 0).map(p => p.rating);
     const avgRating = ratings.length ? Math.round(ratings.reduce((s, r) => s + r, 0) / ratings.length) : 0;
     const gaps = people.filter(p => !p.contract || !p.comp).length;
-    return { active, hourlySum, currency, avgRating, gaps, hasComp: withComp.length > 0 };
+    return { active, hourlySum, avgRating, gaps, hasComp: withComp.length > 0 };
   }, [people]);
 
   return (

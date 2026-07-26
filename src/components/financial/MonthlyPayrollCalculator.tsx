@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { useMonthlyPayroll } from '@/hooks/use-financial-queries';
+import { formatCLP } from '@/lib/format';
 
 const getCurrentMonthValue = () => {
   const now = new Date();
@@ -56,7 +57,7 @@ export function MonthlyPayrollCalculator() {
     );
   }, [rows]);
 
-  const currency = (rows as any[])[0]?.currency_code || 'USD';
+  // Una sola moneda: CLP en pesos enteros (ver migración 20260726150000).
 
   return (
     <div className='space-y-6'>
@@ -108,7 +109,7 @@ export function MonthlyPayrollCalculator() {
                   <CardTitle className='text-sm text-muted-foreground'>Incentivos</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className='text-2xl font-semibold'>{currency} {Math.round(totals.incentives).toLocaleString('es-CL')}</p>
+                  <p className='text-2xl font-semibold'>{formatCLP(totals.incentives)}</p>
                 </CardContent>
               </Card>
 
@@ -117,7 +118,7 @@ export function MonthlyPayrollCalculator() {
                   <CardTitle className='text-sm text-muted-foreground'>Nómina Bruta</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className='text-2xl font-semibold'>{currency} {Math.round(totals.grossPay).toLocaleString('es-CL')}</p>
+                  <p className='text-2xl font-semibold'>{formatCLP(totals.grossPay)}</p>
                 </CardContent>
               </Card>
             </div>
@@ -151,12 +152,12 @@ export function MonthlyPayrollCalculator() {
                     <td className='py-2 px-3'>{row.employee_name}</td>
                     <td className='py-2 px-3 text-right'>{Math.round(Number(row.regular_hours || 0))}</td>
                     <td className='py-2 px-3 text-right'>{Math.round(Number(row.overtime_hours || 0))}</td>
-                    <td className='py-2 px-3 text-right'>{currency} {Math.round(Number(row.base_pay || 0)).toLocaleString('es-CL')}</td>
-                    <td className='py-2 px-3 text-right'>{currency} {Math.round(Number(row.overtime_pay || 0)).toLocaleString('es-CL')}</td>
-                    <td className='py-2 px-3 text-right'>{currency} {Math.round(Number(row.night_differential || 0)).toLocaleString('es-CL')}</td>
-                    <td className='py-2 px-3 text-right'>{currency} {Math.round(Number(row.weekend_differential || 0)).toLocaleString('es-CL')}</td>
-                    <td className='py-2 px-3 text-right'>{currency} {Math.round(Number(row.incentives || 0)).toLocaleString('es-CL')}</td>
-                    <td className='py-2 px-3 text-right font-semibold'>{currency} {Math.round(Number(row.gross_pay || 0)).toLocaleString('es-CL')}</td>
+                    <td className='py-2 px-3 text-right'>{formatCLP(Number(row.base_pay || 0))}</td>
+                    <td className='py-2 px-3 text-right'>{formatCLP(Number(row.overtime_pay || 0))}</td>
+                    <td className='py-2 px-3 text-right'>{formatCLP(Number(row.night_differential || 0))}</td>
+                    <td className='py-2 px-3 text-right'>{formatCLP(Number(row.weekend_differential || 0))}</td>
+                    <td className='py-2 px-3 text-right'>{formatCLP(Number(row.incentives || 0))}</td>
+                    <td className='py-2 px-3 text-right font-semibold'>{formatCLP(Number(row.gross_pay || 0))}</td>
                   </tr>
                 ))}
                 {(rows as any[]).length === 0 && !isLoading && (

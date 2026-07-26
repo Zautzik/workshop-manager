@@ -21,6 +21,7 @@ import { useDraggable } from '@dnd-kit/core';
 import { useToast } from '@/hooks/use-toast';
 import { getWorkerPrimaryStationType, getWorkerQualificationScore } from '@/lib/workstation-skills';
 import { useStationsUnderMaintenance } from '@/hooks/use-maintenance-queries';
+import { formatCLP } from '@/lib/format';
 
 interface WorkstationLayoutProps {
 	workstations: any[];
@@ -596,7 +597,7 @@ export function WorkstationLayout({
 					: 'Availability: assigned in another shift, OT risk elevated'
 				: 'Availability: free in this shift',
 			costInfo?.hourlyRate
-				? `Cost estimate: ${costInfo.currencyCode || 'USD'} ${(costInfo.estimatedCost || 0).toFixed(2)} (rate ${costInfo.hourlyRate.toFixed(2)}/hr)`
+				? `Costo estimado: ${formatCLP(costInfo.estimatedCost || 0)} (tarifa ${formatCLP(costInfo.hourlyRate)}/h)`
 				: 'Cost estimate: no active compensation rate for selected date',
 			`Performance rating: ${rating.toFixed(0)}/100`,
 			`Selection rationale balances skill, availability, cost, and overtime risk`,

@@ -313,7 +313,7 @@ export async function POST(request: NextRequest) {
 						overtime_multiplier_100: body.overtime_multiplier_100 || 2.0,
 						night_shift_multiplier: body.night_shift_multiplier || 1.0,
 						weekend_multiplier: body.weekend_multiplier || 1.0,
-						currency_code: body.currency_code || 'USD',
+						currency_code: body.currency_code || 'CLP',
 						incentive_eligibility: body.incentive_eligibility ?? true,
 						effective_from: hire_date,
 						effective_to: body.effective_to || null,

@@ -240,7 +240,7 @@ export function useMonthlyPayroll(year: number, month: number) {
         const ot100Multiplier = Number(activeRate?.overtime_multiplier_100 || 2);
         const nightMultiplier = Number(activeRate?.night_shift_multiplier || 1);
         const weekendMultiplier = Number(activeRate?.weekend_multiplier || 1);
-        const currencyCode = activeRate?.currency_code || 'USD';
+        const currencyCode = activeRate?.currency_code || 'CLP';
 
         const regularHours = overtime ? 0 : hours;
         const overtimeHours = overtime ? hours : 0;
@@ -307,12 +307,12 @@ export function useMonthlyPayroll(year: number, month: number) {
           weekend_differential: 0,
           incentives: 0,
           gross_pay: 0,
-          currency_code: incentive?.currency_code || 'USD',
+          currency_code: incentive?.currency_code || 'CLP',
           assignments_count: 0,
         };
         existing.incentives += Number(incentive?.amount || 0);
         if (!existing.currency_code) {
-          existing.currency_code = incentive?.currency_code || 'USD';
+          existing.currency_code = incentive?.currency_code || 'CLP';
         }
         rowsByEmployee.set(employeeId, existing);
       });
