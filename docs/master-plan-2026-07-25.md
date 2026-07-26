@@ -31,10 +31,10 @@ The plan is therefore ordered as: **close the doors, then connect the modules, t
 
 | # | Item | Where | Accept when | Size | Status |
 |---|------|-------|-------------|------|--------|
-| L1.1 | **OWNER** Remove/complete junk employee rows (`fdf` US$213/h, `Ñaño`, Pedro Bodeguero incomplete) | DB | Personas console shows 0 "brecha de datos" | S | awaiting approval |
+| L1.1 | Remove/complete junk employee rows | DB | Personas console shows 0 "brecha de datos" | S | **DONE 2026-07-26.** `fdf`, `Ñaño` and `Pedro Bodeguero` (seed UUID `c0000000-…0001`) archived, plus `fdf`'s stale assignment removed. **20 active employees, 0 gaps**; team cost/hour now a defensible US$241,50 instead of US$459,50 inflated by `fdf`'s bogus US$213/h. Archived, not hard-deleted — the API soft-deletes, which is reversible and enough for every view |
 | L1.2 | Last demo-path silent write: `scheduling_cost_models` | `PlantaBoard.tsx` ~593 | cost model saves under dev-bypass | S | — |
 | L1.3 | Verify `NEXT_PUBLIC_DEV_BYPASS` off in production | Vercel | smoke green vs prod build | S | — |
-| L1.4 | **OWNER** Dry-run demo script + §6.6 calibration with Guillermo (3 historical jobs) | — | variance within agreed tolerance | M | — |
+| L1.4 | **OWNER** Dry-run demo script + §6.6 calibration with Guillermo | — | desvío dentro de ±10% | M | **Harness built** (`/analitica/calibracion`): Guillermo enters three historical jobs he knows the truth about — pliegos, horas de prensa, horas de terminación — and sees engine estimate vs reality with the deviation per measure and a pass/fail gate at ±10%. Writes nothing; it is a measuring instrument. Tune `CALIBRATION` in `ot-calculations.ts`, reload, watch all three move at once. **Still needs Guillermo's real numbers — that input cannot be invented** |
 
 ---
 
@@ -86,14 +86,35 @@ The plan is therefore ordered as: **close the doors, then connect the modules, t
 
 ---
 
-## WAVE D — Connect the remaining modules
-> The seams the cross-module audit found cut or duplicated.
+## WAVE D — Connect the remaining modules · **prepared 2026-07-26, ready to build**
+> The seams the cross-module audit found cut or duplicated. Scope re-verified against the schema before starting; one of the three turned out not to be a gap at all.
 
-| # | Item | Where | Accept when | Size |
-|---|------|-------|-------------|------|
-| D.1 | **M2+M6** Maintenance rules the plant: open work order → linked station shows "en mantención", warns on assign, auto-fill skips it; closing restores. Work orders feed `machine_downtime_logs` (today: a dead table, zero readers/writers) | maintenance + `WorkstationLayout` | availability/OEE emerges without a new form | L |
-| D.2 | **M3** The machine sets its own rate: derive/contrast catalog hourly rate from `energy_cost_per_hr` + prorated maintenance + depreciation, with a drift indicator | machine profile + costing | "catálogo $55.000 · real $61.200 · +11%" | M |
-| D.3 | **M8** "Convertir en OT" on a won quote — pre-populated, `quote_id` retained | new route + Comercial | quote → OT with zero re-typing; variance vs quoted | L |
+> ### ⚠️ Second correction to the cross-module audit — D.3 already exists
+> M8 claimed there was no quote→OT conversion. Wrong: the quote entity in this codebase is **`vistos_buenos`**, not a table called `quotes`/`cotizaciones`, and I searched for the wrong noun. `POST /api/vistos-buenos/[id]/convert` calls the `convert_vb_to_ot` RPC, freezes the estimate into the cost ledger, is **idempotent**, and already has a "Convertir" button in `/comercial/cotizaciones`. **Nothing to build.** Wave D is two items, not three.
+
+**D.1 — Maintenance rules the plant (M2 + M6) · L**
+Everything needed for the join exists; nothing consumes it.
+- `workstations.machine_id` → `machines.id` is the link between a machine and its floor position.
+- `maintenance_work_orders` carries `machine_id`, `status`, `started_at`, `completed_at`, `total_time_minutes`.
+- `machine_downtime_logs` (`machine_id`, `reason`, `start_time`, `end_time`, `duration_hours`, `impact_description`) — **still zero readers and zero writers in all of `src`.** It is the raw material for availability/OEE.
+
+Steps:
+1. `GET /api/maintenance/work-orders?status=in_progress` → set of machine ids currently down.
+2. `WorkstationLayout`: stations whose `machine_id` is in that set render an "en mantención" band, refuse drops with a Spanish explanation, and are skipped by auto-fill.
+3. The work-order routes (already built in Wave B) open a `machine_downtime_logs` row on start and close it on completion — capture from the act, no extra form, same philosophy as the QR clock.
+4. Availability per machine surfaces in Analítica/Máquinas from that table.
+Accept when: a machine with an open work order cannot receive operators, and closing the order restores it and writes a downtime row with a real duration.
+
+**D.2 — The machine sets its own rate (M3) · M**
+Two truths that never meet:
+- `machines` holds `energy_cost_per_hr`, `maintenance_cost_monthly`, `depreciation_monthly`, `power_kw`, `nominal_speed_sheets_hr`.
+- The costing catalog holds `offset_print_per_hour` (engine fallback $55.000/h), resolved by `catalog_key`.
+
+Steps:
+1. Pure helper `machineHourlyCost(machine, monthlyHours)` = energy + (maintenance + depreciation) ÷ hours — unit-tested like the attribution engine.
+2. Machine profile shows both with the drift: *"catálogo $55.000 · real calculado $61.200 · +11%"*.
+3. The costing resolver optionally prefers the derived rate when the machine has complete economics, falling back to the catalog otherwise.
+Accept when: the quote for a job on a specific press reflects what that press actually costs, and the drift is visible rather than silent.
 
 ---
 
