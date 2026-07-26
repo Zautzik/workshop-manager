@@ -64,6 +64,8 @@ export interface UnifiedOTForm {
   pantone_colors: string[];
   finishes: OTFinishes;
   attachments: File[];
+  /** true = la OT nace declaradamente sin arte; visible hasta que se adjunte. */
+  sin_arte: boolean;
 
   /* ─ Step 3: Production detail ────────────────────────────── */
   production_detail: OTProductionDetail;
@@ -131,6 +133,7 @@ export const EMPTY_UNIFIED_FORM: UnifiedOTForm = {
     finish_numeracion: false,
   },
   attachments: [],
+  sin_arte: false,
 
   production_detail: {
     production_description: '',

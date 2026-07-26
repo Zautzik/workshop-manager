@@ -35,6 +35,8 @@ const OTOperationSchema = z.object({
 });
 
 const UpdateOTSchema = z.object({
+	// Se limpia cuando por fin llega el arte (o se marca si los uploads fallaron).
+	sin_arte: z.boolean().optional(),
 	ot_number: z.string().min(1).max(100).optional(),
 	client_name: z.string().min(1).max(255).optional(),
 	description: z.string().max(2000).optional().nullable(),

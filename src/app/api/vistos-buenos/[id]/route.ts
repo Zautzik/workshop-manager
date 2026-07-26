@@ -29,6 +29,28 @@ export async function PATCH(
   const b = await req.json().catch(() => null);
   if (!b) return NextResponse.json({ error: 'Cuerpo inválido' }, { status: 400 });
 
+  // La imagen ES lo que el cliente firma. Un VB firmado sin el visual aprobado
+  // es una firma sobre el aire: cuando llegue el reclamo de "me imprimieron el
+  // pantone equivocado", no hay nada que mostrar. El servidor lo exige — un
+  // botón deshabilitado en la UI es una sugerencia, un 400 es una regla.
+  if (b.status === 'signed') {
+    const { count } = await supabaseAdmin
+      .from('ot_attachments')
+      .select('id', { count: 'exact', head: true })
+      .eq('vb_id' as any, id);
+
+    if (!count || count === 0) {
+      return NextResponse.json(
+        {
+          error:
+            'No se puede firmar sin la imagen aprobada. Sube el visual que el cliente está aprobando — es lo único que defiende la firma después.',
+          code: 'VB_SIN_IMAGEN',
+        },
+        { status: 400 }
+      );
+    }
+  }
+
   const patch: Record<string, unknown> = {};
   if (b.status) patch.status = b.status;
   if (b.signed_by_name !== undefined) patch.signed_by_name = b.signed_by_name;

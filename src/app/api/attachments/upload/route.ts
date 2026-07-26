@@ -34,13 +34,15 @@ export async function POST(req: NextRequest) {
     const file = formData.get('file');
     const otId = (formData.get('ot_id') as string | null) ?? null;
     const draftId = (formData.get('draft_id') as string | null) ?? null;
+    // Third anchor: the visual a client approves when signing a Visto Bueno.
+    const vbId = (formData.get('vb_id') as string | null) ?? null;
 
     if (!(file instanceof File)) {
-      return NextResponse.json({ error: 'File is required' }, { status: 400 });
+      return NextResponse.json({ error: 'Se requiere un archivo' }, { status: 400 });
     }
 
-    if (!otId && !draftId) {
-      return NextResponse.json({ error: 'ot_id or draft_id is required' }, { status: 400 });
+    if (!otId && !draftId && !vbId) {
+      return NextResponse.json({ error: 'Se requiere ot_id, draft_id o vb_id' }, { status: 400 });
     }
 
     if (file.size > MAX_SIZE) {
@@ -55,7 +57,7 @@ export async function POST(req: NextRequest) {
 
     const now = Date.now();
     const cleanName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-    const folder = otId ? `ot/${otId}` : `draft/${draftId}`;
+    const folder = otId ? `ot/${otId}` : draftId ? `draft/${draftId}` : `vb/${vbId}`;
     const storagePath = `${folder}/${now}_${cleanName}`;
 
     const bytes = await file.arrayBuffer();
@@ -78,6 +80,7 @@ export async function POST(req: NextRequest) {
         {
           ot_id: otId,
           draft_id: draftId,
+          vb_id: vbId,
           filename: file.name,
           storage_path: storagePath,
           file_size: file.size,

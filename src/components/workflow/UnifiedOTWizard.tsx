@@ -275,6 +275,18 @@ export function UnifiedOTWizard({ onClose, onSuccess }: Props) {
 
   /* ── Submit to API ──────────────────────────────────────────── */
   const handleSubmit = async () => {
+    // La imagen ES el trabajo. Sin arte adjunto y sin la declaración explícita
+    // de que aún no existe, la OT no se crea — y el servidor lo re-verifica.
+    if (form.attachments.length === 0 && !form.sin_arte) {
+      toast({
+        title: 'Falta el arte',
+        description:
+          'Adjunta la imagen del trabajo, o marca "todavía no hay arte" para crearla declaradamente incompleta.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     setSubmitting(true);
     try {
       // 1) Generate OT number (plant correlative, e.g. OT-40502)
@@ -287,6 +299,8 @@ export function UnifiedOTWizard({ onClose, onSuccess }: Props) {
 
       // 2) Prepare API payload
       const payload = {
+        art_files: form.attachments.length,
+        sin_arte: form.sin_arte,
         ot_number,
         client_name: form.client_name,
         client_id: form.client_id || null,
@@ -402,6 +416,16 @@ export function UnifiedOTWizard({ onClose, onSuccess }: Props) {
           description: `Se subieron ${attachmentResult.uploaded} archivo(s) y ${attachmentResult.failed} fallaron.`,
           variant: 'destructive',
         });
+        // Every upload failed on an OT that promised art: mark it sin_arte so
+        // the state stays honest and the badge asks for the file until it lands.
+        if (attachmentResult.uploaded === 0 && !form.sin_arte) {
+          await fetch(`/api/ots/${createdOT.id}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ sin_arte: true }),
+          }).catch(() => null);
+        }
       }
 
       onSuccess();

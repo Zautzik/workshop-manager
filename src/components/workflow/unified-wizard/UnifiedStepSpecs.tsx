@@ -388,6 +388,25 @@ export function UnifiedStepSpecs({ form, updateForm }: Props) {
           files={form.attachments}
           onFilesChange={(files) => updateForm({ attachments: files })}
         />
+
+        {/* La imagen ES el trabajo: sin arte no hay OT — salvo declaración
+            explícita. El sistema rechaza lo silenciosamente incorrecto y
+            permite lo explícitamente incompleto (mismo patrón que la ficha
+            incompleta de Personas). */}
+        {form.attachments.length === 0 && (
+          <label className="flex items-start gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-700 dark:text-amber-400 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={form.sin_arte}
+              onChange={(e) => updateForm({ sin_arte: e.target.checked })}
+              className="mt-0.5"
+            />
+            <span>
+              Todavía no hay arte. La OT se creará marcada <b>&ldquo;sin arte&rdquo;</b> y lo
+              mostrará hasta que alguien lo adjunte — prensa no imprime de memoria.
+            </span>
+          </label>
+        )}
       </Card>
     </div>
   );

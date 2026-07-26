@@ -49,6 +49,14 @@ const OTOperationSchema = z.object({
 });
 
 const CreateOTSchema = z.object({
+	// La imagen ES el trabajo: una OT sin arte es cómo se imprimen 150.000
+	// etiquetas de memoria. El que crea debe declarar una de dos cosas:
+	// que va a subir arte de inmediato (art_files >= 1, el wizard sube justo
+	// después de crear) o que la OT nace explícitamente sin arte (sin_arte),
+	// bandera que queda visible hasta que alguien lo adjunte. Se rechaza lo
+	// silenciosamente incorrecto; se permite lo explícitamente incompleto.
+	art_files: z.coerce.number().int().min(0).optional(),
+	sin_arte: z.boolean().optional(),
 	ot_number: z.string().min(1).max(100),
 	client_name: z.string().min(1).max(255),
 	description: z.string().max(2000).optional().nullable(),
@@ -209,6 +217,18 @@ export async function POST(req: NextRequest) {
 		}
 
 		const d = parsed.data;
+
+		if (!(Number(d.art_files ?? 0) >= 1) && d.sin_arte !== true) {
+			return NextResponse.json(
+				{
+					error:
+						'Una OT necesita su arte adjunto, o la declaración explícita de que aún no existe (sin_arte). Sin imagen, prensa imprime de memoria.',
+					code: 'OT_SIN_ARTE',
+				},
+				{ status: 400 }
+			);
+		}
+
 		const operations = d.operations || [];
 
 		// Map priority_level to legacy priority integer for backwards compat
@@ -230,6 +250,7 @@ export async function POST(req: NextRequest) {
 					product_name: d.product_name || null,
 					product_type: d.product_type || null,
 					priority_level: d.priority_level || 'normal',
+					sin_arte: d.sin_arte === true,
 					template_id: d.template_id || null,
 					width_cm: d.width_cm || null,
 					height_cm: d.height_cm || null,

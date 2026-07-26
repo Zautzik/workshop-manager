@@ -68,6 +68,9 @@ function CotizacionesInner() {
 
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  // VB en proceso de firma: pide la imagen aprobada como parte del acto.
+  const [signFlow, setSignFlow] = useState<string | null>(null);
+  const [signing, setSigning] = useState(false);
   const [form, setForm] = useState({
     client_id: '', product_name: '', quantity: 100000,
     width_cm: 9, height_cm: 12, grammage_gsm: 115,
@@ -116,9 +119,41 @@ function CotizacionesInner() {
       method: 'PATCH', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status, signed_by_name: status === 'signed' ? 'Cliente' : undefined }),
     });
-    if (!res.ok) { toast.error('No se pudo actualizar'); return; }
+    if (!res.ok) {
+      const b = await res.json().catch(() => null);
+      // Sin imagen no hay firma: el servidor lo exige, la UI abre el paso.
+      if (b?.code === 'VB_SIN_IMAGEN') { setSignFlow(id); return; }
+      toast.error(b?.error ?? 'No se pudo actualizar');
+      return;
+    }
     toast.success(status === 'signed' ? 'Visto Bueno firmado' : 'Actualizado');
+    setSignFlow(null);
     qc.invalidateQueries({ queryKey: ['vistosBuenos'] });
+  };
+
+  /**
+   * Firmar = aprobar un visual. El flujo pide la imagen como el acto mismo de
+   * la aprobación: se sube anclada al VB (vb_id) y recién entonces se firma.
+   * Cuando llegue el reclamo de "me imprimieron el pantone equivocado", esto
+   * es lo único que zanja la discusión.
+   */
+  const signWithImage = async (id: string, file: File) => {
+    setSigning(true);
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      fd.append('vb_id', id);
+      const up = await fetch('/api/attachments/upload', { method: 'POST', credentials: 'include', body: fd });
+      if (!up.ok) {
+        const b = await up.json().catch(() => null);
+        throw new Error(b?.error ?? 'No se pudo subir la imagen');
+      }
+      await setStatus(id, 'signed');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'No se pudo firmar');
+    } finally {
+      setSigning(false);
+    }
   };
 
   const convert = async (id: string) => {
@@ -243,10 +278,29 @@ function CotizacionesInner() {
                     <td className="py-2 px-3 text-right font-semibold">{formatCLP(vb.total_price)}</td>
                     <td className="py-2 px-3 text-center"><Badge className={STATUS_BADGE[vb.status] ?? ''}>{vb.status}</Badge></td>
                     <td className="py-2 px-3 text-right whitespace-nowrap">
-                      {(vb.status === 'draft' || vb.status === 'sent') && (
+                      {(vb.status === 'draft' || vb.status === 'sent') && signFlow !== vb.id && (
                         <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setStatus(vb.id, 'signed')}>
                           <PenLine className="h-3 w-3 mr-1" /> Marcar firmada
                         </Button>
+                      )}
+                      {signFlow === vb.id && (
+                        <span className="inline-flex items-center gap-2">
+                          <label className={`inline-flex h-7 cursor-pointer items-center rounded-md border border-amber-500/50 bg-amber-500/10 px-2 text-xs font-medium text-amber-700 dark:text-amber-400 ${signing ? 'opacity-50 pointer-events-none' : ''}`}>
+                            {signing ? 'Subiendo…' : '¿Qué aprueba el cliente? Subir imagen'}
+                            <input
+                              type="file"
+                              accept="image/png,image/jpeg,image/svg+xml,image/tiff,application/pdf"
+                              className="hidden"
+                              onChange={(e) => {
+                                const f = e.target.files?.[0];
+                                if (f) signWithImage(vb.id, f);
+                              }}
+                            />
+                          </label>
+                          <button className="text-xs text-muted-foreground hover:underline" onClick={() => setSignFlow(null)}>
+                            Cancelar
+                          </button>
+                        </span>
                       )}
                       {vb.status === 'signed' && (
                         <Button size="sm" className="h-7 text-xs bg-green-600 hover:bg-green-700" onClick={() => convert(vb.id)}>
