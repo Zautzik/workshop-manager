@@ -12,7 +12,7 @@
  */
 import type { AppRole } from '@/types/app-role';
 import {
-  Home, Factory, Users, Wrench, TrendingUp, ShieldCheck,
+  Home, Factory, Users, Wrench, TrendingUp, ShieldCheck, Target,
   ClipboardList, GanttChart, FileSpreadsheet, Archive,
   Clock, Calendar, CalendarRange,
   Package, ShoppingCart, MessageSquare,
@@ -289,6 +289,7 @@ export const MODULES: NavModule[] = [
           { label: 'Centro de Costos', href: '/analitica/costos',   description: 'Catálogo de costos unitarios por material y centro', icon: BarChart3,  color: 'bg-green-500/10 text-green-400' },
           { label: 'Economía Equipos', href: '/analitica/maquinas', description: 'Resumen de costos e inversión de la flota',          icon: Cpu,        color: 'bg-teal-500/10 text-teal-400' },
           { label: 'Costo Laboral',    href: '/analitica/nomina',   description: 'Resumen de nómina del mes; detalle en Personas',     icon: DollarSign, color: 'bg-orange-500/10 text-orange-400' },
+          { label: 'Calibración',      href: '/analitica/calibracion', description: 'Contrasta el motor de costeo contra trabajos reales', icon: Target,  color: 'bg-rose-500/10 text-rose-400' },
         ],
       },
       {
