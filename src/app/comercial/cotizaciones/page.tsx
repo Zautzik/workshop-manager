@@ -14,36 +14,79 @@ import { Plus, PenLine, ArrowRight, FileSpreadsheet } from 'lucide-react';
 import { useVistosBuenos } from '@/hooks/use-commercial-queries';
 import { useOTs } from '@/hooks/use-operations-queries';
 import { formatCLP } from '@/lib/format';
+import { computeOTCalculations, computeImposition, generateDefaultOperations } from '@/lib/ot-calculations';
+import { resolveCostOverrides } from '@/lib/costing-resolver';
+import { useCostCatalog, useMaterialCost } from '@/hooks/use-cost-catalog';
+import type { OTFormData } from '@/types/ot';
+import type { CostCenterItem } from '@/types/work-category';
 
 const INK_COVERAGE = { light: 0.5, medium: 1, heavy: 2 } as const;
 type Coverage = keyof typeof INK_COVERAGE;
 
 interface EstimateLine { category: string; description: string; quantity: number; unit: string; unit_cost: number; }
 
-// Advanced estimator: derives material/machine/finishing lines from the spec.
-// Ink is driven by BOTH colour passes AND coverage (light/medium/heavy).
-function estimate(s: {
-  quantity: number; width_cm: number; height_cm: number; grammage_gsm: number;
-  colors_front: number; colors_back: number; coverage: Coverage; finishing: boolean;
-}) {
-  const pieceArea = Math.max(1, s.width_cm * s.height_cm);
-  const POSES = Math.max(1, Math.floor((72 * 102) / (pieceArea * 1.1)));
-  const sheets = Math.ceil((s.quantity || 0) / POSES) + 50; // + press setup
-  const paperKg = Math.round((sheets * 0.72 * 1.02 * (s.grammage_gsm || 0)) / 1000 * 100) / 100;
-  const passes = (s.colors_front || 0) + (s.colors_back || 0);
-  const inkKg = Math.round(sheets * 0.003 * passes * INK_COVERAGE[s.coverage] * 1000) / 1000;
-  const pressHours = Math.round((sheets / 3000) * 100) / 100;
-  const finishHours = s.finishing ? Math.round((sheets / 2000) * 100) / 100 : 0;
+const COLOR_MODE_BY_COUNT: Record<number, string> = {
+  0: 'sin_impresion', 1: '1_color', 2: '2_color', 3: '3_color', 4: 'cmyk', 5: 'cmyk_pantone',
+};
 
-  const lines: EstimateLine[] = [
-    { category: 'material', description: 'Sustrato / Papel', quantity: paperKg, unit: 'kg', unit_cost: 1800 },
-    { category: 'material', description: `Tintas (cobertura ${s.coverage})`, quantity: inkKg, unit: 'kg', unit_cost: 31915 },
-    { category: 'machine',  description: 'Planchas CTP', quantity: passes, unit: 'unit', unit_cost: 8500 },
-    { category: 'machine',  description: 'Impresión Offset', quantity: pressHours, unit: 'hours', unit_cost: 25000 },
-  ];
-  if (s.finishing) lines.push({ category: 'finishing', description: 'Terminaciones', quantity: finishHours, unit: 'hours', unit_cost: 22000 });
+/**
+ * El presupuesto del vendedor usa EL MISMO motor que producción.
+ *
+ * Antes esta pantalla tenía su propia fórmula: un pliego 72×102 fijo, 50
+ * pliegos de alistamiento planos, 2% de merma y tarifas escritas a mano
+ * (papel 1.800/kg, prensa 25.000/h). El motor v2 —el calibrado, el que corre
+ * el taller— modela cuatro formatos reales con pinza y sangrado, pasadas
+ * reales (4/0 en una prensa de 4 cuerpos es UNA pasada, no cuatro),
+ * alistamiento por pasada y tarifas del catálogo.
+ *
+ * O sea: el vendedor cotizaba con una matemática distinta a la que después
+ * factura el taller. Dos verdades de costo, la misma clase de problema que
+ * este proyecto lleva meses cerrando. Ahora hay una sola — y cuando Guillermo
+ * calibre §6.6, las cotizaciones mejoran solas.
+ */
+function buildEstimate(
+  s: {
+    quantity: number; width_cm: number; height_cm: number; grammage_gsm: number;
+    colors_front: number; colors_back: number; substrate_type: string; finishing: boolean;
+  },
+  catalog: CostCenterItem[],
+  materialCost: any[]
+) {
+  const calcInput = {
+    quantity: s.quantity,
+    width_cm: s.width_cm,
+    height_cm: s.height_cm,
+    grammage_gsm: s.grammage_gsm,
+    substrate_type: s.substrate_type,
+    color_front: COLOR_MODE_BY_COUNT[s.colors_front] ?? 'cmyk',
+    color_back: COLOR_MODE_BY_COUNT[s.colors_back] ?? 'sin_impresion',
+    finishes: { finish_corte: true, finish_plegado: s.finishing },
+  } as unknown as OTFormData;
+
+  const calcs = computeOTCalculations(calcInput);
+  const impo = computeImposition(s.width_cm, s.height_cm, s.quantity);
+  const overrides = resolveCostOverrides(
+    catalog,
+    {
+      color_front: calcInput.color_front,
+      color_back: calcInput.color_back,
+      substrate_type: s.substrate_type,
+      grammage_gsm: s.grammage_gsm,
+    },
+    materialCost
+  );
+
+  const ops = generateDefaultOperations(calcInput, calcs, overrides);
+  const lines: EstimateLine[] = ops.map((o) => ({
+    category: o.category,
+    description: o.name,
+    quantity: o.quantity,
+    unit: o.unit,
+    unit_cost: o.unit_cost,
+  }));
+
   const subtotal = Math.round(lines.reduce((acc, l) => acc + l.quantity * l.unit_cost, 0));
-  return { lines, subtotal };
+  return { lines, subtotal, calcs, impo };
 }
 
 const STATUS_BADGE: Record<string, string> = {
@@ -71,21 +114,28 @@ function CotizacionesInner() {
   // VB en proceso de firma: pide la imagen aprobada como parte del acto.
   const [signFlow, setSignFlow] = useState<string | null>(null);
   const [signing, setSigning] = useState(false);
+  // Mismas tarifas que producción: catálogo compartido + costo de material
+  // ponderado por compras. Si el vendedor cotiza con otros números, el taller
+  // factura una cosa y la cotización prometió otra.
+  const { data: catalog = [] } = useCostCatalog();
+  const { data: materialCost = [] } = useMaterialCost();
+
   const [form, setForm] = useState({
     client_id: '', product_name: '', quantity: 100000,
     width_cm: 9, height_cm: 12, grammage_gsm: 115,
     colors_front: 4, colors_back: 0, coverage: 'medium' as Coverage, finishing: false,
+    substrate_type: 'couche',
     markup: 35,
   });
 
   const calc = useMemo(() => {
-    const { lines, subtotal } = estimate(form);
+    const { lines, subtotal, calcs, impo } = buildEstimate(form, catalog, materialCost);
     const total = Math.round(subtotal * (1 + form.markup / 100));
     const floor = Math.round(subtotal * 1.10);
     const unit = form.quantity > 0 ? total / form.quantity : 0;
     const marginPct = total > 0 ? Math.round(((total - subtotal) / total) * 100) : 0;
-    return { lines, subtotal, total, floor, unit, marginPct, belowFloor: total < floor };
-  }, [form]);
+    return { lines, subtotal, total, floor, unit, marginPct, belowFloor: total < floor, calcs, impo };
+  }, [form, catalog, materialCost]);
 
   const save = async () => {
     const client = clients.find((c) => c.id === form.client_id);
@@ -99,6 +149,9 @@ function CotizacionesInner() {
         product_name: form.product_name || 'Trabajo de impresión',
         product_type: 'etiqueta', quantity: form.quantity,
         width_cm: form.width_cm, height_cm: form.height_cm, grammage_gsm: form.grammage_gsm,
+        // El sustrato viajaba sin enviarse: la OT convertida heredaba el default
+        // del esquema en vez del papel que el vendedor cotizó.
+        substrate_type: form.substrate_type,
         color_front: String(form.colors_front), color_back: String(form.colors_back),
         ink_coverage: form.coverage,
         estimate_lines: calc.lines, subtotal_cost: calc.subtotal,
@@ -198,6 +251,21 @@ function CotizacionesInner() {
                 </div>
                 <div className="grid grid-cols-3 gap-2">
                   <div><Label className="text-xs">Gramaje</Label><Input type="number" value={form.grammage_gsm} onChange={(e) => setForm({ ...form, grammage_gsm: num(e.target.value) })} /></div>
+                  <div>
+                    <Label className="text-xs">Sustrato</Label>
+                    <select
+                      className="w-full h-9 rounded-md border border-input bg-background px-2 text-sm"
+                      value={form.substrate_type}
+                      onChange={(e) => setForm({ ...form, substrate_type: e.target.value })}
+                    >
+                      <option value="couche">Couché</option>
+                      <option value="bond">Bond</option>
+                      <option value="cartulina">Cartulina</option>
+                      <option value="adhesivo">Adhesivo</option>
+                      <option value="kraft">Kraft</option>
+                      <option value="otro">Otro</option>
+                    </select>
+                  </div>
                   <div><Label className="text-xs">Colores frente</Label><Input type="number" value={form.colors_front} onChange={(e) => setForm({ ...form, colors_front: num(e.target.value) })} /></div>
                   <div><Label className="text-xs">Colores dorso</Label><Input type="number" value={form.colors_back} onChange={(e) => setForm({ ...form, colors_back: num(e.target.value) })} /></div>
                 </div>
@@ -220,6 +288,38 @@ function CotizacionesInner() {
 
               {/* Estimate + pricing */}
               <div className="space-y-3">
+                {/* El papel es la línea más cara de casi todo trabajo: el vendedor
+                    tiene que ver QUÉ y CUÁNTO antes de comprometer un precio. */}
+                <div className="rounded-md border border-primary/30 bg-primary/5 p-3">
+                  <p className="mb-2 text-xs font-semibold uppercase text-primary">Papel que requiere</p>
+                  <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-sm">
+                    <span className="text-muted-foreground">Pliegos a comprar</span>
+                    <span className="text-right font-semibold tabular-nums text-foreground">
+                      {calc.calcs.calc_sheets.toLocaleString('es-CL')}
+                    </span>
+                    <span className="text-muted-foreground">Formato</span>
+                    <span className="text-right tabular-nums text-foreground">
+                      {calc.impo.format_label ?? '—'}
+                    </span>
+                    <span className="text-muted-foreground">Poses por pliego</span>
+                    <span className="text-right tabular-nums text-foreground">
+                      {calc.impo.poses_per_sheet}
+                    </span>
+                    <span className="text-muted-foreground">Kilos de sustrato</span>
+                    <span className="text-right tabular-nums text-foreground">
+                      {calc.calcs.calc_substrate_kg.toFixed(1)} kg
+                    </span>
+                    <span className="text-muted-foreground">Planchas · horas prensa</span>
+                    <span className="text-right tabular-nums text-foreground">
+                      {calc.calcs.calc_plates} · {calc.calcs.calc_print_hours.toFixed(1)} h
+                    </span>
+                  </div>
+                  <p className="mt-2 text-[11px] text-muted-foreground">
+                    Incluye merma y alistamiento. Mismo motor que usa producción, así que lo
+                    cotizado es lo que el taller va a consumir.
+                  </p>
+                </div>
+
                 <div className="rounded-md border border-border p-3">
                   <p className="text-xs font-semibold text-muted-foreground uppercase mb-2">Costo estimado</p>
                   <div className="space-y-1 text-sm">
