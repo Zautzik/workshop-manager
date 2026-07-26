@@ -493,3 +493,32 @@ export function useDeleteTask() {
     },
   });
 }
+
+/**
+ * Which workstations are out of service right now because their machine has an
+ * open maintenance order. Planta reads this so a press being serviced cannot be
+ * handed operators — in a real shop that is law, but the two modules used to
+ * live back to back.
+ */
+export interface MaintenanceBlock {
+  work_order_id: string;
+  status: string;
+  machine_name: string | null;
+  workstation_name?: string;
+  started_at: string | null;
+}
+
+export function useStationsUnderMaintenance() {
+  return useQuery<Record<string, MaintenanceBlock>>({
+    queryKey: ['maintenance', 'stations-blocked'],
+    queryFn: async () => {
+      const res = await fetch('/api/maintenance/work-orders?open=1', {
+        credentials: 'include',
+      });
+      if (!res.ok) return {};
+      const payload = await res.json().catch(() => null);
+      return (payload?.by_workstation ?? {}) as Record<string, MaintenanceBlock>;
+    },
+    staleTime: 60 * 1000,
+  });
+}

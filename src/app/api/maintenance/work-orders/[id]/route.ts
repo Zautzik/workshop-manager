@@ -55,9 +55,78 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
       .single();
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+    // Downtime is captured from the act of working, not from a second form —
+    // same principle as the QR clock. `machine_downtime_logs` existed with zero
+    // readers and zero writers, so availability/OEE had no raw material at all.
+    await syncDowntime(data, parsed.data.status);
+
     return NextResponse.json(data);
   } catch {
     return NextResponse.json({ error: 'No se pudo actualizar la orden de trabajo' }, { status: 500 });
+  }
+}
+
+/**
+ * Opens a downtime row when a work order starts and closes it when the order
+ * completes. Best-effort and idempotent-ish: a machine has at most one open row,
+ * and a failure here must never block the technician's actual work.
+ */
+async function syncDowntime(
+  order: { id: string; machine_id: string; started_at: string | null; completed_at: string | null },
+  newStatus?: string
+) {
+  if (!newStatus || !order?.machine_id) return;
+
+  try {
+    const reason = `Orden de mantención ${order.id.slice(0, 8)}`;
+
+    if (newStatus === 'in_progress') {
+      const { data: existing } = await supabaseAdmin
+        .from('machine_downtime_logs')
+        .select('id')
+        .eq('machine_id', order.machine_id)
+        .is('end_time', null)
+        .maybeSingle();
+
+      if (!existing) {
+        await supabaseAdmin.from('machine_downtime_logs').insert({
+          machine_id: order.machine_id,
+          reason,
+          start_time: order.started_at ?? new Date().toISOString(),
+          impact_description: 'Máquina fuera de servicio por mantención',
+        });
+      }
+      return;
+    }
+
+    if (newStatus === 'completed' || newStatus === 'cancelled') {
+      const { data: open } = await supabaseAdmin
+        .from('machine_downtime_logs')
+        .select('id, start_time')
+        .eq('machine_id', order.machine_id)
+        .is('end_time', null)
+        .order('start_time', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (open) {
+        const end = order.completed_at ?? new Date().toISOString();
+        const hours =
+          (new Date(end).getTime() - new Date(open.start_time).getTime()) / 3_600_000;
+        await supabaseAdmin
+          .from('machine_downtime_logs')
+          .update({
+            end_time: end,
+            duration_hours: Math.max(0, Math.round(hours * 100) / 100),
+          })
+          .eq('id', open.id);
+      }
+    }
+  } catch (err) {
+    // Loud in the log, invisible to the technician: losing a downtime row is a
+    // reporting gap, not a reason to fail closing the work order.
+    console.error('Downtime sync failed for work order', order.id, err);
   }
 }
 

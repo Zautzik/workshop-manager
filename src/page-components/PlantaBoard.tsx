@@ -21,6 +21,7 @@ import { useRealtimeProduction } from "@/hooks/use-realtime-production";
 import { DndContext, DragEndEvent, DragOverlay } from "@dnd-kit/core";
 import { isWorkerQualifiedForStation } from "@/lib/workstation-skills";
 import { CerrarDiaDialog } from "@/components/workflow/CerrarDiaDialog";
+import { useStationsUnderMaintenance } from "@/hooks/use-maintenance-queries";
 
 type WorkflowTab = 'en_proceso' | 'ots' | 'clients' | 'layout' | 'shifts' | 'production' | 'hoja_prod' | 'plan_semanal' | 'gantt' | 'calendar' | 'whatsapp';
 
@@ -66,6 +67,7 @@ export default function PlantaBoard({ initialTab = 'layout' }: PlantaBoardProps)
   const { data: shifts = [] } = useShifts();
   const { data: assignments = [], refetch: refetchAssignments } = useWorkerAssignments(selectedDate);
   const { data: monthlyOvertimeByWorker = {} } = useWorkerMonthlyOvertime(selectedDate);
+  const { data: stationsUnderMaintenance } = useStationsUnderMaintenance();
   const { data: compensationRates = [] } = useCompensationRatesForDate(selectedDate);
   const { data: workflowLeaveStatuses = [] } = useWorkflowLeaveStatuses(selectedDate);
   const { data: workflowIncentiveStatuses = [] } = useWorkflowIncentiveStatuses(selectedDate);
@@ -876,6 +878,12 @@ export default function PlantaBoard({ initialTab = 'layout' }: PlantaBoardProps)
       let skipped = 0;
 
       for (const station of workstations) {
+        // A machine under maintenance gets no crew, however much capacity it
+        // nominally has — the UI blocks the drag, so auto-fill must agree.
+        if (stationsUnderMaintenance?.[station.id]) {
+          skipped += 1;
+          continue;
+        }
         const stationAssignments = currentShiftAssignments.filter((assignment: any) => assignment.workstation_id === station.id);
         const capacityLeft = Math.max(0, Number(station.max_workers || 0) - stationAssignments.length);
         if (capacityLeft <= 0) continue;

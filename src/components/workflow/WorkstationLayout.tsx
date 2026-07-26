@@ -20,6 +20,7 @@ import { useDroppable } from '@dnd-kit/core';
 import { useDraggable } from '@dnd-kit/core';
 import { useToast } from '@/hooks/use-toast';
 import { getWorkerPrimaryStationType, getWorkerQualificationScore } from '@/lib/workstation-skills';
+import { useStationsUnderMaintenance } from '@/hooks/use-maintenance-queries';
 
 interface WorkstationLayoutProps {
 	workstations: any[];
@@ -161,10 +162,16 @@ function DroppableWorkstation({
 	getPlanningScore,
 	getSelectionExplanation,
 	onUnassignWorker,
+	maintenanceBlock,
 }: any) {
+	// A machine opened for maintenance takes its station out of service. dnd-kit
+	// won't even consider it a target, so the drop is refused at the source
+	// rather than rejected after the fact.
+	const maintenance = maintenanceBlock ?? null;
 	const { setNodeRef, isOver } = useDroppable({
 		id: station.id,
 		data: { workstation: station, selectedOT },
+		disabled: Boolean(maintenance),
 	});
 	const normalizedCapacity = Math.max(1, Number(capacity || 0));
 	const openSlotCount = Math.max(0, normalizedCapacity - occupancy);
@@ -175,11 +182,22 @@ function DroppableWorkstation({
 			className={`${getWorkstationColor(
 				station.type
 			)} border-3 p-2 transition-all duration-300 ${
-				isOver
+				maintenance
+					? 'opacity-60 border-amber-500/60 saturate-50'
+					: isOver
 					? 'ring-2 ring-primary border-primary shadow-lg'
 					: 'hover:border-primary/40 hover:shadow-md'
 			}`}
 		>
+		{maintenance && (
+			<div
+				className='mb-1.5 flex items-center gap-1 rounded border border-amber-500/50 bg-amber-500/15 px-1.5 py-1 text-[10px] font-semibold text-amber-700 dark:text-amber-400'
+				title={`Orden de mantención ${maintenance.status === 'in_progress' ? 'en curso' : 'pendiente'} — no se puede asignar personal`}
+			>
+				<Wrench className='h-3 w-3 shrink-0' />
+				<span className='truncate'>En mantención</span>
+			</div>
+		)}
 		<div className='flex items-center justify-between mb-1.5'>
 			<div className='flex items-center gap-1.5 flex-1 min-w-0'>
 				{getWorkstationIcon(station.type)}
@@ -345,6 +363,8 @@ export function WorkstationLayout({
 	onAssignmentChange,
 }: WorkstationLayoutProps) {
 	const { toast } = useToast();
+	// Equipos tells Planta which machines are out of service.
+	const { data: stationsUnderMaintenance } = useStationsUnderMaintenance();
 	const [showOnlyOvertime, setShowOnlyOvertime] = useState(false);
 	const [showQuickGuide, setShowQuickGuide] = useState(false);
 	const [guideOpenedOnce, setGuideOpenedOnce] = useState(false);
@@ -827,6 +847,7 @@ export function WorkstationLayout({
 												getPlanningScore={getPlanningScore}
 												getSelectionExplanation={getSelectionExplanation}
 												onUnassignWorker={onUnassignWorker}
+												maintenanceBlock={stationsUnderMaintenance?.[station.id]}
 											/>
 										);
 									})}
