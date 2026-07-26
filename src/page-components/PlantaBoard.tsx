@@ -20,6 +20,7 @@ import { useCompensationRatesForDate, useSchedulingCostModel, useWorkerAssignmen
 import { useRealtimeProduction } from "@/hooks/use-realtime-production";
 import { DndContext, DragEndEvent, DragOverlay } from "@dnd-kit/core";
 import { isWorkerQualifiedForStation } from "@/lib/workstation-skills";
+import { CerrarDiaDialog } from "@/components/workflow/CerrarDiaDialog";
 
 type WorkflowTab = 'en_proceso' | 'ots' | 'clients' | 'layout' | 'shifts' | 'production' | 'hoja_prod' | 'plan_semanal' | 'gantt' | 'calendar' | 'whatsapp';
 
@@ -321,13 +322,14 @@ export default function PlantaBoard({ initialTab = 'layout' }: PlantaBoardProps)
         return;
       }
 
-      const { error: deleteError } = await supabase
-        .from('worker_assignments')
-        .delete()
-        .eq('date', selectedDate)
-        .eq('shift_id', selectedShiftId);
-
-      if (deleteError) throw deleteError;
+      const deleteRes = await fetch(
+        `/api/worker-assignments?date=${encodeURIComponent(selectedDate)}&shiftId=${encodeURIComponent(selectedShiftId)}`,
+        { method: 'DELETE', credentials: 'include' }
+      );
+      if (!deleteRes.ok) {
+        const body = await deleteRes.json().catch(() => null);
+        throw new Error(body?.error || 'Failed to clear existing assignments');
+      }
 
       const payload = sourceAssignments.map((assignment: any) => ({
         employee_id: assignment.employee_id,
@@ -339,16 +341,21 @@ export default function PlantaBoard({ initialTab = 'layout' }: PlantaBoardProps)
         ot_id: selectedOT?.id || assignment.ot_id || null,
       }));
 
-      const { error: insertError } = await supabase
-        .from('worker_assignments')
-        .insert(payload);
-
-      if (insertError) throw insertError;
+      const insertRes = await fetch('/api/worker-assignments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(payload),
+      });
+      if (!insertRes.ok) {
+        const body = await insertRes.json().catch(() => null);
+        throw new Error(body?.error || 'Failed to copy assignments');
+      }
 
       refetchAssignments();
       toast({
-        title: 'Quick roster setup applied',
-        description: `Copied ${payload.length} assignments from ${setupLabel}.`,
+        title: 'Dotación copiada',
+        description: `Se copiaron ${payload.length} asignaciones desde ${setupLabel}.`,
       });
     } catch (error: any) {
       toast({
@@ -581,16 +588,26 @@ export default function PlantaBoard({ initialTab = 'layout' }: PlantaBoardProps)
     };
 
     try {
-      const response = costModel?.id
-        ? await supabase
-            .from('scheduling_cost_models')
-            .update(payload)
-            .eq('id', costModel.id)
-        : await supabase
-            .from('scheduling_cost_models')
-            .insert(payload);
+      // Through the API, not browser-direct: RLS silently rejected these writes
+      // under dev-bypass, so the model looked saved and never was.
+      const res = costModel?.id
+        ? await fetch(`/api/scheduling-cost-models?id=${encodeURIComponent(costModel.id)}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify(payload),
+          })
+        : await fetch('/api/scheduling-cost-models', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify(payload),
+          });
 
-      if (response.error) throw response.error;
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        throw new Error(body?.error || 'No se pudo guardar el modelo de costos');
+      }
 
       toast({
         title: 'Modelo de costos guardado',
@@ -598,10 +615,10 @@ export default function PlantaBoard({ initialTab = 'layout' }: PlantaBoardProps)
       });
       refetchCostModel();
     } catch (error: any) {
-      setCostModelError(error.message || 'Failed to save cost model');
+      setCostModelError(error.message || 'No se pudo guardar el modelo de costos');
       toast({
         title: 'No se pudo guardar el modelo de costos',
-        description: error.message || 'Please review the values and try again.',
+        description: error.message || 'Revisa los valores e intenta de nuevo.',
         variant: 'destructive',
       });
     } finally {
@@ -625,12 +642,14 @@ export default function PlantaBoard({ initialTab = 'layout' }: PlantaBoardProps)
     if (!assignmentId) return;
 
     try {
-      const { error } = await supabase
-        .from("worker_assignments")
-        .delete()
-        .eq("id", assignmentId);
-
-      if (error) throw error;
+      const res = await fetch(`/api/worker-assignments/${assignmentId}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        throw new Error(body?.error || 'Failed to unassign worker');
+      }
 
       toast({
         title: "Worker unassigned",
@@ -734,27 +753,46 @@ export default function PlantaBoard({ initialTab = 'layout' }: PlantaBoardProps)
       if (assignmentId) {
         const draggedAssignment = assignments.find(a => a.id === assignmentId);
 
-        const { error } = await supabase
-          .from("worker_assignments")
-          .update({
+        // Was a raw browser→Supabase write, gated by RLS requiring
+        // has_role(auth.uid(), supervisor|admin). Under dev bypass the browser
+        // never gets a real Supabase session (DevBypassProvider only fakes the
+        // React-level user/role, it never calls supabase.auth.setSession), so
+        // auth.uid() is NULL and every one of these writes was silently
+        // rejected — reads still worked fine (SELECT policy is USING (true)),
+        // which is why the board rendered correctly but assigning never stuck.
+        // Routed through the existing authenticated API route instead (2026-07-23).
+        const res = await fetch(`/api/worker-assignments/${assignmentId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({
             workstation_id: workstation.id,
             ot_id: selectedOT?.id || null,
             role: draggedAssignment?.role || assignmentRole,
-          })
-          .eq("id", assignmentId);
-        if (error) throw error;
+          }),
+        });
+        if (!res.ok) {
+          const body = await res.json().catch(() => null);
+          throw new Error(body?.error || 'Failed to update assignment');
+        }
       } else {
-        const { error } = await supabase
-          .from("worker_assignments")
-          .insert({
+        const res = await fetch('/api/worker-assignments', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({
             employee_id: worker.id,
             workstation_id: workstation.id,
             shift_id: selectedShiftId,
             date: selectedDate,
             role: assignmentRole,
-            ot_id: selectedOT?.id || null
-          });
-        if (error) throw error;
+            ot_id: selectedOT?.id || null,
+          }),
+        });
+        if (!res.ok) {
+          const body = await res.json().catch(() => null);
+          throw new Error(body?.error || 'Failed to create assignment');
+        }
       }
 
       toast({
@@ -853,16 +891,21 @@ export default function PlantaBoard({ initialTab = 'layout' }: PlantaBoardProps)
 
         for (const candidate of candidates.slice(0, capacityLeft)) {
           const role = candidate.isOvertime ? 'overtime_operator_50' : 'operator';
-          const { error } = await supabase.from('worker_assignments').insert({
-            employee_id: candidate.worker.id,
-            workstation_id: station.id,
-            shift_id: selectedShiftId,
-            date: selectedDate,
-            role,
-            ot_id: selectedOT?.id || null,
+          const res = await fetch('/api/worker-assignments', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({
+              employee_id: candidate.worker.id,
+              workstation_id: station.id,
+              shift_id: selectedShiftId,
+              date: selectedDate,
+              role,
+              ot_id: selectedOT?.id || null,
+            }),
           });
 
-          if (error) {
+          if (!res.ok) {
             skipped += 1;
             continue;
           }
@@ -922,12 +965,14 @@ export default function PlantaBoard({ initialTab = 'layout' }: PlantaBoardProps)
         }
 
         const nextRole = replacement.isOvertime ? 'overtime_operator_50' : 'operator';
-        const { error } = await supabase
-          .from('worker_assignments')
-          .update({ employee_id: replacement.worker.id, role: nextRole })
-          .eq('id', assignment.id);
+        const res = await fetch(`/api/worker-assignments/${assignment.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ employee_id: replacement.worker.id, role: nextRole }),
+        });
 
-        if (error) {
+        if (!res.ok) {
           unresolved += 1;
           continue;
         }
@@ -981,12 +1026,14 @@ export default function PlantaBoard({ initialTab = 'layout' }: PlantaBoardProps)
           continue;
         }
 
-        const { error } = await supabase
-          .from('worker_assignments')
-          .update({ employee_id: replacement.worker.id, role: 'operator' })
-          .eq('id', assignment.id);
+        const res = await fetch(`/api/worker-assignments/${assignment.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ employee_id: replacement.worker.id, role: 'operator' }),
+        });
 
-        if (error) {
+        if (!res.ok) {
           remaining += 1;
           continue;
         }
@@ -1251,6 +1298,8 @@ export default function PlantaBoard({ initialTab = 'layout' }: PlantaBoardProps)
                         <UploadCloud className="w-3 h-3 mr-1" />
                         {publishLoading ? '...' : 'Publicar'}
                       </Button>
+                      {/* Turns the day's clock marks into real labour cost on each OT. */}
+                      <CerrarDiaDialog date={selectedDate} />
                     </div>
                   </div>
                   <div className="grid grid-cols-4 gap-1 mb-2">

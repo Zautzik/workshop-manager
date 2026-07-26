@@ -274,20 +274,20 @@ function DroppableWorkstation({
 					))
 				) : null}
 
+				{/* One compact line for however many slots are open — the capacity bar
+					above already shows occupancy/N, and the whole card (not each
+					slot) is the actual drop target, so listing every empty slot as
+					its own box was pure vertical clutter with zero extra information
+					(owner request 2026-07-23: catch the floor at a glance). */}
 				{openSlotCount > 0 && (
-				<div className='space-y-1'>
-					{Array.from({ length: openSlotCount }).map((_, idx) => (
-						<div
-							key={`open-slot-${station.id}-${idx}`}
-							className={`rounded-md border border-dashed px-2 py-1 text-[10px] ${
-								isOver
-									? 'border-primary text-primary bg-primary/10'
-									: 'border-border text-muted-foreground bg-background/40'
-							}`}
-						>
-							{isOver ? 'Suelta aqui' : `Cupo libre ${occupancy + idx + 1}`}
-						</div>
-					))}
+				<div
+					className={`rounded-md border border-dashed px-2 py-1 text-center text-[10px] font-medium transition-colors ${
+						isOver
+							? 'border-primary text-primary bg-primary/10'
+							: 'border-border text-muted-foreground bg-background/40'
+					}`}
+				>
+					{isOver ? 'Suelta aquí' : `${openSlotCount} ${openSlotCount === 1 ? 'cupo libre' : 'cupos libres'}`}
 				</div>
 			)}
 
@@ -584,8 +584,13 @@ export function WorkstationLayout({
 	};
 
 	const getAvailableWorkersForType = (type: string) => {
+		// Show every unassigned worker qualified for this station type, not only the
+		// one whose single "primary" type happens to match. Two types with identical
+		// skill requirements (workshop and manual_workshop both need MANUAL_WORKSHOP)
+		// would otherwise funnel all qualified workers into whichever type sorts first,
+		// leaving the other pool ("Taller") permanently empty.
 		const availableByType = unassignedWorkers.filter(
-			worker => getWorkerPrimaryType(worker) === type
+			worker => getWorkerQualificationScore(worker, type) !== null
 		);
 
 		const pool = availableByType;
@@ -689,6 +694,24 @@ export function WorkstationLayout({
 		return labels[type] || type.replace(/_/g, ' ');
 	};
 
+	// Section order follows the physical path a job takes through the plant —
+	// prepress → printing → cutting → die-cutting → finishing → dispatch —
+	// instead of whatever order Object.entries happened to insert them in
+	// (which is why "other"/uncategorized used to render first: owner request
+	// 2026-07-23). Anything not listed here (including a literal "other" type)
+	// always sorts last.
+	const SECTION_ORDER: { [key: string]: number } = {
+		pre_press: 0,
+		offset_printer: 1,
+		digital_printer: 2,
+		guillotine: 3,
+		die_cutter: 4,
+		workshop: 5,
+		manual_workshop: 6,
+		delivery: 7,
+	};
+	const sectionRank = (type: string) => SECTION_ORDER[type] ?? Number.POSITIVE_INFINITY;
+
 	return (
 		<div className='space-y-6'>
 			{/* Enhanced Instructions */}
@@ -754,7 +777,12 @@ export function WorkstationLayout({
 					</button>
 				</div>
 
-				{Object.entries(groupedWorkstations).map(
+				{Object.entries(groupedWorkstations)
+					.sort(([typeA], [typeB]) => {
+						const rankDiff = sectionRank(typeA) - sectionRank(typeB);
+						return rankDiff !== 0 ? rankDiff : typeA.localeCompare(typeB);
+					})
+					.map(
 					([type, stations]: [string, any]) => {
 						const theme = getDepartmentTheme(type);
 
