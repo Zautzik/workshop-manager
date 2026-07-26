@@ -18,6 +18,7 @@
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
+import { formatCLP } from '@/lib/format';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -82,18 +83,13 @@ function topSkill(worker: any): { name: string; level: number } | null {
   return best;
 }
 
-function formatMoney(amount: number, currency?: string) {
-  const code = currency || 'USD';
-  try {
-    return new Intl.NumberFormat('es-CL', {
-      style: 'currency',
-      currency: code,
-      minimumFractionDigits: code === 'CLP' ? 0 : 2,
-      maximumFractionDigits: code === 'CLP' ? 0 : 2,
-    }).format(amount);
-  } catch {
-    return `${code} ${amount.toFixed(2)}`;
-  }
+/**
+ * The app operates in one currency: Chilean pesos, shown as whole pesos.
+ * Fractions still exist inside the costing calculations — they just never
+ * reach the screen, because nobody quotes a job in centavos.
+ */
+function formatMoney(amount: number) {
+  return formatCLP(amount);
 }
 
 interface MergedPerson {
@@ -346,7 +342,7 @@ export default function PersonasModule() {
           <StatCard
             icon={Wallet}
             label="Costo/hora del equipo"
-            value={stats.hasComp ? formatMoney(stats.hourlySum, stats.currency) : '—'}
+            value={stats.hasComp ? formatMoney(stats.hourlySum) : '—'}
           />
           <StatCard icon={Star} label="Rating promedio" value={stats.avgRating ? `${stats.avgRating}/100` : '—'} />
           <StatCard
@@ -513,7 +509,7 @@ function FragmentRow({ person: p, expanded, contractType, hrsWeek, assignment, p
         </td>
         <td className="py-3 px-2 text-right tabular-nums">
           {hasComp ? (
-            <span className="font-medium text-foreground">{formatMoney(Number(p.comp.hourly_rate), p.comp.currency_code)}</span>
+            <span className="font-medium text-foreground">{formatMoney(Number(p.comp.hourly_rate))}</span>
           ) : (
             <span className="text-muted-foreground">—</span>
           )}

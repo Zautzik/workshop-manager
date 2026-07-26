@@ -27,6 +27,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { useQueryClient } from '@tanstack/react-query';
+import { formatCLP } from '@/lib/format';
 import { CalendarCheck, AlertTriangle, Clock, Loader2 } from 'lucide-react';
 
 interface PreviewLine {
@@ -57,17 +58,8 @@ interface Preview {
   unattributedHours: number;
 }
 
-const money = (amount: number, currency: string) => {
-  try {
-    return new Intl.NumberFormat('es-CL', {
-      style: 'currency',
-      currency,
-      maximumFractionDigits: currency === 'CLP' ? 0 : 2,
-    }).format(amount);
-  } catch {
-    return `${currency} ${amount.toFixed(2)}`;
-  }
-};
+/** One currency, whole pesos on screen; the cents live in the calculation. */
+const money = (amount: number) => formatCLP(amount);
 
 export function CerrarDiaDialog({ date }: { date: string }) {
   const { toast } = useToast();
@@ -187,7 +179,7 @@ export function CerrarDiaDialog({ date }: { date: string }) {
                 </div>
                 <div className="rounded-md border border-border p-3">
                   <div className="text-xl font-bold tabular-nums text-foreground">
-                    {money(preview.totalCost, preview.lines[0]?.currency || 'CLP')}
+                    {money(preview.totalCost)}
                   </div>
                   <div className="text-xs text-muted-foreground">costo de mano de obra</div>
                 </div>
@@ -233,10 +225,10 @@ export function CerrarDiaDialog({ date }: { date: string }) {
                             )}
                           </td>
                           <td className="py-2 px-3 text-right tabular-nums text-muted-foreground">
-                            {money(line.hourlyRate, line.currency)}
+                            {money(line.hourlyRate)}
                           </td>
                           <td className="py-2 px-3 text-right tabular-nums font-medium text-foreground">
-                            {money(line.cost, line.currency)}
+                            {money(line.cost)}
                           </td>
                         </tr>
                       ))}

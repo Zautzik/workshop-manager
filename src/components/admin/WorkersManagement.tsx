@@ -48,6 +48,7 @@ import { toast } from 'sonner';
 import { Plus, Pencil, Trash2, AlertTriangle, Lock } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/AuthContext';
+import { formatCLP } from '@/lib/format';
 
 interface WorkersManagementProps {
   onUpdate: () => void;
@@ -346,7 +347,7 @@ const WorkersManagement = ({ onUpdate }: WorkersManagementProps) => {
                       </span>
                     ) : comp?.hourly_rate != null ? (
                       <span className="font-medium text-foreground">
-                        {comp.currency_code} {Number(comp.hourly_rate).toLocaleString('es-CL')}
+                        {formatCLP(Number(comp.hourly_rate))}
                       </span>
                     ) : (
                       <Badge variant="outline" className="border-amber-500/40 text-amber-600">
@@ -443,29 +444,21 @@ const WorkersManagement = ({ onUpdate }: WorkersManagementProps) => {
                 </div>
 
                 {canManageCompensation && (
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-2">
-                      <Label htmlFor="hourly_rate">Tarifa por hora</Label>
-                      <Input
-                        id="hourly_rate"
-                        type="number"
-                        min={0}
-                        step="0.01"
-                        value={form.hourly_rate}
-                        onChange={(e) => set({ hourly_rate: e.target.value })}
-                        placeholder="Ej: 4500"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="currency_code">Moneda</Label>
-                      <Select value={form.currency_code} onValueChange={(v) => set({ currency_code: v })}>
-                        <SelectTrigger id="currency_code"><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="CLP">CLP</SelectItem>
-                          <SelectItem value="USD">USD</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="hourly_rate">Tarifa por hora (CLP)</Label>
+                    <Input
+                      id="hourly_rate"
+                      type="number"
+                      min={0}
+                      step="1"
+                      value={form.hourly_rate}
+                      onChange={(e) => set({ hourly_rate: e.target.value })}
+                      placeholder="Ej: 8500"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      La app opera en pesos chilenos. Se guarda en pesos enteros; los decimales se
+                      conservan en los cálculos.
+                    </p>
                   </div>
                 )}
 

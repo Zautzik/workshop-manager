@@ -64,23 +64,13 @@ export async function GET(req: NextRequest) {
     catalogRows.find((c) => c.catalog_key && PRESS_RATE_KEYS.includes(String(c.catalog_key)))?.unit_cost ??
     FALLBACK_PRESS_RATE;
 
-  // ── Currency guard ───────────────────────────────────────────────────────
-  // This database stores money in two currencies and says so nowhere:
-  //   · compensation_rates carries currency_code = 'USD' (a press operator = 16)
-  //   · cost_catalog is plainly CLP  (the same operator = 8.500/hr)
-  // Those are the SAME wage, ~950× apart. Publishing a "drift %" across that gap
-  // would be pure noise dressed as a finding, so the comparison is only made
-  // when the caller states the basis explicitly (?fx=<CLP per unit of machine
-  // currency>). Without it we report the derived cost and stay silent on drift.
-  const fxParam = searchParams.get('fx');
-  const fx = fxParam ? Number(fxParam) : null;
-  const comparable = fx !== null && Number.isFinite(fx) && fx > 0;
-
+  // One currency (CLP) since migration 20260726150000, so machine economics and
+  // the catalog are directly comparable. Before that the schema mixed USD wages
+  // with a CLP catalog — the same number ~950× apart — and any "drift %" across
+  // that gap was noise dressed as a finding.
   const machines = (machinesRes.data ?? []).map((m) => {
     const derived = deriveMachineHourlyCost(m, hours);
-    const drift = comparable
-      ? compareToCatalog(derived.hourly * (fx as number), Number(catalogRate))
-      : null;
+    const drift = compareToCatalog(derived.hourly, Number(catalogRate));
     return {
       machine_id: m.id,
       name: m.name,
@@ -100,19 +90,14 @@ export async function GET(req: NextRequest) {
     monthly_productive_hours: hours,
     catalog_hourly: Number(catalogRate),
     machines,
-    currency_basis: comparable
-      ? { fx, note: 'Costos de máquina convertidos con el fx indicado antes de comparar.' }
-      : {
-          fx: null,
-          note:
-            'Sin comparación: los costos de máquina y el catálogo están en monedas distintas (compensation_rates usa USD, cost_catalog usa CLP). Pasa ?fx=<CLP por unidad> para habilitar el desvío.',
-        },
+    currency: 'CLP',
     summary: {
       total: machines.length,
       with_complete_economics: measurable.length,
-      undercharging: comparable ? measurable.filter((m) => m.drift?.direction === 'under').length : null,
-      overcharging: comparable ? measurable.filter((m) => m.drift?.direction === 'over').length : null,
-      aligned: comparable ? measurable.filter((m) => m.drift?.direction === 'aligned').length : null,
+      // The dangerous side: the machine costs more than we charge for it.
+      undercharging: measurable.filter((m) => m.drift?.direction === 'under').length,
+      overcharging: measurable.filter((m) => m.drift?.direction === 'over').length,
+      aligned: measurable.filter((m) => m.drift?.direction === 'aligned').length,
     },
   });
 }
