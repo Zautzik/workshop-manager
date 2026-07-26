@@ -1,7 +1,7 @@
 'use client';
 
 import ProtectedRoute from '@/components/ProtectedRoute';
-import ModuleHexLanding from '@/components/ModuleHexLanding';
+import PersonasModule from '@/page-components/PersonasModule';
 import { getModule } from '@/lib/navigation';
 
 const mod = getModule('personas')!;
@@ -9,7 +9,7 @@ const mod = getModule('personas')!;
 export default function HrPage() {
   return (
     <ProtectedRoute allowedRoles={mod.roles}>
-      <ModuleHexLanding title={mod.label} subtitle={mod.subtitle} groups={mod.groups} hubIcon={mod.icon} tint={mod.tint} />
+      <PersonasModule />
     </ProtectedRoute>
   );
 }

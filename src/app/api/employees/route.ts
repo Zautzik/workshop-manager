@@ -276,7 +276,12 @@ export async function POST(request: NextRequest) {
 			return NextResponse.json({ error: employeeError.message }, { status: 500 });
 		}
 
-		// Create default employment contract if provided
+		// Create default employment contract if provided.
+		// The column is `base_hours_per_week` — this used to insert `hours_per_week`,
+		// so every contract insert failed and the error was swallowed below, quietly
+		// producing employees with no contract while still returning 201 (2026-07 audit).
+		const warnings: string[] = [];
+
 		if (body.contract_type && body.hours_per_week) {
 			const { error: contractError } = await supabase
 				.from('employment_contracts')
@@ -284,7 +289,7 @@ export async function POST(request: NextRequest) {
 					{
 						employee_id: employee.id,
 						contract_type: body.contract_type,
-						hours_per_week: body.hours_per_week,
+						base_hours_per_week: body.hours_per_week,
 						overtime_allowed: body.overtime_allowed || false,
 						start_date: hire_date,
 					},
@@ -292,6 +297,7 @@ export async function POST(request: NextRequest) {
 
 			if (contractError) {
 				console.error('Error creating contract:', contractError);
+				warnings.push(`No se pudo crear el contrato: ${contractError.message}`);
 			}
 		}
 
@@ -316,10 +322,16 @@ export async function POST(request: NextRequest) {
 
 			if (compensationError) {
 				console.error('Error creating compensation:', compensationError);
+				warnings.push(`No se pudo crear la tarifa: ${compensationError.message}`);
 			}
 		}
 
-		return NextResponse.json({ success: true, data: employee }, { status: 201 });
+		// Surface partial failures instead of swallowing them: the caller asked for a
+		// person WITH a contract and a rate, and must be told if only part landed.
+		return NextResponse.json(
+			{ success: true, data: employee, ...(warnings.length ? { warnings } : {}) },
+			{ status: 201 }
+		);
 	} catch (error) {
 		console.error('POST /api/employees error:', error);
 		return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
