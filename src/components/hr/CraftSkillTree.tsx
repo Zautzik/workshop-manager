@@ -1290,31 +1290,27 @@ export default function CraftSkillTree() {
     const existingLevel = proficiencyMap.get(selectedNode.code) ?? 0;
 
     try {
-      if (existingLevel > 0) {
-        // Update
-        const { error } = await supabase
-          .from('employee_skills')
-          .update({ proficiency_level: level, last_assessed_on: new Date().toISOString() })
-          .eq('employee_id', selectedEmployeeId)
-          .eq('skill_id', dbSkillId);
-        if (error) throw error;
-      } else {
-        // Insert
-        const { error } = await supabase
-          .from('employee_skills')
-          .insert({
-            employee_id: selectedEmployeeId,
-            skill_id: dbSkillId,
-            proficiency_level: level,
-            certified: false,
-            last_assessed_on: new Date().toISOString(),
-          });
-        if (error) throw error;
+      // One upsert covers both cases — the route resolves insert-vs-update.
+      const res = await fetch('/api/employees/skills', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          employee_id: selectedEmployeeId,
+          skill_id: dbSkillId,
+          proficiency_level: level,
+          certified: false,
+        }),
+      });
+
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        throw new Error(body?.error || 'No se pudo guardar la competencia');
       }
 
       toast({
-        title: existingLevel > 0 ? 'Proficiency updated' : 'Skill assigned',
-        description: `${selectedNode.name} set to level ${level} for ${selectedEmployee?.full_name ?? 'employee'}`,
+        title: existingLevel > 0 ? 'Nivel actualizado' : 'Competencia asignada',
+        description: `${selectedNode.name} quedó en nivel ${level} para ${selectedEmployee?.full_name ?? 'el empleado'}`,
       });
 
       queryClient.invalidateQueries({

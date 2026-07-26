@@ -115,13 +115,13 @@ export default function WorkOrderExecution() {
   }, [fkTasks, selectedOrder]);
 
   const startWorkOrder = async (order: WorkOrder) => {
-    const { error } = await supabase
-      .from('maintenance_work_orders')
-      .update({
-        status: 'in_progress',
-        started_at: new Date().toISOString()
-      })
-      .eq('id', order.id);
+    const res = await fetch(`/api/maintenance/work-orders/${order.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ status: 'in_progress', started_at: new Date().toISOString() }),
+    });
+    const error = res.ok ? null : await res.json().catch(() => ({}));
 
     if (error) {
       toast({ title: 'Error', description: 'No se pudo iniciar la orden de trabajo', variant: 'destructive' });
@@ -141,20 +141,26 @@ export default function WorkOrderExecution() {
   const toggleTaskCompletion = async (task: TaskEntry) => {
     const newCompleted = !task.completed;
     
-    // If FK-based, update in DB
-    if (task.completionId) {
-      const { error } = await supabase
-        .from('maintenance_task_completions')
-        .update({
+    // If FK-based, persist through the API (the server stamps completed_by).
+    if (task.completionId && selectedOrder) {
+      const res = await fetch(`/api/maintenance/work-orders/${selectedOrder.id}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          completion_id: task.completionId,
           completed: newCompleted,
-          completed_at: newCompleted ? new Date().toISOString() : null,
-          completed_by: newCompleted ? user?.id : null,
-          notes: taskNotes[task.id] || null
-        })
-        .eq('id', task.completionId);
+          notes: taskNotes[task.id] || null,
+        }),
+      });
 
-      if (error) {
-        toast({ title: 'Error', description: 'No se pudo actualizar la tarea', variant: 'destructive' });
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        toast({
+          title: 'Error',
+          description: body?.error || 'No se pudo actualizar la tarea',
+          variant: 'destructive',
+        });
         return;
       }
     }
@@ -176,14 +182,17 @@ export default function WorkOrderExecution() {
 
     const totalTime = tasks.reduce((sum, t) => sum + t.estimatedMinutes, 0);
 
-    const { error } = await supabase
-      .from('maintenance_work_orders')
-      .update({
+    const res = await fetch(`/api/maintenance/work-orders/${selectedOrder.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({
         status: 'completed',
         completed_at: new Date().toISOString(),
-        total_time_minutes: totalTime
-      })
-      .eq('id', selectedOrder.id);
+        total_time_minutes: totalTime,
+      }),
+    });
+    const error = res.ok ? null : await res.json().catch(() => ({}));
 
     if (error) {
       toast({ title: 'Error', description: 'No se pudo completar la orden de trabajo', variant: 'destructive' });

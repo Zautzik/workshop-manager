@@ -43,7 +43,7 @@ export const EquipmentInvestmentAnalysis = () => {
 
   const handleSubmit = async () => {
     if (!formData.equipment_name) {
-      toast.error('Please enter equipment name');
+      toast.error('Ingresa el nombre del equipo');
       return;
     }
 
@@ -56,28 +56,28 @@ export const EquipmentInvestmentAnalysis = () => {
       notes: formData.notes
     };
 
-    if (editingId) {
-      const { error } = await supabase
-        .from('equipment_investments')
-        .update(payload)
-        .eq('id', editingId);
+    const res = editingId
+      ? await fetch(`/api/equipment-investments?id=${encodeURIComponent(editingId)}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify(payload),
+        })
+      : await fetch('/api/equipment-investments', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify(payload),
+        });
 
-      if (error) {
-        toast.error('Error updating investment');
-        return;
-      }
-      toast.success('Investment updated');
-    } else {
-      const { error } = await supabase
-        .from('equipment_investments')
-        .insert([payload]);
-
-      if (error) {
-        toast.error('Error adding investment');
-        return;
-      }
-      toast.success('Investment proposal added');
+    if (!res.ok) {
+      const body = await res.json().catch(() => null);
+      toast.error(
+        body?.error || (editingId ? 'No se pudo actualizar la inversión' : 'No se pudo agregar la inversión')
+      );
+      return;
     }
+    toast.success(editingId ? 'Inversión actualizada' : 'Propuesta de inversión agregada');
 
     setIsOpen(false);
     resetForm();
@@ -111,16 +111,19 @@ export const EquipmentInvestmentAnalysis = () => {
   };
 
   const updateStatus = async (id: string, status: string) => {
-    const { error } = await supabase
-      .from('equipment_investments')
-      .update({ status })
-      .eq('id', id);
+    const res = await fetch(`/api/equipment-investments?id=${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ status }),
+    });
 
-    if (error) {
-      toast.error('Error updating status');
+    if (!res.ok) {
+      const body = await res.json().catch(() => null);
+      toast.error(body?.error || 'No se pudo actualizar el estado');
       return;
     }
-    toast.success('Status updated');
+    toast.success('Estado actualizado');
     refetchInvestments();
   };
 

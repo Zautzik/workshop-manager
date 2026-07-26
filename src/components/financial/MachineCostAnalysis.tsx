@@ -51,7 +51,7 @@ export const MachineCostAnalysis = () => {
 
   const handleSubmit = async () => {
     if (!selectedMachineId && !editingId) {
-      toast.error('Please select a machine');
+      toast.error('Selecciona una máquina');
       return;
     }
 
@@ -61,28 +61,31 @@ export const MachineCostAnalysis = () => {
       ...formData
     };
 
-    if (editingId) {
-      const { error } = await supabase
-        .from('machine_costs')
-        .update(payload)
-        .eq('id', editingId);
+    const res = editingId
+      ? await fetch(`/api/machine-costs?id=${encodeURIComponent(editingId)}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify(formData),
+        })
+      : await fetch('/api/machine-costs', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify(payload),
+        });
 
-      if (error) {
-        toast.error('Error updating machine cost data');
-        return;
-      }
-      toast.success('Machine cost data updated');
-    } else {
-      const { error } = await supabase
-        .from('machine_costs')
-        .insert([payload] as any);
-
-      if (error) {
-        toast.error('Error adding machine cost data');
-        return;
-      }
-      toast.success('Machine cost data added');
+    if (!res.ok) {
+      const body = await res.json().catch(() => null);
+      toast.error(
+        body?.error ||
+          (editingId
+            ? 'No se pudieron actualizar los costos de la máquina'
+            : 'No se pudieron agregar los costos de la máquina')
+      );
+      return;
     }
+    toast.success(editingId ? 'Costos de la máquina actualizados' : 'Costos de la máquina agregados');
 
     setIsOpen(false);
     resetForm();

@@ -26,7 +26,7 @@ const WorkerStatsReport = () => {
 
   useEffect(() => {
     if (isError) {
-      toast.error('Error loading worker stats');
+      toast.error('No se pudieron cargar las estadísticas del equipo');
     }
   }, [isError]);
 

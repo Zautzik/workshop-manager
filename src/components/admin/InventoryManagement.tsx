@@ -52,7 +52,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Plus, Pencil, Trash2, AlertTriangle, Calculator, Boxes, ChevronDown } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -251,7 +250,7 @@ const InventoryManagement = () => {
 
   const handleSaveItem = async () => {
     if (!itemForm.sku.trim() || !itemForm.name.trim()) {
-      toast.error('SKU and name are required');
+      toast.error('Indica el SKU y el nombre');
       return;
     }
 
@@ -263,73 +262,85 @@ const InventoryManagement = () => {
       name: itemForm.name.trim(),
     };
 
-    if (editingItem) {
-      const { error } = await supabase
-        .from('inventory_items' as any)
-        .update(payload as any)
-        .eq('id', editingItem.id);
+    const res = editingItem
+      ? await fetch(`/api/inventory/items?id=${encodeURIComponent(editingItem.id)}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify(payload),
+        })
+      : await fetch('/api/inventory/items', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify(payload),
+        });
 
-      if (error) {
-        toast.error(error.message || 'Error updating item');
-      } else {
-        toast.success('Item updated successfully');
-        refetchAllInventoryData();
-        resetItemForm();
-      }
-    } else {
-      const { error } = await supabase
-        .from('inventory_items' as any)
-        .insert(payload as any);
-
-      if (error) {
-        toast.error(error.message || 'Error creating item');
-      } else {
-        toast.success('Item created successfully');
-        refetchAllInventoryData();
-        resetItemForm();
-      }
+    if (!res.ok) {
+      const body = await res.json().catch(() => null);
+      toast.error(body?.error || (editingItem ? 'No se pudo actualizar el ítem' : 'No se pudo crear el ítem'));
+      return;
     }
+
+    toast.success(editingItem ? 'Ítem actualizado' : 'Ítem creado');
+    refetchAllInventoryData();
+    resetItemForm();
   };
 
   const handleDeleteItem = async (itemId: string) => {
     if (!confirm(t('confirmDelete'))) return;
 
-    const { error } = await supabase
-      .from('inventory_items' as any)
-      .delete()
-      .eq('id', itemId);
+    const res = await fetch(`/api/inventory/items?id=${encodeURIComponent(itemId)}`, {
+      method: 'DELETE',
+      credentials: 'include',
+    });
 
-    if (error) {
-      toast.error(error.message || 'Error deleting item');
-    } else {
-      toast.success('Item deleted successfully');
-      refetchAllInventoryData();
+    if (!res.ok) {
+      const body = await res.json().catch(() => null);
+      toast.error(body?.error || 'No se pudo eliminar el ítem');
+      return;
     }
+
+    toast.success('Ítem eliminado');
+    refetchAllInventoryData();
   };
 
   const handleCreateLot = async () => {
     if (!lotForm.item_id || !lotForm.lot_number.trim()) {
-      toast.error('Item and lot number are required');
+      toast.error('Indica el ítem y el número de lote');
       return;
     }
 
-    const { error } = await supabase
-      .from('inventory_lots' as any)
-      .insert({
-        ...lotForm,
+    // quantity_available is deliberately not sent: the stock ledger is its only
+    // writer (see /api/inventory/lots), so the lot opens at 0 and its opening
+    // balance is credited by a real purchase transaction.
+    const res = await fetch('/api/inventory/lots', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({
+        item_id: lotForm.item_id,
         lot_number: lotForm.lot_number.trim(),
+        quantity_received: Number(lotForm.quantity_received) || 0,
+        unit_cost: Number(lotForm.unit_cost) || 0,
+        received_date: lotForm.received_date || new Date().toISOString().split('T')[0],
+        supplier_name: lotForm.supplier_name || null,
         certification_code: lotForm.certification_code || null,
         certification_expires_on: lotForm.certification_expires_on || null,
-        supplier_name: lotForm.supplier_name || null,
-        received_date: lotForm.received_date || new Date().toISOString().split('T')[0],
-      } as any);
+      }),
+    });
 
-    if (error) {
-      toast.error(error.message || 'Error creating lot');
+    const created = await res.json().catch(() => null);
+    if (!res.ok) {
+      toast.error(created?.error || 'No se pudo crear el lote');
       return;
     }
 
-    toast.success('Lot created successfully');
+    if (Array.isArray(created?.warnings) && created.warnings.length > 0) {
+      toast.warning(created.warnings.join(' · '));
+    } else {
+      toast.success('Lote creado');
+    }
     refetchAllInventoryData();
     resetLotForm();
   };
@@ -354,12 +365,12 @@ const InventoryManagement = () => {
 
   const handleCreateTransaction = async () => {
     if (!txForm.item_id || !txForm.lot_id || Number(txForm.quantity) <= 0) {
-      toast.error('Item, lot and positive quantity are required');
+      toast.error('Indica ítem, lote y una cantidad mayor a cero');
       return;
     }
 
     if (txForm.tx_type === 'consumption' && !txForm.work_order_id) {
-      toast.error('Work order is required for consumption');
+      toast.error('Indica la OT que consume este material');
       return;
     }
 
@@ -374,16 +385,20 @@ const InventoryManagement = () => {
       notes: txForm.notes || null,
     };
 
-    const { error } = await supabase
-      .from('inventory_stock_transactions' as any)
-      .insert(payload as any);
+    const res = await fetch('/api/inventory/transactions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify(payload),
+    });
 
-    if (error) {
-      toast.error(error.message || 'Error creating stock transaction');
+    if (!res.ok) {
+      const body = await res.json().catch(() => null);
+      toast.error(body?.error || 'No se pudo registrar el movimiento');
       return;
     }
 
-    toast.success('Stock transaction registered');
+    toast.success('Movimiento de stock registrado');
     refetchAllInventoryData();
     resetTxForm();
   };

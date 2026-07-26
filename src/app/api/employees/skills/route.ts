@@ -4,7 +4,12 @@ import { requireAuth, isAuthError } from '@/lib/api-middleware';
 
 /**
  * POST /api/employees/skills
- * Assign a skill to an employee
+ * Set an employee's level in a skill.
+ *
+ * Upserts on the `employee_skills_unique (employee_id, skill_id)` constraint:
+ * "this person is now level N at this skill" is the same intent whether or not
+ * a row already exists, and callers shouldn't have to branch on it (the skill
+ * tree used to run its own insert-or-update browser-direct to decide).
  */
 export async function POST(request: NextRequest) {
   const auth = await requireAuth();
@@ -24,21 +29,33 @@ export async function POST(request: NextRequest) {
 
     if (!employee_id || !skill_id || !proficiency_level) {
       return NextResponse.json(
-        { error: 'employee_id, skill_id, and proficiency_level are required' },
+        { error: 'Se requieren employee_id, skill_id y proficiency_level' },
+        { status: 400 }
+      );
+    }
+
+    const level = Number(proficiency_level);
+    if (!Number.isFinite(level) || level < 1 || level > 5) {
+      // Mirrors employee_skills_level_valid — fail with a message instead of a 500.
+      return NextResponse.json(
+        { error: 'El nivel de dominio debe estar entre 1 y 5' },
         { status: 400 }
       );
     }
 
     const { data: skill, error } = await supabase
       .from('employee_skills')
-      .insert({
-        employee_id,
-        skill_id,
-        proficiency_level,
-        certified: certified || false,
-        notes,
-        last_assessed_on: new Date().toISOString(),
-      })
+      .upsert(
+        {
+          employee_id,
+          skill_id,
+          proficiency_level: level,
+          certified: certified || false,
+          notes,
+          last_assessed_on: new Date().toISOString(),
+        },
+        { onConflict: 'employee_id,skill_id' }
+      )
       .select()
       .single();
 

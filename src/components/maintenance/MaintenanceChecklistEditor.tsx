@@ -69,7 +69,6 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { supabase } from '@/integrations/supabase/client';
 import { useMaintenanceChecklists } from '@/hooks/use-maintenance-queries';
 
 interface ChecklistItem {
@@ -203,7 +202,7 @@ export default function MaintenanceChecklistEditor() {
 
   useEffect(() => {
     if (isError) {
-      toast.error('Failed to load checklists');
+      toast.error('No se pudieron cargar los checklists');
     }
   }, [isError]);
 
@@ -248,7 +247,7 @@ export default function MaintenanceChecklistEditor() {
 
   const handleAddItem = () => {
     if (!newItem.title?.trim()) {
-      toast.error('Please enter a title for the checklist item');
+      toast.error('Ingresa un título para el ítem');
       return;
     }
 
@@ -276,7 +275,7 @@ export default function MaintenanceChecklistEditor() {
             }
           : null
       );
-      toast.success('Item updated successfully!');
+      toast.success('Ítem actualizado');
       setIsEditingItem(false);
       setEditingItem(null);
     } else {
@@ -290,7 +289,7 @@ export default function MaintenanceChecklistEditor() {
             }
           : null
       );
-      toast.success('Item added to checklist!');
+      toast.success('Ítem agregado al checklist');
     }
 
     setNewItem({
@@ -318,7 +317,7 @@ export default function MaintenanceChecklistEditor() {
           }
         : null
     );
-    toast.success('Item removed');
+    toast.success('Ítem eliminado');
   };
 
   const handleEditItem = (item: ChecklistItem) => {
@@ -367,12 +366,12 @@ export default function MaintenanceChecklistEditor() {
       items: reorderedItems,
       updatedAt: new Date(),
     });
-    toast.success('Items reordered!');
+    toast.success('Ítems reordenados');
   };
 
   const handleCreateChecklist = () => {
     if (!newChecklist.name?.trim() || !newChecklist.machineType?.trim()) {
-      toast.error('Please fill in name and machine type');
+      toast.error('Completa el nombre y el tipo de máquina');
       return;
     }
 
@@ -396,76 +395,67 @@ export default function MaintenanceChecklistEditor() {
       items: [],
     });
     setIsDialogOpen(false);
-    toast.success('Checklist created!');
+    toast.success('Checklist creado');
   };
 
   const handleSaveChecklist = async () => {
     if (!selectedChecklist?.items.length) {
-      toast.error('Add at least one item before saving');
+      toast.error('Agrega al menos un ítem antes de guardar');
       return;
     }
 
     try {
       const isNew = !selectedChecklist.id || selectedChecklist.id.startsWith('temp-');
 
+      const payload = {
+        name: selectedChecklist.name,
+        machineType: selectedChecklist.machineType,
+        maintenanceType: selectedChecklist.maintenanceType,
+        items: JSON.parse(JSON.stringify(selectedChecklist.items)),
+        totalEstimatedTime: selectedChecklist.totalEstimatedTime,
+      };
+
       if (isNew) {
-        const { data, error } = await supabase
-          .from('maintenance_checklists')
-          .insert([
-            {
-              name: selectedChecklist.name,
-              machine_type: selectedChecklist.machineType,
-              maintenance_type: selectedChecklist.maintenanceType,
-              items: JSON.parse(JSON.stringify(selectedChecklist.items)),
-              total_estimated_time: selectedChecklist.totalEstimatedTime,
-              frequency: 'as_needed',
-            },
-          ])
-          .select();
+        const res = await fetch('/api/maintenance/checklists', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ ...payload, frequency: 'as_needed' }),
+        });
 
-        if (error) {
-          console.error('Supabase insert error:', JSON.stringify(error));
-          throw error;
-        }
-        
-        if (!data || data.length === 0) {
-          throw new Error('No data returned from insert');
+        const created = await res.json().catch(() => null);
+        if (!res.ok || !created?.id) {
+          throw new Error(created?.error || 'No se pudo guardar el checklist');
         }
 
-        const savedChecklist = { ...selectedChecklist, id: data[0].id };
+        const savedChecklist = { ...selectedChecklist, id: created.id };
         // Replace the temp checklist with the saved one
         setChecklists((prev) =>
           prev.map((c) => (c.id === selectedChecklist.id ? savedChecklist : c))
         );
         setSelectedChecklist(savedChecklist);
       } else {
-        // Update existing checklist
-        const { error } = await supabase
-          .from('maintenance_checklists')
-          .update({
-            name: selectedChecklist.name,
-            machine_type: selectedChecklist.machineType,
-            maintenance_type: selectedChecklist.maintenanceType,
-            items: JSON.parse(JSON.stringify(selectedChecklist.items)),
-            total_estimated_time: selectedChecklist.totalEstimatedTime,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', selectedChecklist.id);
+        const res = await fetch('/api/maintenance/checklists', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ id: selectedChecklist.id, ...payload }),
+        });
 
-        if (error) {
-          console.error('Supabase update error:', JSON.stringify(error));
-          throw error;
+        if (!res.ok) {
+          const body = await res.json().catch(() => null);
+          throw new Error(body?.error || 'No se pudo guardar el checklist');
         }
-        
+
         setChecklists((prev) =>
           prev.map((c) => (c.id === selectedChecklist.id ? selectedChecklist : c))
         );
       }
 
-      toast.success('Checklist saved successfully! ðŸŽ‰');
+      toast.success('Checklist guardado');
     } catch (error) {
       console.error('Error saving checklist:', error);
-      toast.error('Failed to save checklist');
+      toast.error('No se pudo guardar el checklist');
     }
   };
 
@@ -479,7 +469,7 @@ export default function MaintenanceChecklistEditor() {
     };
     setChecklists([...checklists, newChecklist]);
     setSelectedChecklist(newChecklist);
-    toast.success('Checklist duplicated! Click Save to persist it.');
+    toast.success('Checklist duplicado — presiona Guardar para conservarlo');
   };
 
   const handleDeleteChecklist = async (checklistId: string) => {
@@ -489,28 +479,28 @@ export default function MaintenanceChecklistEditor() {
       
       // If it's a temp checklist, no need to delete from DB
       if (checklistId.startsWith('temp-')) {
-        toast.success('Checklist deleted');
+        toast.success('Checklist eliminado');
         return;
       }
       
-      // Delete from Supabase
-      const { error } = await supabase
-        .from('maintenance_checklists')
-        .delete()
-        .eq('id', checklistId);
-      
-      if (error) {
-        throw error;
+      const res = await fetch(`/api/maintenance/checklists?id=${encodeURIComponent(checklistId)}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        throw new Error(body?.error || 'No se pudo eliminar el checklist');
       }
-      
-      toast.success('Checklist deleted');
+
+      toast.success('Checklist eliminado');
     } catch (error) {
       // Restore the checklist if deletion fails
       const restoredChecklist = [...checklists].find(c => c.id === checklistId);
       if (restoredChecklist) {
         setChecklists((prev) => [...prev, restoredChecklist]);
       }
-      toast.error('Failed to delete checklist: ' + (error instanceof Error ? error.message : 'Unknown error'));
+      toast.error('No se pudo eliminar el checklist: ' + (error instanceof Error ? error.message : 'Error desconocido'));
     }
   };
 
