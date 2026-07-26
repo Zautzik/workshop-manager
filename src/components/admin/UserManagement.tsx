@@ -28,7 +28,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { toast } from 'sonner';
-import { Plus, Pencil, Trash2 } from 'lucide-react';
+import { Plus, Pencil, Trash2, KeyRound } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 
 /* ------------------------------------------------------------------ */
@@ -60,6 +60,11 @@ const UserManagement = ({ onUpdate }: UserManagementProps) => {
   const [showDialog, setShowDialog] = useState(false);
   const [editingUser, setEditingUser] = useState<UserRow | null>(null);
   const [loading, setLoading] = useState(false);
+  const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
+  const [passwordUser, setPasswordUser] = useState<UserRow | null>(null);
+  const [newPassword, setNewPassword] = useState('');
+  const [passwordBusy, setPasswordBusy] = useState(false);
+  const [recoveryLink, setRecoveryLink] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -177,6 +182,66 @@ const UserManagement = ({ onUpdate }: UserManagementProps) => {
     setShowDialog(false);
   };
 
+  // ── Password control ──────────────────────────────────────────────────────
+  // An admin can replace a password or hand the user a recovery link. Nobody can
+  // read an existing one: Supabase stores a one-way hash, which is correct.
+  const openPasswordDialog = (user: UserRow) => {
+    setPasswordUser(user);
+    setNewPassword('');
+    setRecoveryLink(null);
+    setPasswordDialogOpen(true);
+  };
+
+  const submitPassword = async () => {
+    if (!passwordUser) return;
+    setPasswordBusy(true);
+    try {
+      const res = await fetch('/api/admin/users/password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ action: 'set', user_id: passwordUser.id, password: newPassword }),
+      });
+      const body = await res.json().catch(() => null);
+      if (!res.ok) {
+        const detail = body?.details?.password?.[0];
+        throw new Error(detail || body?.error || 'No se pudo cambiar la contraseña');
+      }
+      toast.success(
+        body?.sessions_revoked
+          ? 'Contraseña actualizada — se cerraron las sesiones abiertas de esa persona'
+          : 'Contraseña actualizada'
+      );
+      setPasswordDialogOpen(false);
+      setNewPassword('');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'No se pudo cambiar la contraseña');
+    } finally {
+      setPasswordBusy(false);
+    }
+  };
+
+  const requestRecoveryLink = async () => {
+    if (!passwordUser) return;
+    setPasswordBusy(true);
+    try {
+      const res = await fetch('/api/admin/users/password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ action: 'send_recovery', user_id: passwordUser.id }),
+      });
+      const body = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(body?.error || 'No se pudo generar el enlace');
+      setRecoveryLink(body?.recovery_link ?? null);
+      toast.success('Enlace de recuperación generado');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'No se pudo generar el enlace');
+    } finally {
+      setPasswordBusy(false);
+    }
+  };
+
   const openEditDialog = (user: UserRow) => {
     setEditingUser(user);
     setFormData({
@@ -258,6 +323,16 @@ const UserManagement = ({ onUpdate }: UserManagementProps) => {
                         >
                           <Pencil className="h-4 w-4 mr-1" aria-hidden="true" />
                           {t('edit')}
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => openPasswordDialog(user)}
+                          className="hover:bg-amber-500/10 hover:text-amber-600 hover:border-amber-500"
+                          aria-label={`Cambiar contraseña de ${user.email}`}
+                        >
+                          <KeyRound className="h-4 w-4 mr-1" aria-hidden="true" />
+                          Contraseña
                         </Button>
                         <Button
                           variant="outline"
@@ -433,6 +508,81 @@ const UserManagement = ({ onUpdate }: UserManagementProps) => {
             </Button>
             <Button onClick={handleSubmit} disabled={loading} className="bg-primary hover:bg-primary/90">
               {loading ? t('common.loading') : editingUser ? t('update') : t('create')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Password control (admin only) ─────────────────────────────────── */}
+      <Dialog open={passwordDialogOpen} onOpenChange={setPasswordDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Contraseña de {passwordUser?.email}</DialogTitle>
+            <DialogDescription>
+              Puedes asignar una contraseña nueva o entregarle un enlace para que la elija.
+              Las contraseñas existentes no se pueden ver: se guardan cifradas en un solo
+              sentido, que es como debe ser.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="new_password">Nueva contraseña</Label>
+              <Input
+                id="new_password"
+                type="text"
+                autoComplete="new-password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder="Mínimo 10 caracteres, con letras y números"
+              />
+              <p className="text-xs text-muted-foreground">
+                Se muestra en claro a propósito: la vas a dictar en persona. Al guardar se
+                cierran todas las sesiones abiertas de esa persona.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <div className="h-px flex-1 bg-border" />
+              <span className="text-xs text-muted-foreground">o</span>
+              <div className="h-px flex-1 bg-border" />
+            </div>
+
+            <Button
+              variant="outline"
+              className="w-full"
+              onClick={requestRecoveryLink}
+              disabled={passwordBusy}
+            >
+              Generar enlace de recuperación
+            </Button>
+
+            {recoveryLink && (
+              <div className="space-y-1 rounded-md border border-amber-500/40 bg-amber-500/10 p-3">
+                <p className="text-xs font-medium text-amber-700 dark:text-amber-400">
+                  Entrégale este enlace. Caduca y sirve una sola vez.
+                </p>
+                <textarea
+                  readOnly
+                  value={recoveryLink}
+                  onFocus={(e) => e.currentTarget.select()}
+                  className="w-full resize-none rounded border border-border bg-background p-2 font-mono text-[11px]"
+                  rows={3}
+                />
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setPasswordDialogOpen(false)}
+              disabled={passwordBusy}
+            >
+              Cerrar
+            </Button>
+            <Button onClick={submitPassword} disabled={passwordBusy || !newPassword.trim()}>
+              {passwordBusy ? 'Guardando…' : 'Asignar contraseña'}
             </Button>
           </DialogFooter>
         </DialogContent>
