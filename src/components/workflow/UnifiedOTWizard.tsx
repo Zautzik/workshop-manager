@@ -183,20 +183,33 @@ export function UnifiedOTWizard({ onClose, onSuccess }: Props) {
 
       // The chosen machine sharpens the estimate (real speed + colour bodies).
       const machine = wizardMachines.find((m) => m.id === form.machine.machine_id);
+      // Área máxima imprimible de la prensa elegida. Sin esto el motor proponía
+      // pliegos que la máquina no puede tomar — una Ryobi 524GS agarra 37×52 y
+      // se le mandaba un 77×110 (auditoría 2026-07).
+      const pressLimit =
+        machine?.max_print_width_mm && machine?.max_print_height_mm
+          ? {
+              maxWidthCm: Number(machine.max_print_width_mm) / 10,
+              maxHeightCm: Number(machine.max_print_height_mm) / 10,
+            }
+          : null;
+
       const calcOpts = {
         inkCoverage: form.ink_coverage,
         machineSpeedSheetsHr: machine?.nominal_speed_sheets_hr ?? undefined,
         pressBodies: machine?.colors ?? undefined,
+        pressLimit,
       };
-      const calcs = computeOTCalculations(calcInput, calcOpts);
-      const impo = computeImposition(form.width_cm, form.height_cm, form.quantity);
+      const impo = computeImposition(form.width_cm, form.height_cm, form.quantity, pressLimit);
+      // La imposición alimenta el costeo: el corte de resma se deriva de ella.
+      const calcs = computeOTCalculations({ ...calcInput, imposition: impo }, calcOpts);
       const costOverrides = resolveCostOverrides(catalog, {
         color_front: form.color_front, color_back: form.color_back,
         substrate_type: form.substrate_type, grammage_gsm: form.grammage_gsm,
       }, materialCost);
       const ops =
         form.operations.length === 0
-          ? generateDefaultOperations(calcInput, calcs, costOverrides)
+          ? generateDefaultOperations({ ...calcInput, imposition: impo }, calcs, costOverrides)
           : form.operations;
       const pricing = computeOTPricing(
         ops,
@@ -293,6 +306,17 @@ export function UnifiedOTWizard({ onClose, onSuccess }: Props) {
 
   /* ── Submit to API ──────────────────────────────────────────── */
   const handleSubmit = async () => {
+    // La pieza no entra en ningún pliego que la prensa elegida pueda tomar.
+    // Antes se emitía igual una imposición imposible de montar.
+    if (form.imposition?.exceeds_press) {
+      toast({
+        title: 'La pieza no entra en esa prensa',
+        description: `${form.width_cm}×${form.height_cm} cm no cabe en ningún pliego que la máquina elegida pueda tomar. Elige otra prensa o revisa las medidas.`,
+        variant: 'destructive',
+      });
+      return;
+    }
+
     // La imagen ES el trabajo. Sin arte adjunto y sin la declaración explícita
     // de que aún no existe, la OT no se crea — y el servidor lo re-verifica.
     if (form.attachments.length === 0 && !form.sin_arte) {

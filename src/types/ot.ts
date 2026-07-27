@@ -97,6 +97,16 @@ export interface ImpositionResult {
   format_label?: string;
   format_w?: number;
   format_h?: number;
+  /**
+   * Formato de compra del que sale este pliego, cuando hay que cortarlo para que
+   * entre en la prensa (ej. un 35×50 sale de partir un 70×100 en cuatro). null
+   * significa que el pliego se compra tal cual.
+   */
+  cut_from?: string | null;
+  /** Cuántos pliegos de prensa salen de cada pliego comprado. */
+  cuts_per_parent?: number;
+  /** La pieza no entra en ningún pliego que la prensa elegida pueda tomar. */
+  exceeds_press?: boolean;
 }
 
 /* ─── Multi-quantity quote ───────────────────────────────────── */

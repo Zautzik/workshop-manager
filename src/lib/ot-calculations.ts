@@ -37,11 +37,28 @@ import type {
 
 export const CALIBRATION = {
   /** Print-sheet formats the plant actually buys/cuts, in cm. */
+  /**
+   * Pliegos que pueden entrar a una prensa.
+   *
+   * Los cuatro primeros son formatos de compra que van directo a máquina grande.
+   * Los siguientes son de MEDIA PRENSA: no se compran así, se obtienen cortando
+   * un pliego de compra en la guillotina. Existen porque las dos únicas offset
+   * del taller son Ryobi 524GS, con área máxima de impresión de 37 × 52 cm —
+   * ninguno de los cuatro formatos de compra le cabe (auditoría 2026-07).
+   *
+   * `from` + `upPerParent` no son decoración: el corte previo de resma es una
+   * operación de guillotina con tiempo y merma que antes no se costeaba.
+   */
   SHEET_FORMATS: [
-    { w: 70, h: 100, label: '70×100' },
-    { w: 77, h: 110, label: '77×110' },
-    { w: 55, h: 77, label: '55×77' },
-    { w: 50, h: 70, label: '50×70' },
+    { w: 70, h: 100, label: '70×100', from: null as string | null, upPerParent: 1 },
+    { w: 77, h: 110, label: '77×110', from: null as string | null, upPerParent: 1 },
+    { w: 55, h: 77, label: '55×77', from: null as string | null, upPerParent: 1 },
+    { w: 50, h: 70, label: '50×70', from: null as string | null, upPerParent: 1 },
+    // ── Media prensa (Ryobi 524GS y similares) ──
+    { w: 35, h: 50, label: '35×50', from: '70×100' as string | null, upPerParent: 4 },
+    { w: 35, h: 50, label: '35×50', from: '50×70' as string | null, upPerParent: 2 },
+    { w: 27.5, h: 38.5, label: '27,5×38,5', from: '55×77' as string | null, upPerParent: 2 },
+    { w: 25, h: 35, label: '25×35', from: '70×100' as string | null, upPerParent: 8 },
   ],
   /** Gripper (pinza) — unprintable strip along one long edge, cm. */
   GRIPPER_CM: 1.2,
@@ -112,6 +129,8 @@ export interface OTCalcOptions {
   inkCoverage?: InkCoverage;
   /** Selected machine's real speed (nominal_speed_sheets_hr). */
   machineSpeedSheetsHr?: number;
+  /** Área máxima imprimible de la prensa elegida — filtra los pliegos posibles. */
+  pressLimit?: PressLimit | null;
   /** Selected machine's colour bodies (machines.colors) — drives the
    *  pass-through-press model. Defaults to DEFAULT_PRESS_BODIES. */
   pressBodies?: number;
@@ -158,20 +177,49 @@ export function finishHoursFor(finishKey: string, sheets: number): number {
  * is the NET run (qty ÷ poses) — process waste is added by
  * computeOTCalculations, not here.
  */
+/** Área máxima imprimible de la prensa elegida, en cm. */
+export interface PressLimit {
+  maxWidthCm: number;
+  maxHeightCm: number;
+}
+
+/** ¿Este pliego entra en la prensa, en cualquiera de sus dos orientaciones? */
+function fitsPress(f: { w: number; h: number }, limit?: PressLimit | null): boolean {
+  if (!limit || !(limit.maxWidthCm > 0) || !(limit.maxHeightCm > 0)) return true;
+  const { maxWidthCm: W, maxHeightCm: H } = limit;
+  return (f.w <= W && f.h <= H) || (f.h <= W && f.w <= H);
+}
+
+/**
+ * Imposición: cuántas piezas entran en un pliego y cuántos pliegos hacen falta.
+ *
+ * `limit` es el área máxima de la prensa elegida. Sin él, el cálculo elige el
+ * pliego que mejor aprovecha el papel — que es como se venía haciendo, y por eso
+ * proponía un 77×110 para una Ryobi 524GS que sólo toma 37×52: una imposición
+ * físicamente imposible de montar, con 6× menos pliegos y la mitad de las horas
+ * de prensa que el trabajo realmente pide.
+ */
 export function computeImposition(
   widthCm: number,
   heightCm: number,
-  quantity: number
+  quantity: number,
+  limit?: PressLimit | null
 ): ImpositionResult {
   const { SHEET_FORMATS, GRIPPER_CM, BLEED_CM } = CALIBRATION;
 
+  // Sólo los pliegos que la máquina puede agarrar.
+  const usableFormats = SHEET_FORMATS.filter((f) => fitsPress(f, limit));
+  const formats = usableFormats.length > 0 ? usableFormats : SHEET_FORMATS;
+
   if (widthCm <= 0 || heightCm <= 0) {
-    const f = SHEET_FORMATS[0];
+    const f = formats[0];
     return {
       poses_per_sheet: 1, cols: 1, rows: 1,
       waste_pct: 0, sheet_utilization_pct: 100,
       sheets_needed: Math.max(1, quantity), rotated: false,
       format_label: f.label, format_w: f.w, format_h: f.h,
+      cut_from: f.from ?? null, cuts_per_parent: f.upPerParent ?? 1,
+      exceeds_press: usableFormats.length === 0,
     };
   }
 
@@ -179,7 +227,7 @@ export function computeImposition(
   const hB = heightCm + BLEED_CM * 2;
 
   let best: ImpositionResult | null = null;
-  for (const f of SHEET_FORMATS) {
+  for (const f of formats) {
     const usableH = f.h - GRIPPER_CM; // gripper eats one edge
     for (const rotated of [false, true]) {
       const pw = rotated ? hB : wB;
@@ -195,6 +243,8 @@ export function computeImposition(
         waste_pct: round2(100 - utilization),
         sheets_needed: Math.max(1, Math.ceil(quantity / poses)),
         format_label: f.label, format_w: f.w, format_h: f.h,
+        cut_from: f.from ?? null, cuts_per_parent: f.upPerParent ?? 1,
+        exceeds_press: false,
       };
       if (
         !best ||
@@ -208,14 +258,18 @@ export function computeImposition(
   }
 
   if (!best) {
-    // Piece larger than every format: 1 pose on the biggest sheet.
-    const f = SHEET_FORMATS.reduce((a, b) => (a.w * a.h >= b.w * b.h ? a : b));
+    // La pieza no entra en ningún pliego que la prensa acepte. Se informa sobre
+    // el mayor disponible y se marca `exceeds_press` para que la UI lo frene:
+    // antes devolvía un número igual y la OT salía con una imposición imposible.
+    const f = formats.reduce((a, b) => (a.w * a.h >= b.w * b.h ? a : b));
     best = {
       poses_per_sheet: 1, cols: 1, rows: 1, rotated: false,
       sheet_utilization_pct: round2((widthCm * heightCm) / (f.w * f.h) * 100),
       waste_pct: 0,
       sheets_needed: Math.max(1, quantity),
       format_label: f.label, format_w: f.w, format_h: f.h,
+      cut_from: f.from ?? null, cuts_per_parent: f.upPerParent ?? 1,
+      exceeds_press: true,
     };
   }
   return best;
@@ -228,7 +282,7 @@ export function computeOTCalculations(form: OTFormData, opts: OTCalcOptions = {}
   const C = CALIBRATION;
 
   // Imposition — same model the preview shows (audit OF-14: they diverged).
-  const impo = computeImposition(width_cm, height_cm, quantity);
+  const impo = computeImposition(width_cm, height_cm, quantity, opts.pressLimit);
   const rawSheets = impo.sheets_needed;
   const sheetW = impo.format_w ?? 70;
   const sheetH = impo.format_h ?? 100;
@@ -349,6 +403,24 @@ export function generateDefaultOperations(
   }
 
   // ── Finishing: cut always, then each active finish with its OWN hours ──
+  // Corte previo de resma: cuando el pliego de prensa sale de partir uno de
+  // compra (un 35×50 es un 70×100 en cuatro), esa pasada por la guillotina
+  // ocurre ANTES de imprimir y hasta ahora no se costeaba. Para alimentar una
+  // media prensa es trabajo real: se cortan los pliegos comprados, no los de
+  // prensa, así que el volumen es menor pero el tiempo existe.
+  const impoForCut = form.imposition;
+  if (impoForCut?.cut_from && (impoForCut.cuts_per_parent ?? 1) > 1) {
+    const parentSheets = Math.ceil(calcs.calc_sheets / (impoForCut.cuts_per_parent ?? 1));
+    const resmaHours = finishHoursFor('corte', parentSheets);
+    push(
+      'terminaciones',
+      `Corte de resma (${impoForCut.cut_from} → ${impoForCut.format_label})`,
+      'hrs',
+      resmaHours,
+      RATES.cut_per_hour
+    );
+  }
+
   const cutHours = finishHoursFor('corte', calcs.calc_sheets);
   push('terminaciones', 'Corte y Guillotinado', 'hrs', cutHours, RATES.cut_per_hour);
 

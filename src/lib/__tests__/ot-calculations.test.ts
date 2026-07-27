@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { computeOTCalculations, computeMultiQuantityQuotes } from '@/lib/ot-calculations';
+import { computeOTCalculations, computeMultiQuantityQuotes, computeImposition, generateDefaultOperations } from '@/lib/ot-calculations';
 import { INITIAL_OT_FORM, EMPTY_FINISHES } from '@/types/ot';
 
 // Concrete form with known dimensions so we can derive expected values under
@@ -210,5 +210,62 @@ describe('computeMultiQuantityQuotes — quiebres por cantidad', () => {
 		const out = computeMultiQuantityQuotes({ ...base, quantity: 10000 }, [0, -5, 10000]);
 		expect(out).toHaveLength(1);
 		expect(out[0].quantity).toBe(10000);
+	});
+});
+
+describe('imposición limitada por la prensa (Ryobi 524GS)', () => {
+	// Área máxima imprimible real de la 524GS: 370 × 520 mm.
+	const RYOBI = { maxWidthCm: 37, maxHeightCm: 52 };
+
+	it('nunca propone un pliego que la prensa no pueda tomar', () => {
+		const impo = computeImposition(9, 12, 150000, RYOBI);
+		const fits =
+			(impo.format_w! <= RYOBI.maxWidthCm && impo.format_h! <= RYOBI.maxHeightCm) ||
+			(impo.format_h! <= RYOBI.maxWidthCm && impo.format_w! <= RYOBI.maxHeightCm);
+		expect(fits).toBe(true);
+	});
+
+	it('sin límite elegía un pliego imposible — la regresión que esto evita', () => {
+		const sinLimite = computeImposition(9, 12, 150000);
+		const conLimite = computeImposition(9, 12, 150000, RYOBI);
+		// El formato libre (77×110) no entra en la 524GS.
+		expect(sinLimite.format_w).toBeGreaterThan(RYOBI.maxWidthCm);
+		expect(conLimite.format_w).toBeLessThanOrEqual(RYOBI.maxWidthCm);
+	});
+
+	it('el pliego de media prensa declara de qué formato de compra se corta', () => {
+		const impo = computeImposition(9, 12, 150000, RYOBI);
+		expect(impo.cut_from).toBeTruthy();
+		expect(impo.cuts_per_parent).toBeGreaterThan(1);
+	});
+
+	it('respetar la prensa multiplica los pliegos, no los reduce', () => {
+		const libre = computeImposition(9, 12, 150000);
+		const real = computeImposition(9, 12, 150000, RYOBI);
+		expect(real.sheets_needed).toBeGreaterThan(libre.sheets_needed * 3);
+	});
+
+	it('cobra el corte de resma cuando el pliego sale de partir uno comprado', () => {
+		const form = {
+			...FORM_10x14,
+			quantity: 150000,
+			color_front: 'cmyk' as const,
+			substrate_type: 'couche' as const,
+		};
+		const impo = computeImposition(form.width_cm, form.height_cm, form.quantity, RYOBI);
+		const calcs = computeOTCalculations({ ...form, imposition: impo }, { pressLimit: RYOBI });
+		const ops = generateDefaultOperations({ ...form, imposition: impo }, calcs);
+
+		const resma = ops.find((o) => o.name.startsWith('Corte de resma'));
+		expect(resma).toBeDefined();
+		expect(resma!.quantity).toBeGreaterThan(0);
+	});
+
+	it('no cobra corte de resma si el pliego se compra tal cual', () => {
+		const form = { ...FORM_10x14, quantity: 150000, color_front: 'cmyk' as const };
+		const impo = computeImposition(form.width_cm, form.height_cm, form.quantity); // sin límite
+		const calcs = computeOTCalculations({ ...form, imposition: impo });
+		const ops = generateDefaultOperations({ ...form, imposition: impo }, calcs);
+		expect(ops.find((o) => o.name.startsWith('Corte de resma'))).toBeUndefined();
 	});
 });

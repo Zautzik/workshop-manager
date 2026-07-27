@@ -304,6 +304,11 @@ function CotizacionesInner() {
                     <span className="text-muted-foreground">Formato</span>
                     <span className="text-right tabular-nums text-foreground">
                       {calc.impo.format_label ?? '—'}
+                      {calc.impo.cut_from && (
+                        <span className="block text-[11px] font-normal text-muted-foreground">
+                          cortado de {calc.impo.cut_from} ×{calc.impo.cuts_per_parent}
+                        </span>
+                      )}
                     </span>
                     <span className="text-muted-foreground">Poses por pliego</span>
                     <span className="text-right tabular-nums text-foreground">
