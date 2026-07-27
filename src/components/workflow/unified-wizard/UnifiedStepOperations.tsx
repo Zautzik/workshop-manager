@@ -39,10 +39,13 @@ import {
   computeOTPricing,
   generateDefaultOperations,
   computeOTCalculations,
+  computeMultiQuantityQuotes,
 } from '@/lib/ot-calculations';
 import { resolveCostOverrides } from '@/lib/costing-resolver';
 import { useCostCatalog, useMaterialCost } from '@/hooks/use-cost-catalog';
+import { formatCLP } from '@/lib/format';
 import type { UnifiedOTForm } from '@/types/ot-unified';
+import type { OTFormData } from '@/types/ot';
 
 interface Props {
   form: UnifiedOTForm;
@@ -57,6 +60,59 @@ export function UnifiedStepOperations({ form, updateForm }: Props) {
   const { data: materialCost = [] } = useMaterialCost();
 
   /* ── Operations grouped by category ─────────────────────────── */
+  /**
+   * Un impresor nunca cotiza un solo número: el cliente siempre pregunta "¿y si
+   * llevo más?". Se ofrecen la cantidad pedida más la mitad y el doble/quíntuple,
+   * calculadas de nuevo con el motor completo — el alistamiento se amortiza solo
+   * porque el modelo lo trata como costo por pasada, no por unidad.
+   */
+  const currentUnit = form.pricing.unit_price;
+
+  const quantityBreaks = useMemo(() => {
+    const base = form.quantity;
+    if (!(base > 0) || !(form.width_cm > 0) || !(form.height_cm > 0)) return [];
+
+    const ladder = [...new Set([
+      Math.max(1, Math.round(base / 2)),
+      base,
+      base * 2,
+      base * 5,
+    ])].sort((a, b) => a - b);
+
+    const calcInput = {
+      quantity: base,
+      width_cm: form.width_cm,
+      height_cm: form.height_cm,
+      grammage_gsm: form.grammage_gsm,
+      substrate_type: form.substrate_type,
+      color_front: form.color_front,
+      color_back: form.color_back,
+      finishes: form.finishes,
+    } as unknown as OTFormData;
+
+    const overrides = resolveCostOverrides(catalog, {
+      color_front: form.color_front,
+      color_back: form.color_back,
+      substrate_type: form.substrate_type,
+      grammage_gsm: form.grammage_gsm,
+    }, materialCost);
+
+    return computeMultiQuantityQuotes(
+      calcInput,
+      ladder,
+      form.pricing.margin_pct,
+      form.pricing.increment_pct,
+      form.pricing.commission_pct,
+      { inkCoverage: form.ink_coverage },
+      overrides
+    );
+  }, [
+    form.quantity, form.width_cm, form.height_cm, form.grammage_gsm,
+    form.substrate_type, form.color_front, form.color_back, form.finishes,
+    form.ink_coverage, form.pricing.margin_pct, form.pricing.increment_pct,
+    form.pricing.commission_pct, catalog, materialCost,
+  ]);
+
   const groupedOps = useMemo(() => {
     const groups: Record<string, OTOperation[]> = {};
     for (const cat of OPERATION_CATEGORIES) {
@@ -413,6 +469,66 @@ export function UnifiedStepOperations({ form, updateForm }: Props) {
           </div>
         </div>
       </Card>
+
+      {/* ── Quiebres por cantidad ──────────────────────────────── */}
+      {quantityBreaks.length > 0 && (
+        <Card className="p-4 space-y-3">
+          <div>
+            <h3 className="font-semibold text-sm text-foreground">¿Y si lleva más?</h3>
+            <p className="text-xs text-muted-foreground">
+              El cliente siempre pregunta. El alistamiento se paga una vez, así que a mayor tiraje
+              el unitario baja — cada fila se recalcula con el motor completo, no escalando.
+            </p>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[360px] text-sm">
+              <thead>
+                <tr className="border-b border-border text-left text-[11px] uppercase tracking-wide text-muted-foreground">
+                  <th className="py-1.5 pr-3 font-semibold">Cantidad</th>
+                  <th className="py-1.5 px-3 text-right font-semibold">Precio total</th>
+                  <th className="py-1.5 px-3 text-right font-semibold">Unitario</th>
+                  <th className="py-1.5 pl-3 text-right font-semibold">vs. actual</th>
+                </tr>
+              </thead>
+              <tbody>
+                {quantityBreaks.map((q) => {
+                  const isCurrent = q.quantity === form.quantity;
+                  const deltaPct =
+                    currentUnit > 0 ? ((q.unit_price - currentUnit) / currentUnit) * 100 : 0;
+                  return (
+                    <tr
+                      key={q.quantity}
+                      className={`border-b border-border last:border-0 ${isCurrent ? 'bg-primary/5' : ''}`}
+                    >
+                      <td className="py-1.5 pr-3 tabular-nums text-foreground">
+                        {q.quantity.toLocaleString('es-CL')}
+                        {isCurrent && <span className="ml-1 text-[10px] text-primary">actual</span>}
+                      </td>
+                      <td className="py-1.5 px-3 text-right tabular-nums text-foreground">
+                        {formatCLP(q.total_price)}
+                      </td>
+                      <td className="py-1.5 px-3 text-right font-medium tabular-nums text-foreground">
+                        {formatCLP(q.unit_price)}
+                      </td>
+                      <td
+                        className={`py-1.5 pl-3 text-right tabular-nums ${
+                          isCurrent
+                            ? 'text-muted-foreground'
+                            : deltaPct < 0
+                              ? 'text-emerald-600'
+                              : 'text-amber-600'
+                        }`}
+                      >
+                        {isCurrent ? '—' : `${deltaPct > 0 ? '+' : ''}${deltaPct.toFixed(0)}%`}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      )}
 
       {/* ── Edit Operation Dialog ──────────────────────────────── */}
       <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>

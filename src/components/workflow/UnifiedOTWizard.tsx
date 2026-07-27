@@ -229,6 +229,23 @@ export function UnifiedOTWizard({ onClose, onSuccess }: Props) {
     // Don't include form.operations/pricing to avoid loop
   ]);
 
+  /**
+   * Repetición: cargar las especificaciones de un trabajo anterior y saltar
+   * directo a Información. No se copia el precio — se recalcula con las tarifas
+   * de hoy, porque arrastrar un precio viejo es cómo se repite un error.
+   */
+  const handleRepeatPrevious = useCallback(
+    (patch: Partial<UnifiedOTForm>, otNumber: string) => {
+      updateForm(patch);
+      setStep(1);
+      toast({
+        title: `Repitiendo OT ${otNumber}`,
+        description: 'Especificaciones cargadas. El precio se recalcula con las tarifas actuales.',
+      });
+    },
+    [updateForm, toast]
+  );
+
   /* ── Step validation ────────────────────────────────────────── */
   const canAdvance = useMemo(() => {
     switch (step) {
@@ -450,6 +467,7 @@ export function UnifiedOTWizard({ onClose, onSuccess }: Props) {
           <UnifiedStepCategory
             selected={form.work_category}
             onSelect={handleCategorySelect}
+            onRepeat={handleRepeatPrevious}
           />
         );
       case 1:
@@ -458,10 +476,13 @@ export function UnifiedOTWizard({ onClose, onSuccess }: Props) {
         return <UnifiedStepSpecs form={form} updateForm={updateForm} />;
       case 3:
         return <UnifiedStepProduction form={form} updateForm={updateForm} />;
+      // Máquina ANTES que montaje: los cuerpos de la prensa deciden las pasadas
+      // y su formato máximo decide cuántas poses entran en el pliego. Preguntar
+      // el montaje primero obliga a adivinar, y lo que se adivina es el default.
       case 4:
-        return <UnifiedStepMontaje form={form} updateForm={updateForm} />;
-      case 5:
         return <UnifiedStepMachine form={form} updateForm={updateForm} />;
+      case 5:
+        return <UnifiedStepMontaje form={form} updateForm={updateForm} />;
       case 6:
         return <UnifiedStepOperations form={form} updateForm={updateForm} />;
       case 7:

@@ -425,38 +425,46 @@ export function computeOTPricing(
  * embedded in hours, overhead base) don't rescale perfectly here — this is a
  * commercial approximation: plates fixed, everything else proportional.
  */
+/**
+ * Precio para varias cantidades — el "¿y si llevo más?" del cliente.
+ *
+ * Antes esto escalaba linealmente todo salvo las placas. El problema: las
+ * operaciones que produce el motor son AGREGADOS. "Sustrato/Papel" incluye los
+ * pliegos de alistamiento (120 por pasada) además de los de tiraje, y
+ * "Impresión Offset" incluye la media hora de alistamiento por pasada. Al
+ * escalar ×10 se cobraba también ×10 el alistamiento — exactamente al revés de
+ * cómo funciona un quiebre por cantidad.
+ *
+ * Medido sobre 10.000 → 100.000 etiquetas: el modelo escalado daba 31 → 28 por
+ * unidad (casi ninguna baja), cuando la economía real da 31 → 15. Un impresor
+ * detecta esa tabla al primer vistazo, porque todo el argumento de vender más
+ * volumen es que el alistamiento se reparte.
+ *
+ * Ahora se vuelve a correr el motor por cada cantidad. Es más caro en CPU y es
+ * la única forma honesta: el alistamiento se amortiza solo porque el modelo ya
+ * lo trata como costo por pasada, no por unidad.
+ */
 export function computeMultiQuantityQuotes(
-  baseQuantity: number,
-  baseOperations: OTOperation[],
+  form: OTFormData,
   quantities: number[],
   marginPct: number = 10,
   incrementPct: number = 10,
-  commissionPct: number = 1
+  commissionPct: number = 1,
+  opts: OTCalcOptions = {},
+  costOverrides: CostOverrides = {}
 ): MultiQuantityQuote[] {
-  const fixedOpNames = new Set(['Placas CTP']);
+  return quantities
+    .filter((qty) => qty > 0)
+    .map((qty) => {
+      const scopedForm: OTFormData = { ...form, quantity: qty };
+      const calcs = computeOTCalculations(scopedForm, opts);
+      const ops = generateDefaultOperations(scopedForm, calcs, costOverrides);
+      const pricing = computeOTPricing(ops, qty, marginPct, incrementPct, commissionPct);
 
-  const baseCosts = baseOperations.reduce(
-    (acc, op) => {
-      if (fixedOpNames.has(op.name)) acc.fixed += op.total_cost;
-      else acc.variable += op.total_cost;
-      return acc;
-    },
-    { fixed: 0, variable: 0 }
-  );
-
-  return quantities.map((qty) => {
-    const scaleFactor = baseQuantity > 0 ? qty / baseQuantity : 1;
-    const scaledVariable = baseCosts.variable * scaleFactor;
-    const subtotal = baseCosts.fixed + scaledVariable;
-
-    const marginAmt = subtotal * marginPct / 100;
-    const afterMargin = subtotal + marginAmt;
-    const incAmt = afterMargin * incrementPct / 100;
-    const afterInc = afterMargin + incAmt;
-    const commAmt = afterInc * commissionPct / 100;
-    const total = Math.round(afterInc + commAmt);
-    const unit = qty > 0 ? Math.round(total / qty) : 0;
-
-    return { quantity: qty, total_price: total, unit_price: unit };
-  });
+      return {
+        quantity: qty,
+        total_price: Math.round(pricing.total_price),
+        unit_price: Math.round(pricing.unit_price),
+      };
+    });
 }

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { computeOTCalculations } from '@/lib/ot-calculations';
+import { computeOTCalculations, computeMultiQuantityQuotes } from '@/lib/ot-calculations';
 import { INITIAL_OT_FORM, EMPTY_FINISHES } from '@/types/ot';
 
 // Concrete form with known dimensions so we can derive expected values under
@@ -166,5 +166,49 @@ describe('computeOTCalculations — pass-through-press model (v2)', () => {
 		const die = computeOTCalculations({ ...FORM_10x14, finishes: { ...FORM_10x14.finishes, finish_troquelado: true } });
 		const varnish = computeOTCalculations({ ...FORM_10x14, finishes: { ...FORM_10x14.finishes, finish_barniz: true } });
 		expect(die.calc_finish_hours).toBeGreaterThan(varnish.calc_finish_hours);
+	});
+});
+
+describe('computeMultiQuantityQuotes — quiebres por cantidad', () => {
+	const base = {
+		...FORM_10x14,
+		color_front: 'cmyk' as const,
+		substrate_type: 'couche' as const,
+	};
+
+	it('el precio unitario BAJA al subir la cantidad (el alistamiento se amortiza)', () => {
+		const [q10k, q50k, q100k] = computeMultiQuantityQuotes(
+			{ ...base, quantity: 10000 },
+			[10000, 50000, 100000]
+		);
+
+		expect(q50k.unit_price).toBeLessThan(q10k.unit_price);
+		expect(q100k.unit_price).toBeLessThan(q50k.unit_price);
+	});
+
+	it('la baja es material, no cosmética — el modelo escalado anterior apenas movía el unitario', () => {
+		const [small, big] = computeMultiQuantityQuotes(
+			{ ...base, quantity: 10000 },
+			[10000, 100000]
+		);
+		// El papel sí escala lineal (bien), así que la baja no llega a la mitad;
+		// lo que se amortiza es el alistamiento. Con ×10 de volumen eso da >30%.
+		// El modelo escalado anterior daba ~10%: este umbral separa correcto de roto.
+		const dropPct = ((small.unit_price - big.unit_price) / small.unit_price) * 100;
+		expect(dropPct).toBeGreaterThan(30);
+	});
+
+	it('el total sí sube con la cantidad (baja el unitario, no la factura)', () => {
+		const [small, big] = computeMultiQuantityQuotes(
+			{ ...base, quantity: 10000 },
+			[10000, 100000]
+		);
+		expect(big.total_price).toBeGreaterThan(small.total_price);
+	});
+
+	it('ignora cantidades no positivas en vez de emitir precios absurdos', () => {
+		const out = computeMultiQuantityQuotes({ ...base, quantity: 10000 }, [0, -5, 10000]);
+		expect(out).toHaveLength(1);
+		expect(out[0].quantity).toBe(10000);
 	});
 });

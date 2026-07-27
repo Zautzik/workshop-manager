@@ -214,8 +214,10 @@ export const UNIFIED_STEPS = [
   { key: 'info',         label: 'Información',     number: 2, icon: '👤' },
   { key: 'specs',        label: 'Especificaciones', number: 3, icon: '📐' },
   { key: 'production',   label: 'Producción',      number: 4, icon: '🏭' },
-  { key: 'montaje',      label: 'Montaje',         number: 5, icon: '🧩' },
-  { key: 'machine',      label: 'Máquina',         number: 6, icon: '⚙️' },
+  // La prensa determina el montaje (cuerpos → pasadas, formato → poses), así
+  // que se pregunta primero. Estaban invertidos (auditoría 2026-07).
+  { key: 'machine',      label: 'Máquina',         number: 5, icon: '⚙️' },
+  { key: 'montaje',      label: 'Montaje',         number: 6, icon: '🧩' },
   { key: 'operations',   label: 'Costos',          number: 7, icon: '💰' },
   { key: 'summary',      label: 'Resumen',         number: 8, icon: '✅' },
 ] as const;

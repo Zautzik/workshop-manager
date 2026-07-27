@@ -5,6 +5,8 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ArrowRight, Sparkles } from 'lucide-react';
+import { RepetirOTAnterior } from './RepetirOTAnterior';
+import type { UnifiedOTForm } from '@/types/ot-unified';
 import {
   WORK_CATEGORIES,
   type WorkCategoryKey,
@@ -14,9 +16,11 @@ import {
 interface Props {
   selected: WorkCategoryKey | null;
   onSelect: (cat: WorkCategoryKey) => void;
+  /** Cargar las especificaciones de un trabajo anterior. */
+  onRepeat?: (patch: Partial<UnifiedOTForm>, otNumber: string) => void;
 }
 
-export function UnifiedStepCategory({ selected, onSelect }: Props) {
+export function UnifiedStepCategory({ selected, onSelect, onRepeat }: Props) {
   const [hovering, setHovering] = useState<WorkCategoryKey | null>(null);
   const [chosen, setChosen] = useState<WorkCategoryKey | null>(selected);
 
@@ -26,6 +30,9 @@ export function UnifiedStepCategory({ selected, onSelect }: Props) {
 
   return (
     <div className="space-y-6">
+      {/* Lo primero que hace un impresor no es elegir tipo de trabajo: es
+          preguntarse si esto ya lo hicimos antes. */}
+      {onRepeat && <RepetirOTAnterior onApply={onRepeat} />}
       {/* Header */}
       <div className="text-center space-y-2">
         <div className="flex items-center justify-center gap-2">
