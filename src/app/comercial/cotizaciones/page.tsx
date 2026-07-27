@@ -48,6 +48,7 @@ function buildEstimate(
   s: {
     quantity: number; width_cm: number; height_cm: number; grammage_gsm: number;
     colors_front: number; colors_back: number; substrate_type: string; finishing: boolean;
+    coverage: Coverage;
   },
   catalog: CostCenterItem[],
   materialCost: any[]
@@ -63,7 +64,10 @@ function buildEstimate(
     finishes: { finish_corte: true, finish_plegado: s.finishing },
   } as unknown as OTFormData;
 
-  const calcs = computeOTCalculations(calcInput);
+  // La cobertura del arte multiplica el consumo de tinta: un fondo sólido a
+  // full come mucho más que una línea fina, y es el caso que se cotiza barato
+  // y se imprime caro.
+  const calcs = computeOTCalculations(calcInput, { inkCoverage: s.coverage });
   const impo = computeImposition(s.width_cm, s.height_cm, s.quantity);
   const overrides = resolveCostOverrides(
     catalog,

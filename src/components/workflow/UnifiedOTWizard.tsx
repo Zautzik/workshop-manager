@@ -184,6 +184,7 @@ export function UnifiedOTWizard({ onClose, onSuccess }: Props) {
       // The chosen machine sharpens the estimate (real speed + colour bodies).
       const machine = wizardMachines.find((m) => m.id === form.machine.machine_id);
       const calcOpts = {
+        inkCoverage: form.ink_coverage,
         machineSpeedSheetsHr: machine?.nominal_speed_sheets_hr ?? undefined,
         pressBodies: machine?.colors ?? undefined,
       };
@@ -320,6 +321,7 @@ export function UnifiedOTWizard({ onClose, onSuccess }: Props) {
         color_front: form.color_front,
         color_back: form.color_back,
         pantone_colors: form.pantone_colors.length > 0 ? form.pantone_colors : null,
+        ink_coverage: form.ink_coverage,
         ...Object.fromEntries(
           Object.entries(form.finishes).map(([k, v]) => [k, v])
         ),

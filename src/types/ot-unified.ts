@@ -62,6 +62,8 @@ export interface UnifiedOTForm {
   color_front: OTColorMode;
   color_back: OTColorMode;
   pantone_colors: string[];
+  /** Clase de cobertura del arte — multiplica el consumo de tinta. */
+  ink_coverage: 'light' | 'medium' | 'heavy';
   finishes: OTFinishes;
   attachments: File[];
   /** true = la OT nace declaradamente sin arte; visible hasta que se adjunte. */
@@ -120,6 +122,7 @@ export const EMPTY_UNIFIED_FORM: UnifiedOTForm = {
   color_front: 'cmyk',
   color_back: 'sin_impresion',
   pantone_colors: [],
+  ink_coverage: 'medium',
   finishes: {
     finish_troquelado: false,
     finish_plegado: false,

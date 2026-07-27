@@ -378,6 +378,38 @@ export function UnifiedStepSpecs({ form, updateForm }: Props) {
         )}
       </Card>
 
+      {/* ── Ink coverage ───────────────────────────────────────── */}
+      <Card className="p-4 border-border space-y-3">
+        <div>
+          <h3 className="font-semibold text-sm text-foreground">Cobertura de tinta</h3>
+          <p className="text-xs text-muted-foreground">
+            Cuánta tinta pide el arte. Un fondo sólido a full puede consumir 3,6 veces lo de una
+            línea fina — y es el caso que se cotiza barato y se imprime caro.
+          </p>
+        </div>
+        <div className="grid grid-cols-3 gap-2">
+          {([
+            { v: 'light', label: 'Baja', hint: 'Texto, línea fina' },
+            { v: 'medium', label: 'Media', hint: 'Imágenes normales' },
+            { v: 'heavy', label: 'Alta', hint: 'Fondos sólidos, full' },
+          ] as const).map((o) => (
+            <button
+              key={o.v}
+              type="button"
+              onClick={() => updateForm({ ink_coverage: o.v })}
+              className={`rounded-md border px-3 py-2 text-left transition-colors ${
+                form.ink_coverage === o.v
+                  ? 'border-primary bg-primary/10'
+                  : 'border-border hover:border-primary/40'
+              }`}
+            >
+              <div className="text-sm font-medium text-foreground">{o.label}</div>
+              <div className="text-[11px] text-muted-foreground">{o.hint}</div>
+            </button>
+          ))}
+        </div>
+      </Card>
+
       {/* ── Artwork Attachments ────────────────────────────────── */}
       <Card className="p-4 border-border space-y-4">
         <h3 className="font-semibold text-sm text-foreground">Archivos de Arte</h3>

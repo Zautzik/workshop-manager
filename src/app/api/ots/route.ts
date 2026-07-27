@@ -79,6 +79,8 @@ const CreateOTSchema = z.object({
 	grammage_gsm: z.coerce.number().int().min(0).optional().nullable(),
 	substrate_brand: z.string().max(255).optional().nullable(),
 	substrate_supplier: z.string().max(255).optional().nullable(),
+	// Clase de cobertura del arte: multiplica el consumo de tinta en el motor.
+	ink_coverage: z.enum(['light', 'medium', 'heavy']).optional().nullable(),
 	color_front: OTColorModeSchema,
 	color_back: OTColorModeSchema,
 	pantone_colors: z.array(z.string()).optional().nullable(),
@@ -251,6 +253,7 @@ export async function POST(req: NextRequest) {
 					product_type: d.product_type || null,
 					priority_level: d.priority_level || 'normal',
 					sin_arte: d.sin_arte === true,
+					ink_coverage: d.ink_coverage ?? null,
 					template_id: d.template_id || null,
 					width_cm: d.width_cm || null,
 					height_cm: d.height_cm || null,
