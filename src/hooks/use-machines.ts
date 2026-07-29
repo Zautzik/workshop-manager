@@ -5,6 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 import type { MachineStatus } from '@/types/machine-status';
 export type { MachineStatus } from '@/types/machine-status';
 import type { MachineType } from '@/types/machine-type';
+import type { MachineUsageUnit } from '@/types/machine-usage-unit';
 export type { MachineType } from '@/types/machine-type';
 
 // ─── Types ────────────────────────────────────────────────────────────────────────────────
@@ -32,6 +33,13 @@ export interface Machine {
   depreciation_monthly?: number | null;
   is_active: boolean;
   workstation_id?: string | null;
+  /** Cómo se mide el desgaste: impresiones, horas, km o ciclos. */
+  usage_unit?: MachineUsageUnit | null;
+  /** Lectura actual. Sólo se mueve registrando lecturas, nunca editando. */
+  usage_counter?: number | null;
+  usage_counter_updated_at?: string | null;
+  /** Umbral de factor bus: bajo esto, el taller depende de una persona. */
+  min_qualified_operators?: number | null;
   created_at: string;
   updated_at: string;
   // Relations

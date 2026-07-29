@@ -5,6 +5,7 @@ import { requireAuth, isAuthError } from '@/lib/api-middleware';
 import { supabaseAdmin } from '@/integrations/supabase/server';
 import { MACHINE_STATUS_VALUES } from '@/types/machine-status';
 import { MACHINE_TYPE_VALUES } from '@/types/machine-type';
+import { MACHINE_USAGE_UNIT_VALUES } from '@/types/machine-usage-unit';
 
 const nullableString = z.string().max(5000).nullable().optional();
 const nullableNumber = z.number().nullable().optional();
@@ -31,6 +32,11 @@ const UpdateMachineSchema = z.object({
 	depreciation_monthly: nullableNumber,
 	is_active: z.boolean().optional(),
 	workstation_id: z.string().uuid().nullable().optional(),
+	usage_unit: z.enum(MACHINE_USAGE_UNIT_VALUES).optional(),
+	min_qualified_operators: z.number().int().min(0).max(50).nullable().optional(),
+	// `usage_counter` NO se acepta acá a propósito: se mueve registrando una
+	// lectura en POST /api/machines/[id]/usage, que deja fecha y autor. Dejarlo
+	// editable acá abriría la segunda puerta al mismo número.
 });
 
 const IdParamSchema = z.string().uuid();

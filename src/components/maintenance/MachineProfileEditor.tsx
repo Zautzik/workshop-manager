@@ -27,7 +27,13 @@ import {
 } from '@/hooks/use-machines';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { Cpu, Zap, Package, DollarSign, Settings, Plus, Trash2, AlertTriangle } from 'lucide-react';
+import { Cpu, Zap, Package, DollarSign, Settings, Plus, Trash2, AlertTriangle, Gauge } from 'lucide-react';
+import {
+  MACHINE_USAGE_UNIT_VALUES,
+  USAGE_UNIT_LABEL,
+  defaultUsageUnitFor,
+  type MachineUsageUnit,
+} from '@/types/machine-usage-unit';
 
 interface Props {
   machine?: Machine | null;
@@ -207,6 +213,56 @@ export function MachineProfileEditor({ machine, onSaved, onCancel }: Props) {
                 <Input id="colors" type="number" min={1} max={12} {...register('colors', { valueAsNumber: true })} placeholder="Ej: 4" />
               </Field>
             </div>
+
+            <Separator />
+            <p className="text-xs font-semibold text-foreground flex items-center gap-1">
+              <Gauge className="h-3 w-3 text-rose-500" />Mantenimiento & contador
+            </p>
+            <div className="grid grid-cols-2 gap-4">
+              <Field label="Se mide en" id="usage_unit">
+                <Select
+                  value={watch('usage_unit') ?? defaultUsageUnitFor(watch('type'))}
+                  onValueChange={(v) => setValue('usage_unit', v as MachineUsageUnit, { shouldDirty: true })}
+                >
+                  <SelectTrigger id="usage_unit"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {MACHINE_USAGE_UNIT_VALUES.map((u) => (
+                      <SelectItem key={u} value={u}>{USAGE_UNIT_LABEL[u]}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </Field>
+              <Field
+                label={machine ? 'Contador actual' : 'Lectura inicial del contador'}
+                id="usage_counter"
+              >
+                <Input
+                  id="usage_counter"
+                  type="number"
+                  min={0}
+                  disabled={!!machine}
+                  {...register('usage_counter', { valueAsNumber: true })}
+                  placeholder="Ej: 8400000"
+                />
+              </Field>
+              <Field label="Operarios habilitados mínimos" id="min_qualified_operators">
+                <Input
+                  id="min_qualified_operators"
+                  type="number"
+                  min={0}
+                  max={50}
+                  {...register('min_qualified_operators', { valueAsNumber: true })}
+                  placeholder="2"
+                />
+              </Field>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {machine
+                ? 'El contador se mueve anotando lecturas en Mecánica → Anotar lectura, no editándolo acá: así queda quién lo anotó y cuándo.'
+                : 'La unidad decide cómo se programa la pauta y cómo se mide la vida de cada repuesto: una offset por impresiones, una Roland o un compresor por horas, un vehículo por kilómetros.'}{' '}
+              Por debajo del mínimo de operarios habilitados, el taller depende de una sola persona y la cobertura lo marca en rojo.
+            </p>
+
             <Separator />
             <p className="text-xs font-semibold text-foreground flex items-center gap-1"><Zap className="h-3 w-3 text-amber-500" />Energía & Costos fijos</p>
             <div className="grid grid-cols-2 gap-4">

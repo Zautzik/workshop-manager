@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
-  Users, ShieldAlert, GraduationCap, Plus, UserCheck, UserMinus, Clock, Award,
+  Users, ShieldAlert, GraduationCap, Plus, UserCheck, UserMinus, Clock, Award, ClipboardList,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -192,12 +192,15 @@ export function CompetenciasPanel() {
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between gap-3">
                 <CardTitle className="text-base">Qué exige esta máquina</CardTitle>
-                <NuevoRequisitoDialog
-                  machineId={machineId}
-                  skills={skills ?? []}
-                  yaExigidas={data.requirements.map((r) => r.skill_id)}
-                  onSaved={invalidate}
-                />
+                <div className="flex items-center gap-2">
+                  <PlantillaCompetenciasDialog machineId={machineId} onApplied={invalidate} />
+                  <NuevoRequisitoDialog
+                    machineId={machineId}
+                    skills={skills ?? []}
+                    yaExigidas={data.requirements.map((r) => r.skill_id)}
+                    onSaved={invalidate}
+                  />
+                </div>
               </div>
             </CardHeader>
             <CardContent>
@@ -368,6 +371,167 @@ function Metric({ label, value, tone }: { label: string; value: number; tone: st
       <p className="text-xs uppercase tracking-wide text-muted-foreground">{label}</p>
       <p className={`text-2xl font-bold tabular-nums ${TONE[tone]}`}>{value}</p>
     </div>
+  );
+}
+
+interface CompTemplateItem {
+  skill_id: string;
+  skill_name: string;
+  skill_code: string;
+  min_proficiency: number;
+  is_critical: boolean;
+  requires_certification?: boolean;
+  supervised_hours_required?: number;
+  reason?: string;
+  already_present: boolean;
+}
+
+function PlantillaCompetenciasDialog({
+  machineId, onApplied,
+}: {
+  machineId: string; onApplied: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [marcadas, setMarcadas] = useState<Set<string>>(new Set());
+
+  const { data, isLoading } = useQuery<{
+    machine: { name: string; type: string };
+    items: CompTemplateItem[];
+    missing_from_catalog: string[];
+  }>({
+    queryKey: ['competency-template', machineId],
+    enabled: open,
+    queryFn: async () => {
+      const res = await fetch(`/api/machines/${machineId}/competency/template`);
+      if (!res.ok) throw new Error('No se pudo cargar la plantilla');
+      const json = await res.json();
+      setMarcadas(new Set(json.items.filter((i: CompTemplateItem) => !i.already_present).map((i: CompTemplateItem) => i.skill_id)));
+      return json;
+    },
+  });
+
+  const mut = useMutation({
+    mutationFn: async () => {
+      const items = (data?.items ?? [])
+        .filter((i) => marcadas.has(i.skill_id))
+        .map((i) => ({
+          skill_id: i.skill_id,
+          min_proficiency: i.min_proficiency,
+          is_critical: i.is_critical,
+          requires_certification: i.requires_certification ?? false,
+          supervised_hours_required: i.supervised_hours_required ?? null,
+        }));
+      const res = await fetch(`/api/machines/${machineId}/competency/template`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ items }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error ?? 'No se pudo aplicar');
+      return json;
+    },
+    onSuccess: (json) => {
+      toast.success(`${json.applied} competencias exigidas. La cobertura ya se puede calcular.`);
+      setOpen(false);
+      onApplied();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const toggle = (id: string) =>
+    setMarcadas((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button size="sm" variant="outline" className="gap-1">
+          <ClipboardList className="h-4 w-4" /> Partir de una plantilla
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-xl">
+        <DialogHeader>
+          <DialogTitle>
+            Competencias habituales de {data ? machineTypeLabel(data.machine.type).toLowerCase() : 'esta máquina'}
+          </DialogTitle>
+        </DialogHeader>
+
+        {isLoading && <Skeleton className="h-56 w-full" />}
+
+        {data && (
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              Los niveles son un punto de partida, no una verdad: ajústalos después según
+              qué tan exigente sea el taller.
+            </p>
+
+            {data.missing_from_catalog.length > 0 && (
+              <p className="rounded-md border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-800 dark:text-amber-200">
+                La plantilla también sugiere {data.missing_from_catalog.join(', ')}, que no
+                existen en el catálogo de competencias. Créalas en Personas → Desarrollo si
+                aplican a esta máquina.
+              </p>
+            )}
+
+            <ul className="space-y-1">
+              {data.items.map((i) => (
+                <li key={i.skill_id}>
+                  <label
+                    className={`flex cursor-pointer items-start gap-2.5 rounded-md p-2 text-sm transition-colors hover:bg-muted/60 ${
+                      i.already_present ? 'opacity-50' : ''
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      className="mt-0.5 h-4 w-4 shrink-0 accent-current"
+                      checked={marcadas.has(i.skill_id)}
+                      onChange={() => toggle(i.skill_id)}
+                    />
+                    <span className="min-w-0 flex-1">
+                      <span className="flex flex-wrap items-center gap-1.5">
+                        {i.skill_name}
+                        <span className="text-xs text-muted-foreground">nivel {i.min_proficiency}</span>
+                        {i.is_critical && (
+                          <Badge variant="outline" className="border-red-500/30 bg-red-500/15 text-[0.65rem] text-red-700 dark:text-red-300">
+                            crítica
+                          </Badge>
+                        )}
+                        {i.requires_certification && (
+                          <Badge variant="outline" className="gap-1 text-[0.65rem]">
+                            <Award className="h-2.5 w-2.5" /> certificación
+                          </Badge>
+                        )}
+                        {i.supervised_hours_required != null && (
+                          <Badge variant="secondary" className="gap-1 text-[0.65rem]">
+                            <Clock className="h-2.5 w-2.5" /> {i.supervised_hours_required} h
+                          </Badge>
+                        )}
+                        {i.already_present && (
+                          <span className="text-xs text-muted-foreground">ya exigida — se actualiza</span>
+                        )}
+                      </span>
+                      {i.reason && (
+                        <span className="mt-0.5 block text-xs text-muted-foreground">{i.reason}</span>
+                      )}
+                    </span>
+                  </label>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        <DialogFooter>
+          <Button variant="ghost" onClick={() => setOpen(false)}>Cancelar</Button>
+          <Button onClick={() => mut.mutate()} disabled={marcadas.size === 0 || mut.isPending}>
+            Exigir {marcadas.size} competencia{marcadas.size === 1 ? '' : 's'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 

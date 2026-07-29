@@ -5,6 +5,7 @@ import { requireAuth, isAuthError } from '@/lib/api-middleware';
 import { supabaseAdmin } from '@/integrations/supabase/server';
 import { MACHINE_STATUS_VALUES } from '@/types/machine-status';
 import { MACHINE_TYPE_VALUES } from '@/types/machine-type';
+import { MACHINE_USAGE_UNIT_VALUES } from '@/types/machine-usage-unit';
 
 // ── Segment config ──────────────────────────────────────────────────────────
 // The route handler must be dynamic so auth runs per-request.
@@ -21,6 +22,14 @@ const CreateMachineSchema = z.object({
 	name: z.string().min(1).max(255),
 	type: z.enum(MACHINE_TYPE_VALUES),
 	status: z.enum(MACHINE_STATUS_VALUES).optional(),
+	// Cómo se mide el desgaste de ESTA máquina. Sin esto en el alta, toda
+	// máquina nueva nacía en 'hours' por defecto y una offset quedaba
+	// imposible de mantener por impresiones.
+	usage_unit: z.enum(MACHINE_USAGE_UNIT_VALUES).optional(),
+	// Lectura inicial del contador. No se escribe en la columna: se registra
+	// como primera lectura y el trigger sincroniza. Una sola puerta.
+	usage_counter: z.number().min(0).nullable().optional(),
+	min_qualified_operators: z.number().int().min(0).max(50).nullable().optional(),
 	brand: nullableString,
 	model: nullableString,
 	serial_number: nullableString,
@@ -90,11 +99,16 @@ export async function POST(req: NextRequest) {
 			);
 		}
 
+		// El contador no se escribe en la columna: entra como primera lectura y
+		// el trigger la sincroniza. Así `machine_usage_readings` sigue siendo el
+		// único que mueve `usage_counter`, y la lectura inicial queda fechada.
+		const { usage_counter, ...machineFields } = parsed.data;
+
 		const { data, error } = await supabaseAdmin
 			.from('machines')
 			.insert([
 				{
-					...parsed.data,
+					...machineFields,
 					status: parsed.data.status ?? 'idle',
 				} as any,
 			])
@@ -104,6 +118,29 @@ export async function POST(req: NextRequest) {
 		if (error) {
 			console.error('Error creating machine:', error);
 			return NextResponse.json({ error: 'Failed to create machine' }, { status: 500 });
+		}
+
+		if (usage_counter != null && usage_counter > 0 && data) {
+			const { error: readingError } = await supabaseAdmin
+				.from('machine_usage_readings')
+				.insert({
+					machine_id: data.id,
+					reading: usage_counter,
+					unit: data.usage_unit,
+					source: 'import',
+					notes: 'Lectura inicial al dar de alta la máquina',
+				});
+			// No se pierde en silencio: sin contador inicial las proyecciones de
+			// repuesto arrancan desde cero y mienten.
+			if (readingError) {
+				return NextResponse.json(
+					{
+						...data,
+						warning: `La máquina se creó, pero no se pudo registrar la lectura inicial del contador (${readingError.message}). Anótala desde Mecánica → Anotar lectura.`,
+					},
+					{ status: 201 }
+				);
+			}
 		}
 
 		// Flush the machines cache so the next GET reflects the new machine
