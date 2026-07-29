@@ -14,6 +14,24 @@ export type Database = {
   }
   public: {
     Tables: {
+      app_settings: {
+        Row: {
+          key: string
+          updated_at: string
+          value: Json
+        }
+        Insert: {
+          key: string
+          updated_at?: string
+          value?: Json
+        }
+        Update: {
+          key?: string
+          updated_at?: string
+          value?: Json
+        }
+        Relationships: []
+      }
       attendance_events: {
         Row: {
           at: string
@@ -52,6 +70,20 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "employees"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "attendance_events_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "worker_stats"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "attendance_events_station_id_fkey"
+            columns: ["station_id"]
+            isOneToOne: false
+            referencedRelation: "planta_live"
+            referencedColumns: ["workstation_id"]
           },
           {
             foreignKeyName: "attendance_events_station_id_fkey"
@@ -98,6 +130,194 @@ export type Database = {
         }
         Relationships: []
       }
+      capture_events: {
+        Row: {
+          applied: boolean
+          applied_ref_id: string | null
+          applied_ref_type: string | null
+          channel: Database["public"]["Enums"]["capture_channel"]
+          corrected_costs: Json | null
+          corrected_data: Json | null
+          created_at: string
+          domain: Database["public"]["Enums"]["capture_domain"]
+          elapsed_minutes: number | null
+          event_type: string
+          guide_id: string | null
+          id: string
+          inferred_costs: Json | null
+          item_id: string | null
+          legacy_id: string | null
+          legacy_table: string | null
+          lot_id: string | null
+          message_timestamp: string
+          operator_employee_id: string | null
+          operator_name: string | null
+          operator_phone: string | null
+          ot_id: string | null
+          ot_number: string | null
+          parsed_data: Json | null
+          photo_url: string | null
+          purchase_id: string | null
+          quantity: number | null
+          raw_message: string | null
+          review_comments: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          scanned_value: string | null
+          status: Database["public"]["Enums"]["capture_status"]
+          unit: string | null
+          unit_cost: number | null
+          updated_at: string
+        }
+        Insert: {
+          applied?: boolean
+          applied_ref_id?: string | null
+          applied_ref_type?: string | null
+          channel?: Database["public"]["Enums"]["capture_channel"]
+          corrected_costs?: Json | null
+          corrected_data?: Json | null
+          created_at?: string
+          domain: Database["public"]["Enums"]["capture_domain"]
+          elapsed_minutes?: number | null
+          event_type: string
+          guide_id?: string | null
+          id?: string
+          inferred_costs?: Json | null
+          item_id?: string | null
+          legacy_id?: string | null
+          legacy_table?: string | null
+          lot_id?: string | null
+          message_timestamp?: string
+          operator_employee_id?: string | null
+          operator_name?: string | null
+          operator_phone?: string | null
+          ot_id?: string | null
+          ot_number?: string | null
+          parsed_data?: Json | null
+          photo_url?: string | null
+          purchase_id?: string | null
+          quantity?: number | null
+          raw_message?: string | null
+          review_comments?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          scanned_value?: string | null
+          status?: Database["public"]["Enums"]["capture_status"]
+          unit?: string | null
+          unit_cost?: number | null
+          updated_at?: string
+        }
+        Update: {
+          applied?: boolean
+          applied_ref_id?: string | null
+          applied_ref_type?: string | null
+          channel?: Database["public"]["Enums"]["capture_channel"]
+          corrected_costs?: Json | null
+          corrected_data?: Json | null
+          created_at?: string
+          domain?: Database["public"]["Enums"]["capture_domain"]
+          elapsed_minutes?: number | null
+          event_type?: string
+          guide_id?: string | null
+          id?: string
+          inferred_costs?: Json | null
+          item_id?: string | null
+          legacy_id?: string | null
+          legacy_table?: string | null
+          lot_id?: string | null
+          message_timestamp?: string
+          operator_employee_id?: string | null
+          operator_name?: string | null
+          operator_phone?: string | null
+          ot_id?: string | null
+          ot_number?: string | null
+          parsed_data?: Json | null
+          photo_url?: string | null
+          purchase_id?: string | null
+          quantity?: number | null
+          raw_message?: string | null
+          review_comments?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          scanned_value?: string | null
+          status?: Database["public"]["Enums"]["capture_status"]
+          unit?: string | null
+          unit_cost?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "capture_events_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "capture_events_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_items_stock_v"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "capture_events_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_low_stock_alerts_v"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "capture_events_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "material_cost_v"
+            referencedColumns: ["item_id"]
+          },
+          {
+            foreignKeyName: "capture_events_lot_id_fkey"
+            columns: ["lot_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_lots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "capture_events_ot_id_fkey"
+            columns: ["ot_id"]
+            isOneToOne: false
+            referencedRelation: "ot_cost_summary"
+            referencedColumns: ["ot_id"]
+          },
+          {
+            foreignKeyName: "capture_events_ot_id_fkey"
+            columns: ["ot_id"]
+            isOneToOne: false
+            referencedRelation: "ot_fulfillment"
+            referencedColumns: ["ot_id"]
+          },
+          {
+            foreignKeyName: "capture_events_ot_id_fkey"
+            columns: ["ot_id"]
+            isOneToOne: false
+            referencedRelation: "ots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "capture_events_purchase_id_fkey"
+            columns: ["purchase_id"]
+            isOneToOne: false
+            referencedRelation: "oc_billing"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "capture_events_purchase_id_fkey"
+            columns: ["purchase_id"]
+            isOneToOne: false
+            referencedRelation: "purchases"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       clients: {
         Row: {
           address: string | null
@@ -112,6 +332,7 @@ export type Database = {
           payment_terms: string | null
           phone: string | null
           rut: string | null
+          salesman_id: string | null
           updated_at: string
         }
         Insert: {
@@ -127,6 +348,7 @@ export type Database = {
           payment_terms?: string | null
           phone?: string | null
           rut?: string | null
+          salesman_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -142,9 +364,25 @@ export type Database = {
           payment_terms?: string | null
           phone?: string | null
           rut?: string | null
+          salesman_id?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "clients_salesman_id_fkey"
+            columns: ["salesman_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clients_salesman_id_fkey"
+            columns: ["salesman_id"]
+            isOneToOne: false
+            referencedRelation: "worker_stats"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       compensation_rates: {
         Row: {
@@ -208,6 +446,135 @@ export type Database = {
             columns: ["employee_id"]
             isOneToOne: false
             referencedRelation: "worker_stats"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cost_catalog: {
+        Row: {
+          catalog_key: string | null
+          category: string
+          created_at: string
+          id: string
+          is_active: boolean
+          name: string
+          notes: string | null
+          unit: string
+          unit_cost: number
+          updated_at: string
+        }
+        Insert: {
+          catalog_key?: string | null
+          category: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          notes?: string | null
+          unit?: string
+          unit_cost?: number
+          updated_at?: string
+        }
+        Update: {
+          catalog_key?: string | null
+          category?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          notes?: string | null
+          unit?: string
+          unit_cost?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      dispatch_guides: {
+        Row: {
+          carrier: string | null
+          client_id: string | null
+          client_name: string | null
+          created_at: string
+          dispatch_date: string
+          guide_number: string
+          id: string
+          invoice_id: string | null
+          notes: string | null
+          ot_id: string | null
+          quantity: number
+          received_by: string | null
+          status: Database["public"]["Enums"]["dispatch_status"]
+          updated_at: string
+          vehicle_plate: string | null
+        }
+        Insert: {
+          carrier?: string | null
+          client_id?: string | null
+          client_name?: string | null
+          created_at?: string
+          dispatch_date?: string
+          guide_number?: string
+          id?: string
+          invoice_id?: string | null
+          notes?: string | null
+          ot_id?: string | null
+          quantity?: number
+          received_by?: string | null
+          status?: Database["public"]["Enums"]["dispatch_status"]
+          updated_at?: string
+          vehicle_plate?: string | null
+        }
+        Update: {
+          carrier?: string | null
+          client_id?: string | null
+          client_name?: string | null
+          created_at?: string
+          dispatch_date?: string
+          guide_number?: string
+          id?: string
+          invoice_id?: string | null
+          notes?: string | null
+          ot_id?: string | null
+          quantity?: number
+          received_by?: string | null
+          status?: Database["public"]["Enums"]["dispatch_status"]
+          updated_at?: string
+          vehicle_plate?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dispatch_guides_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dispatch_guides_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "sales_invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dispatch_guides_ot_id_fkey"
+            columns: ["ot_id"]
+            isOneToOne: false
+            referencedRelation: "ot_cost_summary"
+            referencedColumns: ["ot_id"]
+          },
+          {
+            foreignKeyName: "dispatch_guides_ot_id_fkey"
+            columns: ["ot_id"]
+            isOneToOne: false
+            referencedRelation: "ot_fulfillment"
+            referencedColumns: ["ot_id"]
+          },
+          {
+            foreignKeyName: "dispatch_guides_ot_id_fkey"
+            columns: ["ot_id"]
+            isOneToOne: false
+            referencedRelation: "ots"
             referencedColumns: ["id"]
           },
         ]
@@ -1019,6 +1386,27 @@ export type Database = {
             referencedRelation: "inventory_low_stock_alerts_v"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "inventory_lots_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "material_cost_v"
+            referencedColumns: ["item_id"]
+          },
+          {
+            foreignKeyName: "inventory_lots_purchase_id_fkey"
+            columns: ["purchase_id"]
+            isOneToOne: false
+            referencedRelation: "oc_billing"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_lots_purchase_id_fkey"
+            columns: ["purchase_id"]
+            isOneToOne: false
+            referencedRelation: "purchases"
+            referencedColumns: ["id"]
+          },
         ]
       }
       inventory_stock_transactions: {
@@ -1084,11 +1472,32 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "inventory_stock_transactions_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "material_cost_v"
+            referencedColumns: ["item_id"]
+          },
+          {
             foreignKeyName: "inventory_stock_transactions_lot_id_fkey"
             columns: ["lot_id"]
             isOneToOne: false
             referencedRelation: "inventory_lots"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_stock_transactions_work_order_id_fkey"
+            columns: ["work_order_id"]
+            isOneToOne: false
+            referencedRelation: "ot_cost_summary"
+            referencedColumns: ["ot_id"]
+          },
+          {
+            foreignKeyName: "inventory_stock_transactions_work_order_id_fkey"
+            columns: ["work_order_id"]
+            isOneToOne: false
+            referencedRelation: "ot_fulfillment"
+            referencedColumns: ["ot_id"]
           },
           {
             foreignKeyName: "inventory_stock_transactions_work_order_id_fkey"
@@ -1509,6 +1918,131 @@ export type Database = {
           },
         ]
       }
+      machine_parts: {
+        Row: {
+          created_at: string
+          criticality: string
+          expected_life_usage: number | null
+          id: string
+          inventory_item_id: string | null
+          is_active: boolean
+          is_imported: boolean
+          last_replaced_at: string | null
+          last_replaced_usage: number | null
+          lead_time_days: number | null
+          machine_id: string
+          min_stock: number
+          name: string
+          notes: string | null
+          part_number: string | null
+          position: string | null
+          preferred_supplier: string | null
+          quantity_installed: number
+          supplier_part_ref: string | null
+          system_id: string
+          unit_cost: number | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          criticality?: string
+          expected_life_usage?: number | null
+          id?: string
+          inventory_item_id?: string | null
+          is_active?: boolean
+          is_imported?: boolean
+          last_replaced_at?: string | null
+          last_replaced_usage?: number | null
+          lead_time_days?: number | null
+          machine_id: string
+          min_stock?: number
+          name: string
+          notes?: string | null
+          part_number?: string | null
+          position?: string | null
+          preferred_supplier?: string | null
+          quantity_installed?: number
+          supplier_part_ref?: string | null
+          system_id: string
+          unit_cost?: number | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          criticality?: string
+          expected_life_usage?: number | null
+          id?: string
+          inventory_item_id?: string | null
+          is_active?: boolean
+          is_imported?: boolean
+          last_replaced_at?: string | null
+          last_replaced_usage?: number | null
+          lead_time_days?: number | null
+          machine_id?: string
+          min_stock?: number
+          name?: string
+          notes?: string | null
+          part_number?: string | null
+          position?: string | null
+          preferred_supplier?: string | null
+          quantity_installed?: number
+          supplier_part_ref?: string | null
+          system_id?: string
+          unit_cost?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "machine_parts_inventory_item_id_fkey"
+            columns: ["inventory_item_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "machine_parts_inventory_item_id_fkey"
+            columns: ["inventory_item_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_items_stock_v"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "machine_parts_inventory_item_id_fkey"
+            columns: ["inventory_item_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_low_stock_alerts_v"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "machine_parts_inventory_item_id_fkey"
+            columns: ["inventory_item_id"]
+            isOneToOne: false
+            referencedRelation: "material_cost_v"
+            referencedColumns: ["item_id"]
+          },
+          {
+            foreignKeyName: "machine_parts_machine_id_fkey"
+            columns: ["machine_id"]
+            isOneToOne: false
+            referencedRelation: "machines"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "machine_parts_machine_id_fkey"
+            columns: ["machine_id"]
+            isOneToOne: false
+            referencedRelation: "planta_live"
+            referencedColumns: ["machine_id"]
+          },
+          {
+            foreignKeyName: "machine_parts_system_id_fkey"
+            columns: ["system_id"]
+            isOneToOne: false
+            referencedRelation: "machine_systems"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       machine_skill_requirements: {
         Row: {
           created_at: string
@@ -1517,7 +2051,10 @@ export type Database = {
           is_critical: boolean
           machine_id: string
           min_proficiency: number
+          notes: string | null
+          requires_certification: boolean
           skill_id: string
+          supervised_hours_required: number | null
           updated_at: string
         }
         Insert: {
@@ -1527,7 +2064,10 @@ export type Database = {
           is_critical?: boolean
           machine_id: string
           min_proficiency?: number
+          notes?: string | null
+          requires_certification?: boolean
           skill_id: string
+          supervised_hours_required?: number | null
           updated_at?: string
         }
         Update: {
@@ -1537,7 +2077,10 @@ export type Database = {
           is_critical?: boolean
           machine_id?: string
           min_proficiency?: number
+          notes?: string | null
+          requires_certification?: boolean
           skill_id?: string
+          supervised_hours_required?: number | null
           updated_at?: string
         }
         Relationships: [
@@ -1621,6 +2164,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "machine_supply_requirements_inventory_item_id_fkey"
+            columns: ["inventory_item_id"]
+            isOneToOne: false
+            referencedRelation: "material_cost_v"
+            referencedColumns: ["item_id"]
+          },
+          {
             foreignKeyName: "machine_supply_requirements_machine_id_fkey"
             columns: ["machine_id"]
             isOneToOne: false
@@ -1629,6 +2179,268 @@ export type Database = {
           },
           {
             foreignKeyName: "machine_supply_requirements_machine_id_fkey"
+            columns: ["machine_id"]
+            isOneToOne: false
+            referencedRelation: "planta_live"
+            referencedColumns: ["machine_id"]
+          },
+        ]
+      }
+      machine_systems: {
+        Row: {
+          applies_to: Database["public"]["Enums"]["machine_type"][] | null
+          code: string
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean
+          name: string
+          sort_order: number
+        }
+        Insert: {
+          applies_to?: Database["public"]["Enums"]["machine_type"][] | null
+          code: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          sort_order?: number
+        }
+        Update: {
+          applies_to?: Database["public"]["Enums"]["machine_type"][] | null
+          code?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          sort_order?: number
+        }
+        Relationships: []
+      }
+      machine_training_paths: {
+        Row: {
+          created_at: string
+          description: string | null
+          estimated_hours: number | null
+          id: string
+          is_active: boolean
+          machine_id: string
+          mentor_employee_id: string | null
+          requires_evidence: boolean
+          skill_id: string | null
+          step_order: number
+          target_proficiency: number | null
+          title: string
+          training_article_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          estimated_hours?: number | null
+          id?: string
+          is_active?: boolean
+          machine_id: string
+          mentor_employee_id?: string | null
+          requires_evidence?: boolean
+          skill_id?: string | null
+          step_order?: number
+          target_proficiency?: number | null
+          title: string
+          training_article_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          estimated_hours?: number | null
+          id?: string
+          is_active?: boolean
+          machine_id?: string
+          mentor_employee_id?: string | null
+          requires_evidence?: boolean
+          skill_id?: string | null
+          step_order?: number
+          target_proficiency?: number | null
+          title?: string
+          training_article_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "machine_training_paths_machine_id_fkey"
+            columns: ["machine_id"]
+            isOneToOne: false
+            referencedRelation: "machines"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "machine_training_paths_machine_id_fkey"
+            columns: ["machine_id"]
+            isOneToOne: false
+            referencedRelation: "planta_live"
+            referencedColumns: ["machine_id"]
+          },
+          {
+            foreignKeyName: "machine_training_paths_mentor_employee_id_fkey"
+            columns: ["mentor_employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "machine_training_paths_mentor_employee_id_fkey"
+            columns: ["mentor_employee_id"]
+            isOneToOne: false
+            referencedRelation: "worker_stats"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "machine_training_paths_skill_id_fkey"
+            columns: ["skill_id"]
+            isOneToOne: false
+            referencedRelation: "skills"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "machine_training_paths_training_article_id_fkey"
+            columns: ["training_article_id"]
+            isOneToOne: false
+            referencedRelation: "training_articles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      machine_training_progress: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          employee_id: string
+          evidence_url: string | null
+          hours_logged: number
+          id: string
+          notes: string | null
+          path_id: string
+          started_at: string | null
+          status: string
+          updated_at: string
+          validated_at: string | null
+          validated_by: string | null
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          employee_id: string
+          evidence_url?: string | null
+          hours_logged?: number
+          id?: string
+          notes?: string | null
+          path_id: string
+          started_at?: string | null
+          status?: string
+          updated_at?: string
+          validated_at?: string | null
+          validated_by?: string | null
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          employee_id?: string
+          evidence_url?: string | null
+          hours_logged?: number
+          id?: string
+          notes?: string | null
+          path_id?: string
+          started_at?: string | null
+          status?: string
+          updated_at?: string
+          validated_at?: string | null
+          validated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "machine_training_progress_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "machine_training_progress_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "worker_stats"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "machine_training_progress_path_id_fkey"
+            columns: ["path_id"]
+            isOneToOne: false
+            referencedRelation: "machine_training_paths"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "machine_training_progress_validated_by_fkey"
+            columns: ["validated_by"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "machine_training_progress_validated_by_fkey"
+            columns: ["validated_by"]
+            isOneToOne: false
+            referencedRelation: "worker_stats"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      machine_usage_readings: {
+        Row: {
+          created_at: string
+          id: string
+          machine_id: string
+          notes: string | null
+          read_at: string
+          reading: number
+          recorded_by: string | null
+          source: string
+          unit: Database["public"]["Enums"]["machine_usage_unit"]
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          machine_id: string
+          notes?: string | null
+          read_at?: string
+          reading: number
+          recorded_by?: string | null
+          source?: string
+          unit: Database["public"]["Enums"]["machine_usage_unit"]
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          machine_id?: string
+          notes?: string | null
+          read_at?: string
+          reading?: number
+          recorded_by?: string | null
+          source?: string
+          unit?: Database["public"]["Enums"]["machine_usage_unit"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "machine_usage_readings_machine_id_fkey"
+            columns: ["machine_id"]
+            isOneToOne: false
+            referencedRelation: "machines"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "machine_usage_readings_machine_id_fkey"
             columns: ["machine_id"]
             isOneToOne: false
             referencedRelation: "planta_live"
@@ -1650,6 +2462,7 @@ export type Database = {
           maintenance_cost_monthly: number | null
           max_print_height_mm: number | null
           max_print_width_mm: number | null
+          min_qualified_operators: number
           model: string | null
           name: string
           nominal_speed_sheets_hr: number | null
@@ -1660,6 +2473,9 @@ export type Database = {
           status: Database["public"]["Enums"]["machine_status"]
           type: Database["public"]["Enums"]["machine_type"]
           updated_at: string | null
+          usage_counter: number
+          usage_counter_updated_at: string | null
+          usage_unit: Database["public"]["Enums"]["machine_usage_unit"]
           workstation_id: string | null
           year_manufactured: number | null
         }
@@ -1676,6 +2492,7 @@ export type Database = {
           maintenance_cost_monthly?: number | null
           max_print_height_mm?: number | null
           max_print_width_mm?: number | null
+          min_qualified_operators?: number
           model?: string | null
           name: string
           nominal_speed_sheets_hr?: number | null
@@ -1686,6 +2503,9 @@ export type Database = {
           status?: Database["public"]["Enums"]["machine_status"]
           type: Database["public"]["Enums"]["machine_type"]
           updated_at?: string | null
+          usage_counter?: number
+          usage_counter_updated_at?: string | null
+          usage_unit?: Database["public"]["Enums"]["machine_usage_unit"]
           workstation_id?: string | null
           year_manufactured?: number | null
         }
@@ -1702,6 +2522,7 @@ export type Database = {
           maintenance_cost_monthly?: number | null
           max_print_height_mm?: number | null
           max_print_width_mm?: number | null
+          min_qualified_operators?: number
           model?: string | null
           name?: string
           nominal_speed_sheets_hr?: number | null
@@ -1712,6 +2533,9 @@ export type Database = {
           status?: Database["public"]["Enums"]["machine_status"]
           type?: Database["public"]["Enums"]["machine_type"]
           updated_at?: string | null
+          usage_counter?: number
+          usage_counter_updated_at?: string | null
+          usage_unit?: Database["public"]["Enums"]["machine_usage_unit"]
           workstation_id?: string | null
           year_manufactured?: number | null
         }
@@ -1985,12 +2809,15 @@ export type Database = {
           description: string | null
           estimated_duration_hours: number | null
           frequency_days: number
+          frequency_usage: number | null
           id: string
           last_maintenance_date: string | null
+          last_maintenance_usage: number | null
           machine_id: string
           maintenance_type: Database["public"]["Enums"]["maintenance_type"]
           next_maintenance_date: string
           status: Database["public"]["Enums"]["maintenance_status"]
+          system_id: string | null
           updated_at: string | null
         }
         Insert: {
@@ -1998,12 +2825,15 @@ export type Database = {
           description?: string | null
           estimated_duration_hours?: number | null
           frequency_days?: number
+          frequency_usage?: number | null
           id?: string
           last_maintenance_date?: string | null
+          last_maintenance_usage?: number | null
           machine_id: string
           maintenance_type: Database["public"]["Enums"]["maintenance_type"]
           next_maintenance_date: string
           status?: Database["public"]["Enums"]["maintenance_status"]
+          system_id?: string | null
           updated_at?: string | null
         }
         Update: {
@@ -2011,12 +2841,15 @@ export type Database = {
           description?: string | null
           estimated_duration_hours?: number | null
           frequency_days?: number
+          frequency_usage?: number | null
           id?: string
           last_maintenance_date?: string | null
+          last_maintenance_usage?: number | null
           machine_id?: string
           maintenance_type?: Database["public"]["Enums"]["maintenance_type"]
           next_maintenance_date?: string
           status?: Database["public"]["Enums"]["maintenance_status"]
+          system_id?: string | null
           updated_at?: string | null
         }
         Relationships: [
@@ -2033,6 +2866,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "planta_live"
             referencedColumns: ["machine_id"]
+          },
+          {
+            foreignKeyName: "maintenance_schedules_system_id_fkey"
+            columns: ["system_id"]
+            isOneToOne: false
+            referencedRelation: "machine_systems"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -2203,6 +3043,20 @@ export type Database = {
             foreignKeyName: "maintenance_work_orders_ot_id_fkey"
             columns: ["ot_id"]
             isOneToOne: false
+            referencedRelation: "ot_cost_summary"
+            referencedColumns: ["ot_id"]
+          },
+          {
+            foreignKeyName: "maintenance_work_orders_ot_id_fkey"
+            columns: ["ot_id"]
+            isOneToOne: false
+            referencedRelation: "ot_fulfillment"
+            referencedColumns: ["ot_id"]
+          },
+          {
+            foreignKeyName: "maintenance_work_orders_ot_id_fkey"
+            columns: ["ot_id"]
+            isOneToOne: false
             referencedRelation: "ots"
             referencedColumns: ["id"]
           },
@@ -2286,6 +3140,20 @@ export type Database = {
             foreignKeyName: "ot_approvals_ot_id_fkey"
             columns: ["ot_id"]
             isOneToOne: false
+            referencedRelation: "ot_cost_summary"
+            referencedColumns: ["ot_id"]
+          },
+          {
+            foreignKeyName: "ot_approvals_ot_id_fkey"
+            columns: ["ot_id"]
+            isOneToOne: false
+            referencedRelation: "ot_fulfillment"
+            referencedColumns: ["ot_id"]
+          },
+          {
+            foreignKeyName: "ot_approvals_ot_id_fkey"
+            columns: ["ot_id"]
+            isOneToOne: false
             referencedRelation: "ots"
             referencedColumns: ["id"]
           },
@@ -2302,6 +3170,7 @@ export type Database = {
           ot_id: string | null
           storage_path: string
           uploaded_by: string | null
+          vb_id: string | null
         }
         Insert: {
           created_at?: string
@@ -2313,6 +3182,7 @@ export type Database = {
           ot_id?: string | null
           storage_path: string
           uploaded_by?: string | null
+          vb_id?: string | null
         }
         Update: {
           created_at?: string
@@ -2324,6 +3194,7 @@ export type Database = {
           ot_id?: string | null
           storage_path?: string
           uploaded_by?: string | null
+          vb_id?: string | null
         }
         Relationships: [
           {
@@ -2335,6 +3206,109 @@ export type Database = {
           },
           {
             foreignKeyName: "ot_attachments_ot_id_fkey"
+            columns: ["ot_id"]
+            isOneToOne: false
+            referencedRelation: "ot_cost_summary"
+            referencedColumns: ["ot_id"]
+          },
+          {
+            foreignKeyName: "ot_attachments_ot_id_fkey"
+            columns: ["ot_id"]
+            isOneToOne: false
+            referencedRelation: "ot_fulfillment"
+            referencedColumns: ["ot_id"]
+          },
+          {
+            foreignKeyName: "ot_attachments_ot_id_fkey"
+            columns: ["ot_id"]
+            isOneToOne: false
+            referencedRelation: "ots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ot_attachments_vb_id_fkey"
+            columns: ["vb_id"]
+            isOneToOne: false
+            referencedRelation: "vistos_buenos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ot_cost_lines: {
+        Row: {
+          approved_by: string | null
+          category: Database["public"]["Enums"]["cost_line_category"]
+          created_at: string
+          description: string
+          id: string
+          kind: Database["public"]["Enums"]["cost_line_kind"]
+          notes: string | null
+          occurred_at: string
+          ot_id: string
+          quantity: number
+          recorded_by: string | null
+          ref_id: string | null
+          ref_type: string | null
+          source: string
+          total: number | null
+          unit: string
+          unit_cost: number
+        }
+        Insert: {
+          approved_by?: string | null
+          category?: Database["public"]["Enums"]["cost_line_category"]
+          created_at?: string
+          description: string
+          id?: string
+          kind: Database["public"]["Enums"]["cost_line_kind"]
+          notes?: string | null
+          occurred_at?: string
+          ot_id: string
+          quantity?: number
+          recorded_by?: string | null
+          ref_id?: string | null
+          ref_type?: string | null
+          source?: string
+          total?: number | null
+          unit?: string
+          unit_cost?: number
+        }
+        Update: {
+          approved_by?: string | null
+          category?: Database["public"]["Enums"]["cost_line_category"]
+          created_at?: string
+          description?: string
+          id?: string
+          kind?: Database["public"]["Enums"]["cost_line_kind"]
+          notes?: string | null
+          occurred_at?: string
+          ot_id?: string
+          quantity?: number
+          recorded_by?: string | null
+          ref_id?: string | null
+          ref_type?: string | null
+          source?: string
+          total?: number | null
+          unit?: string
+          unit_cost?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ot_cost_lines_ot_id_fkey"
+            columns: ["ot_id"]
+            isOneToOne: false
+            referencedRelation: "ot_cost_summary"
+            referencedColumns: ["ot_id"]
+          },
+          {
+            foreignKeyName: "ot_cost_lines_ot_id_fkey"
+            columns: ["ot_id"]
+            isOneToOne: false
+            referencedRelation: "ot_fulfillment"
+            referencedColumns: ["ot_id"]
+          },
+          {
+            foreignKeyName: "ot_cost_lines_ot_id_fkey"
             columns: ["ot_id"]
             isOneToOne: false
             referencedRelation: "ots"
@@ -2429,6 +3403,20 @@ export type Database = {
             foreignKeyName: "ot_financials_ot_id_fkey"
             columns: ["ot_id"]
             isOneToOne: false
+            referencedRelation: "ot_cost_summary"
+            referencedColumns: ["ot_id"]
+          },
+          {
+            foreignKeyName: "ot_financials_ot_id_fkey"
+            columns: ["ot_id"]
+            isOneToOne: false
+            referencedRelation: "ot_fulfillment"
+            referencedColumns: ["ot_id"]
+          },
+          {
+            foreignKeyName: "ot_financials_ot_id_fkey"
+            columns: ["ot_id"]
+            isOneToOne: false
             referencedRelation: "ots"
             referencedColumns: ["id"]
           },
@@ -2517,6 +3505,20 @@ export type Database = {
             foreignKeyName: "ot_machine_schedule_ot_id_fkey"
             columns: ["ot_id"]
             isOneToOne: false
+            referencedRelation: "ot_cost_summary"
+            referencedColumns: ["ot_id"]
+          },
+          {
+            foreignKeyName: "ot_machine_schedule_ot_id_fkey"
+            columns: ["ot_id"]
+            isOneToOne: false
+            referencedRelation: "ot_fulfillment"
+            referencedColumns: ["ot_id"]
+          },
+          {
+            foreignKeyName: "ot_machine_schedule_ot_id_fkey"
+            columns: ["ot_id"]
+            isOneToOne: false
             referencedRelation: "ots"
             referencedColumns: ["id"]
           },
@@ -2563,6 +3565,20 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "ot_operations_ot_id_fkey"
+            columns: ["ot_id"]
+            isOneToOne: false
+            referencedRelation: "ot_cost_summary"
+            referencedColumns: ["ot_id"]
+          },
+          {
+            foreignKeyName: "ot_operations_ot_id_fkey"
+            columns: ["ot_id"]
+            isOneToOne: false
+            referencedRelation: "ot_fulfillment"
+            referencedColumns: ["ot_id"]
+          },
           {
             foreignKeyName: "ot_operations_ot_id_fkey"
             columns: ["ot_id"]
@@ -2626,6 +3642,20 @@ export type Database = {
             foreignKeyName: "ot_real_costs_ot_id_fkey"
             columns: ["ot_id"]
             isOneToOne: false
+            referencedRelation: "ot_cost_summary"
+            referencedColumns: ["ot_id"]
+          },
+          {
+            foreignKeyName: "ot_real_costs_ot_id_fkey"
+            columns: ["ot_id"]
+            isOneToOne: false
+            referencedRelation: "ot_fulfillment"
+            referencedColumns: ["ot_id"]
+          },
+          {
+            foreignKeyName: "ot_real_costs_ot_id_fkey"
+            columns: ["ot_id"]
+            isOneToOne: false
             referencedRelation: "ots"
             referencedColumns: ["id"]
           },
@@ -2663,6 +3693,20 @@ export type Database = {
           to_status?: Database["public"]["Enums"]["ot_status"]
         }
         Relationships: [
+          {
+            foreignKeyName: "ot_state_transitions_ot_id_fkey"
+            columns: ["ot_id"]
+            isOneToOne: false
+            referencedRelation: "ot_cost_summary"
+            referencedColumns: ["ot_id"]
+          },
+          {
+            foreignKeyName: "ot_state_transitions_ot_id_fkey"
+            columns: ["ot_id"]
+            isOneToOne: false
+            referencedRelation: "ot_fulfillment"
+            referencedColumns: ["ot_id"]
+          },
           {
             foreignKeyName: "ot_state_transitions_ot_id_fkey"
             columns: ["ot_id"]
@@ -2710,6 +3754,20 @@ export type Database = {
           to_status?: Database["public"]["Enums"]["ot_status"]
         }
         Relationships: [
+          {
+            foreignKeyName: "ot_status_history_ot_id_fkey"
+            columns: ["ot_id"]
+            isOneToOne: false
+            referencedRelation: "ot_cost_summary"
+            referencedColumns: ["ot_id"]
+          },
+          {
+            foreignKeyName: "ot_status_history_ot_id_fkey"
+            columns: ["ot_id"]
+            isOneToOne: false
+            referencedRelation: "ot_fulfillment"
+            referencedColumns: ["ot_id"]
+          },
           {
             foreignKeyName: "ot_status_history_ot_id_fkey"
             columns: ["ot_id"]
@@ -2832,6 +3890,7 @@ export type Database = {
           id: string
           increment_amount: number | null
           increment_pct: number | null
+          ink_coverage: string | null
           is_partial: boolean
           margin_amount: number | null
           margin_pct: number | null
@@ -2844,7 +3903,11 @@ export type Database = {
           product_image_url: string | null
           product_name: string | null
           product_type: Database["public"]["Enums"]["ot_product_type"] | null
+          production_detail: Json | null
           quantity: number
+          salesman_id: string | null
+          share_token: string
+          sin_arte: boolean
           split_group_id: string | null
           split_label: string | null
           status: Database["public"]["Enums"]["ot_status"]
@@ -2858,6 +3921,7 @@ export type Database = {
           total_price: number | null
           unit_price: number | null
           updated_at: string
+          vb_id: string | null
           width_cm: number | null
         }
         Insert: {
@@ -2900,6 +3964,7 @@ export type Database = {
           id?: string
           increment_amount?: number | null
           increment_pct?: number | null
+          ink_coverage?: string | null
           is_partial?: boolean
           margin_amount?: number | null
           margin_pct?: number | null
@@ -2912,7 +3977,11 @@ export type Database = {
           product_image_url?: string | null
           product_name?: string | null
           product_type?: Database["public"]["Enums"]["ot_product_type"] | null
+          production_detail?: Json | null
           quantity?: number
+          salesman_id?: string | null
+          share_token?: string
+          sin_arte?: boolean
           split_group_id?: string | null
           split_label?: string | null
           status?: Database["public"]["Enums"]["ot_status"]
@@ -2926,6 +3995,7 @@ export type Database = {
           total_price?: number | null
           unit_price?: number | null
           updated_at?: string
+          vb_id?: string | null
           width_cm?: number | null
         }
         Update: {
@@ -2968,6 +4038,7 @@ export type Database = {
           id?: string
           increment_amount?: number | null
           increment_pct?: number | null
+          ink_coverage?: string | null
           is_partial?: boolean
           margin_amount?: number | null
           margin_pct?: number | null
@@ -2980,7 +4051,11 @@ export type Database = {
           product_image_url?: string | null
           product_name?: string | null
           product_type?: Database["public"]["Enums"]["ot_product_type"] | null
+          production_detail?: Json | null
           quantity?: number
+          salesman_id?: string | null
+          share_token?: string
+          sin_arte?: boolean
           split_group_id?: string | null
           split_label?: string | null
           status?: Database["public"]["Enums"]["ot_status"]
@@ -2994,6 +4069,7 @@ export type Database = {
           total_price?: number | null
           unit_price?: number | null
           updated_at?: string
+          vb_id?: string | null
           width_cm?: number | null
         }
         Relationships: [
@@ -3033,10 +4109,31 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "ots_salesman_id_fkey"
+            columns: ["salesman_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ots_salesman_id_fkey"
+            columns: ["salesman_id"]
+            isOneToOne: false
+            referencedRelation: "worker_stats"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "ots_template_id_fkey"
             columns: ["template_id"]
             isOneToOne: false
             referencedRelation: "ot_templates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ots_vb_id_fkey"
+            columns: ["vb_id"]
+            isOneToOne: false
+            referencedRelation: "vistos_buenos"
             referencedColumns: ["id"]
           },
         ]
@@ -3204,12 +4301,154 @@ export type Database = {
           },
         ]
       }
+      purchase_invoices: {
+        Row: {
+          amount: number
+          created_at: string
+          id: string
+          invoice_date: string
+          invoice_number: string
+          matched_at: string | null
+          notes: string | null
+          purchase_id: string
+          status: Database["public"]["Enums"]["factura_compra_status"]
+          updated_at: string
+        }
+        Insert: {
+          amount?: number
+          created_at?: string
+          id?: string
+          invoice_date?: string
+          invoice_number: string
+          matched_at?: string | null
+          notes?: string | null
+          purchase_id: string
+          status?: Database["public"]["Enums"]["factura_compra_status"]
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          id?: string
+          invoice_date?: string
+          invoice_number?: string
+          matched_at?: string | null
+          notes?: string | null
+          purchase_id?: string
+          status?: Database["public"]["Enums"]["factura_compra_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "purchase_invoices_purchase_id_fkey"
+            columns: ["purchase_id"]
+            isOneToOne: false
+            referencedRelation: "oc_billing"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_invoices_purchase_id_fkey"
+            columns: ["purchase_id"]
+            isOneToOne: false
+            referencedRelation: "purchases"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      purchase_items: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          item_id: string | null
+          lot_id: string | null
+          purchase_id: string
+          quantity: number
+          unit_cost: number | null
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          item_id?: string | null
+          lot_id?: string | null
+          purchase_id: string
+          quantity?: number
+          unit_cost?: number | null
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          item_id?: string | null
+          lot_id?: string | null
+          purchase_id?: string
+          quantity?: number
+          unit_cost?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "purchase_items_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_items_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_items_stock_v"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_items_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_low_stock_alerts_v"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_items_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "material_cost_v"
+            referencedColumns: ["item_id"]
+          },
+          {
+            foreignKeyName: "purchase_items_lot_id_fkey"
+            columns: ["lot_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_lots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_items_purchase_id_fkey"
+            columns: ["purchase_id"]
+            isOneToOne: false
+            referencedRelation: "oc_billing"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_items_purchase_id_fkey"
+            columns: ["purchase_id"]
+            isOneToOne: false
+            referencedRelation: "purchases"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       purchases: {
         Row: {
           certification_details: string | null
           created_at: string | null
+          expected_date: string | null
           id: string
+          notes: string | null
+          oc_number: string | null
+          ot_id: string | null
           purchase_date: string
+          status: Database["public"]["Enums"]["oc_status"]
           supplier: string
           supplier_giro: string | null
           supplier_rut: string | null
@@ -3219,8 +4458,13 @@ export type Database = {
         Insert: {
           certification_details?: string | null
           created_at?: string | null
+          expected_date?: string | null
           id?: string
+          notes?: string | null
+          oc_number?: string | null
+          ot_id?: string | null
           purchase_date: string
+          status?: Database["public"]["Enums"]["oc_status"]
           supplier: string
           supplier_giro?: string | null
           supplier_rut?: string | null
@@ -3230,15 +4474,42 @@ export type Database = {
         Update: {
           certification_details?: string | null
           created_at?: string | null
+          expected_date?: string | null
           id?: string
+          notes?: string | null
+          oc_number?: string | null
+          ot_id?: string | null
           purchase_date?: string
+          status?: Database["public"]["Enums"]["oc_status"]
           supplier?: string
           supplier_giro?: string | null
           supplier_rut?: string | null
           total_cost?: number
           updated_at?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "purchases_ot_id_fkey"
+            columns: ["ot_id"]
+            isOneToOne: false
+            referencedRelation: "ot_cost_summary"
+            referencedColumns: ["ot_id"]
+          },
+          {
+            foreignKeyName: "purchases_ot_id_fkey"
+            columns: ["ot_id"]
+            isOneToOne: false
+            referencedRelation: "ot_fulfillment"
+            referencedColumns: ["ot_id"]
+          },
+          {
+            foreignKeyName: "purchases_ot_id_fkey"
+            columns: ["ot_id"]
+            isOneToOne: false
+            referencedRelation: "ots"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       reporting_exports: {
         Row: {
@@ -3382,6 +4653,89 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: []
+      }
+      sales_invoices: {
+        Row: {
+          client_id: string | null
+          client_name: string | null
+          created_at: string
+          due_date: string | null
+          id: string
+          invoice_number: string
+          issued_date: string
+          net_amount: number
+          notes: string | null
+          ot_id: string | null
+          paid_date: string | null
+          status: Database["public"]["Enums"]["sales_invoice_status"]
+          tax_amount: number
+          total_amount: number
+          updated_at: string
+        }
+        Insert: {
+          client_id?: string | null
+          client_name?: string | null
+          created_at?: string
+          due_date?: string | null
+          id?: string
+          invoice_number?: string
+          issued_date?: string
+          net_amount?: number
+          notes?: string | null
+          ot_id?: string | null
+          paid_date?: string | null
+          status?: Database["public"]["Enums"]["sales_invoice_status"]
+          tax_amount?: number
+          total_amount?: number
+          updated_at?: string
+        }
+        Update: {
+          client_id?: string | null
+          client_name?: string | null
+          created_at?: string
+          due_date?: string | null
+          id?: string
+          invoice_number?: string
+          issued_date?: string
+          net_amount?: number
+          notes?: string | null
+          ot_id?: string | null
+          paid_date?: string | null
+          status?: Database["public"]["Enums"]["sales_invoice_status"]
+          tax_amount?: number
+          total_amount?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_invoices_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_invoices_ot_id_fkey"
+            columns: ["ot_id"]
+            isOneToOne: false
+            referencedRelation: "ot_cost_summary"
+            referencedColumns: ["ot_id"]
+          },
+          {
+            foreignKeyName: "sales_invoices_ot_id_fkey"
+            columns: ["ot_id"]
+            isOneToOne: false
+            referencedRelation: "ot_fulfillment"
+            referencedColumns: ["ot_id"]
+          },
+          {
+            foreignKeyName: "sales_invoices_ot_id_fkey"
+            columns: ["ot_id"]
+            isOneToOne: false
+            referencedRelation: "ots"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       saved_searches: {
         Row: {
@@ -3664,6 +5018,69 @@ export type Database = {
           },
         ]
       }
+      supplier_categories: {
+        Row: {
+          created_at: string
+          id: string
+          kind: string | null
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          kind?: string | null
+          name: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          kind?: string | null
+          name?: string
+        }
+        Relationships: []
+      }
+      supplier_profiles: {
+        Row: {
+          category_ids: string[]
+          certifications: Json
+          created_at: string
+          email: string | null
+          giro: string | null
+          id: string
+          notes: string | null
+          phone: string | null
+          rut: string | null
+          supplier_name: string
+          updated_at: string
+        }
+        Insert: {
+          category_ids?: string[]
+          certifications?: Json
+          created_at?: string
+          email?: string | null
+          giro?: string | null
+          id?: string
+          notes?: string | null
+          phone?: string | null
+          rut?: string | null
+          supplier_name: string
+          updated_at?: string
+        }
+        Update: {
+          category_ids?: string[]
+          certifications?: Json
+          created_at?: string
+          email?: string | null
+          giro?: string | null
+          id?: string
+          notes?: string | null
+          phone?: string | null
+          rut?: string | null
+          supplier_name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       task_logs: {
         Row: {
           created_at: string | null
@@ -3825,6 +5242,163 @@ export type Database = {
         }
         Relationships: []
       }
+      vistos_buenos: {
+        Row: {
+          client_id: string | null
+          client_name: string | null
+          color_back: string | null
+          color_front: string | null
+          created_at: string
+          estimate_lines: Json | null
+          finishes: Json | null
+          floor_price: number
+          grammage_gsm: number | null
+          height_cm: number | null
+          id: string
+          ink_coverage: string | null
+          margin_pct: number
+          markup_pct: number
+          notes: string | null
+          ot_id: string | null
+          pantone_colors: string[] | null
+          pdf_url: string | null
+          product_name: string | null
+          product_type: string | null
+          quantity: number | null
+          rush_surcharge_pct: number
+          salesman_id: string | null
+          signature_url: string | null
+          signed_at: string | null
+          signed_by_name: string | null
+          status: Database["public"]["Enums"]["vb_status"]
+          substrate_type: string | null
+          subtotal_cost: number
+          total_price: number
+          unit_price: number
+          updated_at: string
+          valid_until: string | null
+          vb_number: string
+          width_cm: number | null
+        }
+        Insert: {
+          client_id?: string | null
+          client_name?: string | null
+          color_back?: string | null
+          color_front?: string | null
+          created_at?: string
+          estimate_lines?: Json | null
+          finishes?: Json | null
+          floor_price?: number
+          grammage_gsm?: number | null
+          height_cm?: number | null
+          id?: string
+          ink_coverage?: string | null
+          margin_pct?: number
+          markup_pct?: number
+          notes?: string | null
+          ot_id?: string | null
+          pantone_colors?: string[] | null
+          pdf_url?: string | null
+          product_name?: string | null
+          product_type?: string | null
+          quantity?: number | null
+          rush_surcharge_pct?: number
+          salesman_id?: string | null
+          signature_url?: string | null
+          signed_at?: string | null
+          signed_by_name?: string | null
+          status?: Database["public"]["Enums"]["vb_status"]
+          substrate_type?: string | null
+          subtotal_cost?: number
+          total_price?: number
+          unit_price?: number
+          updated_at?: string
+          valid_until?: string | null
+          vb_number?: string
+          width_cm?: number | null
+        }
+        Update: {
+          client_id?: string | null
+          client_name?: string | null
+          color_back?: string | null
+          color_front?: string | null
+          created_at?: string
+          estimate_lines?: Json | null
+          finishes?: Json | null
+          floor_price?: number
+          grammage_gsm?: number | null
+          height_cm?: number | null
+          id?: string
+          ink_coverage?: string | null
+          margin_pct?: number
+          markup_pct?: number
+          notes?: string | null
+          ot_id?: string | null
+          pantone_colors?: string[] | null
+          pdf_url?: string | null
+          product_name?: string | null
+          product_type?: string | null
+          quantity?: number | null
+          rush_surcharge_pct?: number
+          salesman_id?: string | null
+          signature_url?: string | null
+          signed_at?: string | null
+          signed_by_name?: string | null
+          status?: Database["public"]["Enums"]["vb_status"]
+          substrate_type?: string | null
+          subtotal_cost?: number
+          total_price?: number
+          unit_price?: number
+          updated_at?: string
+          valid_until?: string | null
+          vb_number?: string
+          width_cm?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vistos_buenos_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vistos_buenos_ot_id_fkey"
+            columns: ["ot_id"]
+            isOneToOne: false
+            referencedRelation: "ot_cost_summary"
+            referencedColumns: ["ot_id"]
+          },
+          {
+            foreignKeyName: "vistos_buenos_ot_id_fkey"
+            columns: ["ot_id"]
+            isOneToOne: false
+            referencedRelation: "ot_fulfillment"
+            referencedColumns: ["ot_id"]
+          },
+          {
+            foreignKeyName: "vistos_buenos_ot_id_fkey"
+            columns: ["ot_id"]
+            isOneToOne: false
+            referencedRelation: "ots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vistos_buenos_salesman_id_fkey"
+            columns: ["salesman_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vistos_buenos_salesman_id_fkey"
+            columns: ["salesman_id"]
+            isOneToOne: false
+            referencedRelation: "worker_stats"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       week_plan_snapshot_lines: {
         Row: {
           client_name: string | null
@@ -3915,6 +5489,20 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "planta_live"
             referencedColumns: ["machine_id"]
+          },
+          {
+            foreignKeyName: "week_plan_snapshot_lines_ot_id_fkey"
+            columns: ["ot_id"]
+            isOneToOne: false
+            referencedRelation: "ot_cost_summary"
+            referencedColumns: ["ot_id"]
+          },
+          {
+            foreignKeyName: "week_plan_snapshot_lines_ot_id_fkey"
+            columns: ["ot_id"]
+            isOneToOne: false
+            referencedRelation: "ot_fulfillment"
+            referencedColumns: ["ot_id"]
           },
           {
             foreignKeyName: "week_plan_snapshot_lines_ot_id_fkey"
@@ -4065,6 +5653,20 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "worker_stats"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_production_logs_ot_id_fkey"
+            columns: ["ot_id"]
+            isOneToOne: false
+            referencedRelation: "ot_cost_summary"
+            referencedColumns: ["ot_id"]
+          },
+          {
+            foreignKeyName: "whatsapp_production_logs_ot_id_fkey"
+            columns: ["ot_id"]
+            isOneToOne: false
+            referencedRelation: "ot_fulfillment"
+            referencedColumns: ["ot_id"]
           },
           {
             foreignKeyName: "whatsapp_production_logs_ot_id_fkey"
@@ -4227,6 +5829,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "whatsapp_warehouse_logs_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "material_cost_v"
+            referencedColumns: ["item_id"]
+          },
+          {
             foreignKeyName: "whatsapp_warehouse_logs_lot_id_fkey"
             columns: ["lot_id"]
             isOneToOne: false
@@ -4246,6 +5855,20 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "worker_stats"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_warehouse_logs_ot_id_fkey"
+            columns: ["ot_id"]
+            isOneToOne: false
+            referencedRelation: "ot_cost_summary"
+            referencedColumns: ["ot_id"]
+          },
+          {
+            foreignKeyName: "whatsapp_warehouse_logs_ot_id_fkey"
+            columns: ["ot_id"]
+            isOneToOne: false
+            referencedRelation: "ot_fulfillment"
+            referencedColumns: ["ot_id"]
           },
           {
             foreignKeyName: "whatsapp_warehouse_logs_ot_id_fkey"
@@ -4315,7 +5938,21 @@ export type Database = {
             foreignKeyName: "worker_assignments_ot_id_fkey"
             columns: ["ot_id"]
             isOneToOne: false
-            referencedRelation: "rosters"
+            referencedRelation: "ot_cost_summary"
+            referencedColumns: ["ot_id"]
+          },
+          {
+            foreignKeyName: "worker_assignments_ot_id_fkey"
+            columns: ["ot_id"]
+            isOneToOne: false
+            referencedRelation: "ot_fulfillment"
+            referencedColumns: ["ot_id"]
+          },
+          {
+            foreignKeyName: "worker_assignments_ot_id_fkey"
+            columns: ["ot_id"]
+            isOneToOne: false
+            referencedRelation: "ots"
             referencedColumns: ["id"]
           },
           {
@@ -4446,6 +6083,122 @@ export type Database = {
       }
     }
     Views: {
+      capture_feed: {
+        Row: {
+          applied: boolean | null
+          channel: Database["public"]["Enums"]["capture_channel"] | null
+          created_at: string | null
+          domain: Database["public"]["Enums"]["capture_domain"] | null
+          event_type: string | null
+          id: string | null
+          item_id: string | null
+          message_timestamp: string | null
+          operator_name: string | null
+          operator_phone: string | null
+          ot_id: string | null
+          ot_number: string | null
+          quantity: number | null
+          raw_message: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: Database["public"]["Enums"]["capture_status"] | null
+          unit: string | null
+          unit_cost: number | null
+        }
+        Insert: {
+          applied?: boolean | null
+          channel?: Database["public"]["Enums"]["capture_channel"] | null
+          created_at?: string | null
+          domain?: Database["public"]["Enums"]["capture_domain"] | null
+          event_type?: string | null
+          id?: string | null
+          item_id?: string | null
+          message_timestamp?: string | null
+          operator_name?: string | null
+          operator_phone?: string | null
+          ot_id?: string | null
+          ot_number?: string | null
+          quantity?: number | null
+          raw_message?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: Database["public"]["Enums"]["capture_status"] | null
+          unit?: string | null
+          unit_cost?: number | null
+        }
+        Update: {
+          applied?: boolean | null
+          channel?: Database["public"]["Enums"]["capture_channel"] | null
+          created_at?: string | null
+          domain?: Database["public"]["Enums"]["capture_domain"] | null
+          event_type?: string | null
+          id?: string | null
+          item_id?: string | null
+          message_timestamp?: string | null
+          operator_name?: string | null
+          operator_phone?: string | null
+          ot_id?: string | null
+          ot_number?: string | null
+          quantity?: number | null
+          raw_message?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: Database["public"]["Enums"]["capture_status"] | null
+          unit?: string | null
+          unit_cost?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "capture_events_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "capture_events_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_items_stock_v"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "capture_events_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_low_stock_alerts_v"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "capture_events_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "material_cost_v"
+            referencedColumns: ["item_id"]
+          },
+          {
+            foreignKeyName: "capture_events_ot_id_fkey"
+            columns: ["ot_id"]
+            isOneToOne: false
+            referencedRelation: "ot_cost_summary"
+            referencedColumns: ["ot_id"]
+          },
+          {
+            foreignKeyName: "capture_events_ot_id_fkey"
+            columns: ["ot_id"]
+            isOneToOne: false
+            referencedRelation: "ot_fulfillment"
+            referencedColumns: ["ot_id"]
+          },
+          {
+            foreignKeyName: "capture_events_ot_id_fkey"
+            columns: ["ot_id"]
+            isOneToOne: false
+            referencedRelation: "ots"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       inventory_items_stock_v: {
         Row: {
           barcode_value: string | null
@@ -4535,6 +6288,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "inventory_stock_transactions_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "material_cost_v"
+            referencedColumns: ["item_id"]
+          },
+          {
             foreignKeyName: "inventory_stock_transactions_lot_id_fkey"
             columns: ["lot_id"]
             isOneToOne: false
@@ -4545,10 +6305,209 @@ export type Database = {
             foreignKeyName: "inventory_stock_transactions_work_order_id_fkey"
             columns: ["work_order_id"]
             isOneToOne: false
+            referencedRelation: "ot_cost_summary"
+            referencedColumns: ["ot_id"]
+          },
+          {
+            foreignKeyName: "inventory_stock_transactions_work_order_id_fkey"
+            columns: ["work_order_id"]
+            isOneToOne: false
+            referencedRelation: "ot_fulfillment"
+            referencedColumns: ["ot_id"]
+          },
+          {
+            foreignKeyName: "inventory_stock_transactions_work_order_id_fkey"
+            columns: ["work_order_id"]
+            isOneToOne: false
             referencedRelation: "ots"
             referencedColumns: ["id"]
           },
         ]
+      }
+      machine_parts_health_v: {
+        Row: {
+          criticality: string | null
+          expected_life_usage: number | null
+          id: string | null
+          inventory_item_id: string | null
+          is_imported: boolean | null
+          last_replaced_usage: number | null
+          lead_time_days: number | null
+          life_used_pct: number | null
+          machine_id: string | null
+          machine_name: string | null
+          min_stock: number | null
+          name: string | null
+          part_number: string | null
+          preferred_supplier: string | null
+          system_code: string | null
+          system_name: string | null
+          usage_counter: number | null
+          usage_since_replacement: number | null
+          usage_unit: Database["public"]["Enums"]["machine_usage_unit"] | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "machine_parts_inventory_item_id_fkey"
+            columns: ["inventory_item_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "machine_parts_inventory_item_id_fkey"
+            columns: ["inventory_item_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_items_stock_v"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "machine_parts_inventory_item_id_fkey"
+            columns: ["inventory_item_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_low_stock_alerts_v"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "machine_parts_inventory_item_id_fkey"
+            columns: ["inventory_item_id"]
+            isOneToOne: false
+            referencedRelation: "material_cost_v"
+            referencedColumns: ["item_id"]
+          },
+          {
+            foreignKeyName: "machine_parts_machine_id_fkey"
+            columns: ["machine_id"]
+            isOneToOne: false
+            referencedRelation: "machines"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "machine_parts_machine_id_fkey"
+            columns: ["machine_id"]
+            isOneToOne: false
+            referencedRelation: "planta_live"
+            referencedColumns: ["machine_id"]
+          },
+        ]
+      }
+      machine_usage_rate_v: {
+        Row: {
+          desde: string | null
+          dias_periodo: number | null
+          hasta: string | null
+          lecturas: number | null
+          machine_id: string | null
+          uso_periodo: number | null
+          uso_por_dia: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "machine_usage_readings_machine_id_fkey"
+            columns: ["machine_id"]
+            isOneToOne: false
+            referencedRelation: "machines"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "machine_usage_readings_machine_id_fkey"
+            columns: ["machine_id"]
+            isOneToOne: false
+            referencedRelation: "planta_live"
+            referencedColumns: ["machine_id"]
+          },
+        ]
+      }
+      material_cost_v: {
+        Row: {
+          category: string | null
+          estimated_unit_cost: number | null
+          item_id: string | null
+          latest_cost: number | null
+          latest_received: string | null
+          lot_count: number | null
+          name: string | null
+          sku: string | null
+          total_received: number | null
+          unit: string | null
+          weighted_cost: number | null
+        }
+        Relationships: []
+      }
+      oc_billing: {
+        Row: {
+          created_at: string | null
+          expected_date: string | null
+          id: string | null
+          invoice_count: number | null
+          invoiced_total: number | null
+          matched_count: number | null
+          notes: string | null
+          oc_number: string | null
+          ot_id: string | null
+          ot_number: string | null
+          purchase_date: string | null
+          status: Database["public"]["Enums"]["oc_status"] | null
+          supplier: string | null
+          supplier_rut: string | null
+          total_cost: number | null
+          variance: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "purchases_ot_id_fkey"
+            columns: ["ot_id"]
+            isOneToOne: false
+            referencedRelation: "ot_cost_summary"
+            referencedColumns: ["ot_id"]
+          },
+          {
+            foreignKeyName: "purchases_ot_id_fkey"
+            columns: ["ot_id"]
+            isOneToOne: false
+            referencedRelation: "ot_fulfillment"
+            referencedColumns: ["ot_id"]
+          },
+          {
+            foreignKeyName: "purchases_ot_id_fkey"
+            columns: ["ot_id"]
+            isOneToOne: false
+            referencedRelation: "ots"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ot_cost_summary: {
+        Row: {
+          actual_cost: number | null
+          client_name: string | null
+          estimated_cost: number | null
+          gross_margin: number | null
+          labor_actual: number | null
+          machine_actual: number | null
+          material_actual: number | null
+          ot_id: string | null
+          ot_number: string | null
+          other_actual: number | null
+          revenue: number | null
+        }
+        Relationships: []
+      }
+      ot_fulfillment: {
+        Row: {
+          client_name: string | null
+          dispatched_pct: number | null
+          dispatched_qty: number | null
+          guide_count: number | null
+          invoiced_total: number | null
+          ordered_qty: number | null
+          ot_id: string | null
+          ot_number: string | null
+          paid_total: number | null
+          quoted_price: number | null
+          status: Database["public"]["Enums"]["ot_status"] | null
+        }
+        Relationships: []
       }
       planta_live: {
         Row: {
@@ -4629,6 +6588,20 @@ export type Database = {
             foreignKeyName: "whatsapp_production_logs_ot_id_fkey"
             columns: ["ot_id"]
             isOneToOne: false
+            referencedRelation: "ot_cost_summary"
+            referencedColumns: ["ot_id"]
+          },
+          {
+            foreignKeyName: "whatsapp_production_logs_ot_id_fkey"
+            columns: ["ot_id"]
+            isOneToOne: false
+            referencedRelation: "ot_fulfillment"
+            referencedColumns: ["ot_id"]
+          },
+          {
+            foreignKeyName: "whatsapp_production_logs_ot_id_fkey"
+            columns: ["ot_id"]
+            isOneToOne: false
             referencedRelation: "ots"
             referencedColumns: ["id"]
           },
@@ -4672,6 +6645,20 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "worker_stats"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_production_logs_ot_id_fkey"
+            columns: ["ot_id"]
+            isOneToOne: false
+            referencedRelation: "ot_cost_summary"
+            referencedColumns: ["ot_id"]
+          },
+          {
+            foreignKeyName: "whatsapp_production_logs_ot_id_fkey"
+            columns: ["ot_id"]
+            isOneToOne: false
+            referencedRelation: "ot_fulfillment"
+            referencedColumns: ["ot_id"]
           },
           {
             foreignKeyName: "whatsapp_production_logs_ot_id_fkey"
@@ -4760,6 +6747,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "whatsapp_warehouse_logs_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "material_cost_v"
+            referencedColumns: ["item_id"]
+          },
+          {
             foreignKeyName: "whatsapp_warehouse_logs_lot_id_fkey"
             columns: ["lot_id"]
             isOneToOne: false
@@ -4803,6 +6797,7 @@ export type Database = {
     }
     Functions: {
       accrue_leave_balances: { Args: { target_date?: string }; Returns: number }
+      apply_capture_event: { Args: { p_event_id: string }; Returns: string }
       calculate_monthly_payroll: {
         Args: { p_employee_id?: string; p_month?: number; p_year?: number }
         Returns: {
@@ -4860,6 +6855,7 @@ export type Database = {
         Args: { p_employee_id: string; p_user_id: string }
         Returns: boolean
       }
+      convert_vb_to_ot: { Args: { p_vb_id: string }; Returns: string }
       enforce_hr_data_retention: {
         Args: { p_dry_run?: boolean; p_reference_time?: string }
         Returns: {
@@ -5066,6 +7062,19 @@ export type Database = {
         }
         Returns: undefined
       }
+      receive_oc_into_lot: {
+        Args: {
+          p_cert_code?: string
+          p_cert_expires?: string
+          p_item_id: string
+          p_lot_number?: string
+          p_purchase_id: string
+          p_quantity: number
+          p_recorded_by?: string
+          p_unit_cost?: number
+        }
+        Returns: string
+      }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
       split_ot: {
@@ -5075,6 +7084,10 @@ export type Database = {
           p_target_status: Database["public"]["Enums"]["ot_status"]
         }
         Returns: Json
+      }
+      sync_purchase_ledger: {
+        Args: { p_purchase_id: string }
+        Returns: undefined
       }
       validate_contract_coverage: {
         Args: { p_employee_id: string; p_from_date: string; p_to_date: string }
@@ -5087,8 +7100,37 @@ export type Database = {
       }
     }
     Enums: {
-      app_role: "supervisor" | "manager" | "admin" | "technician" | "hr_manager"
+      app_role:
+        | "supervisor"
+        | "manager"
+        | "admin"
+        | "technician"
+        | "hr_manager"
+        | "vendedor"
       bulk_job_status: "queued" | "running" | "completed" | "failed"
+      capture_channel: "whatsapp" | "qr" | "manual" | "photo" | "system"
+      capture_domain:
+        | "production"
+        | "warehouse"
+        | "dispatch"
+        | "receipt"
+        | "other"
+      capture_status:
+        | "pending"
+        | "approved"
+        | "auto_approved"
+        | "rejected"
+        | "needs_revision"
+      cost_line_category:
+        | "material"
+        | "labor"
+        | "machine"
+        | "finishing"
+        | "outsourced"
+        | "overhead"
+        | "other"
+      cost_line_kind: "estimate" | "committed" | "actual"
+      dispatch_status: "draft" | "dispatched" | "delivered" | "cancelled"
       employee_status: "active" | "inactive" | "on_leave" | "terminated"
       employment_contract_type:
         | "full_time"
@@ -5096,6 +7138,7 @@ export type Database = {
         | "temporary"
         | "contractor"
         | "intern"
+      factura_compra_status: "received" | "matched" | "disputed" | "paid"
       hr_document_status: "active" | "expired" | "archived"
       hr_document_type:
         | "contract"
@@ -5150,6 +7193,12 @@ export type Database = {
         | "pre_press"
         | "manual_workshop"
         | "delivery"
+        | "folder"
+        | "collator"
+        | "stitcher"
+        | "perfect_binder"
+        | "laminator"
+      machine_usage_unit: "impressions" | "hours" | "kilometers" | "cycles"
       maintenance_status:
         | "scheduled"
         | "in_progress"
@@ -5169,6 +7218,13 @@ export type Database = {
         | "ot_rejected"
         | "report_ready"
         | "system_alert"
+      oc_status:
+        | "draft"
+        | "sent"
+        | "received"
+        | "invoiced"
+        | "closed"
+        | "cancelled"
       ot_approval_status:
         | "pending"
         | "approved"
@@ -5225,6 +7281,7 @@ export type Database = {
         | "vinilo"
         | "otro"
       report_export_status: "queued" | "processing" | "ready" | "failed"
+      sales_invoice_status: "issued" | "sent" | "paid" | "cancelled"
       skill_tree_type:
         | "foundational"
         | "technical"
@@ -5256,6 +7313,13 @@ export type Database = {
         | "printing"
         | "cutting"
         | "delivery"
+      vb_status:
+        | "draft"
+        | "sent"
+        | "signed"
+        | "converted"
+        | "rejected"
+        | "expired"
       warehouse_action_type: "receive" | "use" | "return" | "check" | "unknown"
       warehouse_review_status:
         | "pending"
@@ -5397,8 +7461,41 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["supervisor", "manager", "admin", "technician", "hr_manager"],
+      app_role: [
+        "supervisor",
+        "manager",
+        "admin",
+        "technician",
+        "hr_manager",
+        "vendedor",
+      ],
       bulk_job_status: ["queued", "running", "completed", "failed"],
+      capture_channel: ["whatsapp", "qr", "manual", "photo", "system"],
+      capture_domain: [
+        "production",
+        "warehouse",
+        "dispatch",
+        "receipt",
+        "other",
+      ],
+      capture_status: [
+        "pending",
+        "approved",
+        "auto_approved",
+        "rejected",
+        "needs_revision",
+      ],
+      cost_line_category: [
+        "material",
+        "labor",
+        "machine",
+        "finishing",
+        "outsourced",
+        "overhead",
+        "other",
+      ],
+      cost_line_kind: ["estimate", "committed", "actual"],
+      dispatch_status: ["draft", "dispatched", "delivered", "cancelled"],
       employee_status: ["active", "inactive", "on_leave", "terminated"],
       employment_contract_type: [
         "full_time",
@@ -5407,6 +7504,7 @@ export const Constants = {
         "contractor",
         "intern",
       ],
+      factura_compra_status: ["received", "matched", "disputed", "paid"],
       hr_document_status: ["active", "expired", "archived"],
       hr_document_type: [
         "contract",
@@ -5467,7 +7565,13 @@ export const Constants = {
         "pre_press",
         "manual_workshop",
         "delivery",
+        "folder",
+        "collator",
+        "stitcher",
+        "perfect_binder",
+        "laminator",
       ],
+      machine_usage_unit: ["impressions", "hours", "kilometers", "cycles"],
       maintenance_status: [
         "scheduled",
         "in_progress",
@@ -5489,6 +7593,14 @@ export const Constants = {
         "ot_rejected",
         "report_ready",
         "system_alert",
+      ],
+      oc_status: [
+        "draft",
+        "sent",
+        "received",
+        "invoiced",
+        "closed",
+        "cancelled",
       ],
       ot_approval_status: [
         "pending",
@@ -5552,6 +7664,7 @@ export const Constants = {
         "otro",
       ],
       report_export_status: ["queued", "processing", "ready", "failed"],
+      sales_invoice_status: ["issued", "sent", "paid", "cancelled"],
       skill_tree_type: [
         "foundational",
         "technical",
@@ -5586,6 +7699,14 @@ export const Constants = {
         "printing",
         "cutting",
         "delivery",
+      ],
+      vb_status: [
+        "draft",
+        "sent",
+        "signed",
+        "converted",
+        "rejected",
+        "expired",
       ],
       warehouse_action_type: ["receive", "use", "return", "check", "unknown"],
       warehouse_review_status: [
