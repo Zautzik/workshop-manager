@@ -408,15 +408,10 @@ export function useUpsertMachineCost() {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-export const MACHINE_TYPE_LABELS: Record<MachineType, string> = {
-  offset_printer:   'Offset / Prensa',
-  die_cutter:       'Troqueladora',
-  guillotine:       'Guillotina',
-  digital_printer:  'Digital / Inkjet',
-  pre_press:        'Pre-prensa',
-  manual_workshop:  'Taller Manual',
-  delivery:         'Despacho',
-};
+// Los nombres viven junto al enum (src/types/machine-type.ts). Estaban
+// duplicados acá, así que al agregar las máquinas de terminación el selector de
+// "nueva máquina" —que itera este mapa— no las habría ofrecido nunca.
+export { MACHINE_TYPE_LABEL as MACHINE_TYPE_LABELS } from '@/types/machine-type';
 
 export const MACHINE_STATUS_LABELS: Record<MachineStatus, string> = {
   idle:        'En espera',
