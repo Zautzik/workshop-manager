@@ -67,9 +67,13 @@ export const COMPETENCY_TEMPLATES: Partial<Record<MachineType, CompetencyTemplat
 		{ skill_code: 'QUALITY_CONTROL', min_proficiency: 2, is_critical: false },
 	],
 
+	// Cada máquina de terminación exige SU competencia, no la familia entera.
+	// Con `BINDING_ASSEMBLY` compartida, la cobertura afirmaba que quien está
+	// habilitado en la corchetera puede correr la hotmelera — que tiene una olla
+	// de cola a temperatura. Era una afirmación falsa con riesgo detrás.
 	folder: [
 		...BASE, MEDICION,
-		{ skill_code: 'BINDING_ASSEMBLY', min_proficiency: 2, is_critical: true,
+		{ skill_code: 'PLEGADO', min_proficiency: 3, is_critical: true,
 		  supervised_hours_required: 24,
 		  reason: 'El plegado mal escuadrado arruina el trabajo recién en la etapa siguiente.' },
 		{ skill_code: 'FINISHING_QUALITY', min_proficiency: 2, is_critical: false },
@@ -77,7 +81,7 @@ export const COMPETENCY_TEMPLATES: Partial<Record<MachineType, CompetencyTemplat
 
 	collator: [
 		...BASE,
-		{ skill_code: 'BINDING_ASSEMBLY', min_proficiency: 2, is_critical: true,
+		{ skill_code: 'ALZADO', min_proficiency: 3, is_critical: true,
 		  supervised_hours_required: 16 },
 		{ skill_code: 'MATERIAL_HANDLING', min_proficiency: 2, is_critical: false },
 		{ skill_code: 'FINISHING_QUALITY', min_proficiency: 2, is_critical: true,
@@ -86,14 +90,14 @@ export const COMPETENCY_TEMPLATES: Partial<Record<MachineType, CompetencyTemplat
 
 	stitcher: [
 		...BASE,
-		{ skill_code: 'BINDING_ASSEMBLY', min_proficiency: 3, is_critical: true,
+		{ skill_code: 'CORCHETEADO', min_proficiency: 3, is_critical: true,
 		  supervised_hours_required: 32 },
 		{ skill_code: 'FINISHING_QUALITY', min_proficiency: 2, is_critical: false },
 	],
 
 	perfect_binder: [
 		...BASE, MEDICION,
-		{ skill_code: 'BINDING_ASSEMBLY', min_proficiency: 3, is_critical: true,
+		{ skill_code: 'HOTMELT', min_proficiency: 3, is_critical: true,
 		  requires_certification: true, supervised_hours_required: 40,
 		  reason: 'Olla de cola a temperatura y fresado de lomo: quema y arruina el tiraje entero.' },
 		{ skill_code: 'FINISHING_QUALITY', min_proficiency: 3, is_critical: true },
@@ -115,7 +119,9 @@ export const COMPETENCY_TEMPLATES: Partial<Record<MachineType, CompetencyTemplat
 	],
 
 	pre_press: [
-		{ skill_code: 'SAFETY_AWARENESS', min_proficiency: 1, is_critical: false },
+		// Nivel bajo, pero crítico: la reveladora de planchas tiene química, y
+		// nadie queda habilitado para trabajar solo en el taller sin esto.
+		{ skill_code: 'SAFETY_AWARENESS', min_proficiency: 1, is_critical: true },
 		{ skill_code: 'PRE_PRESS_SETUP', min_proficiency: 3, is_critical: true },
 		{ skill_code: 'MEASUREMENT_READING', min_proficiency: 3, is_critical: true },
 	],

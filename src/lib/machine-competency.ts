@@ -34,6 +34,54 @@ export interface HeldSkill {
   certified: boolean;
   hours_practiced?: number | null;
   certification_expires_on?: string | null;
+  /** Última vez que alguien verificó este nivel. */
+  last_assessed_on?: string | null;
+}
+
+/**
+ * Una competencia sin uso se enfría.
+ *
+ * Quien corrió la hotmelera hace dos años y no volvió a tocarla NO está en el
+ * mismo nivel que declaró entonces. Hasta ahora la app lo contaba como
+ * habilitado, y eso produce cobertura fantasma: tres habilitados en el papel,
+ * uno solo capaz de levantar la máquina el lunes.
+ *
+ * No se degrada el dato guardado —eso es del evaluador, no del sistema— sino
+ * que se calcula un nivel EFECTIVO para responder "¿de cuánta gente dependo
+ * hoy?". El historial queda intacto.
+ */
+export const DECAY_GRACE_MONTHS = 12;
+export const DECAY_MONTHS_PER_LEVEL = 12;
+/** Nunca se descuenta por debajo de esto: algo queda siempre. */
+export const DECAY_FLOOR = 1;
+
+export function effectiveLevel(
+  held: Pick<HeldSkill, 'proficiency_level' | 'last_assessed_on'>,
+  today: Date
+): { level: number; monthsStale: number | null; decayed: boolean } {
+  if (!held.last_assessed_on) {
+    // Sin fecha no se castiga: no saber cuándo se evaluó no es lo mismo que
+    // saber que fue hace mucho.
+    return { level: held.proficiency_level, monthsStale: null, decayed: false };
+  }
+
+  const then = new Date(held.last_assessed_on);
+  if (Number.isNaN(then.getTime())) {
+    return { level: held.proficiency_level, monthsStale: null, decayed: false };
+  }
+
+  const monthsStale = Math.max(
+    0,
+    (today.getFullYear() - then.getFullYear()) * 12 + (today.getMonth() - then.getMonth())
+  );
+
+  if (monthsStale <= DECAY_GRACE_MONTHS) {
+    return { level: held.proficiency_level, monthsStale, decayed: false };
+  }
+
+  const steps = Math.floor((monthsStale - DECAY_GRACE_MONTHS) / DECAY_MONTHS_PER_LEVEL) + 1;
+  const level = Math.max(DECAY_FLOOR, held.proficiency_level - steps);
+  return { level, monthsStale, decayed: level < held.proficiency_level };
 }
 
 export type OperatorStatus =
@@ -56,6 +104,10 @@ export interface SkillGap {
   /** Tiene el nivel pero le falta la certificación firmada. */
   needsCertification: boolean;
   missingSupervisedHours: number | null;
+  /** Lo que dice la ficha, antes de enfriar por antigüedad. */
+  declaredLevel: number;
+  /** Meses desde la última evaluación, sólo si eso le bajó el nivel. */
+  staleMonths: number | null;
 }
 
 export interface OperatorEvaluation {
@@ -107,7 +159,9 @@ export function evaluateOperator(
 
   for (const req of requirements) {
     const h = bySkill.get(req.skill_id);
-    const current = h?.proficiency_level ?? 0;
+    // Nivel EFECTIVO: el declarado, enfriado por el tiempo sin verificar.
+    const decay = h ? effectiveLevel(h, today) : null;
+    const current = decay?.level ?? 0;
     const levelOk = current >= req.min_proficiency;
 
     const certOk = !req.requires_certification || (h?.certified ?? false);
@@ -145,6 +199,10 @@ export function evaluateOperator(
         is_critical: req.is_critical,
         needsCertification: levelOk && (!certOk || !!certExpired),
         missingSupervisedHours,
+        declaredLevel: h?.proficiency_level ?? 0,
+        // Sin esto, un supervisor ve "nivel 2" sobre alguien a quien certificó
+        // en 4 y no entiende nada. Con esto ve por qué, y qué hacer: reevaluar.
+        staleMonths: decay?.decayed ? decay.monthsStale : null,
       });
     }
   }
@@ -158,7 +216,11 @@ export function evaluateOperator(
   // aprendiendo, y es el que hoy no se podía representar.
   const criticalLevelsOk = requirements
     .filter((r) => r.is_critical)
-    .every((r) => (bySkill.get(r.skill_id)?.proficiency_level ?? 0) >= Math.max(1, r.min_proficiency - 1));
+    .every((r) => {
+      const h = bySkill.get(r.skill_id);
+      const lvl = h ? effectiveLevel(h, today).level : 0;
+      return lvl >= Math.max(1, r.min_proficiency - 1);
+    });
 
   let status: OperatorStatus;
   let reason: string;

@@ -179,3 +179,53 @@ describe('machineCoverage — el factor bus, medible', () => {
     expect(c.closestCandidates[0].nextStep).not.toBeNull();
   });
 });
+
+describe('una competencia sin verificar se enfría', () => {
+  const REQ: SkillRequirement[] = [
+    { skill_id: 'hotmelt', skill_name: 'Hotmelera', min_proficiency: 3, is_critical: true },
+  ];
+
+  it('dentro del año de gracia conserva el nivel declarado', () => {
+    const r = evaluateOperator(REQ, [
+      { skill_id: 'hotmelt', proficiency_level: 4, certified: true, last_assessed_on: '2026-01-15' },
+    ], { today: HOY });
+    expect(r.canOperateAlone).toBe(true);
+  });
+
+  it('a los dos años sin evaluar, baja de nivel y deja de estar habilitado', () => {
+    const r = evaluateOperator(REQ, [
+      { skill_id: 'hotmelt', proficiency_level: 4, certified: true, last_assessed_on: '2024-05-01' },
+    ], { today: HOY });
+    // ~27 meses: 12 de gracia + 15 → 2 escalones → nivel efectivo 2, exige 3.
+    expect(r.canOperateAlone).toBe(false);
+    expect(r.gaps[0].declaredLevel).toBe(4);
+    expect(r.gaps[0].current).toBeLessThan(4);
+    expect(r.gaps[0].staleMonths).toBeGreaterThan(24);
+  });
+
+  it('nunca baja de nivel 1: algo siempre queda', () => {
+    const r = evaluateOperator(REQ, [
+      { skill_id: 'hotmelt', proficiency_level: 2, certified: true, last_assessed_on: '2010-01-01' },
+    ], { today: HOY });
+    expect(r.gaps[0].current).toBe(1);
+  });
+
+  it('sin fecha de evaluación no castiga — no saber cuándo no es saber que fue hace mucho', () => {
+    const r = evaluateOperator(REQ, [
+      { skill_id: 'hotmelt', proficiency_level: 4, certified: true, last_assessed_on: null },
+    ], { today: HOY });
+    expect(r.canOperateAlone).toBe(true);
+    expect(r.gaps).toHaveLength(0);
+  });
+
+  it('la cobertura fantasma desaparece: tres en el papel, uno de verdad', () => {
+    const c = machineCoverage(REQ, [
+      { employeeId: 'activo',  skills: [{ skill_id: 'hotmelt', proficiency_level: 4, certified: true, last_assessed_on: '2026-06-01' }] },
+      { employeeId: 'frio1',   skills: [{ skill_id: 'hotmelt', proficiency_level: 4, certified: true, last_assessed_on: '2023-01-01' }] },
+      { employeeId: 'frio2',   skills: [{ skill_id: 'hotmelt', proficiency_level: 3, certified: true, last_assessed_on: '2022-06-01' }] },
+    ], 2, { today: HOY });
+
+    expect(c.qualified).toBe(1);
+    expect(c.risk).toBe('critico');
+  });
+});
