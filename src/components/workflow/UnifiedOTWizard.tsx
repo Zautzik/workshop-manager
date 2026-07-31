@@ -18,9 +18,11 @@ import {
   Save,
   CheckCircle2,
   Loader2,
+  AlertTriangle,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { EMPTY_UNIFIED_FORM, UNIFIED_STEPS, type UnifiedOTForm } from '@/types/ot-unified';
+import { validateStep, validateAllSteps, canJumpToStep } from '@/lib/ot-wizard-validation';
 import { CATEGORY_DEFAULTS, type WorkCategoryKey } from '@/types/work-category';
 import {
   computeOTCalculations,
@@ -260,18 +262,13 @@ export function UnifiedOTWizard({ onClose, onSuccess }: Props) {
   );
 
   /* ── Step validation ────────────────────────────────────────── */
-  const canAdvance = useMemo(() => {
-    switch (step) {
-      case 0:
-        return !!form.work_category;
-      case 1:
-        return form.client_name.trim().length > 0 && form.quantity > 0;
-      case 2:
-        return form.width_cm > 0 && form.height_cm > 0;
-      default:
-        return true;
-    }
-  }, [step, form.work_category, form.client_name, form.quantity, form.width_cm, form.height_cm]);
+  // La validación vive en src/lib/ot-wizard-validation.ts para poder testearse.
+  // Antes esto hacía `default: return true` desde el paso 3, y como la barra de
+  // pasos deja saltar mientras canAdvance sea verdadero, se llegaba al Resumen
+  // sin elegir máquina — y sin máquina el motor imposiciona sobre una prensa
+  // que no existe.
+  const advanceCheck = useMemo(() => validateStep(step, form), [step, form]);
+  const canAdvance = advanceCheck.ok;
 
   /* ── Navigation ─────────────────────────────────────────────── */
   const goNext = () => {
@@ -306,6 +303,18 @@ export function UnifiedOTWizard({ onClose, onSuccess }: Props) {
 
   /* ── Submit to API ──────────────────────────────────────────── */
   const handleSubmit = async () => {
+    // Última red: revalida TODOS los pasos, no sólo el actual. Si alguien llegó
+    // hasta acá por un camino que no previmos, la OT no se crea a medias.
+    const completa = validateAllSteps(form);
+    if (!completa.ok) {
+      toast({
+        title: 'Falta información para crear la OT',
+        description: completa.reason ?? undefined,
+        variant: 'destructive',
+      });
+      return;
+    }
+
     // La pieza no entra en ningún pliego que la prensa elegida pueda tomar.
     // Antes se emitía igual una imposición imposible de montar.
     if (form.imposition?.exceeds_press) {
@@ -537,8 +546,13 @@ export function UnifiedOTWizard({ onClose, onSuccess }: Props) {
               <button
                 key={s.key}
                 onClick={() => {
-                  if (i <= step || canAdvance) setStep(i);
+                  if (canJumpToStep(i, step, canAdvance)) setStep(i);
                 }}
+                title={
+                  canJumpToStep(i, step, canAdvance)
+                    ? undefined
+                    : (advanceCheck.reason ?? 'Completa el paso actual para continuar')
+                }
                 className={`
                   flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium transition-all
                   ${
@@ -640,6 +654,16 @@ export function UnifiedOTWizard({ onClose, onSuccess }: Props) {
             </Button>
           )}
         </div>
+
+        {/* Un botón gris sin explicación obliga a adivinar qué falta. */}
+        {!canAdvance && advanceCheck.reason && (
+          <div className="max-w-5xl mx-auto px-1 pb-1">
+            <p className="flex items-start gap-1.5 text-xs text-amber-700 dark:text-amber-300">
+              <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-px" />
+              {advanceCheck.reason}
+            </p>
+          </div>
+        )}
       </footer>
     </div>
   );
