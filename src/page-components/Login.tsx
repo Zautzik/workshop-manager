@@ -8,13 +8,12 @@
  * - Authentication via signIn() from AuthContext
  * - Theme toggle (light/dark mode)
  * - Language selector (English/Spanish)
- * - Auto-redirect after login based on user role:
- *   - admin -> /admin
- *   - supervisor -> /supervisor
- *   - others -> /manager
+ * - Auto-redirect for anyone holding a session, by role — see
+ *   landingRouteForRole() in @/lib/navigation
  * - Error/success toast notifications
  * 
- * Also handles loading state and prevents re-renders if already authenticated.
+ * Also handles loading state. Visitors who already hold a session never see the
+ * form — they are redirected straight to their landing route.
  */
 'use client';
 
@@ -37,9 +36,8 @@ const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const [didLogin, setDidLogin] = useState(false);
   const [mounted, setMounted] = useState(false);
-  const { signIn, signOut, user, role } = useAuth();
+  const { signIn, user, role } = useAuth();
   const { t } = useLanguage();
   const { theme, setTheme } = useTheme();
   const router = useRouter();
@@ -48,13 +46,16 @@ const Login = () => {
     setMounted(true);
   }, []);
 
+  // Anyone who reaches this page with a session gets sent straight on — whether
+  // they just signed in or navigated to /login while already authenticated.
+  // Land each role on the surface it's allowed to use (technician → WhatsApp,
+  // vendedor → Comercial, ops roles → Home). `replace` keeps the login page out
+  // of history so Back doesn't return here.
   useEffect(() => {
-    if (didLogin && user) {
-      // Land each role on the surface it's allowed to use (technician → WhatsApp,
-      // vendedor → Comercial, ops roles → Home).
-      router.push(landingRouteForRole(role));
+    if (user) {
+      router.replace(landingRouteForRole(role));
     }
-  }, [didLogin, user, role, router]);
+  }, [user, role, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -67,47 +68,17 @@ const Login = () => {
       setLoading(false);
     } else {
       toast.success('Sesión iniciada');
-      setDidLogin(true);
-      // useEffect will handle redirect once session updates
+      // Stay in the loading state — the effect above redirects once the
+      // session lands, so the form must not become interactive again.
     }
   };
 
-  if (!mounted) {
+  // Before hydration, and while the effect above redirects an authenticated
+  // visitor away, show the placeholder rather than flashing the login form.
+  if (!mounted || user) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-primary/5 to-accent/10 p-4">
         <div className="text-sm text-muted-foreground">Cargando...</div>
-      </div>
-    );
-  }
-
-  // If already authenticated, show continue/sign-out actions instead of auto-redirect
-  if (user) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-primary/5 to-accent/10 p-4">
-        <div className="w-full max-w-md space-y-4 rounded-lg border border-primary/20 bg-card p-6 text-center shadow-xl">
-          <h2 className="text-xl font-semibold text-foreground">Ya iniciaste sesión</h2>
-          <p className="text-sm text-muted-foreground">
-            Elige a dónde ir o cierra sesión para cambiar de cuenta.
-          </p>
-          <div className="flex flex-col gap-2">
-            <Button
-              onClick={() => {
-                router.push(landingRouteForRole(role));
-              }}
-            >
-              Continuar al panel
-            </Button>
-            <Button
-              variant="outline"
-              onClick={async () => {
-                await signOut();
-                router.push('/');
-              }}
-            >
-              Cerrar sesión
-            </Button>
-          </div>
-        </div>
       </div>
     );
   }

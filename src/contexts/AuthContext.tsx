@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { useSession, signIn as nextAuthSignIn, signOut as nextAuthSignOut, getSession } from 'next-auth/react';
 import { supabase } from '@/integrations/supabase/client';
 import type { AppRole } from '@/types/app-role';
@@ -28,16 +28,42 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 // ── Dev bypass — renders when NEXT_PUBLIC_DEV_BYPASS=true ────────────────────
 const DEV_USER: User = { id: 'dev', email: 'dev@local', name: 'Dev Admin' };
 const DEV_ROLE: AppRole = 'admin';
+// Per-tab so a fresh tab still opens straight into the dev session, while a
+// reload after signing out stays signed out.
+const DEV_SIGNED_OUT_KEY = 'dev-bypass-signed-out';
 
 function DevBypassProvider({ children }: { children: ReactNode }) {
+	const [user, setUser] = useState<User | null>(DEV_USER);
+	// Start loading so the first client render matches the server render; the
+	// sessionStorage check below can only run after hydration.
+	const [loading, setLoading] = useState(true);
+
+	useEffect(() => {
+		if (sessionStorage.getItem(DEV_SIGNED_OUT_KEY) === '1') {
+			setUser(null);
+		}
+		setLoading(false);
+	}, []);
+
+	const signIn = async () => {
+		sessionStorage.removeItem(DEV_SIGNED_OUT_KEY);
+		setUser(DEV_USER);
+		return { error: null };
+	};
+
+	const signOut = async () => {
+		sessionStorage.setItem(DEV_SIGNED_OUT_KEY, '1');
+		setUser(null);
+	};
+
 	return (
 		<AuthContext.Provider value={{
-			user: DEV_USER,
+			user,
 			session: null,
-			role: DEV_ROLE,
-			loading: false,
-			signIn: async () => ({ error: null }),
-			signOut: async () => {},
+			role: user ? DEV_ROLE : null,
+			loading,
+			signIn,
+			signOut,
 		}}>
 			{children}
 		</AuthContext.Provider>

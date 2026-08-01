@@ -51,8 +51,11 @@ export function Providers({ children, nonce }: { children: ReactNode; nonce?: st
 			})
 	);
 
+	// SessionProvider: same rationale as refetchOnWindowFocus above — one
+	// focused tab, so re-fetching the session on every tab switch is pure
+	// request noise against the /api/auth rate limit.
 	return (
-		<SessionProvider>
+		<SessionProvider refetchOnWindowFocus={false}>
 			<QueryClientProvider client={queryClient}>
 				<ThemeProvider nonce={nonce}>
 					<AuthProvider>

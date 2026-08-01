@@ -84,6 +84,10 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
   useCostOverrunAlerts();
 
+  // Public routes — no shell needed
+  const isPublicRoute = pathname === '/' || pathname === '/login';
+  const isFullscreenRoute = pathname === '/estacion' || pathname === '/operaciones/whatsapp/operator' || pathname.startsWith('/track/');
+
   // Persist sidebar collapsed preference
   useEffect(() => {
     const stored = localStorage.getItem('sidebar_collapsed');
@@ -104,9 +108,14 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     if (parent) setExpandedNav(prev => ({ ...prev, [parent.href]: true }));
   }, [pathname]);
 
-  // Public routes — no shell needed
-  const isPublicRoute = pathname === '/' || pathname === '/login';
-  const isFullscreenRoute = pathname === '/estacion' || pathname === '/operaciones/whatsapp/operator' || pathname.startsWith('/track/');
+  // Kick unauthenticated visitors off protected routes. This runs in an effect
+  // because navigating during render updates the Router while AppShell is still
+  // rendering, which React reports as a setState-in-render error — it fires on
+  // logout, when user drops to null while pathname is still the protected page.
+  const needsAuthRedirect = !loading && !user && !isPublicRoute;
+  useEffect(() => {
+    if (needsAuthRedirect) router.replace('/login');
+  }, [needsAuthRedirect, router]);
 
   // While auth is loading, render children (Login/root) or show a spinner
   if (loading) {
@@ -121,11 +130,10 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     );
   }
 
-  // Not authenticated — show login page or redirect
+  // Not authenticated — show login page, or nothing while the effect above
+  // redirects away from a protected route
   if (!user) {
     if (isPublicRoute) return <>{children}</>;
-    // Redirect to login for protected routes
-    router.push('/login');
     return null;
   }
 
@@ -141,7 +149,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
   const handleLogout = async () => {
     await signOut();
-    router.push('/');
+    router.replace('/login');
   };
 
   const filteredItems = navItems.filter(

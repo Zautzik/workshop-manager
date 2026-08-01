@@ -45,6 +45,13 @@ const SUPABASE_CSP_SOURCES = getSupabaseCspSources();
 // Page routes are not rate-limited here; humans browsing quickly shouldn't
 // hit a 429.  The /api/auth/callback/credentials handler adds its own tighter
 // per-IP limit (5 attempts / 60 s) on top.
+//
+// The `auth` tier covers only requests that actually submit credentials.
+// Most of /api/auth is read-only chatter from the NextAuth client — it fetches
+// /session on mount and on every tab focus, /providers + /csrf before each
+// signIn, and POSTs its own errors to /_log. Counting those against 10/60 s
+// exhausted the window during normal use, and because /_log is itself under
+// /api/auth, one 429 fed back into the next.
 
 const RATE_LIMITS = {
 	auth:    { requests: 10,  windowMs: 60_000 },
@@ -61,9 +68,21 @@ function getClientIp(req: NextRequest): string {
 	return req.headers.get('x-real-ip') ?? 'unknown';
 }
 
-/** Map a request pathname to its rate-limit tier, or null to skip limiting. */
-function getRlTier(pathname: string): RlTier | null {
-	if (pathname.startsWith('/api/auth'))      return 'auth';
+/**
+ * NextAuth paths that carry credentials. Sign-in POSTs land on
+ * /api/auth/callback/<provider>; /api/auth/signin/<provider> is the
+ * non-JS form-post fallback.
+ */
+const CREDENTIAL_SUBMISSION_PATHS = ['/api/auth/callback', '/api/auth/signin'];
+
+/** Map a request to its rate-limit tier, or null to skip limiting. */
+function getRlTier(pathname: string, method: string): RlTier | null {
+	if (pathname.startsWith('/api/auth')) {
+		const submitsCredentials =
+			method === 'POST' &&
+			CREDENTIAL_SUBMISSION_PATHS.some((p) => pathname.startsWith(p));
+		return submitsCredentials ? 'auth' : 'api';
+	}
 	if (pathname.startsWith('/api/whatsapp')) return 'webhook';
 	if (pathname.startsWith('/api/'))         return 'api';
 	return null;
@@ -148,7 +167,7 @@ function buildCsp(nonce: string): string {
 export function proxy(req: NextRequest) {
 	// ── 0. Rate limiting ─────────────────────────────────────────────────────
 	const { pathname } = req.nextUrl;
-	const tier = getRlTier(pathname);
+	const tier = getRlTier(pathname, req.method);
 	if (tier) {
 		const ip = getClientIp(req);
 		const { requests, windowMs } = RATE_LIMITS[tier];
