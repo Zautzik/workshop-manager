@@ -2971,51 +2971,69 @@ export type Database = {
       maintenance_work_orders: {
         Row: {
           assigned_to: string | null
-          checklist_id: string
+          checklist_id: string | null
           completed_at: string | null
           created_at: string | null
           created_by: string | null
+          fault_description: string | null
           id: string
           machine_id: string
           notes: string | null
           ot_id: string | null
+          part_id: string | null
           priority: number | null
           scheduled_date: string
           started_at: string | null
           status: string
+          system_id: string | null
+          title: string | null
           total_time_minutes: number | null
+          usage_at_creation: number | null
+          work_order_type: string
         }
         Insert: {
           assigned_to?: string | null
-          checklist_id: string
+          checklist_id?: string | null
           completed_at?: string | null
           created_at?: string | null
           created_by?: string | null
+          fault_description?: string | null
           id?: string
           machine_id: string
           notes?: string | null
           ot_id?: string | null
+          part_id?: string | null
           priority?: number | null
           scheduled_date: string
           started_at?: string | null
           status?: string
+          system_id?: string | null
+          title?: string | null
           total_time_minutes?: number | null
+          usage_at_creation?: number | null
+          work_order_type?: string
         }
         Update: {
           assigned_to?: string | null
-          checklist_id?: string
+          checklist_id?: string | null
           completed_at?: string | null
           created_at?: string | null
           created_by?: string | null
+          fault_description?: string | null
           id?: string
           machine_id?: string
           notes?: string | null
           ot_id?: string | null
+          part_id?: string | null
           priority?: number | null
           scheduled_date?: string
           started_at?: string | null
           status?: string
+          system_id?: string | null
+          title?: string | null
           total_time_minutes?: number | null
+          usage_at_creation?: number | null
+          work_order_type?: string
         }
         Relationships: [
           {
@@ -3058,6 +3076,27 @@ export type Database = {
             columns: ["ot_id"]
             isOneToOne: false
             referencedRelation: "ots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "maintenance_work_orders_part_id_fkey"
+            columns: ["part_id"]
+            isOneToOne: false
+            referencedRelation: "machine_parts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "maintenance_work_orders_part_id_fkey"
+            columns: ["part_id"]
+            isOneToOne: false
+            referencedRelation: "machine_parts_health_v"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "maintenance_work_orders_system_id_fkey"
+            columns: ["system_id"]
+            isOneToOne: false
+            referencedRelation: "machine_systems"
             referencedColumns: ["id"]
           },
         ]
