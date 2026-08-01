@@ -20,7 +20,7 @@ import {
   Cpu, AlertCircle, BarChart3, PieChart, DollarSign,
   LayoutDashboard, ClipboardCheck, GitMerge,
   Bell, Settings, Activity, BadgeCheck, Receipt, FileCheck, Gauge,
-  Award, FileText, Gift, Truck, Inbox, Cog,
+  Award, FileText, Gift, Truck, Inbox, Cog, QrCode,
 } from 'lucide-react';
 
 export interface NavLeaf {
@@ -265,6 +265,7 @@ export const MODULES: NavModule[] = [
           { label: 'Plan & Órdenes',href: '/equipos/ordenes',   description: 'OTs de mantenimiento, programa semanal y checklists', icon: ClipboardList, color: 'bg-sky-500/10 text-sky-400' },
           { label: 'Ejecución',     href: '/equipos/ejecucion', description: 'Registro de intervenciones y trabajos realizados',    icon: Wrench,        color: 'bg-fuchsia-500/10 text-fuchsia-400' },
           { label: 'Mecánica & Repuestos', href: '/equipos/mecanica', description: 'Piezas por sistema, reposición y quién sabe operar cada máquina', icon: Cog, color: 'bg-rose-500/10 text-rose-400' },
+          { label: 'Etiquetas QR',         href: '/equipos/etiquetas', description: 'Imprimir los QR para pegar en cada equipo y anotar lecturas', icon: QrCode, color: 'bg-slate-500/10 text-slate-400' },
         ],
       },
       {

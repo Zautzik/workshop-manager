@@ -23,7 +23,7 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string
   const [{ data: machine }, { data: readings }, { data: rate }] = await Promise.all([
     supabaseAdmin
       .from('machines')
-      .select('id, name, usage_unit, usage_counter, usage_counter_updated_at')
+      .select('id, name, type, usage_unit, usage_counter, usage_counter_updated_at')
       .eq('id', id)
       .single(),
     supabaseAdmin

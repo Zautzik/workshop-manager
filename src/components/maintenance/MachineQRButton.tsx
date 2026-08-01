@@ -1,8 +1,14 @@
 'use client';
 
 /**
- * MachineQRButton — renders a small QR icon button that opens a dialog
- * showing a QR code linking to /maintenance/maquinas?id=<machineId>
+ * QR pegado en la máquina → anotar la lectura del contador desde el teléfono.
+ *
+ * Apuntaba a `/maintenance/maquinas?id=…`, una ruta que NO EXISTE: el módulo se
+ * llama `/equipos` desde hace tiempo y el QR nunca se actualizó, así que
+ * cualquier etiqueta impresa llevaba a un 404.
+ *
+ * Ahora apunta a la pantalla de lectura, que es lo único que alguien necesita
+ * hacer parado frente al equipo.
  */
 
 import { useState } from 'react';
@@ -24,10 +30,8 @@ interface MachineQRButtonProps {
 export function MachineQRButton({ machineId, machineName }: MachineQRButtonProps) {
   const [open, setOpen] = useState(false);
 
-  const url =
-    typeof window !== 'undefined'
-      ? `${window.location.origin}/maintenance/maquinas?id=${machineId}`
-      : `/maintenance/maquinas?id=${machineId}`;
+  const path = `/equipos/lectura/${machineId}`;
+  const url = typeof window !== 'undefined' ? `${window.location.origin}${path}` : path;
 
   return (
     <>
@@ -47,10 +51,16 @@ export function MachineQRButton({ machineId, machineName }: MachineQRButtonProps
             <DialogTitle className="text-sm">QR — {machineName}</DialogTitle>
           </DialogHeader>
           <div className="flex flex-col items-center gap-3 py-2">
-            <div className="p-3 bg-white rounded-lg border">
+            {/* Fondo blanco fijo: un QR sobre fondo oscuro no lo lee ningún
+                teléfono, y esta etiqueta se imprime. */}
+            <div className="rounded-lg border bg-white p-3">
               <QRCodeSVG value={url} size={180} level="M" />
             </div>
-            <p className="text-[10px] text-muted-foreground text-center break-all">{url}</p>
+            <p className="text-center text-xs font-medium">{machineName}</p>
+            <p className="text-center text-[11px] text-muted-foreground">
+              Escanéalo con el teléfono para anotar la lectura del contador.
+            </p>
+            <p className="break-all text-center text-[10px] text-muted-foreground">{url}</p>
           </div>
         </DialogContent>
       </Dialog>
