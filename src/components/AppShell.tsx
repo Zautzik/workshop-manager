@@ -28,6 +28,7 @@ import { HOME_ITEM, MODULES } from '@/lib/navigation';
 import { NotificationCenter } from '@/components/NotificationCenter';
 import { ReportingQuickActions } from '@/components/ReportingQuickActions';
 import { GlobalSearch } from '@/components/GlobalSearch';
+import Breadcrumbs from '@/components/Breadcrumbs';
 import { useCostOverrunAlerts } from '@/hooks/use-cost-overrun-alerts';
 
 interface SubItem {
@@ -166,8 +167,10 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const SidebarContent = () => (
     <div className="flex flex-col h-full">
       {/* Logo */}
+      {/* h-16 is shared with the desktop header below so the two bottom borders
+          line up across the sidebar/content seam. Change both together. */}
       <div className={cn(
-        "flex items-center gap-3 px-4 py-5 border-b border-border/50",
+        "flex h-16 shrink-0 items-center gap-3 px-4 border-b border-border/50",
         collapsed && "justify-center px-2"
       )}>
         <ForgeHexLogo
@@ -340,7 +343,10 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       {/* Desktop sidebar */}
       <aside
         className={cn(
-          "hidden md:flex flex-col border-r border-border bg-card transition-all duration-200",
+          // `relative` anchors the collapse handle below to this sidebar. Without
+          // it the handle's `-right-3` resolves against the viewport and pushes
+          // the document 12px wide, which scrollbars the whole app.
+          "relative hidden md:flex flex-col border-r border-border bg-card transition-all duration-200 shrink-0",
           collapsed ? "w-[56px]" : "w-60"
         )}
       >
@@ -359,7 +365,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       </aside>
 
       {/* Main content */}
-      <main className="flex-1 flex flex-col overflow-hidden relative">
+      <main className="flex-1 min-w-0 flex flex-col overflow-hidden relative">
         <GlobalSearch />
         {/* Mobile header */}
         <div className="md:hidden flex items-center gap-3 px-4 py-3 border-b border-border/50 bg-card/80 backdrop-blur-sm">
@@ -382,16 +388,11 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         </div>
 
         {/* Desktop header */}
-        <div className="hidden md:flex items-center justify-between px-5 py-3 border-b border-border/50 bg-card/60 backdrop-blur-sm">
-          <div className="text-sm text-muted-foreground">
-            <ForgeHexLogo
-              size={28}
-              titleClassName="text-sm font-semibold"
-              subtitleClassName="text-xs"
-              subtitle={role?.replace('_', ' ')}
-            />
-          </div>
-          <div className="flex items-center gap-2">
+        <div className="hidden md:flex h-16 shrink-0 items-center justify-between px-5 border-b border-border/50 bg-card/60 backdrop-blur-sm">
+          {/* The brand mark already sits in the sidebar at the same height, so
+              this slot carries the trail instead of a second copy of it. */}
+          <Breadcrumbs className="min-w-0 flex-1 pr-4" />
+          <div className="flex shrink-0 items-center gap-2">
             <button
               onClick={() => { const e = new KeyboardEvent('keydown', { key: 'k', ctrlKey: true, bubbles: true }); window.dispatchEvent(e); }}
               className="flex items-center gap-1.5 text-xs text-muted-foreground bg-muted/60 border border-border/50 rounded-lg px-2.5 py-1.5 hover:bg-muted transition-colors"
@@ -403,6 +404,12 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             <ReportingQuickActions isAdmin={role === 'admin'} />
             <NotificationCenter />
           </div>
+        </div>
+
+        {/* Mobile breadcrumbs — its own row, since the mobile header has no
+            room next to the menu button and the actions. */}
+        <div className="md:hidden flex shrink-0 items-center border-b border-border/50 bg-card/40 px-4 py-1.5">
+          <Breadcrumbs className="min-w-0 flex-1 text-xs" />
         </div>
 
         {/* Page content */}
