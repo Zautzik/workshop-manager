@@ -5,6 +5,9 @@ import dynamic from 'next/dynamic';
 import { Skeleton } from '@/components/ui/skeleton';
 
 const CraftSkillTree = dynamic(() => import('@/components/hr/CraftSkillTree'));
+const HorasReales = dynamic(
+  () => import('@/components/hr/HorasReales').then((m) => m.HorasReales),
+);
 
 export default function HRHabilidadesPage() {
   return (
@@ -15,6 +18,8 @@ export default function HRHabilidadesPage() {
             <h1 className="text-2xl font-bold text-foreground">Árbol de Habilidades</h1>
             <p className="text-sm text-muted-foreground mt-1">Habilidades, nivel de maestría y progreso por trabajador</p>
           </div>
+          {/* Lo que el taller ya sabe va antes de lo que hay que declarar a mano. */}
+          <HorasReales />
           <CraftSkillTree />
         </div>
       </Suspense>

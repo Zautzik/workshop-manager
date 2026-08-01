@@ -15,6 +15,33 @@ const SupplySchema = z.object({
   notes: z.string().max(2000).nullable().optional(),
 });
 
+/**
+ * GET /api/machine-supplies?machine_id=…
+ *
+ * Faltaba: la tabla sólo se podía escribir y borrar, nunca leer por API — se
+ * leía directo desde el navegador en la ficha de la máquina. Con la puerta
+ * única de escritura ya cerrada, la de lectura también corresponde.
+ */
+export async function GET(req: NextRequest) {
+  const auth = await requireAuth(['admin', 'supervisor', 'manager', 'technician']);
+  if (isAuthError(auth)) return auth;
+
+  const machineId = new URL(req.url).searchParams.get('machine_id');
+  if (!machineId || !z.string().uuid().safeParse(machineId).success) {
+    return NextResponse.json({ error: 'Se requiere machine_id' }, { status: 400 });
+  }
+
+  const { data, error } = await supabaseAdmin
+    .from('machine_supply_requirements')
+    .select('*, inventory_items ( id, name, unit, sku )')
+    .eq('machine_id', machineId)
+    // Lo crítico primero: es lo que detiene la máquina si falta.
+    .order('is_critical', { ascending: false });
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  return NextResponse.json(data ?? []);
+}
+
 export async function POST(req: NextRequest) {
   const auth = await requireAuth(['admin', 'supervisor', 'manager']);
   if (isAuthError(auth)) return auth;
