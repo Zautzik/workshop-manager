@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Wrench, AlertTriangle, PackageX, ChevronRight, Plus, Gauge,
-  ShoppingCart, Ship, CheckCircle2, HelpCircle, ClipboardList,
+  ShoppingCart, Ship, CheckCircle2, HelpCircle, ClipboardList, Truck,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -62,6 +62,7 @@ interface PartRow {
   suggested_min_stock: number | null;
   machine_systems: SystemRow | null;
   inventory_items: { id: string; sku: string; name: string; unit: string } | null;
+  on_order: { oc_number: string | null; supplier: string; expected_date: string | null } | null;
   health: {
     status: PartStatus;
     lifeUsedPct: number | null;
@@ -123,6 +124,7 @@ export function MecanicaPanel() {
 
   const { data: partsData, isLoading: loadingParts } = useQuery<{
     parts: PartRow[];
+    purchasable_ids: string[];
     summary: Record<string, number | boolean | undefined>;
   }>({
     queryKey: ['machine-parts', machineId, onlyUrgent],
@@ -247,7 +249,7 @@ export function MecanicaPanel() {
             <ResumenCard label="Vencidas"    value={Number(summary.vencidas ?? 0)}   tone="red"    icon={PackageX} />
             <ResumenCard label="Pedido atrasado" value={Number(summary.atrasadas ?? 0)} tone="orange" icon={Ship} />
             <ResumenCard label="Pedir ahora" value={Number(summary.por_pedir ?? 0)}  tone="amber"  icon={ShoppingCart} />
-            <ResumenCard label="Sin datos"   value={Number(summary.sin_datos ?? 0)}  tone="slate"  icon={HelpCircle} />
+            <ResumenCard label="En camino"   value={Number(summary.en_camino ?? 0)} tone="sky"    icon={Truck} />
           </div>
 
           {summary.sin_ritmo === true && parts.length > 0 && (
@@ -262,14 +264,18 @@ export function MecanicaPanel() {
             </div>
           )}
 
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-2">
               <Switch id="urgent" checked={onlyUrgent} onCheckedChange={setOnlyUrgent} />
               <Label htmlFor="urgent" className="cursor-pointer text-sm">
                 Sólo lo que hay que comprar
               </Label>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <PedirTodoButton
+                partIds={partsData?.purchasable_ids ?? []}
+                onDone={() => qc.invalidateQueries({ queryKey: ['machine-parts'] })}
+              />
               <PlantillaDialog
                 machineId={machineId}
                 onApplied={() => qc.invalidateQueries({ queryKey: ['machine-parts'] })}
@@ -526,11 +532,20 @@ function PiezaRow({
           )}
         </div>
 
-        <div className="flex shrink-0 items-center gap-2">
-          <Badge variant="outline" className={`gap-1 ${style.badge}`}>
-            <Icon className="h-3 w-3" />
-            {STATUS_LABEL[part.health.status]}
-          </Badge>
+        <div className="flex shrink-0 flex-wrap items-center gap-2">
+          {part.on_order ? (
+            /* Ya viene en camino: lo que corresponde es esperar, no comprar
+               otra vez. El estado de salud se sigue mostrando en el texto. */
+            <Badge variant="outline" className="gap-1 border-sky-500/30 bg-sky-500/15 text-sky-700 dark:text-sky-300">
+              <Truck className="h-3 w-3" />
+              En camino
+            </Badge>
+          ) : (
+            <Badge variant="outline" className={`gap-1 ${style.badge}`}>
+              <Icon className="h-3 w-3" />
+              {STATUS_LABEL[part.health.status]}
+            </Badge>
+          )}
           <CrearOrdenButton part={part} />
           <Button
             variant="ghost"
@@ -573,6 +588,52 @@ function ResumenCard({
         <Icon className={`h-5 w-5 ${value > 0 ? TONE[tone] : 'text-muted-foreground/40'}`} />
       </CardContent>
     </Card>
+  );
+}
+
+/* ── De aviso a orden de compra ──────────────────────────────────────── */
+
+function PedirTodoButton({ partIds, onDone }: { partIds: string[]; onDone: () => void }) {
+  const mut = useMutation({
+    mutationFn: async () => {
+      const res = await fetch('/api/machine-parts/purchase-request', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ part_ids: partIds }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error ?? 'No se pudo generar la compra');
+      return json;
+    },
+    onSuccess: (json) => {
+      const ocs = json.created ?? [];
+      if (ocs.length === 0) {
+        toast.info('Todo lo que hacía falta ya tiene una compra en curso.');
+      } else {
+        // Se nombra al proveedor: agrupar por proveedor es la decisión que hace
+        // esto útil, y conviene que se vea.
+        toast.success(
+          `${ocs.length} orden(es) en borrador: ${ocs.map((o: { supplier: string; lines: number }) => `${o.supplier} (${o.lines})`).join(' · ')}. Revísalas en Compras antes de enviarlas.`
+        );
+      }
+      onDone();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  if (partIds.length === 0) return null;
+
+  return (
+    <Button
+      size="sm"
+      variant="outline"
+      className="gap-1"
+      onClick={() => mut.mutate()}
+      disabled={mut.isPending}
+    >
+      <ShoppingCart className="h-4 w-4" />
+      Pedir las {partIds.length} que faltan
+    </Button>
   );
 }
 

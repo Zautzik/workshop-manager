@@ -306,6 +306,13 @@ export type Database = {
             foreignKeyName: "capture_events_purchase_id_fkey"
             columns: ["purchase_id"]
             isOneToOne: false
+            referencedRelation: "machine_parts_on_order_v"
+            referencedColumns: ["purchase_id"]
+          },
+          {
+            foreignKeyName: "capture_events_purchase_id_fkey"
+            columns: ["purchase_id"]
+            isOneToOne: false
             referencedRelation: "oc_billing"
             referencedColumns: ["id"]
           },
@@ -1392,6 +1399,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "material_cost_v"
             referencedColumns: ["item_id"]
+          },
+          {
+            foreignKeyName: "inventory_lots_purchase_id_fkey"
+            columns: ["purchase_id"]
+            isOneToOne: false
+            referencedRelation: "machine_parts_on_order_v"
+            referencedColumns: ["purchase_id"]
           },
           {
             foreignKeyName: "inventory_lots_purchase_id_fkey"
@@ -3037,6 +3051,20 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "maintenance_work_orders_assigned_to_fkey"
+            columns: ["assigned_to"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "maintenance_work_orders_assigned_to_fkey"
+            columns: ["assigned_to"]
+            isOneToOne: false
+            referencedRelation: "worker_stats"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "maintenance_work_orders_checklist_id_fkey"
             columns: ["checklist_id"]
             isOneToOne: false
@@ -4382,6 +4410,13 @@ export type Database = {
             foreignKeyName: "purchase_invoices_purchase_id_fkey"
             columns: ["purchase_id"]
             isOneToOne: false
+            referencedRelation: "machine_parts_on_order_v"
+            referencedColumns: ["purchase_id"]
+          },
+          {
+            foreignKeyName: "purchase_invoices_purchase_id_fkey"
+            columns: ["purchase_id"]
+            isOneToOne: false
             referencedRelation: "oc_billing"
             referencedColumns: ["id"]
           },
@@ -4401,6 +4436,7 @@ export type Database = {
           id: string
           item_id: string | null
           lot_id: string | null
+          machine_part_id: string | null
           purchase_id: string
           quantity: number
           unit_cost: number | null
@@ -4411,6 +4447,7 @@ export type Database = {
           id?: string
           item_id?: string | null
           lot_id?: string | null
+          machine_part_id?: string | null
           purchase_id: string
           quantity?: number
           unit_cost?: number | null
@@ -4421,6 +4458,7 @@ export type Database = {
           id?: string
           item_id?: string | null
           lot_id?: string | null
+          machine_part_id?: string | null
           purchase_id?: string
           quantity?: number
           unit_cost?: number | null
@@ -4460,6 +4498,27 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "inventory_lots"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_items_machine_part_id_fkey"
+            columns: ["machine_part_id"]
+            isOneToOne: false
+            referencedRelation: "machine_parts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_items_machine_part_id_fkey"
+            columns: ["machine_part_id"]
+            isOneToOne: false
+            referencedRelation: "machine_parts_health_v"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_items_purchase_id_fkey"
+            columns: ["purchase_id"]
+            isOneToOne: false
+            referencedRelation: "machine_parts_on_order_v"
+            referencedColumns: ["purchase_id"]
           },
           {
             foreignKeyName: "purchase_items_purchase_id_fkey"
@@ -6427,6 +6486,35 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "planta_live"
             referencedColumns: ["machine_id"]
+          },
+        ]
+      }
+      machine_parts_on_order_v: {
+        Row: {
+          expected_date: string | null
+          oc_number: string | null
+          part_id: string | null
+          purchase_date: string | null
+          purchase_id: string | null
+          quantity: number | null
+          status: Database["public"]["Enums"]["oc_status"] | null
+          supplier: string | null
+          unit_cost: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "purchase_items_machine_part_id_fkey"
+            columns: ["part_id"]
+            isOneToOne: false
+            referencedRelation: "machine_parts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_items_machine_part_id_fkey"
+            columns: ["part_id"]
+            isOneToOne: false
+            referencedRelation: "machine_parts_health_v"
+            referencedColumns: ["id"]
           },
         ]
       }

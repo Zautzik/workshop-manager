@@ -71,6 +71,15 @@ export async function GET(req: NextRequest) {
     (rates ?? []).map((r) => [r.machine_id as string, r.uso_por_dia as number | null])
   );
 
+  // Lo que ya viene en camino. Una alerta que no se puede apagar se deja de
+  // mirar: la pieza pedida tiene que dejar de gritar "pedir ahora".
+  const { data: enCurso } = await supabaseAdmin
+    .from('machine_parts_on_order_v')
+    .select('part_id, oc_number, supplier, expected_date, quantity, status');
+  const onOrderByPart = new Map(
+    (enCurso ?? []).filter((o) => o.part_id).map((o) => [o.part_id as string, o])
+  );
+
   // Stock real: vive en el inventario, no acá.
   const itemIds = (parts ?? [])
     .map((p) => p.inventory_item_id)
@@ -100,11 +109,22 @@ export async function GET(req: NextRequest) {
       isImported: p.is_imported ?? false,
     };
 
+    const onOrder = onOrderByPart.get(p.id) ?? null;
+    const health = evaluatePart(input);
+
     return {
       ...p,
       usage_unit: machine?.usage_unit ?? 'hours',
       current_stock: p.inventory_item_id ? stockByItem.get(p.inventory_item_id) ?? 0 : null,
-      health: evaluatePart(input),
+      on_order: onOrder,
+      health: onOrder
+        ? {
+            ...health,
+            // El diagnóstico no cambia —la pieza sigue gastada— pero la acción
+            // pendiente sí: ya no es comprar, es esperar.
+            reason: `${health.reason} Ya pedida${onOrder.oc_number ? ` en la OC ${onOrder.oc_number}` : ''}${onOrder.expected_date ? `, llega alrededor del ${new Date(onOrder.expected_date).toLocaleDateString('es-CL')}` : ''}.`,
+          }
+        : health,
       suggested_min_stock: suggestedMinStock({
         ...input,
         quantityInstalled: Number(p.quantity_installed ?? 1),
@@ -115,16 +135,25 @@ export async function GET(req: NextRequest) {
   evaluated.sort((a, b) => comparePartUrgency(a.health, b.health));
 
   const filtered = onlyUrgent
-    ? evaluated.filter((p) => ['vencida', 'atrasado', 'pedir_ahora'].includes(p.health.status))
+    ? evaluated.filter(
+        (p) => !p.on_order && ['vencida', 'atrasado', 'pedir_ahora'].includes(p.health.status)
+      )
     : evaluated;
+
+  /** Necesita compra Y no la tiene ya en curso. */
+  const necesitaCompra = (p: (typeof evaluated)[number]) =>
+    !p.on_order && ['vencida', 'atrasado', 'pedir_ahora'].includes(p.health.status);
 
   return NextResponse.json({
     parts: filtered,
+    /** Para el botón de "pedir todo": lo que falta, sin lo que ya viene. */
+    purchasable_ids: evaluated.filter(necesitaCompra).map((p) => p.id),
     summary: {
       total: evaluated.length,
       vencidas: evaluated.filter((p) => p.health.status === 'vencida').length,
       atrasadas: evaluated.filter((p) => p.health.status === 'atrasado').length,
       por_pedir: evaluated.filter((p) => p.health.status === 'pedir_ahora').length,
+      en_camino: evaluated.filter((p) => p.on_order).length,
       sin_datos: evaluated.filter((p) => p.health.status === 'sin_datos').length,
       // Sin ritmo, todo lo de arriba es porcentaje sin fecha. Que se note.
       sin_ritmo: machineId ? rateByMachine.get(machineId) == null : undefined,
