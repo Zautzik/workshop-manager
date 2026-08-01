@@ -33,9 +33,27 @@ export interface CostLine {
 export interface OTRevenue {
   ot_id: string;
   ot_number: string | null;
+  /** El texto que escribió el vendedor. */
   client_name: string | null;
   revenue: number | null;
+  /** FK al maestro de clientes. */
+  client_id?: string | null;
+  /** Nombre según la FK. Si difiere de `client_name`, hay conflicto. */
+  client_name_fk?: string | null;
 }
+
+/**
+ * Cuando el texto y la FK nombran clientes distintos, la OT no se le atribuye a
+ * ninguno de los dos. Repartir $330.000.000 entre dos clientes según cuál de
+ * los dos campos le creemos es una decisión comercial, no técnica: se marca el
+ * conflicto y se deja que una persona lo resuelva.
+ */
+export function hasClientConflict(r: OTRevenue): boolean {
+  if (!r.client_id || !r.client_name || !r.client_name_fk) return false;
+  return norm(r.client_name) !== norm(r.client_name_fk);
+}
+
+const norm = (s: string) => s.trim().toLowerCase();
 
 /** De dónde salió cada peso. Sin esto un margen es una opinión. */
 export interface Provenance {
@@ -163,6 +181,76 @@ function describeProvenance(p: Omit<Provenance, 'confidence' | 'label'>): string
   if (p.legacyLines > 0) partes.push(`${p.legacyLines} migrada(s) del sistema anterior`);
   if (p.estimateLines > 0) partes.push(`${p.estimateLines} estimada(s) sin contrastar`);
   return partes.join(' · ');
+}
+
+export interface ClientRollup {
+  client_id: string | null;
+  client_name: string;
+  ots: number;
+  revenue: number;
+  actual_cost: number;
+  gross_margin: number;
+  margin_pct: number | null;
+  /** OTs del cliente que no tienen costo real: el margen no las incluye. */
+  ots_sin_costo: number;
+  reason: string;
+}
+
+/**
+ * Rentabilidad por cliente — la pregunta por la que existe un módulo de
+ * analítica: ¿cuál me deja plata y cuál me la quita?
+ *
+ * Las OT con conflicto entre el texto y la FK se agrupan aparte en vez de
+ * asignarse a la brava a uno de los dos candidatos.
+ */
+export function rollupByClient(
+  rows: OTCostRollup[],
+  revenues: OTRevenue[]
+): ClientRollup[] {
+  const meta = new Map(revenues.map((r) => [r.ot_id, r]));
+  const grupos = new Map<string, { name: string; id: string | null; rows: OTCostRollup[] }>();
+
+  for (const r of rows) {
+    const m = meta.get(r.ot_id);
+    const conflicto = m ? hasClientConflict(m) : false;
+
+    const key = conflicto
+      ? '__conflicto__'
+      : m?.client_id ?? `__texto__${norm(r.client_name ?? 'sin cliente')}`;
+
+    const name = conflicto
+      ? 'Cliente en conflicto (el texto y la ficha no coinciden)'
+      : m?.client_name_fk ?? r.client_name ?? 'Sin cliente';
+
+    const g = grupos.get(key) ?? { name, id: conflicto ? null : m?.client_id ?? null, rows: [] };
+    g.rows.push(r);
+    grupos.set(key, g);
+  }
+
+  return [...grupos.values()]
+    .map((g) => {
+      const confiables = g.rows.filter((r) => !r.unreliable);
+      const revenue = confiables.reduce((a, r) => a + r.revenue, 0);
+      const actual_cost = confiables.reduce((a, r) => a + r.actual_cost, 0);
+      const sinCosto = g.rows.length - confiables.length;
+      return {
+        client_id: g.id,
+        client_name: g.name,
+        ots: g.rows.length,
+        revenue,
+        actual_cost,
+        gross_margin: revenue - actual_cost,
+        margin_pct: revenue > 0 ? Math.round(((revenue - actual_cost) / revenue) * 1000) / 10 : null,
+        ots_sin_costo: sinCosto,
+        reason:
+          confiables.length === 0
+            ? `Ninguna de las ${g.rows.length} OT de este cliente tiene costo real cargado.`
+            : sinCosto > 0
+              ? `Margen sobre ${confiables.length} de ${g.rows.length} OT; las otras ${sinCosto} no tienen costo real.`
+              : `Margen sobre las ${confiables.length} OT del cliente.`,
+      };
+    })
+    .sort((a, b) => b.revenue - a.revenue);
 }
 
 /** Totales del período, con la misma honestidad que las filas. */

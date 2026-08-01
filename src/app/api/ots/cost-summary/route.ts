@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth, isAuthError } from '@/lib/api-middleware';
 import { supabaseAdmin } from '@/integrations/supabase/server';
-import { rollupCosts, aggregateRollup, type CostLine, type OTRevenue } from '@/lib/cost-rollup';
+import { rollupCosts, aggregateRollup, rollupByClient, hasClientConflict, type CostLine, type OTRevenue } from '@/lib/cost-rollup';
 
 export const dynamic = 'force-dynamic';
 
@@ -33,7 +33,9 @@ export async function GET(req: NextRequest) {
 
   let otsQuery = supabaseAdmin
     .from('ots')
-    .select('id, ot_number, client_name, total_price, created_at, status');
+    // `clients(name)` trae el nombre según la FK: si difiere del texto que
+    // escribió el vendedor, la OT no se le atribuye a ningún cliente.
+    .select('id, ot_number, client_name, client_id, total_price, created_at, status, clients ( name )');
   if (otId) otsQuery = otsQuery.eq('id', otId);
   if (from) otsQuery = otsQuery.gte('created_at', from);
   if (to) otsQuery = otsQuery.lte('created_at', to);
@@ -55,6 +57,8 @@ export async function GET(req: NextRequest) {
     ot_id: o.id,
     ot_number: o.ot_number,
     client_name: o.client_name,
+    client_id: o.client_id,
+    client_name_fk: (o.clients as { name: string } | null)?.name ?? null,
     revenue: o.total_price,
   }));
 
@@ -80,6 +84,9 @@ export async function GET(req: NextRequest) {
       unreliable: r.unreliable,
     })),
     totals: aggregateRollup(rows),
+    // La pregunta por la que existe este módulo: ¿qué cliente deja plata?
+    by_client: rollupByClient(rows, revenues),
+    client_conflicts: revenues.filter(hasClientConflict).length,
   });
 }
 
