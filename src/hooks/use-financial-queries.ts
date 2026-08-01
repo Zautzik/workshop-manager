@@ -60,18 +60,27 @@ export function useEquipmentInvestments() {
   });
 }
 
+/**
+ * `ot_financials` quedó MIGRADA a `ot_cost_lines` (P1 de la auditoría de
+ * Analítica, 2026-08). Tenía 85 filas, ningún endpoint la escribía, y discrepaba
+ * con la vista oficial en 85 de 85 OTs — no porque se contradijeran, sino porque
+ * el ledger estaba casi vacío de líneas 'actual' y ella no.
+ *
+ * Este hook ahora es un alias de la puerta única. Se conserva el nombre para no
+ * romper a quien lo importe, pero ya no toca la tabla vieja.
+ */
 export function useOTFinancials() {
-  return useQuery({
-    queryKey: queryKeys.otFinancials,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('ot_financials')
-        .select('*, ot:ots(ot_number, client_name)')
-        .order('created_at', { ascending: false });
-      if (error) throw error;
-      return data ?? [];
-    },
-  });
+  return useOtCostSummary();
+}
+
+export interface CostProvenance {
+  realLines: number;
+  legacyLines: number;
+  seedLines: number;
+  estimateLines: number;
+  /** 0–100: cuánto del costo real no viene de una migración. */
+  confidence: number;
+  label: string;
 }
 
 export interface OtCostSummaryRow {
@@ -86,17 +95,49 @@ export interface OtCostSummaryRow {
   machine_actual: number;
   other_actual: number;
   gross_margin: number;
+  margin_pct: number | null;
+  /** De dónde salió cada peso. Un margen sin esto es una opinión. */
+  provenance: CostProvenance;
+  /** El margen existe pero no sirve para decidir precios. */
+  unreliable: boolean;
 }
 
-/** Unified cost ledger roll-up per OT (estimate vs actual vs revenue). */
-export function useOtCostSummary() {
+export interface OtCostTotals {
+  ots_total: number;
+  ots_confiables: number;
+  ots_descartadas: number;
+  revenue: number;
+  actual_cost: number;
+  estimated_cost: number;
+  gross_margin: number;
+  margin_pct: number | null;
+  reason: string;
+}
+
+/** Puerta única del costo por OT: ledger unificado con procedencia. */
+export function useOtCostSummary(opts: { includeSeed?: boolean } = {}) {
+  const qs = opts.includeSeed ? '?include_seed=1' : '';
   return useQuery<OtCostSummaryRow[]>({
-    queryKey: ['otCostSummary'],
+    queryKey: ['otCostSummary', !!opts.includeSeed],
     queryFn: async () => {
-      const res = await fetch('/api/ots/cost-summary', { credentials: 'include' });
+      const res = await fetch(`/api/ots/cost-summary${qs}`, { credentials: 'include' });
       if (!res.ok) throw new Error(`Failed to fetch cost summary: ${res.status}`);
       const payload = await res.json();
       return (payload?.data ?? []) as OtCostSummaryRow[];
+    },
+  });
+}
+
+/** Totales del período, con el motivo de qué quedó dentro y qué no. */
+export function useOtCostTotals(opts: { includeSeed?: boolean } = {}) {
+  const qs = opts.includeSeed ? '?include_seed=1' : '';
+  return useQuery<OtCostTotals | null>({
+    queryKey: ['otCostTotals', !!opts.includeSeed],
+    queryFn: async () => {
+      const res = await fetch(`/api/ots/cost-summary${qs}`, { credentials: 'include' });
+      if (!res.ok) throw new Error(`Failed to fetch cost totals: ${res.status}`);
+      const payload = await res.json();
+      return (payload?.totals ?? null) as OtCostTotals | null;
     },
   });
 }
@@ -408,7 +449,7 @@ export function useOrderLaborMargin(otId?: string, startDate?: string, endDate?:
   return useQuery<OrderLaborMarginRow[]>({
     queryKey: queryKeys.orderLaborMargin(otId, startDate, endDate),
     queryFn: async () => {
-      let otsQuery = supabase.from('ots').select('id, ot_number, client_name, created_at, completed_at');
+      let otsQuery = supabase.from('ots').select('id, ot_number, client_name, created_at, completed_at, total_price');
 
       if (otId) {
         otsQuery = otsQuery.eq('id', otId);
@@ -458,11 +499,12 @@ export function useOrderLaborMargin(otId?: string, startDate?: string, endDate?:
 
       const otIds = filteredOts.map((ot: any) => ot.id).filter(Boolean);
 
-      const { data: otFinancials } = await supabase.from('ot_financials').select('ot_id, revenue').in('ot_id', otIds);
+      // El ingreso sale de `ots.total_price`, que es donde el taller lo fija.
+      // Antes venía de `ot_financials.revenue`, una copia que discrepaba en
+      // $4.151.430 del total y que ya está migrada (P1 de la auditoría).
       const revenueByOt = new Map<string, number>();
-      (otFinancials ?? []).forEach((row: any) => {
-        if (!row?.ot_id) return;
-        revenueByOt.set(row.ot_id, Number(row?.revenue || 0));
+      filteredOts.forEach((ot: any) => {
+        if (ot?.id) revenueByOt.set(ot.id, Number(ot?.total_price || 0));
       });
 
       let assignmentsQuery = supabase
