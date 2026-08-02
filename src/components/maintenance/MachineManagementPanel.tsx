@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
@@ -19,6 +19,7 @@ import {
   type MachineStatus,
   type MachineType,
 } from '@/hooks/use-machines';
+import { groupMachinesByType } from '@/lib/machine-groups';
 import { MachineProfileEditor } from './MachineProfileEditor';
 import { MachineQRButton } from './MachineQRButton';
 import {
@@ -62,6 +63,8 @@ export function MachineManagementPanel() {
     const matchStatus = filterStatus === 'all' || m.status === filterStatus;
     return matchSearch && matchType && matchStatus;
   });
+
+  const grouped = useMemo(() => groupMachinesByType(filtered), [filtered]);
 
   const openCreate = () => { setEditTarget(null); setDialogOpen(true); };
   const openEdit   = (m: Machine) => { setEditTarget(m); setDialogOpen(true); };
@@ -152,15 +155,33 @@ export function MachineManagementPanel() {
           )}
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filtered.map(machine => (
-            <MachineCard
-              key={machine.id}
-              machine={machine}
-              onEdit={openEdit}
-              onDelete={setDeleteTarget}
-              onStatusChange={handleStatusChange}
-            />
+        // Agrupadas por tipo, como en Planta: 17 tarjetas en una sola rejilla
+        // obligaban a leer los nombres uno por uno para encontrar una prensa.
+        // El orden de las secciones es el recorrido de un trabajo por la planta.
+        <div className="space-y-6">
+          {grouped.map(group => (
+            <section key={group.type} className="space-y-3">
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-semibold tracking-tight text-foreground">
+                  {group.label}
+                </h3>
+                <Badge variant="secondary" className="text-[11px] font-medium">
+                  {group.machines.length}
+                </Badge>
+                <div className="h-px flex-1 bg-border" aria-hidden="true" />
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {group.machines.map(machine => (
+                  <MachineCard
+                    key={machine.id}
+                    machine={machine}
+                    onEdit={openEdit}
+                    onDelete={setDeleteTarget}
+                    onStatusChange={handleStatusChange}
+                  />
+                ))}
+              </div>
+            </section>
           ))}
         </div>
       )}
