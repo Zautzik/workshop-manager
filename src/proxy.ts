@@ -108,9 +108,23 @@ function getRlTier(pathname: string, method: string): RlTier | null {
  * 'unsafe-eval' is included only in development (NODE_ENV !== 'production')
  *   because Next.js hot-module replacement uses eval().  It is stripped in
  *   production builds where eval() is never needed.
+ *
+ * Dev-only websocket sources:
+ *   Fast Refresh pushes rebuild notifications over a websocket to the dev
+ *   server's own origin. Per CSP Level 3, `'self'` does NOT cover a ws:// URL
+ *   from an http:// page — only an https:/wss: upgrade of the page origin
+ *   matches — so `connect-src 'self'` silently blocks that socket and the
+ *   browser never learns a rebuild finished (the page stops auto-reloading on
+ *   save). The socket's host is derived from the request rather than hardcoded
+ *   to localhost so this also works when the dev server is reached over a LAN
+ *   IP — e.g. testing the estación kiosk on a tablet.
  */
-function buildCsp(nonce: string): string {
+function buildCsp(nonce: string, host: string): string {
 	const isDev = process.env.NODE_ENV !== 'production';
+
+	// Same-origin HMR socket, dev only. Both schemes so it holds behind a
+	// TLS-terminating tunnel (ngrok/Cloudflare) as well as plain http.
+	const devWs = isDev ? ` ws://${host} wss://${host}` : '';
 
 	return [
 		`default-src 'self'`,
@@ -132,8 +146,9 @@ function buildCsp(nonce: string): string {
 		// All fonts served from the same origin (no Google Fonts / CDN).
 		`font-src 'self'`,
 
-		// XHR/fetch to same origin + Supabase REST API + Supabase Realtime WS.
-		`connect-src 'self' ${SUPABASE_CSP_SOURCES.http} ${SUPABASE_CSP_SOURCES.ws}`,
+		// XHR/fetch to same origin + Supabase REST API + Supabase Realtime WS
+		// (+ the Fast Refresh socket in development).
+		`connect-src 'self' ${SUPABASE_CSP_SOURCES.http} ${SUPABASE_CSP_SOURCES.ws}${devWs}`,
 
 		`media-src 'self'`,
 
@@ -192,7 +207,7 @@ export function proxy(req: NextRequest) {
 	// ── 2. Per-request CSP nonce ─────────────────────────────────────────────
 	// Base64-encode a UUID so it is safe to embed directly in a header value.
 	const nonce = Buffer.from(crypto.randomUUID()).toString('base64');
-	const csp = buildCsp(nonce);
+	const csp = buildCsp(nonce, req.nextUrl.host);
 
 	// ── 3. Build the forwarded request headers ───────────────────────────────
 	// Next.js reads the nonce from the *request* Content-Security-Policy header
