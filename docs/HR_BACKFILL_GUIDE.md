@@ -580,7 +580,7 @@ SELECT
 
 ## Support Resources
 
-- [HR_MIGRATION_GUIDE.md](../HR_MIGRATION_GUIDE.md) - Full HR domain migration guide
-- [EFFECTIVE_DATE_PATTERNS.md](../EFFECTIVE_DATE_PATTERNS.md) - Query pattern reference
-- [EFFECTIVE_DATE_VISUALIZATION.md](../EFFECTIVE_DATE_VISUALIZATION.md) - Visual timeline guide
+- [HR_MIGRATION_GUIDE.md](HR_MIGRATION_GUIDE.md) - Full HR domain migration guide
+- [EFFECTIVE_DATE_PATTERNS.md](EFFECTIVE_DATE_PATTERNS.md) - Query pattern reference
+- [EFFECTIVE_DATE_VISUALIZATION.md](EFFECTIVE_DATE_VISUALIZATION.md) - Visual timeline guide
 - Migration files: `supabase/migrations/202602211431*.sql`
