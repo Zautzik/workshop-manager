@@ -285,32 +285,51 @@ export const MODULES: NavModule[] = [
     tint: 'green',
     label: 'Analítica',
     href: '/analitica',
-    subtitle: 'Costos, finanzas, KPIs y reportes del taller',
+    subtitle: 'Cuatro preguntas: si gano, cuánto cuesta, si el número es confiable y hacia dónde va',
     icon: TrendingUp,
     system: 'data',
     roles: ['admin', 'manager'],
     dot: 'bg-green-500',
     activeBg: 'bg-green-100 dark:bg-green-500/20',
     activeIcon: 'text-green-600 dark:text-green-300',
+    // Agrupado por la pregunta del negocio, no por la tabla de origen. "Costos &
+    // Finanzas" y "Rentabilidad & KPIs" describían de dónde sale el dato; quien
+    // abre Analítica no llega buscando una familia de métricas, llega con una
+    // pregunta. Las ocho pantallas son las mismas y sus rutas no cambian.
     groups: [
       {
-        label: 'Costos & Finanzas',
+        label: '¿Gano o pierdo?',
         color: 'from-green-500/10 to-emerald-500/5', border: 'border-green-500/20', heading: 'text-green-400',
         items: [
-          { label: 'Centro de Costos', href: '/analitica/costos',   description: 'Catálogo de costos unitarios por material y centro', icon: BarChart3,  color: 'bg-green-500/10 text-green-400' },
-          { label: 'Economía Equipos', href: '/analitica/maquinas', description: 'Resumen de costos e inversión de la flota',          icon: Cpu,        color: 'bg-teal-500/10 text-teal-400' },
-          { label: 'Costo Laboral',    href: '/analitica/nomina',   description: 'Resumen de nómina del mes; detalle en Personas',     icon: DollarSign, color: 'bg-orange-500/10 text-orange-400' },
-          { label: 'Calibración',      href: '/analitica/calibracion', description: 'Contrasta el motor de costeo contra trabajos reales', icon: Target,  color: 'bg-rose-500/10 text-rose-400' },
+          { label: 'Rentabilidad', href: '/analitica/rentabilidad', description: 'Margen por trabajo: cotizado contra costo real', icon: PieChart,        color: 'bg-green-500/10 text-green-400' },
+          { label: 'Resumen',      href: '/analitica/dashboard',    description: 'El estado del taller en una pantalla',           icon: LayoutDashboard, color: 'bg-emerald-500/10 text-emerald-400' },
         ],
       },
       {
-        label: 'Rentabilidad & KPIs',
+        label: '¿Cuánto cuesta de verdad?',
+        color: 'from-orange-500/10 to-amber-500/5', border: 'border-orange-500/20', heading: 'text-orange-400',
+        items: [
+          { label: 'Materiales', href: '/analitica/costos',   description: 'Costos unitarios por material y centro de costo', icon: BarChart3,  color: 'bg-orange-500/10 text-orange-400' },
+          { label: 'Mano de obra', href: '/analitica/nomina', description: 'Lo que cuesta la gente; el detalle vive en Personas', icon: DollarSign, color: 'bg-amber-500/10 text-amber-400' },
+          { label: 'Máquinas',   href: '/analitica/maquinas', description: 'Costo por hora e inversión de la flota',           icon: Cpu,        color: 'bg-teal-500/10 text-teal-400' },
+        ],
+      },
+      {
+        // Una sola pantalla, y aun así merece su propio encabezado: mientras el
+        // motor no esté contrastado contra trabajos reales, los números de las
+        // otras tres preguntas son estimaciones con cara de certeza.
+        label: '¿Puedo confiar?',
+        color: 'from-rose-500/10 to-red-500/5', border: 'border-rose-500/20', heading: 'text-rose-400',
+        items: [
+          { label: 'Calibración', href: '/analitica/calibracion', description: 'Contrasta el motor de costeo contra trabajos reales', icon: Target, color: 'bg-rose-500/10 text-rose-400' },
+        ],
+      },
+      {
+        label: '¿Hacia dónde vamos?',
         color: 'from-indigo-500/10 to-cyan-500/5', border: 'border-indigo-500/20', heading: 'text-indigo-400',
         items: [
-          { label: 'Dashboard',    href: '/analitica/dashboard',    description: 'Vista ejecutiva consolidada y KPIs del taller',      icon: LayoutDashboard, color: 'bg-indigo-500/10 text-indigo-400' },
-          { label: 'Rentabilidad', href: '/analitica/rentabilidad', description: 'Márgenes, costos estimados vs reales y seguimiento', icon: PieChart,        color: 'bg-violet-500/10 text-violet-400' },
-          { label: 'Tendencias',   href: '/analitica/tendencias',   description: 'Tendencias y evolución de métricas del taller',      icon: TrendingUp,      color: 'bg-cyan-500/10 text-cyan-400' },
-          { label: 'Rendimiento',  href: '/analitica/rendimiento',  description: 'Estadísticas y métricas de trabajadores',            icon: ClipboardCheck,  color: 'bg-teal-500/10 text-teal-400' },
+          { label: 'Tendencias',  href: '/analitica/tendencias',  description: 'Cómo evolucionan las métricas del taller', icon: TrendingUp,     color: 'bg-cyan-500/10 text-cyan-400' },
+          { label: 'Rendimiento', href: '/analitica/rendimiento', description: 'Productividad por persona y por equipo',   icon: ClipboardCheck, color: 'bg-indigo-500/10 text-indigo-400' },
         ],
       },
     ],
