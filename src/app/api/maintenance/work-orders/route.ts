@@ -19,16 +19,15 @@ const BLOCKING_STATUSES = ['in_progress'];
  * GET /api/maintenance/work-orders?open=1
  *
  * Answers the question Planta needs: which machines are out of service right
- * now, and which workstations does that take down with them. In a real shop
- * this is law — if the press is opened up, nobody assigns a run to it — but the
- * two modules lived back to back: Equipos never told Planta.
+ * now. In a real shop this is law — if the press is opened up, nobody assigns a
+ * run to it — but the two modules lived back to back: Equipos never told Planta.
  *
  * `?open=1` returns only what genuinely blocks. Pass `?status=pending,in_progress`
  * to see scheduled work too.
  *
- * Returns workstation ids as well as machine ids, because the plant floor is
- * organised by station and `workstations.machine_id` is the only link between
- * the two.
+ * Tras fusionar `workstations` dentro de `machines`, el puesto y la máquina son
+ * la misma identidad: `workstation_ids` y `by_workstation` se conservan como
+ * alias de los campos por máquina para no romper a los consumidores.
  */
 export async function GET(req: NextRequest) {
   const auth = await requireAuth();
@@ -54,15 +53,6 @@ export async function GET(req: NextRequest) {
   const orders = data ?? [];
   const machineIds = [...new Set(orders.map((o) => o.machine_id).filter(Boolean))] as string[];
 
-  let stations: { id: string; machine_id: string | null; name: string }[] = [];
-  if (machineIds.length > 0) {
-    const { data: st } = await supabaseAdmin
-      .from('workstations')
-      .select('id, machine_id, name')
-      .in('machine_id', machineIds);
-    stations = st ?? [];
-  }
-
   // machine_id → why it's down, so the UI can say more than "unavailable".
   const byMachine: Record<string, { work_order_id: string; status: string; machine_name: string | null; started_at: string | null }> = {};
   for (const o of orders) {
@@ -79,12 +69,11 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({
     orders,
     machine_ids: machineIds,
-    workstation_ids: stations.map((s) => s.id),
+    // Alias: el puesto ES la máquina desde la fusión.
+    workstation_ids: machineIds,
     by_machine: byMachine,
     by_workstation: Object.fromEntries(
-      stations
-        .filter((s) => s.machine_id && byMachine[s.machine_id])
-        .map((s) => [s.id, { ...byMachine[s.machine_id as string], workstation_name: s.name }])
+      Object.entries(byMachine).map(([id, v]) => [id, { ...v, workstation_name: v.machine_name }])
     ),
   });
 }

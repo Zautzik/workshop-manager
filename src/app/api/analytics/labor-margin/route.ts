@@ -40,7 +40,7 @@ export async function GET(req: NextRequest) {
 
   let asgQuery = supabaseAdmin
     .from('worker_assignments')
-    .select('employee_id, workstation_id, ot_id, date, role');
+    .select('employee_id, machine_id, ot_id, date, role');
   if (from) asgQuery = asgQuery.gte('date', from);
   if (to) asgQuery = asgQuery.lte('date', to);
   if (otId) asgQuery = asgQuery.eq('ot_id', otId);
@@ -50,7 +50,7 @@ export async function GET(req: NextRequest) {
       asgQuery,
       supabaseAdmin
         .from('attendance_events')
-        .select('employee_id, station_id, event_type, at'),
+        .select('employee_id, machine_id, event_type, at'),
       supabaseAdmin
         .from('compensation_rates')
         .select('employee_id, hourly_rate, currency_code, overtime_multiplier_50, effective_from, effective_to'),
@@ -81,14 +81,14 @@ export async function GET(req: NextRequest) {
     .filter((e) => e.employee_id)
     .map((e) => ({
       employee_id: e.employee_id as string,
-      station_id: e.station_id,
+      machine_id: e.machine_id,
       at: e.at as string,
       event_type: e.event_type as string,
     }));
 
   const assignments: AssignmentRow[] = conOt.map((a) => ({
     employee_id: a.employee_id as string,
-    workstation_id: a.workstation_id,
+    machine_id: a.machine_id,
     ot_id: a.ot_id,
     date: a.date,
     role: a.role,

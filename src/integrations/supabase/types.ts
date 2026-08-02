@@ -12,6 +12,31 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.1"
   }
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
   public: {
     Tables: {
       app_settings: {
@@ -39,9 +64,9 @@ export type Database = {
           employee_id: string | null
           event_type: string
           id: string
+          machine_id: string | null
           metadata: Json
           method: string
-          station_id: string | null
         }
         Insert: {
           at?: string
@@ -49,9 +74,9 @@ export type Database = {
           employee_id?: string | null
           event_type: string
           id?: string
+          machine_id?: string | null
           metadata?: Json
           method?: string
-          station_id?: string | null
         }
         Update: {
           at?: string
@@ -59,9 +84,9 @@ export type Database = {
           employee_id?: string | null
           event_type?: string
           id?: string
+          machine_id?: string | null
           metadata?: Json
           method?: string
-          station_id?: string | null
         }
         Relationships: [
           {
@@ -79,18 +104,25 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "attendance_events_station_id_fkey"
-            columns: ["station_id"]
+            foreignKeyName: "attendance_events_machine_id_fkey"
+            columns: ["machine_id"]
+            isOneToOne: false
+            referencedRelation: "machines"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "attendance_events_machine_id_fkey"
+            columns: ["machine_id"]
+            isOneToOne: false
+            referencedRelation: "planta_live"
+            referencedColumns: ["machine_id"]
+          },
+          {
+            foreignKeyName: "attendance_events_machine_id_fkey"
+            columns: ["machine_id"]
             isOneToOne: false
             referencedRelation: "planta_live"
             referencedColumns: ["workstation_id"]
-          },
-          {
-            foreignKeyName: "attendance_events_station_id_fkey"
-            columns: ["station_id"]
-            isOneToOne: false
-            referencedRelation: "workstations"
-            referencedColumns: ["id"]
           },
         ]
       }
@@ -948,6 +980,13 @@ export type Database = {
             referencedRelation: "planta_live"
             referencedColumns: ["machine_id"]
           },
+          {
+            foreignKeyName: "equipment_investments_machine_id_fkey"
+            columns: ["machine_id"]
+            isOneToOne: false
+            referencedRelation: "planta_live"
+            referencedColumns: ["workstation_id"]
+          },
         ]
       }
       hr_compliance_access_logs: {
@@ -1582,6 +1621,13 @@ export type Database = {
             referencedRelation: "planta_live"
             referencedColumns: ["machine_id"]
           },
+          {
+            foreignKeyName: "jobs_assigned_machine_id_fkey"
+            columns: ["assigned_machine_id"]
+            isOneToOne: false
+            referencedRelation: "planta_live"
+            referencedColumns: ["workstation_id"]
+          },
         ]
       }
       leave_balances: {
@@ -1813,6 +1859,13 @@ export type Database = {
             referencedRelation: "planta_live"
             referencedColumns: ["machine_id"]
           },
+          {
+            foreignKeyName: "machine_cost_entries_machine_id_fkey"
+            columns: ["machine_id"]
+            isOneToOne: false
+            referencedRelation: "planta_live"
+            referencedColumns: ["workstation_id"]
+          },
         ]
       }
       machine_costs: {
@@ -1876,6 +1929,13 @@ export type Database = {
             referencedRelation: "planta_live"
             referencedColumns: ["machine_id"]
           },
+          {
+            foreignKeyName: "machine_costs_machine_id_fkey"
+            columns: ["machine_id"]
+            isOneToOne: false
+            referencedRelation: "planta_live"
+            referencedColumns: ["workstation_id"]
+          },
         ]
       }
       machine_downtime_logs: {
@@ -1929,6 +1989,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "planta_live"
             referencedColumns: ["machine_id"]
+          },
+          {
+            foreignKeyName: "machine_downtime_logs_machine_id_fkey"
+            columns: ["machine_id"]
+            isOneToOne: false
+            referencedRelation: "planta_live"
+            referencedColumns: ["workstation_id"]
           },
         ]
       }
@@ -2049,6 +2116,13 @@ export type Database = {
             referencedColumns: ["machine_id"]
           },
           {
+            foreignKeyName: "machine_parts_machine_id_fkey"
+            columns: ["machine_id"]
+            isOneToOne: false
+            referencedRelation: "planta_live"
+            referencedColumns: ["workstation_id"]
+          },
+          {
             foreignKeyName: "machine_parts_system_id_fkey"
             columns: ["system_id"]
             isOneToOne: false
@@ -2111,6 +2185,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "planta_live"
             referencedColumns: ["machine_id"]
+          },
+          {
+            foreignKeyName: "machine_skill_requirements_machine_id_fkey"
+            columns: ["machine_id"]
+            isOneToOne: false
+            referencedRelation: "planta_live"
+            referencedColumns: ["workstation_id"]
           },
           {
             foreignKeyName: "machine_skill_requirements_skill_id_fkey"
@@ -2197,6 +2278,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "planta_live"
             referencedColumns: ["machine_id"]
+          },
+          {
+            foreignKeyName: "machine_supply_requirements_machine_id_fkey"
+            columns: ["machine_id"]
+            isOneToOne: false
+            referencedRelation: "planta_live"
+            referencedColumns: ["workstation_id"]
           },
         ]
       }
@@ -2296,6 +2384,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "planta_live"
             referencedColumns: ["machine_id"]
+          },
+          {
+            foreignKeyName: "machine_training_paths_machine_id_fkey"
+            columns: ["machine_id"]
+            isOneToOne: false
+            referencedRelation: "planta_live"
+            referencedColumns: ["workstation_id"]
           },
           {
             foreignKeyName: "machine_training_paths_mentor_employee_id_fkey"
@@ -2460,6 +2555,13 @@ export type Database = {
             referencedRelation: "planta_live"
             referencedColumns: ["machine_id"]
           },
+          {
+            foreignKeyName: "machine_usage_readings_machine_id_fkey"
+            columns: ["machine_id"]
+            isOneToOne: false
+            referencedRelation: "planta_live"
+            referencedColumns: ["workstation_id"]
+          },
         ]
       }
       machines: {
@@ -2476,6 +2578,7 @@ export type Database = {
           maintenance_cost_monthly: number | null
           max_print_height_mm: number | null
           max_print_width_mm: number | null
+          max_workers: number
           min_qualified_operators: number
           model: string | null
           name: string
@@ -2490,7 +2593,6 @@ export type Database = {
           usage_counter: number
           usage_counter_updated_at: string | null
           usage_unit: Database["public"]["Enums"]["machine_usage_unit"]
-          workstation_id: string | null
           year_manufactured: number | null
         }
         Insert: {
@@ -2506,6 +2608,7 @@ export type Database = {
           maintenance_cost_monthly?: number | null
           max_print_height_mm?: number | null
           max_print_width_mm?: number | null
+          max_workers?: number
           min_qualified_operators?: number
           model?: string | null
           name: string
@@ -2520,7 +2623,6 @@ export type Database = {
           usage_counter?: number
           usage_counter_updated_at?: string | null
           usage_unit?: Database["public"]["Enums"]["machine_usage_unit"]
-          workstation_id?: string | null
           year_manufactured?: number | null
         }
         Update: {
@@ -2536,6 +2638,7 @@ export type Database = {
           maintenance_cost_monthly?: number | null
           max_print_height_mm?: number | null
           max_print_width_mm?: number | null
+          max_workers?: number
           min_qualified_operators?: number
           model?: string | null
           name?: string
@@ -2550,25 +2653,9 @@ export type Database = {
           usage_counter?: number
           usage_counter_updated_at?: string | null
           usage_unit?: Database["public"]["Enums"]["machine_usage_unit"]
-          workstation_id?: string | null
           year_manufactured?: number | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "machines_workstation_id_fkey"
-            columns: ["workstation_id"]
-            isOneToOne: false
-            referencedRelation: "planta_live"
-            referencedColumns: ["workstation_id"]
-          },
-          {
-            foreignKeyName: "machines_workstation_id_fkey"
-            columns: ["workstation_id"]
-            isOneToOne: false
-            referencedRelation: "workstations"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       maintenance_alerts: {
         Row: {
@@ -2621,6 +2708,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "planta_live"
             referencedColumns: ["machine_id"]
+          },
+          {
+            foreignKeyName: "maintenance_alerts_machine_id_fkey"
+            columns: ["machine_id"]
+            isOneToOne: false
+            referencedRelation: "planta_live"
+            referencedColumns: ["workstation_id"]
           },
         ]
       }
@@ -2681,6 +2775,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "planta_live"
             referencedColumns: ["machine_id"]
+          },
+          {
+            foreignKeyName: "maintenance_checklists_machine_id_fkey"
+            columns: ["machine_id"]
+            isOneToOne: false
+            referencedRelation: "planta_live"
+            referencedColumns: ["workstation_id"]
           },
         ]
       }
@@ -2755,6 +2856,13 @@ export type Database = {
             referencedColumns: ["machine_id"]
           },
           {
+            foreignKeyName: "maintenance_logs_machine_id_fkey"
+            columns: ["machine_id"]
+            isOneToOne: false
+            referencedRelation: "planta_live"
+            referencedColumns: ["workstation_id"]
+          },
+          {
             foreignKeyName: "maintenance_logs_schedule_id_fkey"
             columns: ["schedule_id"]
             isOneToOne: false
@@ -2814,6 +2922,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "planta_live"
             referencedColumns: ["machine_id"]
+          },
+          {
+            foreignKeyName: "maintenance_programs_machine_id_fkey"
+            columns: ["machine_id"]
+            isOneToOne: false
+            referencedRelation: "planta_live"
+            referencedColumns: ["workstation_id"]
           },
         ]
       }
@@ -2880,6 +2995,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "planta_live"
             referencedColumns: ["machine_id"]
+          },
+          {
+            foreignKeyName: "maintenance_schedules_machine_id_fkey"
+            columns: ["machine_id"]
+            isOneToOne: false
+            referencedRelation: "planta_live"
+            referencedColumns: ["workstation_id"]
           },
           {
             foreignKeyName: "maintenance_schedules_system_id_fkey"
@@ -3084,6 +3206,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "planta_live"
             referencedColumns: ["machine_id"]
+          },
+          {
+            foreignKeyName: "maintenance_work_orders_machine_id_fkey"
+            columns: ["machine_id"]
+            isOneToOne: false
+            referencedRelation: "planta_live"
+            referencedColumns: ["workstation_id"]
           },
           {
             foreignKeyName: "maintenance_work_orders_ot_id_fkey"
@@ -3569,6 +3698,13 @@ export type Database = {
             referencedColumns: ["machine_id"]
           },
           {
+            foreignKeyName: "ot_machine_schedule_machine_id_fkey"
+            columns: ["machine_id"]
+            isOneToOne: false
+            referencedRelation: "planta_live"
+            referencedColumns: ["workstation_id"]
+          },
+          {
             foreignKeyName: "ot_machine_schedule_ot_id_fkey"
             columns: ["ot_id"]
             isOneToOne: false
@@ -3934,7 +4070,6 @@ export type Database = {
           completed_at: string | null
           created_at: string
           created_by: string | null
-          current_workstation_id: string | null
           deadline: string | null
           description: string | null
           finish_barniz: boolean
@@ -4008,7 +4143,6 @@ export type Database = {
           completed_at?: string | null
           created_at?: string
           created_by?: string | null
-          current_workstation_id?: string | null
           deadline?: string | null
           description?: string | null
           finish_barniz?: boolean
@@ -4082,7 +4216,6 @@ export type Database = {
           completed_at?: string | null
           created_at?: string
           created_by?: string | null
-          current_workstation_id?: string | null
           deadline?: string | null
           description?: string | null
           finish_barniz?: boolean
@@ -4155,24 +4288,17 @@ export type Database = {
             referencedColumns: ["machine_id"]
           },
           {
-            foreignKeyName: "ots_client_id_fkey"
-            columns: ["client_id"]
-            isOneToOne: false
-            referencedRelation: "clients"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "ots_current_workstation_id_fkey"
-            columns: ["current_workstation_id"]
+            foreignKeyName: "ots_assigned_machine_id_fkey"
+            columns: ["assigned_machine_id"]
             isOneToOne: false
             referencedRelation: "planta_live"
             referencedColumns: ["workstation_id"]
           },
           {
-            foreignKeyName: "ots_current_workstation_id_fkey"
-            columns: ["current_workstation_id"]
+            foreignKeyName: "ots_client_id_fkey"
+            columns: ["client_id"]
             isOneToOne: false
-            referencedRelation: "workstations"
+            referencedRelation: "clients"
             referencedColumns: ["id"]
           },
           {
@@ -5589,6 +5715,13 @@ export type Database = {
             referencedColumns: ["machine_id"]
           },
           {
+            foreignKeyName: "week_plan_snapshot_lines_machine_id_fkey"
+            columns: ["machine_id"]
+            isOneToOne: false
+            referencedRelation: "planta_live"
+            referencedColumns: ["workstation_id"]
+          },
+          {
             foreignKeyName: "week_plan_snapshot_lines_ot_id_fkey"
             columns: ["ot_id"]
             isOneToOne: false
@@ -5984,12 +6117,12 @@ export type Database = {
           employee_id: string | null
           hours_worked: number
           id: string
+          machine_id: string
           ot_id: string | null
           role: string
           shift_id: string
           updated_at: string | null
           worker_id: string | null
-          workstation_id: string
         }
         Insert: {
           created_at?: string | null
@@ -5997,12 +6130,12 @@ export type Database = {
           employee_id?: string | null
           hours_worked?: number
           id?: string
+          machine_id: string
           ot_id?: string | null
           role: string
           shift_id: string
           updated_at?: string | null
           worker_id?: string | null
-          workstation_id: string
         }
         Update: {
           created_at?: string | null
@@ -6010,12 +6143,12 @@ export type Database = {
           employee_id?: string | null
           hours_worked?: number
           id?: string
+          machine_id?: string
           ot_id?: string | null
           role?: string
           shift_id?: string
           updated_at?: string | null
           worker_id?: string | null
-          workstation_id?: string
         }
         Relationships: [
           {
@@ -6031,6 +6164,27 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "worker_stats"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "worker_assignments_machine_id_fkey"
+            columns: ["machine_id"]
+            isOneToOne: false
+            referencedRelation: "machines"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "worker_assignments_machine_id_fkey"
+            columns: ["machine_id"]
+            isOneToOne: false
+            referencedRelation: "planta_live"
+            referencedColumns: ["machine_id"]
+          },
+          {
+            foreignKeyName: "worker_assignments_machine_id_fkey"
+            columns: ["machine_id"]
+            isOneToOne: false
+            referencedRelation: "planta_live"
+            referencedColumns: ["workstation_id"]
           },
           {
             foreignKeyName: "worker_assignments_ot_id_fkey"
@@ -6065,20 +6219,6 @@ export type Database = {
             columns: ["worker_id"]
             isOneToOne: false
             referencedRelation: "workers"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "worker_assignments_workstation_id_fkey"
-            columns: ["workstation_id"]
-            isOneToOne: false
-            referencedRelation: "planta_live"
-            referencedColumns: ["workstation_id"]
-          },
-          {
-            foreignKeyName: "worker_assignments_workstation_id_fkey"
-            columns: ["workstation_id"]
-            isOneToOne: false
-            referencedRelation: "workstations"
             referencedColumns: ["id"]
           },
         ]
@@ -6130,54 +6270,6 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: []
-      }
-      workstations: {
-        Row: {
-          created_at: string | null
-          id: string
-          machine_id: string | null
-          max_workers: number
-          name: string
-          status: string
-          type: string
-          updated_at: string | null
-        }
-        Insert: {
-          created_at?: string | null
-          id?: string
-          machine_id?: string | null
-          max_workers?: number
-          name: string
-          status?: string
-          type: string
-          updated_at?: string | null
-        }
-        Update: {
-          created_at?: string | null
-          id?: string
-          machine_id?: string | null
-          max_workers?: number
-          name?: string
-          status?: string
-          type?: string
-          updated_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "workstations_machine_id_fkey"
-            columns: ["machine_id"]
-            isOneToOne: false
-            referencedRelation: "machines"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "workstations_machine_id_fkey"
-            columns: ["machine_id"]
-            isOneToOne: false
-            referencedRelation: "planta_live"
-            referencedColumns: ["machine_id"]
-          },
-        ]
       }
     }
     Views: {
@@ -6487,6 +6579,13 @@ export type Database = {
             referencedRelation: "planta_live"
             referencedColumns: ["machine_id"]
           },
+          {
+            foreignKeyName: "machine_parts_machine_id_fkey"
+            columns: ["machine_id"]
+            isOneToOne: false
+            referencedRelation: "planta_live"
+            referencedColumns: ["workstation_id"]
+          },
         ]
       }
       machine_parts_on_order_v: {
@@ -6542,6 +6641,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "planta_live"
             referencedColumns: ["machine_id"]
+          },
+          {
+            foreignKeyName: "machine_usage_readings_machine_id_fkey"
+            columns: ["machine_id"]
+            isOneToOne: false
+            referencedRelation: "planta_live"
+            referencedColumns: ["workstation_id"]
           },
         ]
       }
@@ -6660,8 +6766,66 @@ export type Database = {
           workers_today: number | null
           workstation_id: string | null
           workstation_name: string | null
-          workstation_status: string | null
-          workstation_type: string | null
+          workstation_status:
+            | Database["public"]["Enums"]["machine_status"]
+            | null
+          workstation_type: Database["public"]["Enums"]["machine_type"] | null
+        }
+        Insert: {
+          active_ot?: never
+          brand?: string | null
+          colors?: number | null
+          created_at?: string | null
+          critical_supply_alerts?: never
+          energy_cost_per_hr?: number | null
+          location?: string | null
+          machine_id?: string | null
+          machine_name?: string | null
+          machine_status?: Database["public"]["Enums"]["machine_status"] | null
+          machine_type?: Database["public"]["Enums"]["machine_type"] | null
+          max_workers?: number | null
+          model?: string | null
+          nominal_speed_sheets_hr?: number | null
+          optimal_speed_sheets_hr?: number | null
+          photo_url?: string | null
+          power_kw?: number | null
+          updated_at?: string | null
+          workers_assigned?: never
+          workers_today?: never
+          workstation_id?: string | null
+          workstation_name?: string | null
+          workstation_status?:
+            | Database["public"]["Enums"]["machine_status"]
+            | null
+          workstation_type?: Database["public"]["Enums"]["machine_type"] | null
+        }
+        Update: {
+          active_ot?: never
+          brand?: string | null
+          colors?: number | null
+          created_at?: string | null
+          critical_supply_alerts?: never
+          energy_cost_per_hr?: number | null
+          location?: string | null
+          machine_id?: string | null
+          machine_name?: string | null
+          machine_status?: Database["public"]["Enums"]["machine_status"] | null
+          machine_type?: Database["public"]["Enums"]["machine_type"] | null
+          max_workers?: number | null
+          model?: string | null
+          nominal_speed_sheets_hr?: number | null
+          optimal_speed_sheets_hr?: number | null
+          photo_url?: string | null
+          power_kw?: number | null
+          updated_at?: string | null
+          workers_assigned?: never
+          workers_today?: never
+          workstation_id?: string | null
+          workstation_name?: string | null
+          workstation_status?:
+            | Database["public"]["Enums"]["machine_status"]
+            | null
+          workstation_type?: Database["public"]["Enums"]["machine_type"] | null
         }
         Relationships: []
       }
@@ -7586,6 +7750,9 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {
       app_role: [

@@ -96,8 +96,10 @@ export async function GET() {
 		// 11. All worker names (cross-module: Planta↔Personas name collision)
 		supabaseAdmin.from('workers').select('id,name'),
 
-		// 12. All workstations (cross-module: orphan + name-vs-machine check)
-		supabaseAdmin.from('workstations').select('id,name,machine_id'),
+		// 12. La flota. Antes se leían los puestos para detectar huérfanos y
+		//     nombres que no coincidían con su máquina; al fusionar las dos
+		//     tablas ese desajuste dejó de poder existir.
+		supabaseAdmin.from('machines').select('id,name'),
 
 		// 13. Employees with worker_legacy_id set (cross-module: broken link check)
 		supabaseAdmin.from('employees')

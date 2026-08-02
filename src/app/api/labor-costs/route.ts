@@ -47,13 +47,13 @@ async function loadDay(date: string) {
   const [eventsRes, assignmentsRes, ratesRes] = await Promise.all([
     supabaseAdmin
       .from('attendance_events')
-      .select('employee_id, station_id, at, event_type')
+      .select('employee_id, machine_id, at, event_type')
       .gte('at', windowStart)
       .lte('at', windowEnd)
       .order('at', { ascending: true }),
     supabaseAdmin
       .from('worker_assignments')
-      .select('employee_id, workstation_id, ot_id, date, role')
+      .select('employee_id, machine_id, ot_id, date, role')
       .eq('date', date),
     supabaseAdmin
       .from('compensation_rates')
@@ -152,7 +152,7 @@ export async function POST(req: NextRequest) {
 
     for (const [otId, lines] of byOt) {
       const rows = lines.map((line) => {
-        const code = laborOperationCode(date, line.employee_id, line.station_id);
+        const code = laborOperationCode(date, line.employee_id, line.machine_id);
         const who = (line as { employee_name?: string | null }).employee_name || 'Operario';
         const overtimeNote =
           line.overtimeHours > 0 ? ` (incluye ${line.overtimeHours} h extra)` : '';

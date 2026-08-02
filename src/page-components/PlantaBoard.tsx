@@ -309,7 +309,7 @@ export default function PlantaBoard({ initialTab = 'layout' }: PlantaBoardProps)
     try {
       const { data: sourceAssignments, error: sourceError } = await supabase
         .from('worker_assignments')
-        .select('employee_id, worker_id, workstation_id, role, ot_id')
+        .select('employee_id, worker_id, machine_id, role, ot_id')
         .eq('date', sourceDate)
         .eq('shift_id', selectedShiftId);
 
@@ -336,7 +336,7 @@ export default function PlantaBoard({ initialTab = 'layout' }: PlantaBoardProps)
       const payload = sourceAssignments.map((assignment: any) => ({
         employee_id: assignment.employee_id,
         worker_id: assignment.worker_id,
-        workstation_id: assignment.workstation_id,
+        machine_id: assignment.machine_id,
         shift_id: selectedShiftId,
         date: selectedDate,
         role: assignment.role,

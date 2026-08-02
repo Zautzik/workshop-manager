@@ -159,7 +159,7 @@ export async function GET(req: NextRequest) {
 		let query = supabaseAdmin
 			.from('ots')
 			.select(
-				'*, workstation:workstations(*), machine:machines!assigned_machine_id(id,name,brand,model,type,status,location,colors,nominal_speed_sheets_hr,power_kw)',
+				'*, machine:machines!assigned_machine_id(id,name,brand,model,type,status,location,colors,nominal_speed_sheets_hr,power_kw)',
 				{ count: 'exact' }
 			)
 			.order('priority', { ascending: false })

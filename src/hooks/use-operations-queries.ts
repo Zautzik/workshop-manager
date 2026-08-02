@@ -14,7 +14,6 @@ const queryKeys = {
 
 const OT_SELECT = `
   *,
-  workstation:workstations(*),
   machine:machines!assigned_machine_id(id,name,type)
 ` as const;
 
