@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js';
+import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from './types';
 
 /**
@@ -28,25 +28,33 @@ import type { Database } from './types';
  * serverless/concurrent load.
  */
 
-const SUPABASE_URL =
-	process.env.NEXT_PUBLIC_SUPABASE_URL ||
-	process.env.SUPABASE_URL ||
-	'';
-const SUPABASE_SERVICE_ROLE_KEY =
-	process.env.SUPABASE_SERVICE_ROLE_KEY ||
-	'';
+let client: SupabaseClient<Database> | null = null;
 
-if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
-	console.error(
-		'⚠️  Missing Supabase env vars: NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY. API calls will fail.'
-	);
-}
+/**
+ * Build the client on first use, not on import.
+ *
+ * `next build` evaluates every route module to collect page data, so a client
+ * constructed at module scope demanded the service-role key at *build* time —
+ * and CI, which legitimately has no production secrets, could never get past
+ * it (`supabaseUrl is required`, collecting /api/…). The env is read here for
+ * the same reason: a deploy that injects it at runtime is no longer racing the
+ * import.
+ *
+ * Missing config now throws on the first query instead: one failed request with
+ * a message that names the variable, rather than a build nobody can complete.
+ */
+function getClient(): SupabaseClient<Database> {
+	if (client) return client;
 
-// Server-side Supabase client using the service role key. Do NOT expose this to the browser.
-export const supabaseAdmin = createClient<Database>(
-	SUPABASE_URL,
-	SUPABASE_SERVICE_ROLE_KEY,
-	{
+	const url = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || '';
+	const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+	if (!url || !serviceRoleKey) {
+		throw new Error(
+			'Faltan variables de entorno de Supabase: NEXT_PUBLIC_SUPABASE_URL (o SUPABASE_URL) y SUPABASE_SERVICE_ROLE_KEY.'
+		);
+	}
+
+	client = createClient<Database>(url, serviceRoleKey, {
 		auth: {
 			persistSession: false,
 			// server-side: no storage
@@ -55,7 +63,31 @@ export const supabaseAdmin = createClient<Database>(
 		global: {
 			// disable fetch polyfills; use the runtime's fetch
 		},
-	}
-);
+	});
+	return client;
+}
+
+/**
+ * Server-side Supabase client using the service role key. Do NOT expose this to
+ * the browser.
+ *
+ * A proxy so the 133 modules that `import { supabaseAdmin }` keep calling it as
+ * a plain client — `supabaseAdmin.from(…)` — while construction stays deferred
+ * to that first property access. Methods are bound to the real client, which
+ * supabase-js needs to keep its internal `this`.
+ */
+export const supabaseAdmin = new Proxy({} as SupabaseClient<Database>, {
+	get(_target, prop) {
+		const real = getClient();
+		const value = Reflect.get(real, prop, real);
+		return typeof value === 'function' ? value.bind(real) : value;
+	},
+	set(_target, prop, value) {
+		return Reflect.set(getClient(), prop, value);
+	},
+	has(_target, prop) {
+		return Reflect.has(getClient(), prop);
+	},
+});
 
 export default supabaseAdmin;
