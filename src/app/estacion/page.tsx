@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { ScanLine, LogIn, LogOut, UserCheck, CheckCircle2, XCircle, AlertTriangle } from 'lucide-react';
+import Link from 'next/link';
+import { ScanLine, LogIn, LogOut, UserCheck, CheckCircle2, XCircle, AlertTriangle, ArrowLeft } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface Present { employee_id: string; full_name: string | null }
@@ -55,6 +56,15 @@ export default function EstacionPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-primary/5 to-background flex flex-col items-center justify-center p-6">
+      {/* AppShell treats /estacion as a fullscreen route, so there is no sidebar
+          or breadcrumb to navigate back with — this link is the only way out. */}
+      <Link
+        href="/operaciones"
+        className="absolute left-4 top-4 flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground"
+      >
+        <ArrowLeft className="h-4 w-4" /> Volver al panel
+      </Link>
+
       <div className="w-full max-w-xl">
         <div className="text-center mb-8">
           <div className="inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 mb-3">
