@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
 import { MACHINE_TYPE_VALUES } from '@/types/machine-type';
+import { PRODUCTION_PHASES } from '@/lib/production-phases';
 import {
 	MACHINE_GROUP_LABEL,
 	MACHINE_GROUP_ORDER,
+	groupMachinesByPhase,
 	groupMachinesByType,
 	machineGroupLabel,
 } from '../machine-groups';
@@ -100,5 +102,58 @@ describe('groupMachinesByType', () => {
 
 	it('lista vacía devuelve lista vacía', () => {
 		expect(groupMachinesByType([])).toEqual([]);
+	});
+});
+
+describe('groupMachinesByPhase', () => {
+	const CON_CTP = [{ id: '0', name: 'CTP Offset', type: 'pre_press' }, ...FLOTA];
+
+	it('las seis de terminación caen todas en la misma fase', () => {
+		const g = groupMachinesByPhase(CON_CTP).find((x) => x.label === 'Terminación')!;
+		expect(g.machines.map((m) => m.name).sort()).toEqual(
+			['Alzadora', 'Corchetera', 'Dobladora', 'Hotmelera', 'Manual Workshop', 'Polilaminadora'],
+		);
+	});
+
+	it('usa las etiquetas del Kanban, no unas propias', () => {
+		// Si alguien renombra una fase en `production-phases`, esta prueba obliga
+		// a que Equipos siga diciendo lo mismo que el tablero.
+		const delKanban = new Set<string>(PRODUCTION_PHASES.map((p) => p.label));
+		for (const g of groupMachinesByPhase(CON_CTP)) {
+			expect(delKanban.has(g.label), `"${g.label}" no es una fase del Kanban`).toBe(true);
+		}
+	});
+
+	it('la CTP abre el recorrido y el despacho lo cierra', () => {
+		const labels = groupMachinesByPhase(CON_CTP).map((g) => g.label);
+		expect(labels[0]).toBe('Diseño');
+		expect(labels[labels.length - 1]).toBe('Despacho');
+	});
+
+	it('prensas y guillotinas comparten fase, pero no se intercalan', () => {
+		const g = groupMachinesByPhase(CON_CTP).find((x) => x.label === 'Corte & Impresión')!;
+		// Dentro de la fase se ordena por tipo primero: las tres offset, la
+		// digital, y después las guillotinas.
+		expect(g.machines.map((m) => m.type)).toEqual([
+			'offset_printer', 'offset_printer', 'offset_printer',
+			'digital_printer',
+			'guillotine', 'guillotine', 'guillotine',
+		]);
+	});
+
+	it('todo tipo del enum tiene fase — ninguno cae en "Sin clasificar"', () => {
+		const una = MACHINE_TYPE_VALUES.map((t, i) => ({ id: String(i), name: `M${i}`, type: t }));
+		expect(groupMachinesByPhase(una).some((g) => g.label === 'Sin clasificar')).toBe(false);
+	});
+
+	it('un tipo desconocido se aparta en vez de contaminar una fase', () => {
+		const g = groupMachinesByPhase([{ id: 'x', name: 'Rara', type: 'ovni' }]);
+		expect(g).toHaveLength(1);
+		expect(g[0].label).toBe('Sin clasificar');
+	});
+
+	it('no pierde ni duplica máquinas', () => {
+		const g = groupMachinesByPhase(CON_CTP);
+		expect(g.reduce((n, x) => n + x.machines.length, 0)).toBe(CON_CTP.length);
 	});
 });

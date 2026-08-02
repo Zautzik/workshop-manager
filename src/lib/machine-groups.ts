@@ -13,6 +13,7 @@
  */
 
 import { MACHINE_TYPE_VALUES, type MachineType } from '@/types/machine-type';
+import { phaseLabel, phaseRank, type ProductionPhaseId } from '@/lib/production-phases';
 
 /** Encabezado de sección: plural, porque titula un conjunto. */
 export const MACHINE_GROUP_LABEL: Record<MachineType, string> = {
@@ -103,3 +104,72 @@ export function groupMachinesByType<T extends { name?: string | null; type?: str
 
 /** Toda máquina del enum tiene encabezado. La prueba lo verifica. */
 export const ALL_TYPES_LABELLED = MACHINE_TYPE_VALUES.every((t) => !!MACHINE_GROUP_LABEL[t]);
+
+// ── Agrupación por fase del taller ──────────────────────────────────────────
+// La otra forma de mirar la flota: no por lo que es cada máquina, sino por el
+// momento del trabajo en que interviene. Usa el mismo vocabulario que el
+// Kanban —importado, no copiado— para que Equipos y Operaciones no puedan
+// llamar distinto a la misma fase.
+
+/** Qué fase del recorrido cubre cada tipo de máquina. */
+export const MACHINE_PHASE: Record<MachineType, ProductionPhaseId> = {
+	// La CTP graba las planchas antes de que nada entre a prensa.
+	pre_press: 'diseno',
+
+	offset_printer: 'produccion',
+	digital_printer: 'produccion',
+	guillotine: 'produccion',
+
+	die_cutter: 'acabados',
+
+	// El taller: aquí la hoja impresa se dobla, se alza, se corchetea, se
+	// encuaderna y se lamina. Es el `workshop` del Kanban.
+	folder: 'terminacion',
+	collator: 'terminacion',
+	stitcher: 'terminacion',
+	perfect_binder: 'terminacion',
+	laminator: 'terminacion',
+	manual_workshop: 'terminacion',
+
+	delivery: 'despacho',
+};
+
+export function machinePhase(type: string | null | undefined): ProductionPhaseId | null {
+	return MACHINE_PHASE[type as MachineType] ?? null;
+}
+
+export interface PhaseGroup<T> {
+	phase: ProductionPhaseId | 'otros';
+	label: string;
+	machines: T[];
+}
+
+/**
+ * Agrupa la flota por fase del taller, en el orden del recorrido. Dentro de
+ * cada fase las máquinas van por tipo primero —para que las prensas no queden
+ * intercaladas con las guillotinas— y por nombre después.
+ */
+export function groupMachinesByPhase<T extends { name?: string | null; type?: string | null }>(
+	machines: readonly T[],
+): PhaseGroup<T>[] {
+	const buckets = new Map<string, T[]>();
+
+	for (const m of machines) {
+		const key = machinePhase(m.type) ?? 'otros';
+		const bucket = buckets.get(key);
+		if (bucket) bucket.push(m);
+		else buckets.set(key, [m]);
+	}
+
+	return [...buckets.entries()]
+		.sort(([a], [b]) => phaseRank(a) - phaseRank(b))
+		.map(([phase, rows]) => ({
+			phase: phase as ProductionPhaseId | 'otros',
+			label: phase === 'otros' ? 'Sin clasificar' : phaseLabel(phase),
+			machines: [...rows].sort((x, y) => {
+				const byType = machineGroupRank(x.type) - machineGroupRank(y.type);
+				if (byType !== 0) return byType;
+				return String(x.name ?? '').localeCompare(String(y.name ?? ''), 'es');
+			}),
+		}));
+}

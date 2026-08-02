@@ -19,7 +19,7 @@ import {
   type MachineStatus,
   type MachineType,
 } from '@/hooks/use-machines';
-import { groupMachinesByType } from '@/lib/machine-groups';
+import { groupMachinesByPhase } from '@/lib/machine-groups';
 import { MachineProfileEditor } from './MachineProfileEditor';
 import { MachineQRButton } from './MachineQRButton';
 import {
@@ -64,7 +64,10 @@ export function MachineManagementPanel() {
     return matchSearch && matchType && matchStatus;
   });
 
-  const grouped = useMemo(() => groupMachinesByType(filtered), [filtered]);
+  // Agrupadas por FASE del taller —el mismo vocabulario que el Kanban— y no por
+  // tipo de máquina: quien mira la flota está siguiendo el recorrido de un
+  // trabajo, no un inventario alfabético.
+  const grouped = useMemo(() => groupMachinesByPhase(filtered), [filtered]);
 
   const openCreate = () => { setEditTarget(null); setDialogOpen(true); };
   const openEdit   = (m: Machine) => { setEditTarget(m); setDialogOpen(true); };
@@ -155,12 +158,9 @@ export function MachineManagementPanel() {
           )}
         </div>
       ) : (
-        // Agrupadas por tipo, como en Planta: 17 tarjetas en una sola rejilla
-        // obligaban a leer los nombres uno por uno para encontrar una prensa.
-        // El orden de las secciones es el recorrido de un trabajo por la planta.
         <div className="space-y-6">
           {grouped.map(group => (
-            <section key={group.type} className="space-y-3">
+            <section key={group.phase} className="space-y-3">
               <div className="flex items-center gap-2">
                 <h3 className="text-sm font-semibold tracking-tight text-foreground">
                   {group.label}

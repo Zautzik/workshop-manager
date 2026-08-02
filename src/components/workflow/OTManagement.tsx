@@ -17,6 +17,7 @@ import { EditOTDialog } from "./EditOTDialog";
 import { RealCostEntryDialog } from "./RealCostEntryDialog";
 import { OTHoverCard } from "./OTHoverCard";
 import { SplitOTDialog } from "./SplitOTDialog";
+import { PRODUCTION_PHASES } from '@/lib/production-phases';
 
 interface OTManagementProps {
   onOTSelect: (ot: any) => void;
@@ -40,14 +41,11 @@ const STATUS_FLOW = [
   { key: 'completed',           label: 'Completed',      labelEs: 'Completado',   color: 'bg-gray-500',    rgb: '107 114 128', description: 'Orden finalizada' },
 ] satisfies { key: string; label: string; labelEs: string; color: string; rgb: string; description: string; optional?: boolean }[];
 
-const KANBAN_GROUPS = [
-  { id: 'diseno',      label: 'Diseño',           rgb: '139 92 246', borderColor: 'border-violet-500/30', bgColor: 'bg-violet-500/5',  stages: ['pre_press', 'visto_bueno'] },
-  { id: 'compras',     label: 'Compras & Bodega', rgb: '6 182 212',  borderColor: 'border-cyan-500/30',   bgColor: 'bg-cyan-500/5',    stages: ['paper_purchase', 'in_storage'] },
-  { id: 'produccion',  label: 'Corte & Impresión',rgb: '249 115 22', borderColor: 'border-orange-500/30', bgColor: 'bg-orange-500/5',  stages: ['guillotine_first_cut', 'offset_printing', 'digital_printing'] },
-  { id: 'acabados',    label: 'Acabados',         rgb: '236 72 153', borderColor: 'border-pink-500/30',   bgColor: 'bg-pink-500/5',    stages: ['die_cutting', 'guillotine_final_cut'] },
-  { id: 'terminacion', label: 'Terminación',      rgb: '99 102 241', borderColor: 'border-indigo-500/30', bgColor: 'bg-indigo-500/5',  stages: ['workshop', 'outsourced', 'workshop_revision'] },
-  { id: 'despacho',    label: 'Despacho',         rgb: '34 197 94',  borderColor: 'border-green-500/30',  bgColor: 'bg-green-500/5',   stages: ['ready_for_delivery', 'in_delivery', 'completed'] },
-] as const;
+// Las fases viven en `@/lib/production-phases` para que Equipos pueda agrupar
+// la flota con los mismos nombres sin copiarlos. Definirlas aquí dentro hacía
+// que cualquier otra pantalla que quisiera decir "Terminación" tuviera que
+// duplicar la lista, y las dos se separaran al primer cambio.
+const KANBAN_GROUPS = PRODUCTION_PHASES;
 // -- Honeycomb board geometry (flat-top hexes; beehive of the 6 process stages) --
 // The beehive is sized to FILL its frame: hex WIDTH comes from the free width (the
 // cluster spans 3.25 hex-widths) and hex HEIGHT from the free height (two
