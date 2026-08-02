@@ -14,28 +14,16 @@ const queryKeys = {
     ['orderLaborMargin', { otId, startDate, endDate }] as const,
 };
 
-function resolveAssignmentEmployeeId(
-  assignment: any,
-  employeeById: Map<string, any>,
-  employeeByLegacyId: Map<string, any>
-) {
+/**
+ * Antes había que probar tres vías: `employee_id` directo, el puente
+ * `worker_id → worker_legacy_id`, y `employee_id` interpretado como id de
+ * operario. Retirada la tabla `workers`, `employee_id` es obligatorio en la
+ * asignación y sólo queda una vía: resuelve o no resuelve.
+ */
+function resolveAssignmentEmployeeId(assignment: any, employeeById: Map<string, any>) {
   if (!assignment) return null;
-
   const directId = assignment.employee_id ? String(assignment.employee_id) : null;
-  if (directId && employeeById.has(directId)) return directId;
-
-  const workerId = assignment.worker_id ? String(assignment.worker_id) : null;
-  if (workerId && employeeByLegacyId.has(workerId)) {
-    const employee = employeeByLegacyId.get(workerId);
-    return String(employee.id);
-  }
-
-  if (directId && employeeByLegacyId.has(directId)) {
-    const employee = employeeByLegacyId.get(directId);
-    return String(employee.id);
-  }
-
-  return null;
+  return directId && employeeById.has(directId) ? directId : null;
 }
 
 export function useMachineCosts() {
@@ -162,10 +150,10 @@ export function useMonthlyPayroll(year: number, month: number) {
       const monthEnd = new Date(safeYear, safeMonth, 0).toISOString().split('T')[0];
 
       const [employeesRes, assignmentsRes, compensationRes, incentivesRes] = await Promise.all([
-        supabase.from('employees').select('id, full_name, worker_legacy_id'),
+        supabase.from('employees').select('id, full_name'),
         supabase
           .from('worker_assignments')
-          .select('employee_id, worker_id, date, role, shift:shifts(start_time, end_time)')
+          .select('employee_id, date, role, shift:shifts(start_time, end_time)')
           .gte('date', monthStart)
           .lte('date', monthEnd),
         supabase
@@ -192,12 +180,8 @@ export function useMonthlyPayroll(year: number, month: number) {
       const incentives = incentivesRes.data ?? [];
 
       const employeeById = new Map<string, any>();
-      const employeeByLegacyId = new Map<string, any>();
       employees.forEach((employee: any) => {
         if (employee?.id) employeeById.set(employee.id, employee);
-        if (employee?.worker_legacy_id) {
-          employeeByLegacyId.set(String(employee.worker_legacy_id), employee);
-        }
       });
 
       const ratesByEmployee = new Map<string, any[]>();
@@ -254,7 +238,7 @@ export function useMonthlyPayroll(year: number, month: number) {
       const assignmentsMissingRate: string[] = [];
 
       assignments.forEach((assignment: any) => {
-        const employeeId = resolveAssignmentEmployeeId(assignment, employeeById, employeeByLegacyId);
+        const employeeId = resolveAssignmentEmployeeId(assignment, employeeById);
         if (!employeeId || !assignment?.date) {
           unresolvedAssignments.push(
             `${assignment?.date || 'unknown-date'}|emp:${assignment?.employee_id || 'null'}|worker:${assignment?.worker_id || 'null'}`

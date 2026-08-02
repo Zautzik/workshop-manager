@@ -22,11 +22,6 @@ export const hrQueryKeys = {
 	all: ['hr'] as const,
 	employees: () => [...hrQueryKeys.all, 'employees'] as const,
 	employee: (id: string) => [...hrQueryKeys.employees(), id] as const,
-	employeeByWorkerId: (workerId: string) => [
-		...hrQueryKeys.all,
-		'employeeByWorkerId',
-		workerId,
-	] as const,
 	contracts: () => [...hrQueryKeys.all, 'contracts'] as const,
 	contract: (id: string) => [...hrQueryKeys.contracts(), id] as const,
 	contractByEmployee: (employeeId: string) => [
@@ -98,9 +93,17 @@ export function useEmployee(id: string) {
 	return useQuery({
 		queryKey: hrQueryKeys.employee(id),
 		queryFn: async () => {
+			// Columnas explícitas, no `*`. Correo, teléfono, contacto de
+			// emergencia, notas, fecha de finiquito y `badge_code` dejaron de ser
+			// legibles por el cliente: se sirven sólo por ruta de servidor con
+			// control de rol. Pedir `*` fallaría entero por las que no se otorgan.
 			const { data, error } = await supabase
 				.from('employees')
-				.select('*')
+				.select(
+					'id, user_id, employee_code, full_name, department, status, hire_date, ' +
+					'sheets_per_hour, teamwork_rating, overtime_availability, attendance_score, ' +
+					'lateness_minutes, quality_score, speed_score, overall_rating, created_at, updated_at'
+				)
 				.eq('id', id)
 				.single();
 
@@ -108,28 +111,6 @@ export function useEmployee(id: string) {
 			return data;
 		},
 		enabled: !!id,
-		staleTime: 5 * 60 * 1000,
-	});
-}
-
-/**
- * Hook: useEmployeeByWorkerId
- * Fetch employee by legacy worker_id (for backward compatibility)
- */
-export function useEmployeeByWorkerId(workerId: string) {
-	return useQuery({
-		queryKey: hrQueryKeys.employeeByWorkerId(workerId),
-		queryFn: async () => {
-			const { data, error } = await supabase
-				.from('employees')
-				.select('*')
-				.eq('worker_legacy_id', workerId)
-				.single();
-
-			if (error) throw error;
-			return data;
-		},
-		enabled: !!workerId,
 		staleTime: 5 * 60 * 1000,
 	});
 }
@@ -390,7 +371,6 @@ export default {
 	hrQueryKeys,
 	useEmployees,
 	useEmployee,
-	useEmployeeByWorkerId,
 	useEmploymentContracts,
 	useCurrentContract,
 	useCompensationRate,

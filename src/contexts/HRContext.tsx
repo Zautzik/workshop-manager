@@ -91,23 +91,5 @@ export function useCurrentEmployeeHR() {
 	};
 }
 
-/**
- * Hook: useEmployeeByWorkerIdHR
- * Get employee profile by legacy worker ID (backward compatibility)
- */
-export function useEmployeeByWorkerIdHR(workerId: string) {
-	const { useEmployeeByWorkerId } = require('@/hooks/use-employees');
-	const employee = useEmployeeByWorkerId(workerId);
-	const contract = useCurrentContract(employee.data?.id || '');
-	const compensation = useCompensationRate(employee.data?.id || '');
-
-	return {
-		employee: employee.data,
-		contract: contract.data,
-		compensation: compensation.data,
-		isLoading: employee.isLoading || contract.isLoading || compensation.isLoading,
-		error: employee.error || contract.error || compensation.error,
-	};
-}
 
 export default HRContext;
