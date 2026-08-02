@@ -1,11 +1,14 @@
 'use client';
 
 /**
- * GlobalSearch — Cmd+K / Ctrl+K palette
- * Searches OTs, workers, and machines in real time.
+ * GlobalSearch — the mobile search surface.
+ *
+ * The mobile header has no room for an inline field next to the menu button,
+ * the logo and the action icons, so below `md` search stays a dialog. Desktop
+ * uses <GlobalSearchBar /> in the header instead.
  */
 
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Dialog,
@@ -14,53 +17,36 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
-import { Search, FileText, Users, Wrench } from 'lucide-react';
-import { useOTs } from '@/hooks/use-operations-queries';
-import { useWorkers } from '@/hooks/use-operations-queries';
-import { useMachines } from '@/hooks/use-operations-queries';
-import { cn } from '@/lib/utils';
+import { Search } from 'lucide-react';
+import { SearchResultList } from '@/components/SearchResultList';
+import { useGlobalSearchResults, DESKTOP_MEDIA_QUERY, type ResultItem } from '@/hooks/use-global-search';
 
-type ResultItem = {
-  id: string;
-  label: string;
-  sublabel?: string;
-  type: 'ot' | 'worker' | 'machine';
-  href: string;
+type Props = {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
 };
 
-const TYPE_META = {
-  ot:      { label: 'OT',        icon: FileText, color: 'text-blue-500'   },
-  worker:  { label: 'Empleado',  icon: Users,    color: 'text-amber-500'  },
-  machine: { label: 'Equipo',    icon: Wrench,   color: 'text-orange-500' },
-};
-
-function normalize(s: string) {
-  return s?.toLowerCase().normalize('NFD').replace(/\p{Mn}/gu, '') ?? '';
-}
-
-export function GlobalSearch() {
+export function GlobalSearch({ open, onOpenChange }: Props) {
   const router = useRouter();
-  const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [selected, setSelected] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const { data: otsRaw  = [] } = useOTs();
-  const { data: workers = [] } = useWorkers();
-  const { data: machines = [] } = useMachines();
+  const results = useGlobalSearchResults(query);
 
-  // Open on Cmd+K / Ctrl+K
+  // Cmd+K / Ctrl+K, but only while the mobile header is the visible one —
+  // above `md` the inline bar claims the shortcut instead.
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        if (window.matchMedia(DESKTOP_MEDIA_QUERY).matches) return;
         e.preventDefault();
-        setOpen(v => !v);
+        onOpenChange(true);
       }
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, []);
+  }, [onOpenChange]);
 
   // Reset on open
   useEffect(() => {
@@ -73,59 +59,11 @@ export function GlobalSearch() {
     }
   }, [open]);
 
-  const results: ResultItem[] = useMemo(() => {
-    const q = normalize(query.trim());
-    if (!q) return [];
+  const navigate = (item: ResultItem) => {
+    onOpenChange(false);
+    router.push(item.href);
+  };
 
-    const items: ResultItem[] = [];
-
-    // OTs
-    (otsRaw as any[]).forEach(ot => {
-      if (
-        normalize(ot.ot_number ?? '').includes(q) ||
-        normalize(ot.client_name ?? '').includes(q) ||
-        normalize(ot.status ?? '').includes(q)
-      ) {
-        items.push({
-          id: `ot-${ot.id}`,
-          label: ot.ot_number ?? ot.id,
-          sublabel: ot.client_name,
-          type: 'ot',
-          href: `/workflow?ot=${ot.id}`,
-        });
-      }
-    });
-
-    // Workers
-    (workers as any[]).forEach(w => {
-      if (normalize(w.full_name ?? w.name ?? '').includes(q)) {
-        items.push({
-          id: `worker-${w.id}`,
-          label: w.full_name ?? w.name,
-          sublabel: w.department,
-          type: 'worker',
-          href: `/hr/empleados`,
-        });
-      }
-    });
-
-    // Machines
-    (machines as any[]).forEach(m => {
-      if (normalize(m.name ?? '').includes(q) || normalize(m.brand ?? '').includes(q)) {
-        items.push({
-          id: `machine-${m.id}`,
-          label: m.name,
-          sublabel: m.brand,
-          type: 'machine',
-          href: `/maintenance/maquinas`,
-        });
-      }
-    });
-
-    return items.slice(0, 8);
-  }, [query, otsRaw, workers, machines]);
-
-  // Keyboard navigation
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'ArrowDown') {
       e.preventDefault();
@@ -136,17 +74,12 @@ export function GlobalSearch() {
     } else if (e.key === 'Enter' && results[selected]) {
       navigate(results[selected]);
     } else if (e.key === 'Escape') {
-      setOpen(false);
+      onOpenChange(false);
     }
   };
 
-  const navigate = (item: ResultItem) => {
-    setOpen(false);
-    router.push(item.href);
-  };
-
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="p-0 gap-0 max-w-md overflow-hidden">
         {/* Screen-reader-only title — Radix Dialog requires one for a11y */}
         <DialogTitle className="sr-only">Búsqueda global</DialogTitle>
@@ -164,41 +97,18 @@ export function GlobalSearch() {
           <kbd className="hidden sm:block text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded border shrink-0">Esc</kbd>
         </div>
 
-        <div className="max-h-72 overflow-y-auto">
-          {query.trim() === '' && (
-            <p className="text-xs text-muted-foreground text-center py-8">Empieza a escribir para buscar</p>
-          )}
-          {query.trim() !== '' && results.length === 0 && (
-            <p className="text-xs text-muted-foreground text-center py-8">Sin resultados para &quot;{query}&quot;</p>
-          )}
-          {results.map((item, idx) => {
-            const meta = TYPE_META[item.type];
-            const Icon = meta.icon;
-            return (
-              <button
-                key={item.id}
-                onClick={() => navigate(item)}
-                onMouseEnter={() => setSelected(idx)}
-                className={cn(
-                  'w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors',
-                  selected === idx ? 'bg-muted' : 'hover:bg-muted/50',
-                )}
-              >
-                <Icon className={cn('h-4 w-4 shrink-0', meta.color)} />
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">{item.label}</p>
-                  {item.sublabel && <p className="text-xs text-muted-foreground truncate">{item.sublabel}</p>}
-                </div>
-                <Badge variant="outline" className="text-[10px] shrink-0">{meta.label}</Badge>
-              </button>
-            );
-          })}
-        </div>
+        <SearchResultList
+          results={results}
+          selected={selected}
+          query={query}
+          onSelect={navigate}
+          onHover={setSelected}
+        />
 
         <div className="border-t border-border px-3 py-1.5 flex items-center gap-3 text-[10px] text-muted-foreground">
           <span><kbd className="bg-muted px-1 py-0.5 rounded border">↑↓</kbd> navegar</span>
           <span><kbd className="bg-muted px-1 py-0.5 rounded border">↵</kbd> abrir</span>
-          <span><kbd className="bg-muted px-1 py-0.5 rounded border">Ctrl+K</kbd> paleta</span>
+          <span><kbd className="bg-muted px-1 py-0.5 rounded border">Esc</kbd> cerrar</span>
         </div>
       </DialogContent>
     </Dialog>

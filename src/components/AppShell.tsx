@@ -28,6 +28,7 @@ import { HOME_ITEM, MODULES } from '@/lib/navigation';
 import { NotificationCenter } from '@/components/NotificationCenter';
 import { ReportingQuickActions } from '@/components/ReportingQuickActions';
 import { GlobalSearch } from '@/components/GlobalSearch';
+import { GlobalSearchBar } from '@/components/GlobalSearchBar';
 import Breadcrumbs from '@/components/Breadcrumbs';
 import { useCostOverrunAlerts } from '@/hooks/use-cost-overrun-alerts';
 
@@ -77,6 +78,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(true);
   const [mobileOpen, setMobileOpen] = useState(false);
+  // Only drives the mobile search dialog — desktop search lives inline in the header.
+  const [searchOpen, setSearchOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
   const [expandedNav, setExpandedNav] = useState<Record<string, boolean>>({});
@@ -366,7 +369,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
       {/* Main content */}
       <main className="flex-1 min-w-0 flex flex-col overflow-hidden relative">
-        <GlobalSearch />
+        <GlobalSearch open={searchOpen} onOpenChange={setSearchOpen} />
         {/* Mobile header */}
         <div className="md:hidden flex items-center gap-3 px-4 py-3 border-b border-border/50 bg-card/80 backdrop-blur-sm">
           <Button variant="ghost" size="icon" onClick={() => setMobileOpen(true)}>
@@ -374,13 +377,16 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           </Button>
           <ForgeHexLogo size={28} className="min-w-0" titleClassName="text-sm font-medium" />
           <div className="ml-auto flex items-center gap-1">
+            {/* Phones get the icon alone — the label and the shortcut hint only
+                fit once there is room, and a phone has no ⌘K to press. */}
             <button
-              onClick={() => { const e = new KeyboardEvent('keydown', { key: 'k', ctrlKey: true, bubbles: true }); window.dispatchEvent(e); }}
-              className="hidden sm:flex items-center gap-1.5 text-xs text-muted-foreground bg-muted/60 border border-border/50 rounded-lg px-2.5 py-1.5 hover:bg-muted transition-colors"
+              onClick={() => setSearchOpen(true)}
+              aria-label="Buscar"
+              className="flex items-center gap-1.5 text-xs text-muted-foreground bg-muted/60 border border-border/50 rounded-lg px-2.5 py-1.5 hover:bg-muted transition-colors"
             >
               <Search className="h-3 w-3" />
-              <span>Buscar</span>
-              <kbd className="text-[10px] bg-background/60 px-1 py-0.5 rounded border">⌘K</kbd>
+              <span className="hidden sm:inline">Buscar</span>
+              <kbd className="hidden sm:inline text-[10px] bg-background/60 px-1 py-0.5 rounded border">⌘K</kbd>
             </button>
             <ReportingQuickActions isAdmin={role === 'admin'} />
             <NotificationCenter />
@@ -393,14 +399,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
               this slot carries the trail instead of a second copy of it. */}
           <Breadcrumbs className="min-w-0 flex-1 pr-4" />
           <div className="flex shrink-0 items-center gap-2">
-            <button
-              onClick={() => { const e = new KeyboardEvent('keydown', { key: 'k', ctrlKey: true, bubbles: true }); window.dispatchEvent(e); }}
-              className="flex items-center gap-1.5 text-xs text-muted-foreground bg-muted/60 border border-border/50 rounded-lg px-2.5 py-1.5 hover:bg-muted transition-colors"
-            >
-              <Search className="h-3 w-3" />
-              <span>Buscar</span>
-              <kbd className="text-[10px] bg-background/60 px-1 py-0.5 rounded border">Ctrl+K</kbd>
-            </button>
+            <GlobalSearchBar />
             <ReportingQuickActions isAdmin={role === 'admin'} />
             <NotificationCenter />
           </div>
