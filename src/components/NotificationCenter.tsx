@@ -11,6 +11,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { HEADER_ICON, HEADER_ICON_BUTTON } from '@/components/shell/header-controls';
 import {
   useMarkAllNotificationsRead,
   useMarkNotificationsRead,
@@ -37,19 +39,36 @@ export function NotificationCenter() {
 
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon" className="relative h-8 w-8">
-          <Bell className="h-4 w-4" />
-          {unreadCount > 0 && (
-            <Badge
-              variant="destructive"
-              className="absolute -top-1 -right-1 min-w-4 h-4 px-1 text-[10px] leading-none flex items-center justify-center"
+      <Tooltip delayDuration={200}>
+        <TooltipTrigger asChild>
+          <DropdownMenuTrigger asChild>
+            <button
+              type="button"
+              aria-label={
+                unreadCount > 0
+                  ? `Notificaciones, ${unreadCount} sin leer`
+                  : 'Notificaciones'
+              }
+              className={HEADER_ICON_BUTTON}
             >
-              {unreadCount > 9 ? '9+' : unreadCount}
-            </Badge>
-          )}
-        </Button>
-      </DropdownMenuTrigger>
+              <Bell className={HEADER_ICON} />
+              {unreadCount > 0 && (
+                // Kept inside the 36px box. The old badge sat at -top-1 -right-1,
+                // so it hung outside the control and crowded its neighbour.
+                <Badge
+                  variant="destructive"
+                  className="pointer-events-none absolute right-0.5 top-0.5 flex h-[15px] min-w-[15px] items-center justify-center rounded-full px-[3px] text-[9px] font-semibold leading-none tabular-nums"
+                >
+                  {unreadCount > 9 ? '9+' : unreadCount}
+                </Badge>
+              )}
+            </button>
+          </DropdownMenuTrigger>
+        </TooltipTrigger>
+        <TooltipContent side="bottom">
+          {unreadCount > 0 ? `Notificaciones · ${unreadCount} sin leer` : 'Notificaciones'}
+        </TooltipContent>
+      </Tooltip>
 
       <DropdownMenuContent align="end" className="w-96 max-w-[90vw]">
         <DropdownMenuLabel className="flex items-center justify-between gap-2">

@@ -6,7 +6,6 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { ForgeHexLogo } from '@/components/branding/ForgeHexLogo';
 import { cn } from '@/lib/utils';
-import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import {
@@ -18,12 +17,11 @@ import {
   LogOut,
   Moon,
   Sun,
-  ChevronLeft,
-  ChevronRight,
   Menu,
   Search,
   ChevronDown,
 } from 'lucide-react';
+import { HEADER_ICON, HEADER_ICON_BUTTON } from '@/components/shell/header-controls';
 import { HOME_ITEM, MODULES } from '@/lib/navigation';
 import { NotificationCenter } from '@/components/NotificationCenter';
 import { ReportingQuickActions } from '@/components/ReportingQuickActions';
@@ -83,6 +81,24 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     setExpandedNav(prev => ({ ...prev, [href]: !prev[href] }));
 
   useCostOverrunAlerts();
+
+  // One menu button for both breakpoints. Reading the media query at click time
+  // rather than during render keeps the markup identical on server and client,
+  // so there is nothing for hydration to disagree about.
+  const toggleSideMenu = () => {
+    if (window.matchMedia('(min-width: 768px)').matches) {
+      setCollapsed((prev) => !prev);
+    } else {
+      setMobileOpen((prev) => !prev);
+    }
+  };
+
+  // Resolved after mount for the same reason — `navigator` has no server value.
+  const searchHint = !mounted
+    ? ''
+    : /Mac|iPhone|iPad|iPod/.test(navigator.userAgent)
+      ? '⌘K'
+      : 'Ctrl+K';
 
   // Persist sidebar collapsed preference
   useEffect(() => {
@@ -157,17 +173,32 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
   const SidebarContent = () => (
     <div className="flex flex-col h-full">
-      {/* Logo */}
+      {/* Rail head. On desktop this carries the menu button, which keeps the
+          content area's top-left corner free for each page's own title. */}
       <div className={cn(
-        "flex items-center gap-3 px-4 py-5 border-b border-border/50",
+        "flex h-14 shrink-0 items-center gap-2 border-b border-border/50 px-3",
         collapsed && "justify-center px-2"
       )}>
-        <ForgeHexLogo
-          size={32}
-          showWordmark={!collapsed}
-          subtitle={role?.replace('_', ' ')}
-          className={collapsed ? 'justify-center' : undefined}
-        />
+        <Tooltip delayDuration={200}>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              onClick={toggleSideMenu}
+              aria-label="Alternar menú lateral"
+              className={cn(HEADER_ICON_BUTTON, 'hidden md:inline-flex')}
+            >
+              <Menu className={HEADER_ICON} />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="right">
+            {collapsed ? 'Expandir menú' : 'Contraer menú'}
+          </TooltipContent>
+        </Tooltip>
+        {!collapsed && <ForgeHexLogo size={26} subtitle={role?.replace('_', ' ')} />}
+        {/* The drawer has no rail button, so it keeps the mark. */}
+        <span className="md:hidden">
+          <ForgeHexLogo size={26} subtitle={role?.replace('_', ' ')} />
+        </span>
       </div>
 
       {/* Nav */}
@@ -329,7 +360,11 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         <SidebarContent />
       </aside>
 
-      {/* Desktop sidebar */}
+      {/* Desktop sidebar — collapsing is driven by the top bar's menu button, so
+          there is no floating chevron. The old one was `absolute` inside a
+          `static` aside, which anchored it to the viewport instead of the rail:
+          it landed at the far right of the screen and pushed the document 12px
+          wider than the window. */}
       <aside
         className={cn(
           "hidden md:flex flex-col border-r border-border bg-card transition-all duration-200",
@@ -337,68 +372,65 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         )}
       >
         <SidebarContent />
-        {/* Collapse toggle */}
-        <button
-          onClick={() => setCollapsed(!collapsed)}
-          className="absolute top-5 -right-3 z-10 w-6 h-6 rounded-full border border-border bg-card flex items-center justify-center hover:bg-muted transition-colors shadow-sm"
-        >
-          {collapsed ? (
-            <ChevronRight className="w-3 h-3 text-muted-foreground" />
-          ) : (
-            <ChevronLeft className="w-3 h-3 text-muted-foreground" />
-          )}
-        </button>
       </aside>
 
       {/* Main content */}
       <main className="flex-1 flex flex-col overflow-hidden relative">
         <GlobalSearch />
-        {/* Mobile header */}
-        <div className="md:hidden flex items-center gap-3 px-4 py-3 border-b border-border/50 bg-card/80 backdrop-blur-sm">
-          <Button variant="ghost" size="icon" onClick={() => setMobileOpen(true)}>
-            <Menu className="w-5 h-5" />
-          </Button>
-          <ForgeHexLogo size={28} className="min-w-0" titleClassName="text-sm font-medium" />
-          <div className="ml-auto flex items-center gap-1">
+
+        {/* Top bar. It floats over the content instead of occupying a row of its
+            own — a 56px band whose middle was always empty was costing every
+            page a fifth of a viewport that never scrolls. `pointer-events-none`
+            on the strip means only the controls themselves intercept clicks;
+            the page underneath stays fully usable. */}
+        <header className="pointer-events-none absolute inset-x-0 top-0 z-30 flex h-14 items-center gap-1 px-2 sm:px-3">
+          {/* Below md there is no rail, so the menu button and the brand live
+              here. From md up the rail head carries them and this side stays
+              empty, leaving the corner to each page's own title. */}
+          <div className="pointer-events-auto flex min-w-0 items-center gap-2.5 md:hidden">
             <button
-              onClick={() => { const e = new KeyboardEvent('keydown', { key: 'k', ctrlKey: true, bubbles: true }); window.dispatchEvent(e); }}
-              className="hidden sm:flex items-center gap-1.5 text-xs text-muted-foreground bg-muted/60 border border-border/50 rounded-lg px-2.5 py-1.5 hover:bg-muted transition-colors"
+              type="button"
+              onClick={toggleSideMenu}
+              aria-label="Abrir menú lateral"
+              className={cn(HEADER_ICON_BUTTON, 'bg-card/70 backdrop-blur-sm')}
             >
-              <Search className="h-3 w-3" />
-              <span>Buscar</span>
-              <kbd className="text-[10px] bg-background/60 px-1 py-0.5 rounded border">⌘K</kbd>
+              <Menu className={HEADER_ICON} />
             </button>
+            <ForgeHexLogo size={26} showWordmark={false} />
+            <span className="truncate text-sm font-semibold tracking-tight text-foreground">
+              GonsAdmin
+            </span>
+          </div>
+
+          {/* One blurred cluster so the three controls stay legible over whatever
+              the page happens to render underneath them. */}
+          <div className="pointer-events-auto ml-auto flex items-center gap-0.5 rounded-xl border border-border/40 bg-card/70 p-0.5 backdrop-blur-sm">
+            <Tooltip delayDuration={200}>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  onClick={() => { const e = new KeyboardEvent('keydown', { key: 'k', ctrlKey: true, bubbles: true }); window.dispatchEvent(e); }}
+                  aria-label="Buscar"
+                  className={HEADER_ICON_BUTTON}
+                >
+                  <Search className={HEADER_ICON} />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">
+                Buscar
+                {searchHint && <span className="ml-1.5 text-muted-foreground">{searchHint}</span>}
+              </TooltipContent>
+            </Tooltip>
+
             <ReportingQuickActions isAdmin={role === 'admin'} />
             <NotificationCenter />
           </div>
-        </div>
+        </header>
 
-        {/* Desktop header */}
-        <div className="hidden md:flex items-center justify-between px-5 py-3 border-b border-border/50 bg-card/60 backdrop-blur-sm">
-          <div className="text-sm text-muted-foreground">
-            <ForgeHexLogo
-              size={28}
-              titleClassName="text-sm font-semibold"
-              subtitleClassName="text-xs"
-              subtitle={role?.replace('_', ' ')}
-            />
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => { const e = new KeyboardEvent('keydown', { key: 'k', ctrlKey: true, bubbles: true }); window.dispatchEvent(e); }}
-              className="flex items-center gap-1.5 text-xs text-muted-foreground bg-muted/60 border border-border/50 rounded-lg px-2.5 py-1.5 hover:bg-muted transition-colors"
-            >
-              <Search className="h-3 w-3" />
-              <span>Buscar</span>
-              <kbd className="text-[10px] bg-background/60 px-1 py-0.5 rounded border">Ctrl+K</kbd>
-            </button>
-            <ReportingQuickActions isAdmin={role === 'admin'} />
-            <NotificationCenter />
-          </div>
-        </div>
-
-        {/* Page content */}
-        <div className="flex-1 overflow-y-auto">
+        {/* Page content — full height now that nothing sits above it. The top
+            padding below md clears the floating brand; from md up the rail head
+            holds those controls and the page starts at the very top. */}
+        <div className="flex-1 overflow-y-auto pt-14 md:pt-0">
           {children}
         </div>
       </main>
