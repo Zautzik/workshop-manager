@@ -422,3 +422,46 @@ export function findNavLeaf(href: string): FlatNavLeaf | undefined {
   }
   return undefined;
 }
+
+/**
+ * Where a pathname sits in the nav tree — module → section.
+ *
+ * Groups are deliberately not part of this. They are headings on the module
+ * landing rather than routes, so a trail that included them would carry a step
+ * nobody can navigate to.
+ */
+export interface NavTrail {
+  module: NavModule;
+  leaf?: NavLeaf;
+  /** Path segments below the matched section, e.g. the id on a detail route. */
+  rest: string[];
+}
+
+/**
+ * Locate a pathname in the nav tree, for breadcrumbs.
+ *
+ * Matches the deepest section whose href prefixes the path, so detail routes
+ * (`/equipos/lectura/abc123`) still resolve to their section and hand back the
+ * leftover segments rather than falling back to the bare module. Routes that
+ * have no nav entry at all still resolve their module, so a page that was never
+ * added to the sidebar is missing a crumb rather than the whole trail.
+ */
+export function findNavTrail(pathname: string): NavTrail | undefined {
+  const path = pathname.length > 1 ? pathname.replace(/\/+$/, '') : pathname;
+  // Not named `module`: Next reserves that identifier for the CommonJS global.
+  const mod = MODULES.find((m) => path === m.href || path.startsWith(m.href + '/'));
+  if (!mod) return undefined;
+
+  let leaf: NavLeaf | undefined;
+  for (const g of mod.groups) {
+    for (const it of g.items) {
+      if (path !== it.href && !path.startsWith(it.href + '/')) continue;
+      // Longest match wins: two sections can share a prefix.
+      if (!leaf || it.href.length > leaf.href.length) leaf = it;
+    }
+  }
+
+  const matched = leaf?.href ?? mod.href;
+  const rest = path.slice(matched.length).split('/').filter(Boolean);
+  return { module: mod, leaf, rest };
+}

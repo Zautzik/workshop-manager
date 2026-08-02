@@ -1,9 +1,9 @@
-import BackToModule from '@/components/BackToModule';
+import { ModuleBreadcrumbs } from '@/components/Breadcrumbs';
 
 export default function CalidadLayout({ children }: { children: React.ReactNode }) {
   return (
     <>
-      <BackToModule modulePath="/calidad" moduleName="Calidad" />
+      <ModuleBreadcrumbs />
       {children}
     </>
   );

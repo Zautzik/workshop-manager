@@ -2,7 +2,8 @@
 
 import { useMemo } from 'react';
 import Link from 'next/link';
-import { ChevronLeft, ExternalLink, Hexagon } from 'lucide-react';
+import { ExternalLink, Hexagon } from 'lucide-react';
+import Breadcrumbs from '@/components/Breadcrumbs';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useAuth } from '@/contexts/AuthContext';
 import WatercolorBackdrop, { type WashTint } from '@/components/branding/WatercolorBackdrop';
@@ -226,9 +227,9 @@ export default function ModuleHexLanding({ title, subtitle, groups: rawGroups, h
         <WatercolorBackdrop intensity="ambient" tint={tint} />
         {/* Header */}
         <div className="relative z-10 shrink-0">
-          <Link href="/home" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors">
-            <ChevronLeft className="w-4 h-4" /> Inicio
-          </Link>
+          {/* The landing draws its own trail (rather than the module layout
+              doing it) so it lands inside the watercolor backdrop above. */}
+          <Breadcrumbs className="md:pr-36" />
           <h1 className="text-xl font-bold tracking-tight text-foreground mt-1">{title}</h1>
           <p className="text-base text-muted-foreground mt-0.5">{subtitle}</p>
         </div>

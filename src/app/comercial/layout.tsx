@@ -1,9 +1,9 @@
-import BackToModule from '@/components/BackToModule';
+import { ModuleBreadcrumbs } from '@/components/Breadcrumbs';
 
 export default function ComercialLayout({ children }: { children: React.ReactNode }) {
   return (
     <>
-      <BackToModule modulePath="/comercial" moduleName="Comercial" />
+      <ModuleBreadcrumbs />
       {children}
     </>
   );

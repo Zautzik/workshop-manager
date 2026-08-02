@@ -1,9 +1,9 @@
-import BackToModule from '@/components/BackToModule';
+import { ModuleBreadcrumbs } from '@/components/Breadcrumbs';
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   return (
     <>
-      <BackToModule modulePath="/administracion" moduleName="Administración" />
+      <ModuleBreadcrumbs />
       {children}
     </>
   );

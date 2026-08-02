@@ -1,9 +1,9 @@
-import BackToModule from '@/components/BackToModule';
+import { ModuleBreadcrumbs } from '@/components/Breadcrumbs';
 
 export default function HRLayout({ children }: { children: React.ReactNode }) {
   return (
     <>
-      <BackToModule modulePath="/personas" moduleName="Personas" />
+      <ModuleBreadcrumbs />
       {children}
     </>
   );
