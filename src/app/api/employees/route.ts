@@ -110,7 +110,6 @@ export async function GET(request: NextRequest) {
 				department,
 				status,
 				hire_date,
-				worker_legacy_id,
 				employment_contracts(
 					id,
 					contract_type,
@@ -135,7 +134,6 @@ export async function GET(request: NextRequest) {
 				department,
 				status,
 				hire_date,
-				worker_legacy_id,
 				employment_contracts(
 					id,
 					contract_type,

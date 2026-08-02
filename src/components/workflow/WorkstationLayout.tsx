@@ -22,6 +22,7 @@ import { useToast } from '@/hooks/use-toast';
 import { getWorkerPrimaryStationType, getWorkerQualificationScore } from '@/lib/workstation-skills';
 import { useStationsUnderMaintenance } from '@/hooks/use-maintenance-queries';
 import { formatCLP } from '@/lib/format';
+import { machineGroupLabel, machineGroupRank } from '@/lib/machine-groups';
 
 interface WorkstationLayoutProps {
 	workstations: any[];
@@ -701,37 +702,14 @@ export function WorkstationLayout({
 		return acc;
 	}, {});
 
-	const getTypeLabel = (type: string) => {
-		const labels: { [key: string]: string } = {
-			offset_printer:  'Prensas Offset',
-			guillotine:      'Guillotinas',
-			die_cutter:      'Troqueladoras',
-			digital_printer: 'Impresión Digital',
-			pre_press:       'Pre-Prensa',
-			manual_workshop: 'Taller Manual',
-			workshop:        'Taller',
-			delivery:        'Despacho',
-		};
-		return labels[type] || type.replace(/_/g, ' ');
-	};
+	// Los encabezados y su orden salen de `@/lib/machine-groups`. Este mapa local
+	// cubría 7 de los 12 tipos: las cinco máquinas de terminación no estaban, así
+	// que Planta rotulaba secciones enteras con el valor crudo del enum
+	// —"collator", "stitcher"— y las ordenaba DESPUÉS de Despacho, cuando la
+	// terminación ocurre antes de que el trabajo salga del taller.
+	const getTypeLabel = machineGroupLabel;
 
-	// Section order follows the physical path a job takes through the plant —
-	// prepress → printing → cutting → die-cutting → finishing → dispatch —
-	// instead of whatever order Object.entries happened to insert them in
-	// (which is why "other"/uncategorized used to render first: owner request
-	// 2026-07-23). Anything not listed here (including a literal "other" type)
-	// always sorts last.
-	const SECTION_ORDER: { [key: string]: number } = {
-		pre_press: 0,
-		offset_printer: 1,
-		digital_printer: 2,
-		guillotine: 3,
-		die_cutter: 4,
-		workshop: 5,
-		manual_workshop: 6,
-		delivery: 7,
-	};
-	const sectionRank = (type: string) => SECTION_ORDER[type] ?? Number.POSITIVE_INFINITY;
+	const sectionRank = machineGroupRank;
 
 	return (
 		<div className='space-y-6'>

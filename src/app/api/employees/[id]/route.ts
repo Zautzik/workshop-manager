@@ -20,7 +20,6 @@ const PERSONAL_EMPLOYEE_FIELDS = [
 	'notes',
 	'termination_date',
 	'user_id',
-	'worker_legacy_id',
 ] as const;
 
 const COMPENSATION_FIELDS = [
@@ -101,7 +100,6 @@ export async function GET(
 				emergency_contact_name,
 				emergency_contact_phone,
 				notes,
-				worker_legacy_id,
 				employment_contracts(*),
 				compensation_rates(*),
 				employee_skills(*),
@@ -115,7 +113,6 @@ export async function GET(
 				department,
 				status,
 				hire_date,
-				worker_legacy_id,
 				employment_contracts(id, contract_type, start_date, end_date, overtime_allowed),
 				employee_skills(*),
 				leave_balances(leave_type, balance_hours, accrued_hours, used_hours, as_of),

@@ -83,57 +83,15 @@ export async function GET(req: NextRequest) {
 			});
 		}
 
-		console.warn('employees query failed in /api/workers, trying legacy workers fallback:', employeesError);
-
-		const { data: legacyWorkers, error: legacyError, count: legacyCount } = await supabaseAdmin
-			.from('workers')
-			.select('*', { count: 'exact' })
-			.order('name', { ascending: true })
-			.range(offset, offset + limit - 1);
-
-		if (legacyError) {
-			console.error('Error fetching workers from both employees and workers tables:', {
-				employeesError,
-				legacyError,
-			});
-			return NextResponse.json(
-				{
-					error: 'Failed to fetch workers',
-					details: {
-						employees: employeesError?.message,
-						legacy: legacyError?.message,
-					},
-				},
-				{ status: 500 }
-			);
-		}
-
-		const legacyTotal = legacyCount ?? 0;
-		const mappedLegacy = (legacyWorkers ?? []).map((worker: any) => ({
-			id: worker.id,
-			name: worker.name,
-			full_name: worker.name,
-			department: worker.department ?? null,
-			status: 'active',
-			hire_date: worker.created_at ? String(worker.created_at).slice(0, 10) : null,
-			employee_skills: [],
-			overtime_availability: true,
-			attendance_score: null,
-			lateness_minutes: null,
-			quality_score: null,
-			speed_score: null,
-			overall_rating: null,
-			created_at: worker.created_at,
-			updated_at: worker.updated_at,
-		}));
-
-		return NextResponse.json({
-			data: mappedLegacy,
-			total: legacyTotal,
-			page,
-			limit,
-			totalPages: Math.ceil(legacyTotal / limit),
-		});
+		// La tabla `workers` era una copia de `employees` —378 valores comparados,
+		// cero diferencias— y se retiró. Sin segunda tabla no hay plan B: si la
+		// consulta a `employees` falla, se dice que falló en vez de servir una
+		// versión degradada de la planilla sin sueldos ni competencias.
+		console.error('Error fetching workers from employees:', employeesError);
+		return NextResponse.json(
+			{ error: 'Failed to fetch workers', details: employeesError?.message },
+			{ status: 500 }
+		);
 	} catch (error) {
 		console.error('Error fetching workers:', error);
 		return NextResponse.json({ error: 'Failed to fetch workers', details: String(error) }, { status: 500 });

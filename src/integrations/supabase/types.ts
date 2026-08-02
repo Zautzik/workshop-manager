@@ -790,7 +790,6 @@ export type Database = {
           termination_date: string | null
           updated_at: string
           user_id: string | null
-          worker_legacy_id: string | null
         }
         Insert: {
           attendance_score?: number | null
@@ -817,7 +816,6 @@ export type Database = {
           termination_date?: string | null
           updated_at?: string
           user_id?: string | null
-          worker_legacy_id?: string | null
         }
         Update: {
           attendance_score?: number | null
@@ -844,17 +842,8 @@ export type Database = {
           termination_date?: string | null
           updated_at?: string
           user_id?: string | null
-          worker_legacy_id?: string | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "employees_worker_legacy_id_fkey"
-            columns: ["worker_legacy_id"]
-            isOneToOne: true
-            referencedRelation: "workers"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       employment_contracts: {
         Row: {
@@ -4804,21 +4793,18 @@ export type Database = {
           employee_id: string | null
           id: string
           roster_id: string
-          worker_id: string | null
         }
         Insert: {
           created_at?: string | null
           employee_id?: string | null
           id?: string
           roster_id: string
-          worker_id?: string | null
         }
         Update: {
           created_at?: string | null
           employee_id?: string | null
           id?: string
           roster_id?: string
-          worker_id?: string | null
         }
         Relationships: [
           {
@@ -4840,13 +4826,6 @@ export type Database = {
             columns: ["roster_id"]
             isOneToOne: false
             referencedRelation: "rosters"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "roster_workers_worker_id_fkey"
-            columns: ["worker_id"]
-            isOneToOne: false
-            referencedRelation: "workers"
             referencedColumns: ["id"]
           },
         ]
@@ -5316,7 +5295,6 @@ export type Database = {
           performance_rating: number
           task_type: Database["public"]["Enums"]["task_type"]
           time_spent_minutes: number
-          worker_id: string | null
         }
         Insert: {
           created_at?: string | null
@@ -5328,7 +5306,6 @@ export type Database = {
           performance_rating?: number
           task_type: Database["public"]["Enums"]["task_type"]
           time_spent_minutes?: number
-          worker_id?: string | null
         }
         Update: {
           created_at?: string | null
@@ -5340,7 +5317,6 @@ export type Database = {
           performance_rating?: number
           task_type?: Database["public"]["Enums"]["task_type"]
           time_spent_minutes?: number
-          worker_id?: string | null
         }
         Relationships: [
           {
@@ -5362,13 +5338,6 @@ export type Database = {
             columns: ["job_id"]
             isOneToOne: false
             referencedRelation: "jobs"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "task_logs_worker_id_fkey"
-            columns: ["worker_id"]
-            isOneToOne: false
-            referencedRelation: "workers"
             referencedColumns: ["id"]
           },
         ]
@@ -6114,7 +6083,7 @@ export type Database = {
         Row: {
           created_at: string | null
           date: string
-          employee_id: string | null
+          employee_id: string
           hours_worked: number
           id: string
           machine_id: string
@@ -6122,12 +6091,11 @@ export type Database = {
           role: string
           shift_id: string
           updated_at: string | null
-          worker_id: string | null
         }
         Insert: {
           created_at?: string | null
           date?: string
-          employee_id?: string | null
+          employee_id: string
           hours_worked?: number
           id?: string
           machine_id: string
@@ -6135,12 +6103,11 @@ export type Database = {
           role: string
           shift_id: string
           updated_at?: string | null
-          worker_id?: string | null
         }
         Update: {
           created_at?: string | null
           date?: string
-          employee_id?: string | null
+          employee_id?: string
           hours_worked?: number
           id?: string
           machine_id?: string
@@ -6148,7 +6115,6 @@ export type Database = {
           role?: string
           shift_id?: string
           updated_at?: string | null
-          worker_id?: string | null
         }
         Relationships: [
           {
@@ -6214,62 +6180,7 @@ export type Database = {
             referencedRelation: "shifts"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "worker_assignments_worker_id_fkey"
-            columns: ["worker_id"]
-            isOneToOne: false
-            referencedRelation: "workers"
-            referencedColumns: ["id"]
-          },
         ]
-      }
-      workers: {
-        Row: {
-          attendance_score: number | null
-          created_at: string | null
-          department: string
-          id: string
-          lateness_minutes: number | null
-          name: string
-          overall_rating: number | null
-          overtime_availability: boolean | null
-          quality_score: number | null
-          sheets_per_hour: number | null
-          speed_score: number | null
-          teamwork_rating: number | null
-          updated_at: string | null
-        }
-        Insert: {
-          attendance_score?: number | null
-          created_at?: string | null
-          department: string
-          id?: string
-          lateness_minutes?: number | null
-          name: string
-          overall_rating?: number | null
-          overtime_availability?: boolean | null
-          quality_score?: number | null
-          sheets_per_hour?: number | null
-          speed_score?: number | null
-          teamwork_rating?: number | null
-          updated_at?: string | null
-        }
-        Update: {
-          attendance_score?: number | null
-          created_at?: string | null
-          department?: string
-          id?: string
-          lateness_minutes?: number | null
-          name?: string
-          overall_rating?: number | null
-          overtime_availability?: boolean | null
-          quality_score?: number | null
-          sheets_per_hour?: number | null
-          speed_score?: number | null
-          teamwork_rating?: number | null
-          updated_at?: string | null
-        }
-        Relationships: []
       }
     }
     Views: {
