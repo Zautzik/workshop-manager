@@ -26,6 +26,7 @@ import { HOME_ITEM, MODULES } from '@/lib/navigation';
 import { NotificationCenter } from '@/components/NotificationCenter';
 import { ReportingQuickActions } from '@/components/ReportingQuickActions';
 import { GlobalSearch } from '@/components/GlobalSearch';
+import QuickLinks from '@/components/home/QuickLinks';
 import { useCostOverrunAlerts } from '@/hooks/use-cost-overrun-alerts';
 
 interface SubItem {
@@ -429,28 +430,37 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             </span>
           </div>
 
-          {/* One blurred cluster so the three controls stay legible over whatever
-              the page happens to render underneath them. */}
-          <div className="pointer-events-auto ml-auto flex items-center gap-0.5 rounded-xl border border-border/40 bg-card/70 p-0.5 backdrop-blur-sm">
-            <Tooltip delayDuration={200}>
-              <TooltipTrigger asChild>
-                <button
-                  type="button"
-                  onClick={() => { const e = new KeyboardEvent('keydown', { key: 'k', ctrlKey: true, bubbles: true }); window.dispatchEvent(e); }}
-                  aria-label="Buscar"
-                  className={HEADER_ICON_BUTTON}
-                >
-                  <Search className={HEADER_ICON} />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom">
-                Buscar
-                {searchHint && <span className="ml-1.5 text-muted-foreground">{searchHint}</span>}
-              </TooltipContent>
-            </Tooltip>
+          {/* Everything that wants the top-right corner shares this row. Home's
+              quick-links pill used to position itself against the viewport from
+              inside the page, which put it underneath this cluster — anything
+              that belongs up here has to be a sibling of it, not a second
+              free-floating overlay. */}
+          <div className="pointer-events-auto ml-auto flex min-w-0 items-center gap-2">
+            {pathname === '/home' && <QuickLinks />}
 
-            <ReportingQuickActions isAdmin={role === 'admin'} />
-            <NotificationCenter />
+            {/* One blurred cluster so the three controls stay legible over whatever
+                the page happens to render underneath them. */}
+            <div className="flex shrink-0 items-center gap-0.5 rounded-xl border border-border/40 bg-card/70 p-0.5 backdrop-blur-sm">
+              <Tooltip delayDuration={200}>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    onClick={() => { const e = new KeyboardEvent('keydown', { key: 'k', ctrlKey: true, bubbles: true }); window.dispatchEvent(e); }}
+                    aria-label="Buscar"
+                    className={HEADER_ICON_BUTTON}
+                  >
+                    <Search className={HEADER_ICON} />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">
+                  Buscar
+                  {searchHint && <span className="ml-1.5 text-muted-foreground">{searchHint}</span>}
+                </TooltipContent>
+              </Tooltip>
+
+              <ReportingQuickActions isAdmin={role === 'admin'} />
+              <NotificationCenter />
+            </div>
           </div>
         </header>
 

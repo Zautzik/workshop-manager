@@ -1,7 +1,6 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import QuickLinks from '@/components/home/QuickLinks';
 import WatercolorBackdrop from '@/components/branding/WatercolorBackdrop';
 import VitalStrip from '@/components/home/VitalStrip';
 import { useAuth } from '@/contexts/AuthContext';
@@ -301,10 +300,9 @@ export default function HomeDashboard() {
   return (
     <div className="relative min-h-full flex flex-col items-center justify-center gap-10 overflow-hidden px-6 py-10 md:px-12">
       <WatercolorBackdrop intensity="ambient" />
-      {/* Quick links — compact pill, top-right */}
-      <div className="absolute right-4 top-4 md:right-6 md:top-6 z-10">
-        <QuickLinks />
-      </div>
+
+      {/* Quick links live in the app top bar (AppShell), alongside search and
+          notifications — a page-level copy here would overlap that cluster. */}
 
       {/* Hero */}
       <div className="max-w-2xl text-center">

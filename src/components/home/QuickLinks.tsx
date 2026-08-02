@@ -37,7 +37,7 @@ function EditDialog({
   return (
     <Dialog>
       <DialogTrigger asChild>
-        <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" aria-label="Personalizar inicio">
+        <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0 rounded-full" aria-label="Personalizar inicio">
           <Sliders className="h-3.5 w-3.5" />
         </Button>
       </DialogTrigger>
@@ -114,9 +114,12 @@ export default function QuickLinks() {
   if (!loaded) return null;
 
   // Compact pill: pinned shortcuts as small icon chips + the Personalizar gear.
+  // It shares the top bar with the search/notification cluster, so it has to be
+  // the part that gives: `min-w-0` + horizontal scroll let a long list of pins
+  // shrink on narrow screens instead of shoving that cluster off the edge.
   return (
     <TooltipProvider delayDuration={150}>
-      <div className="flex items-center gap-1 rounded-full border border-border/60 bg-card/70 p-1 shadow-sm backdrop-blur">
+      <div className="flex min-w-0 items-center gap-1 overflow-x-auto rounded-full border border-border/60 bg-card/70 p-1 shadow-sm backdrop-blur [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {links.map((leaf) => {
           const Icon = leaf.icon;
           return (
@@ -125,7 +128,7 @@ export default function QuickLinks() {
                 <button
                   onClick={() => router.push(leaf.href)}
                   aria-label={leaf.label}
-                  className={cn('flex h-8 w-8 items-center justify-center rounded-full transition-transform hover:scale-110', leaf.color)}
+                  className={cn('flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-transform hover:scale-110', leaf.color)}
                 >
                   <Icon className="h-4 w-4" />
                 </button>
