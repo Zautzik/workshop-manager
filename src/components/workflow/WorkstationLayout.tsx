@@ -22,7 +22,8 @@ import { useToast } from '@/hooks/use-toast';
 import { getWorkerPrimaryStationType, getWorkerQualificationScore } from '@/lib/workstation-skills';
 import { useStationsUnderMaintenance } from '@/hooks/use-maintenance-queries';
 import { formatCLP } from '@/lib/format';
-import { machineGroupLabel, machineGroupRank } from '@/lib/machine-groups';
+import { machineGroupRank, machinePhase } from '@/lib/machine-groups';
+import { phaseLabel, phaseRank } from '@/lib/production-phases';
 
 interface WorkstationLayoutProps {
 	workstations: any[];
@@ -605,6 +606,26 @@ export function WorkstationLayout({
 		];
 	};
 
+	/**
+	 * Operarios disponibles para una FASE: los que califican para al menos uno de
+	 * los tipos de máquina que hay en ella. Filtrar por un solo tipo dejaría la
+	 * bandeja de Terminación casi vacía, porque quien sabe corchetear no
+	 * necesariamente figura como calificado para la polilaminadora.
+	 */
+	const getAvailableWorkersForPhase = (types: string[]) => {
+		const seen = new Set<string>();
+		const pool = types
+			.flatMap(t => getAvailableWorkersForType(t))
+			.filter(w => (seen.has(w.id) ? false : (seen.add(w.id), true)));
+		return pool;
+	};
+
+	/** El tipo de la fase en el que este operario puntúa mejor, para explicar la sugerencia. */
+	const bestTypeForWorker = (worker: any, types: string[]): string =>
+		types.reduce((best, t) =>
+			(getWorkerQualificationScore(worker, t) ?? -1) > (getWorkerQualificationScore(worker, best) ?? -1) ? t : best,
+		types[0]);
+
 	const getAvailableWorkersForType = (type: string) => {
 		// Show every unassigned worker qualified for this station type, not only the
 		// one whose single "primary" type happens to match. Two types with identical
@@ -693,23 +714,28 @@ export function WorkstationLayout({
 		? uncategorizedAvailableWorkers.filter(worker => isOvertimeWorker(worker))
 		: uncategorizedAvailableWorkers;
 
-	// Group workstations by type
+	// Agrupado por FASE del taller, igual que Equipos y con el mismo vocabulario
+	// que el Kanban. Antes había una sección por tipo de máquina: la Dobladora,
+	// la Alzadora, la Corchetera, la Hotmelera y la Polilaminadora ocupaban cinco
+	// bloques con una máquina cada uno, cuando en el piso son un solo puesto de
+	// trabajo —el taller— por el que la hoja pasa en secuencia.
 	const groupedWorkstations = visibleWorkstations.reduce((acc: any, station: any) => {
-		if (!acc[station.type]) {
-			acc[station.type] = [];
-		}
-		acc[station.type].push(station);
+		const phase = machinePhase(station.type) ?? 'otros';
+		if (!acc[phase]) acc[phase] = [];
+		acc[phase].push(station);
 		return acc;
 	}, {});
 
-	// Los encabezados y su orden salen de `@/lib/machine-groups`. Este mapa local
-	// cubría 7 de los 12 tipos: las cinco máquinas de terminación no estaban, así
-	// que Planta rotulaba secciones enteras con el valor crudo del enum
-	// —"collator", "stitcher"— y las ordenaba DESPUÉS de Despacho, cuando la
-	// terminación ocurre antes de que el trabajo salga del taller.
-	const getTypeLabel = machineGroupLabel;
+	const getPhaseLabel = (phase: string) =>
+		phase === 'otros' ? 'Sin clasificar' : phaseLabel(phase);
 
-	const sectionRank = machineGroupRank;
+	const sectionRank = phaseRank;
+
+	/** Los tipos de máquina presentes en una fase, en orden de recorrido. */
+	const typesInPhase = (stations: any[]): string[] =>
+		[...new Set(stations.map((s: any) => s.type).filter(Boolean))].sort(
+			(a, b) => machineGroupRank(a) - machineGroupRank(b),
+		);
 
 	return (
 		<div className='space-y-6'>
@@ -782,18 +808,23 @@ export function WorkstationLayout({
 						return rankDiff !== 0 ? rankDiff : typeA.localeCompare(typeB);
 					})
 					.map(
-					([type, stations]: [string, any]) => {
+					([phase, stations]: [string, any]) => {
+						const types = typesInPhase(stations as any[]);
+						// El icono y el color vienen del primer tipo del recorrido dentro
+						// de la fase: en "Corte & Impresión" manda la prensa, no la
+						// guillotina que va después.
+						const type = types[0] ?? phase;
 						const theme = getDepartmentTheme(type);
 
 						return (
 						<Card
-							key={type}
+							key={phase}
 							className={`${theme.sectionCard} backdrop-blur-sm p-3`}
 						>
 							<div className='flex items-center gap-2 mb-3'>
 								{getWorkstationIcon(type)}
 								<h3 className={`text-lg font-bold ${theme.title}`}>
-									{getTypeLabel(type)}
+									{getPhaseLabel(phase)}
 								</h3>
 								<Badge className={theme.countBadge}>
 									{(stations as any[]).length}{' '}
@@ -835,19 +866,19 @@ export function WorkstationLayout({
 								<Card className={`${theme.poolCard} p-2 sticky top-4 self-start w-40 shrink-0`}>
 									<div className='mb-2'>
 										<h4 className='text-xs font-semibold text-foreground'>
-											Operarios disponibles — {getTypeLabel(type)}
+											Operarios disponibles — {getPhaseLabel(phase)}
 										</h4>
 										<p className='text-[10px] text-muted-foreground leading-tight'>
 											Arrastra hacia una máquina para asignar. Usa la X para quitar.
 										</p>
 									</div>
 									<DroppableAvailablePool
-										id={`available-${type}`}
+										id={`available-${phase}`}
 										className='p-2'
 									>
 										<div className='space-y-2 max-h-[420px] overflow-y-auto pr-1'>
-											{getAvailableWorkersForType(type).length > 0 ? (
-												getAvailableWorkersForType(type).map(worker => (
+											{getAvailableWorkersForPhase(types).length > 0 ? (
+												getAvailableWorkersForPhase(types).map(worker => (
 													<DraggableWorker
 														key={worker.id}
 														worker={worker}
@@ -855,8 +886,8 @@ export function WorkstationLayout({
 														isOvertime={isOvertimeWorker(worker)}
 														monthlyOvertime={monthlyOvertimeByWorker?.[worker.id]}
 														costInfo={getWorkerCostInfo(worker, isOvertimeWorker(worker))}
-														planningScore={getPlanningScore(worker, type)}
-														explainability={getSelectionExplanation(worker, type)}
+														planningScore={getPlanningScore(worker, bestTypeForWorker(worker, types))}
+														explainability={getSelectionExplanation(worker, bestTypeForWorker(worker, types))}
 														indicators={workerIndicatorsById?.[worker?.id]}
 														stationType={type}
 													/>
