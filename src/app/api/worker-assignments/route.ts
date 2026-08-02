@@ -5,14 +5,28 @@ import { supabaseAdmin } from '@/integrations/supabase/server';
 
 export const dynamic = 'force-dynamic';
 
-const AssignmentSchema = z.object({
-  employee_id: z.string().uuid(),
-  workstation_id: z.string().uuid(),
-  shift_id: z.string().uuid(),
-  date: z.string().min(1),
-  role: z.string().min(1),
-  ot_id: z.string().uuid().nullable().optional(),
-});
+// `workstation_id` sigue aceptándose porque es el vocabulario del piso —uno se
+// para en un puesto— pero ese puesto ES la máquina desde la fusión, así que el
+// valor se escribe en `machine_id`. Se acepta cualquiera de los dos nombres para
+// que un cliente antiguo no se quede fuera a mitad del despliegue.
+const AssignmentSchema = z
+  .object({
+    employee_id: z.string().uuid(),
+    workstation_id: z.string().uuid().optional(),
+    machine_id: z.string().uuid().optional(),
+    shift_id: z.string().uuid(),
+    date: z.string().min(1),
+    role: z.string().min(1),
+    ot_id: z.string().uuid().nullable().optional(),
+  })
+  .refine((v) => v.machine_id ?? v.workstation_id, {
+    message: 'Falta la máquina: envía machine_id.',
+    path: ['machine_id'],
+  })
+  .transform(({ workstation_id, ...rest }) => ({
+    ...rest,
+    machine_id: (rest.machine_id ?? workstation_id)!,
+  }));
 
 const AssignmentBulkSchema = z.array(AssignmentSchema).min(1);
 
@@ -50,7 +64,9 @@ export async function GET(req: NextRequest) {
 
   const { data: rows, error } = await supabaseAdmin
     .from('worker_assignments')
-    .select('id, employee_id, workstation_id, ot_id, role, date, shift_id, workstation:workstations(id, name, type)')
+    // `workstation` se sigue devolviendo con ese nombre para no romper a los
+    // consumidores, pero ahora viene de `machines`: una sola identidad de equipo.
+    .select('id, employee_id, machine_id, ot_id, role, date, shift_id, workstation:machines!machine_id(id, name, type)')
     .eq('date', date);
 
   if (error) {
@@ -75,6 +91,9 @@ export async function GET(req: NextRequest) {
     date,
     assignments: assignments.map((a: any) => ({
       ...a,
+      // Alias: tras la fusión el puesto y la máquina son la misma cosa, y el
+      // frontend todavía compara por `workstation_id` en varios sitios.
+      workstation_id: a.machine_id,
       ot_number: a.ot_id ? otMap.get(a.ot_id) ?? null : null,
     })),
   });

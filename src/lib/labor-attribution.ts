@@ -21,7 +21,7 @@
 
 export interface ClockEvent {
   employee_id: string;
-  station_id: string | null;
+  machine_id: string | null;
   /** ISO timestamp. */
   at: string;
   event_type: 'clock_in' | 'clock_out' | string;
@@ -29,7 +29,7 @@ export interface ClockEvent {
 
 export interface AssignmentRow {
   employee_id: string;
-  workstation_id: string;
+  machine_id: string;
   ot_id: string | null;
   date: string;
   role?: string | null;
@@ -46,7 +46,7 @@ export interface RateRow {
 
 export interface WorkedInterval {
   employee_id: string;
-  station_id: string | null;
+  machine_id: string | null;
   start: string;
   end: string;
   hours: number;
@@ -57,7 +57,7 @@ export interface WorkedInterval {
 export interface LaborLine {
   ot_id: string;
   employee_id: string;
-  station_id: string | null;
+  machine_id: string | null;
   hours: number;
   regularHours: number;
   overtimeHours: number;
@@ -153,7 +153,7 @@ export function pairClockEvents(
       if (hours > 0) {
         intervals.push({
           employee_id: employeeId,
-          station_id: open.station_id ?? null,
+          machine_id: open.machine_id ?? null,
           start: open.at,
           end: endIso,
           hours: round2(hours),
@@ -261,7 +261,7 @@ export function attributeLabor(
   const assignmentIndex = new Map<string, string[]>();
   for (const a of input.assignments) {
     if (a.date !== input.date || !a.ot_id) continue;
-    const key = `${a.employee_id}::${a.workstation_id}`;
+    const key = `${a.employee_id}::${a.machine_id}`;
     const list = assignmentIndex.get(key) ?? [];
     if (!list.includes(a.ot_id)) list.push(a.ot_id);
     assignmentIndex.set(key, list);
@@ -274,12 +274,12 @@ export function attributeLabor(
   }
 
   // employee|station|ot → hours
-  const bucket = new Map<string, { employee_id: string; station_id: string | null; ot_id: string; hours: number }>();
+  const bucket = new Map<string, { employee_id: string; machine_id: string | null; ot_id: string; hours: number }>();
   let unattributedHours = 0;
 
   for (const iv of intervals) {
-    const key = `${iv.employee_id}::${iv.station_id ?? ''}`;
-    const otIds = iv.station_id ? assignmentIndex.get(key) ?? [] : [];
+    const key = `${iv.employee_id}::${iv.machine_id ?? ''}`;
+    const otIds = iv.machine_id ? assignmentIndex.get(key) ?? [] : [];
 
     if (otIds.length === 0) {
       unattributedHours += iv.hours;
@@ -293,13 +293,13 @@ export function attributeLabor(
 
     const share = iv.hours / otIds.length;
     for (const otId of otIds) {
-      const bKey = `${iv.employee_id}::${iv.station_id ?? ''}::${otId}`;
+      const bKey = `${iv.employee_id}::${iv.machine_id ?? ''}::${otId}`;
       const existing = bucket.get(bKey);
       if (existing) existing.hours += share;
       else
         bucket.set(bKey, {
           employee_id: iv.employee_id,
-          station_id: iv.station_id,
+          machine_id: iv.machine_id,
           ot_id: otId,
           hours: share,
         });
@@ -342,7 +342,7 @@ export function attributeLabor(
     lines.push({
       ot_id: entry.ot_id,
       employee_id: entry.employee_id,
-      station_id: entry.station_id,
+      machine_id: entry.machine_id,
       hours: round2(entry.hours),
       regularHours,
       overtimeHours,
@@ -357,7 +357,7 @@ export function attributeLabor(
     (a, b) =>
       a.ot_id.localeCompare(b.ot_id) ||
       a.employee_id.localeCompare(b.employee_id) ||
-      String(a.station_id).localeCompare(String(b.station_id))
+      String(a.machine_id).localeCompare(String(b.machine_id))
   );
 
   return { lines, warnings: allWarnings, unattributedHours: round2(unattributedHours) };

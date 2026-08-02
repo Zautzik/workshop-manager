@@ -1,11 +1,12 @@
 'use client';
 
 /**
- * GlobalSearch — the mobile search surface.
+ * GlobalSearch — the search surface for every breakpoint.
  *
- * The mobile header has no room for an inline field next to the menu button,
- * the logo and the action icons, so below `md` search stays a dialog. Desktop
- * uses <GlobalSearchBar /> in the header instead.
+ * The shell's top bar is a floating overlay with room for icons only, so search
+ * is a dialog rather than an inline field. It owns its own open state and
+ * listens for the shortcut itself; the top bar's search button opens it by
+ * dispatching a synthetic Ctrl+K, so there is no prop wiring to keep in sync.
  */
 
 import { useState, useEffect, useRef } from 'react';
@@ -19,34 +20,29 @@ import {
 import { Input } from '@/components/ui/input';
 import { Search } from 'lucide-react';
 import { SearchResultList } from '@/components/SearchResultList';
-import { useGlobalSearchResults, DESKTOP_MEDIA_QUERY, type ResultItem } from '@/hooks/use-global-search';
+import { useGlobalSearchResults, type ResultItem } from '@/hooks/use-global-search';
 
-type Props = {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-};
-
-export function GlobalSearch({ open, onOpenChange }: Props) {
+export function GlobalSearch() {
   const router = useRouter();
+  const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [selected, setSelected] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const results = useGlobalSearchResults(query);
 
-  // Cmd+K / Ctrl+K, but only while the mobile header is the visible one —
-  // above `md` the inline bar claims the shortcut instead.
+  // Cmd+K / Ctrl+K at every breakpoint, and the channel the top bar's search
+  // button uses to open the dialog.
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
-        if (window.matchMedia(DESKTOP_MEDIA_QUERY).matches) return;
         e.preventDefault();
-        onOpenChange(true);
+        setOpen(true);
       }
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [onOpenChange]);
+  }, []);
 
   // Reset on open
   useEffect(() => {
@@ -60,7 +56,7 @@ export function GlobalSearch({ open, onOpenChange }: Props) {
   }, [open]);
 
   const navigate = (item: ResultItem) => {
-    onOpenChange(false);
+    setOpen(false);
     router.push(item.href);
   };
 
@@ -74,12 +70,12 @@ export function GlobalSearch({ open, onOpenChange }: Props) {
     } else if (e.key === 'Enter' && results[selected]) {
       navigate(results[selected]);
     } else if (e.key === 'Escape') {
-      onOpenChange(false);
+      setOpen(false);
     }
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={setOpen}>
       <DialogContent className="p-0 gap-0 max-w-md overflow-hidden">
         {/* Screen-reader-only title — Radix Dialog requires one for a11y */}
         <DialogTitle className="sr-only">Búsqueda global</DialogTitle>

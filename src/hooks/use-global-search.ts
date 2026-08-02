@@ -19,7 +19,6 @@ import { useOTs, useWorkers, useMachines } from '@/hooks/use-operations-queries'
  * Both surfaces stay mounted at every width, so the Cmd+K handlers use this to
  * decide which one owns the shortcut.
  */
-export const DESKTOP_MEDIA_QUERY = '(min-width: 768px)';
 
 export type ResultItem = {
   id: string;

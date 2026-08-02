@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { isAuthError, requireAuth } from '@/lib/api-middleware';
 import { supabaseAdmin } from '@/integrations/supabase/server';
+import { rollupCosts, type CostLine } from '@/lib/cost-rollup';
+import { evaluateAlarm, actionableAlarms, summarizeAlarms } from '@/lib/cost-alarms';
 
 export const dynamic = 'force-dynamic';
 
@@ -19,52 +21,109 @@ async function readThreshold(): Promise<number> {
   return Number.isFinite(v) && v >= 0 ? v : DEFAULT_THRESHOLD;
 }
 
-// GET /api/cost-alerts — OTs whose actual cost exceeds their estimate by ≥ the
-// configured threshold, plus the threshold itself.
+const MARGIN_FLOOR_KEY = 'min_margin_pct';
+const DEFAULT_MARGIN_FLOOR = 10;
+
+async function readMarginFloor(): Promise<number> {
+  const { data } = await supabaseAdmin
+    .from('app_settings')
+    .select('value')
+    .eq('key', MARGIN_FLOOR_KEY)
+    .maybeSingle();
+  const v = Number((data as { value?: unknown } | null)?.value);
+  return Number.isFinite(v) && v >= 0 ? v : DEFAULT_MARGIN_FLOOR;
+}
+
+/**
+ * GET /api/cost-alerts — los trabajos que exigen una mirada.
+ *
+ * Antes medía UNA sola cosa: costo real contra costo estimado. Eso detecta que
+ * se presupuestó mal, que es un problema de proceso. No detectaba lo que de
+ * verdad duele: que el trabajo COSTÓ MÁS DE LO QUE SE COBRÓ. Un trabajo puede
+ * estar perfectamente dentro del presupuesto y aun así sacar plata del bolsillo,
+ * si el presupuesto ya era más alto que el precio.
+ *
+ * Ahora pregunta las dos cosas, y no alarma sobre OTs sin costo real cargado:
+ * ahí el margen aritmético es 100% y gritar "excelente" sería tan falso como
+ * gritar "pérdida".
+ */
 export async function GET(_req: NextRequest) {
   const auth = await requireAuth([...OPS]);
   if (isAuthError(auth)) return auth;
 
-  const threshold = await readThreshold();
+  const [overrunPct, minMarginPct] = await Promise.all([readThreshold(), readMarginFloor()]);
 
-  const { data, error } = await supabaseAdmin
-    .from('ot_cost_summary' as any)
-    .select('ot_id, ot_number, client_name, revenue, estimated_cost, actual_cost');
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  const { data: ots, error: otsError } = await supabaseAdmin
+    .from('ots')
+    .select('id, ot_number, client_name, total_price');
+  if (otsError) return NextResponse.json({ error: otsError.message }, { status: 500 });
 
-  const rows = (data ?? []) as unknown as Array<{
-    ot_id: string; ot_number: string; client_name: string | null;
-    revenue: number; estimated_cost: number; actual_cost: number;
-  }>;
+  const otIds = (ots ?? []).map((o) => o.id);
+  const { data: lines, error: linesError } = otIds.length
+    ? await supabaseAdmin
+        .from('ot_cost_lines')
+        .select('ot_id, kind, category, total, source')
+        .in('ot_id', otIds)
+    : { data: [], error: null };
+  if (linesError) return NextResponse.json({ error: linesError.message }, { status: 500 });
 
-  const alerts = rows
-    .map((r) => {
-      const est = Number(r.estimated_cost || 0);
-      const act = Number(r.actual_cost || 0);
-      const overrun_pct = est > 0 ? ((act - est) / est) * 100 : 0;
-      const overrun_amount = act - est;
-      return { ...r, overrun_pct, overrun_amount };
-    })
-    .filter((r) => r.estimated_cost > 0 && r.actual_cost > 0 && r.overrun_pct >= threshold)
-    .sort((a, b) => b.overrun_pct - a.overrun_pct);
+  // Mismo motor que la analítica: una sola verdad de costo, sin lo sembrado.
+  const rollup = rollupCosts((lines ?? []) as CostLine[], (ots ?? []).map((o) => ({
+    ot_id: o.id, ot_number: o.ot_number, client_name: o.client_name, revenue: o.total_price,
+  })));
 
-  return NextResponse.json({ threshold, count: alerts.length, alerts });
+  const alarms = rollup.map((r) =>
+    evaluateAlarm(
+      {
+        ot_id: r.ot_id, ot_number: r.ot_number, client_name: r.client_name,
+        revenue: r.revenue, estimated_cost: r.estimated_cost,
+        actual_cost: r.actual_cost, unreliable: r.unreliable,
+      },
+      { overrunPct, minMarginPct }
+    )
+  );
+
+  const accionables = actionableAlarms(alarms);
+
+  return NextResponse.json({
+    thresholds: { overrunPct, minMarginPct },
+    // Compatibilidad con quien ya leía `threshold` y `alerts`.
+    threshold: overrunPct,
+    count: accionables.length,
+    alerts: accionables,
+    summary: summarizeAlarms(alarms),
+  });
 }
 
-const PatchSchema = z.object({ threshold: z.coerce.number().min(0).max(500) });
+const PatchSchema = z.object({
+  threshold: z.coerce.number().min(0).max(500).optional(),
+  min_margin_pct: z.coerce.number().min(0).max(100).optional(),
+});
 
-// PATCH /api/cost-alerts — set the overrun threshold (admin/manager).
+/** PATCH — umbral de sobrecosto y/o piso de margen (admin/manager). */
 export async function PATCH(req: NextRequest) {
   const auth = await requireAuth(['admin', 'manager']);
   if (isAuthError(auth)) return auth;
 
   const parsed = PatchSchema.safeParse(await req.json().catch(() => null));
-  if (!parsed.success) return NextResponse.json({ error: 'Umbral inválido' }, { status: 400 });
+  if (!parsed.success || (parsed.data.threshold == null && parsed.data.min_margin_pct == null)) {
+    return NextResponse.json(
+      { error: 'Envía al menos uno: threshold (% de sobrecosto) o min_margin_pct (piso de margen).' },
+      { status: 400 }
+    );
+  }
+
+  const rows: Array<{ key: string; value: number }> = [];
+  if (parsed.data.threshold != null) rows.push({ key: THRESHOLD_KEY, value: parsed.data.threshold });
+  if (parsed.data.min_margin_pct != null) rows.push({ key: MARGIN_FLOOR_KEY, value: parsed.data.min_margin_pct });
 
   const { error } = await supabaseAdmin
-    .from('app_settings' as any)
-    .upsert({ key: THRESHOLD_KEY, value: parsed.data.threshold } as any, { onConflict: 'key' });
+    .from('app_settings')
+    .upsert(rows as never, { onConflict: 'key' });
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ threshold: parsed.data.threshold });
+  return NextResponse.json({
+    threshold: parsed.data.threshold ?? (await readThreshold()),
+    min_margin_pct: parsed.data.min_margin_pct ?? (await readMarginFloor()),
+  });
 }

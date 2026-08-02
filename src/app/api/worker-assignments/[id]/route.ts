@@ -5,12 +5,21 @@ import { supabaseAdmin } from '@/integrations/supabase/server';
 
 export const dynamic = 'force-dynamic';
 
-const UpdateAssignmentSchema = z.object({
-  employee_id: z.string().uuid().optional(),
-  workstation_id: z.string().uuid().optional(),
-  role: z.string().min(1).optional(),
-  ot_id: z.string().uuid().nullable().optional(),
-});
+// Igual que en la ruta de creación: `workstation_id` se sigue aceptando porque
+// es el vocabulario del piso, pero desde la fusión ese puesto ES la máquina y el
+// valor termina en `machine_id`.
+const UpdateAssignmentSchema = z
+  .object({
+    employee_id: z.string().uuid().optional(),
+    workstation_id: z.string().uuid().optional(),
+    machine_id: z.string().uuid().optional(),
+    role: z.string().min(1).optional(),
+    ot_id: z.string().uuid().nullable().optional(),
+  })
+  .transform(({ workstation_id, ...rest }) => {
+    const machine_id = rest.machine_id ?? workstation_id;
+    return machine_id ? { ...rest, machine_id } : rest;
+  });
 
 interface RouteParams {
   params: Promise<{ id: string }>;

@@ -1,8 +1,9 @@
 'use client';
 
 import { useState } from 'react';
-import { BarChart3 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { BarChart3, Loader2 } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { HEADER_ICON, HEADER_ICON_BUTTON } from '@/components/shell/header-controls';
 import { useToast } from '@/hooks/use-toast';
 
 export function ReportingQuickActions({ isAdmin }: { isAdmin: boolean }) {
@@ -32,15 +33,25 @@ export function ReportingQuickActions({ isAdmin }: { isAdmin: boolean }) {
   };
 
   return (
-    <Button
-      variant="outline"
-      size="sm"
-      className="h-8"
-      onClick={generateSnapshot}
-      disabled={loading}
-    >
-      <BarChart3 className="h-4 w-4 mr-1" />
-      {loading ? 'Generando...' : 'Generar Snapshot'}
-    </Button>
+    <Tooltip delayDuration={200}>
+      <TooltipTrigger asChild>
+        <button
+          type="button"
+          onClick={generateSnapshot}
+          disabled={loading}
+          aria-label="Generar snapshot de KPIs"
+          className={HEADER_ICON_BUTTON}
+        >
+          {loading ? (
+            <Loader2 className={`${HEADER_ICON} animate-spin`} />
+          ) : (
+            <BarChart3 className={HEADER_ICON} />
+          )}
+        </button>
+      </TooltipTrigger>
+      <TooltipContent side="bottom">
+        {loading ? 'Generando snapshot…' : 'Generar snapshot de KPIs'}
+      </TooltipContent>
+    </Tooltip>
   );
 }

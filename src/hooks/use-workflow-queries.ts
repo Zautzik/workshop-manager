@@ -22,7 +22,6 @@ export const queryKeys = {
 
 const OT_SELECT = `
   *,
-  workstation:workstations(*),
   machine:machines!assigned_machine_id(id,name,brand,model,type,status,location,colors,nominal_speed_sheets_hr,power_kw)
 ` as const;
 
@@ -403,7 +402,7 @@ export function useWorkerAssignments(date?: string) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('worker_assignments')
-        .select('*, employee:employees(*), workstation:workstations(*), shift:shifts(*)')
+        .select('*, employee:employees(*), workstation:machines!machine_id(*), shift:shifts(*)')
         .eq('date', dateValue);
       if (error) throw error;
       return (data ?? []).map((assignment: any) => ({

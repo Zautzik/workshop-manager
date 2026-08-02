@@ -60,18 +60,27 @@ export function useEquipmentInvestments() {
   });
 }
 
+/**
+ * `ot_financials` quedó MIGRADA a `ot_cost_lines` (P1 de la auditoría de
+ * Analítica, 2026-08). Tenía 85 filas, ningún endpoint la escribía, y discrepaba
+ * con la vista oficial en 85 de 85 OTs — no porque se contradijeran, sino porque
+ * el ledger estaba casi vacío de líneas 'actual' y ella no.
+ *
+ * Este hook ahora es un alias de la puerta única. Se conserva el nombre para no
+ * romper a quien lo importe, pero ya no toca la tabla vieja.
+ */
 export function useOTFinancials() {
-  return useQuery({
-    queryKey: queryKeys.otFinancials,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('ot_financials')
-        .select('*, ot:ots(ot_number, client_name)')
-        .order('created_at', { ascending: false });
-      if (error) throw error;
-      return data ?? [];
-    },
-  });
+  return useOtCostSummary();
+}
+
+export interface CostProvenance {
+  realLines: number;
+  legacyLines: number;
+  seedLines: number;
+  estimateLines: number;
+  /** 0–100: cuánto del costo real no viene de una migración. */
+  confidence: number;
+  label: string;
 }
 
 export interface OtCostSummaryRow {
@@ -86,17 +95,49 @@ export interface OtCostSummaryRow {
   machine_actual: number;
   other_actual: number;
   gross_margin: number;
+  margin_pct: number | null;
+  /** De dónde salió cada peso. Un margen sin esto es una opinión. */
+  provenance: CostProvenance;
+  /** El margen existe pero no sirve para decidir precios. */
+  unreliable: boolean;
 }
 
-/** Unified cost ledger roll-up per OT (estimate vs actual vs revenue). */
-export function useOtCostSummary() {
+export interface OtCostTotals {
+  ots_total: number;
+  ots_confiables: number;
+  ots_descartadas: number;
+  revenue: number;
+  actual_cost: number;
+  estimated_cost: number;
+  gross_margin: number;
+  margin_pct: number | null;
+  reason: string;
+}
+
+/** Puerta única del costo por OT: ledger unificado con procedencia. */
+export function useOtCostSummary(opts: { includeSeed?: boolean } = {}) {
+  const qs = opts.includeSeed ? '?include_seed=1' : '';
   return useQuery<OtCostSummaryRow[]>({
-    queryKey: ['otCostSummary'],
+    queryKey: ['otCostSummary', !!opts.includeSeed],
     queryFn: async () => {
-      const res = await fetch('/api/ots/cost-summary', { credentials: 'include' });
+      const res = await fetch(`/api/ots/cost-summary${qs}`, { credentials: 'include' });
       if (!res.ok) throw new Error(`Failed to fetch cost summary: ${res.status}`);
       const payload = await res.json();
       return (payload?.data ?? []) as OtCostSummaryRow[];
+    },
+  });
+}
+
+/** Totales del período, con el motivo de qué quedó dentro y qué no. */
+export function useOtCostTotals(opts: { includeSeed?: boolean } = {}) {
+  const qs = opts.includeSeed ? '?include_seed=1' : '';
+  return useQuery<OtCostTotals | null>({
+    queryKey: ['otCostTotals', !!opts.includeSeed],
+    queryFn: async () => {
+      const res = await fetch(`/api/ots/cost-summary${qs}`, { credentials: 'include' });
+      if (!res.ok) throw new Error(`Failed to fetch cost totals: ${res.status}`);
+      const payload = await res.json();
+      return (payload?.totals ?? null) as OtCostTotals | null;
     },
   });
 }
@@ -401,313 +442,47 @@ export interface OrderLaborMarginRow {
   cost_per_hour: number;
 }
 
+/**
+ * Margen laboral por OT.
+ *
+ * Antes esto recalculaba el costo laboral EN EL NAVEGADOR, en 312 líneas sin
+ * un solo test, mientras `labor-attribution.ts` —el motor puro con 20 tests que
+ * resuelve el turno sin salida marcada, el cruce de medianoche y la tarifa con
+ * fecha de vigencia— quedaba sin usar. Dos motores de costo laboral: el probado
+ * desconectado, el conectado sin probar.
+ *
+ * Ahora llama a `/api/analytics/labor-margin`, que usa el motor bueno del lado
+ * del servidor. De paso las tarifas por hora dejan de viajar al navegador.
+ */
 export function useOrderLaborMargin(otId?: string, startDate?: string, endDate?: string) {
   const hasValidStartDate = Boolean(startDate && /^\d{4}-\d{2}-\d{2}$/.test(startDate));
   const hasValidEndDate = Boolean(endDate && /^\d{4}-\d{2}-\d{2}$/.test(endDate));
 
-  return useQuery<OrderLaborMarginRow[]>({
+  return useQuery<{ rows: OrderLaborMarginRow[]; diagnostics: LaborDiagnostics }>({
     queryKey: queryKeys.orderLaborMargin(otId, startDate, endDate),
     queryFn: async () => {
-      let otsQuery = supabase.from('ots').select('id, ot_number, client_name, created_at, completed_at');
+      const qs = new URLSearchParams();
+      if (otId) qs.set('ot_id', otId);
+      if (hasValidStartDate) qs.set('from', startDate!);
+      if (hasValidEndDate) qs.set('to', endDate!);
 
-      if (otId) {
-        otsQuery = otsQuery.eq('id', otId);
-      }
-
-      const { data: rawOts, error: otsError } = await otsQuery;
-      if (otsError) throw otsError;
-
-      const normalizedOts = (rawOts ?? []).map((ot: any) => {
-        const orderDate = ot?.order_date
-          ? String(ot.order_date)
-          : ot?.created_at
-            ? String(ot.created_at).slice(0, 10)
-            : null;
-        const completionDate = ot?.completion_date
-          ? String(ot.completion_date)
-          : ot?.completed_at
-            ? String(ot.completed_at).slice(0, 10)
-            : null;
-        return {
-          ...ot,
-          order_date: orderDate,
-          completion_date: completionDate,
-        };
-      });
-
-      const filteredOts = normalizedOts.filter((ot: any) => {
-        const orderDate = ot?.order_date ? String(ot.order_date) : null;
-        const completionDate = ot?.completion_date ? String(ot.completion_date) : null;
-
-        if (hasValidStartDate && startDate && orderDate && orderDate < startDate) {
-          return false;
-        }
-
-        if (hasValidEndDate && endDate) {
-          if (completionDate) {
-            if (completionDate > endDate) return false;
-          } else if (orderDate && orderDate > endDate) {
-            return false;
-          }
-        }
-
-        return true;
-      });
-
-      if (filteredOts.length === 0) return [];
-
-      const otIds = filteredOts.map((ot: any) => ot.id).filter(Boolean);
-
-      const { data: otFinancials } = await supabase.from('ot_financials').select('ot_id, revenue').in('ot_id', otIds);
-      const revenueByOt = new Map<string, number>();
-      (otFinancials ?? []).forEach((row: any) => {
-        if (!row?.ot_id) return;
-        revenueByOt.set(row.ot_id, Number(row?.revenue || 0));
-      });
-
-      let assignmentsQuery = supabase
-        .from('worker_assignments')
-        .select('ot_id, employee_id, worker_id, date, role, shift:shifts(start_time, end_time)')
-        .in('ot_id', otIds);
-
-      if (hasValidStartDate && startDate) {
-        assignmentsQuery = assignmentsQuery.gte('date', startDate);
-      }
-      if (hasValidEndDate && endDate) {
-        assignmentsQuery = assignmentsQuery.lte('date', endDate);
-      }
-
-      const [assignmentsRes, employeesRes, compensationRes, incentivesRes] = await Promise.all([
-        assignmentsQuery,
-        supabase.from('employees').select('id, worker_legacy_id'),
-        supabase
-          .from('compensation_rates')
-          .select(
-            'employee_id, hourly_rate, overtime_multiplier_50, overtime_multiplier_100, night_shift_multiplier, weekend_multiplier, effective_from, effective_to'
-          ),
-        supabase
-          .from('employee_incentives')
-          .select('employee_id, amount, status, awarded_date')
-          .in('status', ['approved', 'paid'])
-          .gte('awarded_date', hasValidStartDate && startDate ? startDate : '1900-01-01')
-          .lte('awarded_date', hasValidEndDate && endDate ? endDate : '2999-12-31'),
-      ]);
-
-      if (assignmentsRes.error) throw assignmentsRes.error;
-      if (employeesRes.error) throw employeesRes.error;
-      if (compensationRes.error) throw compensationRes.error;
-      if (incentivesRes.error) throw incentivesRes.error;
-
-      const assignments = assignmentsRes.data ?? [];
-      const employees = employeesRes.data ?? [];
-      const compensationRates = compensationRes.data ?? [];
-      const incentives = incentivesRes.data ?? [];
-
-      const employeeById = new Map<string, any>();
-      const employeeByLegacyId = new Map<string, any>();
-      employees.forEach((employee: any) => {
-        if (employee?.id) {
-          employeeById.set(String(employee.id), employee);
-        }
-        if (employee?.worker_legacy_id && employee?.id) {
-          employeeByLegacyId.set(String(employee.worker_legacy_id), employee);
-        }
-      });
-
-      const ratesByEmployee = new Map<string, any[]>();
-      compensationRates.forEach((rate: any) => {
-        if (!rate?.employee_id) return;
-        const list = ratesByEmployee.get(rate.employee_id) || [];
-        list.push(rate);
-        ratesByEmployee.set(rate.employee_id, list);
-      });
-
-      ratesByEmployee.forEach((rates) => {
-        rates.sort((a, b) => String(b?.effective_from || '').localeCompare(String(a?.effective_from || '')));
-      });
-
-      const findRateForDate = (employeeId: string, assignmentDate: string) => {
-        const rates = ratesByEmployee.get(employeeId) || [];
-        return rates.find((rate: any) => {
-          const from = String(rate?.effective_from || '0000-01-01');
-          const to = rate?.effective_to ? String(rate.effective_to) : null;
-          return from <= assignmentDate && (!to || to >= assignmentDate);
-        });
+      const res = await fetch(`/api/analytics/labor-margin?${qs}`, { credentials: 'include' });
+      if (!res.ok) throw new Error(`Failed to fetch labor margin: ${res.status}`);
+      const payload = await res.json();
+      return {
+        rows: (payload?.rows ?? []) as OrderLaborMarginRow[],
+        diagnostics: (payload?.diagnostics ?? { blocked: false, reasons: [] }) as LaborDiagnostics,
       };
-
-      const incentivesByEmployeeDate = new Map<string, number>();
-      incentives.forEach((incentive: any) => {
-        const employeeId = incentive?.employee_id;
-        const awardedDate = incentive?.awarded_date;
-        if (!employeeId || !awardedDate) return;
-        const key = `${employeeId}:${awardedDate}`;
-        incentivesByEmployeeDate.set(key, (incentivesByEmployeeDate.get(key) || 0) + Number(incentive?.amount || 0));
-      });
-
-      const toMinutes = (timeValue?: string | null) => {
-        if (!timeValue) return 0;
-        const [hours, minutes] = String(timeValue).split(':').map(Number);
-        return (Number.isNaN(hours) ? 0 : hours) * 60 + (Number.isNaN(minutes) ? 0 : minutes);
-      };
-
-      const getShiftHours = (shift: any) => {
-        const startMinutes = toMinutes(shift?.start_time);
-        const endMinutes = toMinutes(shift?.end_time);
-        let durationMinutes = endMinutes - startMinutes;
-        if (durationMinutes <= 0) durationMinutes += 24 * 60;
-        return durationMinutes / 60;
-      };
-
-      const isNightShift = (shift: any) => {
-        const startMinutes = toMinutes(shift?.start_time);
-        const endMinutes = toMinutes(shift?.end_time);
-        const nightStart = 20 * 60;
-        const nightEnd = 6 * 60;
-        return startMinutes >= nightStart || startMinutes < nightEnd || endMinutes >= nightStart || endMinutes < nightEnd;
-      };
-
-      const rowsByOt = new Map<
-        string,
-        {
-          base_labor_cost: number;
-          overtime_premium: number;
-          night_differential: number;
-          weekend_differential: number;
-          total_labor_cost: number;
-          incentive_cost: number;
-          labor_hours: number;
-          overtime_hours: number;
-        }
-      >();
-
-      const incentiveAppliedPerOtEmployeeDate = new Set<string>();
-      const unresolvedAssignments: string[] = [];
-      const assignmentsMissingRate: string[] = [];
-
-      assignments.forEach((assignment: any) => {
-        const orderId = assignment?.ot_id;
-        if (!orderId) return;
-
-        const employeeId = resolveAssignmentEmployeeId(assignment, employeeById, employeeByLegacyId);
-        if (!employeeId || !assignment?.date) {
-          unresolvedAssignments.push(
-            `${orderId}|${assignment?.date || 'unknown-date'}|emp:${assignment?.employee_id || 'null'}|worker:${assignment?.worker_id || 'null'}`
-          );
-          return;
-        }
-
-        const rate = findRateForDate(employeeId, String(assignment.date));
-        if (!rate) {
-          assignmentsMissingRate.push(`${orderId}|${assignment.date}|emp:${employeeId}`);
-          return;
-        }
-        const hourlyRate = Number(rate?.hourly_rate || 0);
-        const overtimeMultiplier50 = Number(rate?.overtime_multiplier_50 || 1.5);
-        const overtimeMultiplier100 = Number(rate?.overtime_multiplier_100 || 2);
-        const nightMultiplier = Number(rate?.night_shift_multiplier || 1);
-        const weekendMultiplier = Number(rate?.weekend_multiplier || 1);
-
-        const hours = getShiftHours(assignment.shift);
-        const isOvertime = String(assignment?.role || '').toLowerCase().includes('overtime');
-        const isOT100 = String(assignment?.role || '').includes('100');
-        const weekend = [0, 6].includes(new Date(String(assignment.date)).getDay());
-        const night = isNightShift(assignment.shift);
-
-        const baseCost = isOvertime ? 0 : hours * hourlyRate;
-        const overtimeCost = isOvertime
-          ? hours * hourlyRate * (isOT100 ? overtimeMultiplier100 : overtimeMultiplier50)
-          : 0;
-        const nightDiff = night ? hours * hourlyRate * Math.max(0, nightMultiplier - 1) : 0;
-        const weekendDiff = weekend ? hours * hourlyRate * Math.max(0, weekendMultiplier - 1) : 0;
-
-        const existing = rowsByOt.get(orderId) || {
-          base_labor_cost: 0,
-          overtime_premium: 0,
-          night_differential: 0,
-          weekend_differential: 0,
-          total_labor_cost: 0,
-          incentive_cost: 0,
-          labor_hours: 0,
-          overtime_hours: 0,
-        };
-
-        existing.base_labor_cost += baseCost;
-        existing.overtime_premium += overtimeCost;
-        existing.night_differential += nightDiff;
-        existing.weekend_differential += weekendDiff;
-        existing.total_labor_cost += baseCost + overtimeCost + nightDiff + weekendDiff;
-        existing.labor_hours += hours;
-        if (isOvertime) existing.overtime_hours += hours;
-
-        const incentiveKey = `${orderId}:${employeeId}:${assignment.date}`;
-        if (!incentiveAppliedPerOtEmployeeDate.has(incentiveKey)) {
-          const incentiveAmount = incentivesByEmployeeDate.get(`${employeeId}:${assignment.date}`) || 0;
-          existing.incentive_cost += incentiveAmount;
-          incentiveAppliedPerOtEmployeeDate.add(incentiveKey);
-        }
-
-        rowsByOt.set(orderId, existing);
-      });
-
-      // Resilient: skip unmappable/unpriced assignments instead of aborting.
-      if (unresolvedAssignments.length > 0) {
-        console.warn(
-          `Order labor margin: skipped ${unresolvedAssignments.length} assignment(s) not mapped to an employee. Example: ${unresolvedAssignments[0]}`
-        );
-      }
-
-      if (assignmentsMissingRate.length > 0) {
-        console.warn(
-          `Order labor margin: skipped ${assignmentsMissingRate.length} assignment(s) with no active compensation rate. Example: ${assignmentsMissingRate[0]}`
-        );
-      }
-
-      return filteredOts
-        .map((ot: any) => {
-          const costs = rowsByOt.get(ot.id) || {
-            base_labor_cost: 0,
-            overtime_premium: 0,
-            night_differential: 0,
-            weekend_differential: 0,
-            total_labor_cost: 0,
-            incentive_cost: 0,
-            labor_hours: 0,
-            overtime_hours: 0,
-          };
-
-          const revenue = revenueByOt.has(ot.id) ? Number(revenueByOt.get(ot.id) || 0) : Number(ot?.revenue || 0);
-          const totalCost = costs.total_labor_cost + costs.incentive_cost;
-          const grossMargin = revenue - totalCost;
-          const marginPercentage = revenue > 0 ? (grossMargin / revenue) * 100 : 0;
-          const costPerHour = costs.labor_hours > 0 ? costs.total_labor_cost / costs.labor_hours : 0;
-
-          return {
-            ot_id: ot.id,
-            ot_number: ot.ot_number,
-            client_name: ot.client_name,
-            order_date: ot.order_date,
-            completion_date: ot.completion_date,
-            revenue,
-            base_labor_cost: costs.base_labor_cost,
-            overtime_premium: costs.overtime_premium,
-            night_differential: costs.night_differential,
-            weekend_differential: costs.weekend_differential,
-            total_labor_cost: costs.total_labor_cost,
-            incentive_cost: costs.incentive_cost,
-            total_cost: totalCost,
-            gross_margin: grossMargin,
-            margin_percentage: marginPercentage,
-            labor_hours: costs.labor_hours,
-            overtime_hours: costs.overtime_hours,
-            cost_per_hour: costPerHour,
-          } as OrderLaborMarginRow;
-        })
-        .sort((a, b) => {
-          const dateDiff = String(b.order_date || '').localeCompare(String(a.order_date || ''));
-          if (dateDiff !== 0) return dateDiff;
-          return String(a.ot_number || '').localeCompare(String(b.ot_number || ''));
-        });
     },
-    enabled: hasValidStartDate && hasValidEndDate,
   });
+}
+
+/** Por qué no hay margen laboral, cuando no lo hay. */
+export interface LaborDiagnostics {
+  assignments_total: number;
+  assignments_with_ot: number;
+  clock_events: number;
+  rates: number;
+  blocked: boolean;
+  reasons: string[];
 }

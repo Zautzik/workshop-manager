@@ -94,7 +94,7 @@ export async function GET(req: NextRequest) {
         quantity, color_front, color_back,
         status, deadline, proceso_actual,
         flag_ord, flag_pro, flag_vbp, flag_plan, flag_paper_arrived,
-        workstation:workstations(id, name),
+        workstation:machines!machine_id(id, name),
         machine:machines!assigned_machine_id(id, name, type)
       `)
       .in('status', ACTIVE_OT_STATUSES as any)

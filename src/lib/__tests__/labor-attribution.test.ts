@@ -23,15 +23,15 @@ const clock = (
   employee_id: string,
   event_type: 'clock_in' | 'clock_out',
   at: string,
-  station_id: string | null = STATION
-): ClockEvent => ({ employee_id, event_type, at, station_id });
+  machine_id: string | null = STATION
+): ClockEvent => ({ employee_id, event_type, at, machine_id });
 
 const assignment = (
   employee_id: string,
-  workstation_id: string,
+  machine_id: string,
   ot_id: string | null,
   date = DATE
-): AssignmentRow => ({ employee_id, workstation_id, ot_id, date });
+): AssignmentRow => ({ employee_id, machine_id, ot_id, date });
 
 const rate = (employee_id: string, hourly_rate: number, extra: Partial<RateRow> = {}): RateRow => ({
   employee_id,
@@ -76,9 +76,9 @@ describe('pairClockEvents', () => {
     ]);
 
     expect(intervals).toHaveLength(2);
-    expect(intervals[0].station_id).toBe(STATION);
+    expect(intervals[0].machine_id).toBe(STATION);
     expect(intervals[0].hours).toBe(3);
-    expect(intervals[1].station_id).toBe(STATION2);
+    expect(intervals[1].machine_id).toBe(STATION2);
     expect(intervals[1].hours).toBe(3);
   });
 

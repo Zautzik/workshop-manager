@@ -23,12 +23,16 @@ export function OrderLaborMarginAnalysis() {
   const endDate = endOfMonth(new Date());
   const startDate = startOfMonth(subMonths(endDate, rangeMonths - 1));
 
-  // Fetch margin data
-  const { data: margins, isLoading: marginsLoading } = useOrderLaborMargin(
+  // El endpoint devuelve las filas Y el diagnóstico de por qué no hay filas,
+  // cuando no las hay. Mostrar "sin datos disponibles" y callarse deja al
+  // usuario adivinando si el período está vacío o si algo está roto.
+  const { data: marginData, isLoading: marginsLoading } = useOrderLaborMargin(
     selectedOtId === 'all' ? undefined : selectedOtId,
     format(startDate, 'yyyy-MM-dd'),
     format(endDate, 'yyyy-MM-dd')
   );
+  const margins = marginData?.rows;
+  const diagnostics = marginData?.diagnostics;
 
   // Calculate summary stats
   const summary = margins?.reduce(
@@ -204,8 +208,25 @@ export function OrderLaborMarginAnalysis() {
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
             </div>
           ) : !margins || margins.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              {t('common.noDataAvailable') || 'No margin data available for selected period'}
+            <div className="mx-auto max-w-xl py-8 text-center">
+              {diagnostics?.blocked && diagnostics.reasons.length > 0 ? (
+                <>
+                  <p className="font-medium text-foreground">
+                    No se puede calcular el margen laboral todavía
+                  </p>
+                  {diagnostics.reasons.map((r) => (
+                    <p key={r} className="mt-2 text-sm text-muted-foreground">{r}</p>
+                  ))}
+                  <p className="mt-3 font-mono text-xs text-muted-foreground">
+                    {diagnostics.assignments_with_ot} de {diagnostics.assignments_total} partes con OT ·{' '}
+                    {diagnostics.clock_events} marcas de reloj · {diagnostics.rates} tarifas
+                  </p>
+                </>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  No hay horas atribuidas a ninguna OT en el período elegido.
+                </p>
+              )}
             </div>
           ) : (
             <div className="overflow-x-auto">

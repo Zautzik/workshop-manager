@@ -8,23 +8,22 @@ export const dynamic = 'force-dynamic';
 
 /** Junta los datos crudos que la función pura necesita. */
 async function cargar() {
-  const [{ data: asignaciones }, { data: puestos }, { data: requisitos }, { data: niveles }, { data: actuales }, { data: empleados }] =
+  // La asignación ya trae la máquina. Antes había que pasar por `workstations`
+  // para traducir puesto → máquina; ese salto desapareció con la fusión.
+  const [{ data: asignaciones }, { data: requisitos }, { data: niveles }, { data: actuales }, { data: empleados }] =
     await Promise.all([
-      supabaseAdmin.from('worker_assignments').select('employee_id, workstation_id, date, hours_worked'),
-      supabaseAdmin.from('workstations').select('id, machine_id'),
+      supabaseAdmin.from('worker_assignments').select('employee_id, machine_id, date, hours_worked'),
       supabaseAdmin.from('machine_skill_requirements').select('machine_id, skill_id, skills ( name, skill_tree_type )'),
       supabaseAdmin.from('skill_proficiency_levels').select('skill_id, level, min_hours_required'),
       supabaseAdmin.from('employee_skills').select('employee_id, skill_id, proficiency_level, hours_practiced, certified'),
       supabaseAdmin.from('employees').select('id, full_name, status'),
     ]);
 
-  const machineByStation = new Map((puestos ?? []).map((w) => [w.id, w.machine_id]));
-
   const assignments: AssignmentHours[] = (asignaciones ?? [])
     .filter((a) => a.employee_id && a.hours_worked)
     .map((a) => ({
       employee_id: a.employee_id as string,
-      machine_id: machineByStation.get(a.workstation_id) ?? '',
+      machine_id: (a.machine_id as string | null) ?? '',
       hours: Number(a.hours_worked),
       date: a.date,
     }))
