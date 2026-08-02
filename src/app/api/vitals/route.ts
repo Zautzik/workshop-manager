@@ -31,8 +31,8 @@ export async function GET(_req: NextRequest) {
     employeesRes, assignmentsRes, whatsappRes, machinesRes, notificationsRes,
     lotsRes, itemsRes,
   ] = await Promise.allSettled([
-    supabaseAdmin.from('employees').select('id, worker_legacy_id'),
-    supabaseAdmin.from('worker_assignments').select('employee_id, worker_id, date').gte('date', since30Date).limit(8000),
+    supabaseAdmin.from('employees').select('id'),
+    supabaseAdmin.from('worker_assignments').select('employee_id, date').gte('date', since30Date).limit(8000),
     supabaseAdmin.from('whatsapp_production_logs').select('review_status, created_at, operator_phone').gte('created_at', since30).limit(4000),
     supabaseAdmin.from('machines').select('status, updated_at'),
     supabaseAdmin.from('notifications').select('created_at').gte('created_at', new Date(Date.now() - 7 * DAY).toISOString()).limit(2000),
@@ -43,8 +43,8 @@ export async function GET(_req: NextRequest) {
   const val = <T,>(r: PromiseSettledResult<{ data: T[] | null }>): T[] =>
     r.status === 'fulfilled' ? (r.value.data ?? []) : [];
 
-  const employees = val<{ id: string; worker_legacy_id: string | null }>(employeesRes);
-  const assignments = val<{ employee_id: string | null; worker_id: string | null; date: string }>(assignmentsRes);
+  const employees = val<{ id: string }>(employeesRes);
+  const assignments = val<{ employee_id: string | null; date: string }>(assignmentsRes);
   const whatsapp = val<{ review_status: string | null; created_at: string; operator_phone: string | null }>(whatsappRes);
   const machines = val<{ status: string | null; updated_at: string | null }>(machinesRes);
   const notifications = val<{ created_at: string }>(notificationsRes);
@@ -52,10 +52,12 @@ export async function GET(_req: NextRequest) {
   const items = val<{ id: string; is_certification_required: boolean | null }>(itemsRes);
 
   // ── 🩸 Circulación — artery patency: do assignments resolve to an employee? ──
+  // Antes había que aceptar además el puente `worker_id → worker_legacy_id`,
+  // porque media planilla venía de la tabla duplicada de operarios. Retirada
+  // esa tabla, una asignación resuelve o no resuelve: no hay segunda vía.
   const empIds = new Set(employees.map((e) => e.id));
-  const legacyIds = new Set(employees.filter((e) => e.worker_legacy_id).map((e) => String(e.worker_legacy_id)));
-  const resolvable = (a: { employee_id: string | null; worker_id: string | null }) =>
-    (a.employee_id && empIds.has(a.employee_id)) || (a.worker_id && legacyIds.has(String(a.worker_id)));
+  const resolvable = (a: { employee_id: string | null }) =>
+    !!a.employee_id && empIds.has(a.employee_id);
   const totalAssign = assignments.length;
   const resolvedAssign = assignments.filter(resolvable).length;
   const unmappedAssign = totalAssign - resolvedAssign;

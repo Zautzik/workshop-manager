@@ -77,10 +77,9 @@ interface DiagnosticsData {
 	};
 	crossModuleChecks: {
 		machineWorkerNameCollisions: Array<{ id: string; name: string }>;
-		duplicateWorkers: Array<{ name: string; count: number }>;
-		workersWithoutEmployee: Array<{ id: string; name: string }>;
-		orphanAssignments: Array<{ id: string; date: string; role: string }>;
-		brokenEmployeeWorkerLinks: Array<{ id: string; name: string; legacyId: string }>;
+		duplicateEmployees: Array<{ name: string; count: number }>;
+		employeesWithoutAccount: Array<{ id: string; name: string }>;
+		employeesWithoutRate: Array<{ id: string; name: string }>;
 	};
 }
 
@@ -561,39 +560,28 @@ function CoherencePanel({ data }: { data: DiagnosticsData }) {
 			severity: c.machineWorkerNameCollisions.length > 0 ? 'error' : 'ok',
 		},
 		{
-			id: 'duplicate-workers',
-			label: 'Operarios repetidos',
-			description: 'El mismo nombre en más de una ficha de operario — las horas y las competencias se reparten entre las copias',
+			id: 'duplicate-employees',
+			label: 'Personas repetidas',
+			description: 'El mismo nombre en más de una ficha — las horas y las competencias se reparten entre las copias',
 			modules: 'Personas interno',
-			items: c.duplicateWorkers.map(w => ({ label: w.name, detail: `${w.count} fichas` })),
-			severity: c.duplicateWorkers.length > 0 ? 'error' : 'ok',
+			items: c.duplicateEmployees.map(e => ({ label: e.name, detail: `${e.count} fichas` })),
+			severity: c.duplicateEmployees.length > 0 ? 'error' : 'ok',
 		},
 		{
-			id: 'workers-without-employee',
-			label: 'Operarios sin ficha de empleado',
-			description: 'Sin empleado enlazado no tienen sueldo ni competencias, así que su costo de mano de obra vale cero',
-			modules: 'Operarios → Personas',
-			items: c.workersWithoutEmployee.map(w => ({ label: w.name })),
-			severity: c.workersWithoutEmployee.length > 0 ? 'warning' : 'ok',
+			id: 'employees-without-rate',
+			label: 'Personas vigentes sin tarifa',
+			description: 'Primer eslabón del hilo dorado roto: sin tarifa sus horas cuestan cero y toda OT en la que trabajen sale más barata de lo que es',
+			modules: 'Personas → Costos',
+			items: c.employeesWithoutRate.map(e => ({ label: e.name })),
+			severity: c.employeesWithoutRate.length > 0 ? 'error' : 'ok',
 		},
 		{
-			id: 'orphan-assignments',
-			label: 'Asignaciones sin empleado',
-			description: 'No resuelven a nadie: no acumulan horas ni competencias. Son anteriores al control de cumplimiento, que hoy las rechazaría',
-			modules: 'Planta → Personas',
-			items: c.orphanAssignments.map(a => ({ label: a.date, detail: a.role })),
-			severity: c.orphanAssignments.length > 0 ? 'error' : 'ok',
-		},
-		{
-			id: 'broken-employee-worker-links',
-			label: 'Links Empleado ↔ Operario rotos',
-			description: 'Empleados con worker_legacy_id apuntando a un operario que no existe',
-			modules: 'Personas → Operarios',
-			items: c.brokenEmployeeWorkerLinks.map(e => ({
-				label: e.name,
-				detail: `legacy: ${e.legacyId.slice(0, 8)}…`,
-			})),
-			severity: c.brokenEmployeeWorkerLinks.length > 0 ? 'error' : 'ok',
+			id: 'employees-without-account',
+			label: 'Personas vigentes sin cuenta',
+			description: 'No pueden entrar a la app, así que no registran nada por sí mismas: alguien marca y captura por ellas',
+			modules: 'Personas → Acceso',
+			items: c.employeesWithoutAccount.map(e => ({ label: e.name })),
+			severity: c.employeesWithoutAccount.length > 0 ? 'warning' : 'ok',
 		},
 	];
 
@@ -755,10 +743,9 @@ export default function AppDiagnostics() {
 						const c = data.crossModuleChecks;
 						const issues =
 							c.machineWorkerNameCollisions.length +
-							c.duplicateWorkers.length +
-							c.workersWithoutEmployee.length +
-							c.orphanAssignments.length +
-							c.brokenEmployeeWorkerLinks.length;
+							c.duplicateEmployees.length +
+							c.employeesWithoutAccount.length +
+							c.employeesWithoutRate.length;
 						return issues > 0 ? (
 							<>
 								<span className="mx-2 text-border">|</span>

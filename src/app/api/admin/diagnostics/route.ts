@@ -39,7 +39,7 @@ export async function GET() {
 		accessLogs,
 		authUsersResult,
 		allWorkers,
-		assignmentsNoEmployee,
+		compensationRates,
 		employeesWithLegacy,
 	] = await Promise.allSettled([
 		// 1. DB latency
@@ -63,8 +63,8 @@ export async function GET() {
 			.select('id', { count: 'exact', head: true })
 			.eq('status', 'active'),
 
-		// 5. Worker count
-		supabaseAdmin.from('workers')
+		// 5. Total de personas en la ficha única (antes se contaba `workers`)
+		supabaseAdmin.from('employees')
 			.select('id', { count: 'exact', head: true }),
 
 		// 6. WhatsApp log stats last 14 days (group by review_status)
@@ -93,16 +93,17 @@ export async function GET() {
 		// 10. Auth users list
 		supabaseAdmin.auth.admin.listUsers({ perPage: 200 }),
 
-		// 11. All worker names (cross-module: Planta↔Personas name collision)
-		supabaseAdmin.from('workers').select('id,name'),
+		// 11. Nombres de la planilla (cross-module: Planta↔Personas name collision)
+		supabaseAdmin.from('employees').select('id,full_name'),
 
-		// 12. Asignaciones sin empleado resuelto (cross-module: Planta↔Personas)
-		supabaseAdmin.from('worker_assignments').select('id,employee_id,worker_id,date,role'),
+		// 12. Tarifas vigentes (cross-module: Personas → costo de mano de obra)
+		supabaseAdmin.from('compensation_rates').select('employee_id'),
 
-		// 13. Employees with worker_legacy_id set (cross-module: broken link check)
+		// 13. Empleados sin cuenta de acceso: existen en la ficha pero no pueden
+		//     entrar a la app, así que no pueden registrar nada por sí mismos.
 		supabaseAdmin.from('employees')
-			.select('id,full_name,worker_legacy_id')
-			.not('worker_legacy_id', 'is', null),
+			.select('id,full_name,status,user_id')
+			.eq('status', 'active'),
 	]);
 
 	// ── Resolve results safely ───────────────────────────────────────────────
@@ -126,60 +127,52 @@ export async function GET() {
 	}, {});
 
 	// ── Cross-module integrity checks ────────────────────────────────────────
-	const workerRows2 =
+	// Con `workers` retirada, los chequeos que medían la duplicación entre las
+	// dos tablas de personas ya no pueden fallar. Se sustituyen por los cortes
+	// del hilo dorado que sí siguen siendo posibles sobre la ficha única.
+	const employeeRows =
 		allWorkers.status === 'fulfilled' ? (allWorkers.value.data ?? []) : [];
-	const legacyEmployeeRows =
+	const activeEmployees =
 		employeesWithLegacy.status === 'fulfilled' ? (employeesWithLegacy.value.data ?? []) : [];
 
-	// Check 1: machines whose name matches a worker name (Planta ↔ Personas)
-	const workerNameSet = new Set(
-		workerRows2.map((w: any) => (w.name ?? '').toLowerCase().trim()),
+	// Check 1: máquinas cuyo nombre coincide con el de una persona. Confunde a
+	// cualquiera que lea una asignación: no se sabe si es equipo u operario.
+	const employeeNameSet = new Set(
+		employeeRows.map((e: any) => (e.full_name ?? '').toLowerCase().trim()),
 	);
 	const machineWorkerNameCollisions = machineRows
-		.filter((m: any) => m.name && workerNameSet.has(m.name.toLowerCase().trim()))
+		.filter((m: any) => m.name && employeeNameSet.has(m.name.toLowerCase().trim()))
 		.map((m: any) => ({ id: m.id, name: m.name }));
 
-	// Los tres chequeos que había aquí —nombre de puesto igual al de su máquina,
-	// puestos sin máquina, y máquinas sin puesto— medían el enlace entre
-	// `workstations` y `machines`. Al fusionar las dos tablas ese enlace dejó de
-	// existir, así que no pueden fallar: mantenerlos sería reportar siempre cero
-	// sobre algo que ya no se puede romper. Se reemplazan por los desajustes que
-	// sí siguen vivos entre Planta y Personas.
-
-	// Check 2: operarios repetidos (mismo nombre, distinta fila)
-	const workersByName = new Map<string, { id: string; name: string }[]>();
-	for (const w of workerRows2 as any[]) {
-		const key = (w.name ?? '').toLowerCase().trim();
+	// Check 2: el mismo nombre en más de una ficha. Es la clase de defecto que
+	// tenía `workers` —43 filas para 22 personas— y que ahora sólo puede
+	// aparecer aquí, así que conviene seguir vigilándola.
+	const byName = new Map<string, { id: string; name: string }[]>();
+	for (const e of employeeRows as any[]) {
+		const key = (e.full_name ?? '').toLowerCase().trim();
 		if (!key) continue;
-		workersByName.set(key, [...(workersByName.get(key) ?? []), { id: w.id, name: w.name }]);
+		byName.set(key, [...(byName.get(key) ?? []), { id: e.id, name: e.full_name }]);
 	}
-	const duplicateWorkers = [...workersByName.values()]
+	const duplicateEmployees = [...byName.values()]
 		.filter((rows) => rows.length > 1)
 		.map((rows) => ({ name: rows[0].name as string, count: rows.length }));
 
-	// Check 3: operarios sin ficha de empleado — no tienen sueldo ni competencias,
-	// así que cualquier costo de mano de obra que pase por ellos vale cero.
-	const linkedWorkerIds = new Set(
-		legacyEmployeeRows.map((e: any) => e.worker_legacy_id).filter(Boolean),
+	// Check 3: gente vigente sin cuenta de acceso. No puede entrar a la app, así
+	// que no registra nada por sí misma: alguien marca y captura por ella.
+	const employeesWithoutAccount = (activeEmployees as any[])
+		.filter((e) => !e.user_id)
+		.map((e) => ({ id: e.id, name: e.full_name as string }));
+
+	// Check 4: gente vigente sin tarifa de compensación. Es un corte del hilo
+	// dorado en su primer eslabón —persona → sueldo—: sin tarifa sus horas
+	// cuestan cero y toda OT en la que trabajen sale más barata de lo que es.
+	const ratedEmployeeIds = new Set(
+		(compensationRates.status === 'fulfilled' ? (compensationRates.value.data ?? []) : [])
+			.map((r: any) => r.employee_id),
 	);
-	const workersWithoutEmployee = (workerRows2 as any[])
-		.filter((w) => !linkedWorkerIds.has(w.id))
-		.map((w) => ({ id: w.id, name: w.name as string }));
-
-	// Check 4: asignaciones que no resuelven a ningún empleado. El trigger de
-	// cumplimiento las rechaza hoy, así que son anteriores a él y quedaron
-	// atascadas: no acumulan horas ni competencias para nadie.
-	const assignmentRows =
-		assignmentsNoEmployee.status === 'fulfilled' ? (assignmentsNoEmployee.value.data ?? []) : [];
-	const orphanAssignments = (assignmentRows as any[])
-		.filter((a) => !a.employee_id && !linkedWorkerIds.has(a.worker_id))
-		.map((a) => ({ id: a.id, date: a.date as string, role: a.role as string }));
-
-	// Check 5: employees whose worker_legacy_id points to a non-existent worker
-	const workerIdSet = new Set(workerRows2.map((w: any) => w.id));
-	const brokenEmployeeWorkerLinks = legacyEmployeeRows
-		.filter((e: any) => !workerIdSet.has(e.worker_legacy_id))
-		.map((e: any) => ({ id: e.id, name: e.full_name as string, legacyId: e.worker_legacy_id as string }));
+	const employeesWithoutRate = (activeEmployees as any[])
+		.filter((e) => !ratedEmployeeIds.has(e.id))
+		.map((e) => ({ id: e.id, name: e.full_name as string }));
 
 	// Auth users — strip sensitive fields, keep only what the UI needs
 	const rawUsers =
@@ -238,10 +231,9 @@ export async function GET() {
 		},
 		crossModuleChecks: {
 			machineWorkerNameCollisions,
-			duplicateWorkers,
-			workersWithoutEmployee,
-			orphanAssignments,
-			brokenEmployeeWorkerLinks,
+			duplicateEmployees,
+			employeesWithoutAccount,
+			employeesWithoutRate,
 		},
 	});
 }
