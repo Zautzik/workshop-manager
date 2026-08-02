@@ -1,5 +1,5 @@
 'use client';
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useMemo } from 'react';
 import { otStatusLabel, otStatusBadgeClass } from '@/lib/status-labels';
 import { useActiveOTs, queryKeys } from '@/hooks/use-workflow-queries';
 import { useRealtimeProduction } from '@/hooks/use-realtime-production';
@@ -11,6 +11,13 @@ import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { Printer, Search, RefreshCw, Edit2, Check, X, Wifi, WifiOff } from 'lucide-react';
 import { AdvanceFlags } from '@/components/workflow/AdvanceFlags';
+import { useFulfillment } from '@/hooks/use-dispatch-queries';
+import {
+  DELIVERY_STAGE_LABEL,
+  deliveryProgress,
+  indexByOt,
+  type DeliveryProgress,
+} from '@/lib/delivery-progress';
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -40,6 +47,71 @@ function formatDeadline(deadline?: string | null): string {
 function isOverdue(deadline?: string | null): boolean {
   if (!deadline) return false;
   return new Date(deadline) < new Date();
+}
+
+// ─── Entregado al cliente ───────────────────────────────────────────────────
+
+const STAGE_STYLE: Record<DeliveryProgress['stage'], { bar: string; text: string }> = {
+  sin_datos: { bar: 'bg-muted-foreground/30', text: 'text-muted-foreground' },
+  en_proceso: { bar: 'bg-amber-500',          text: 'text-amber-600 dark:text-amber-400' },
+  parcial:    { bar: 'bg-sky-500',            text: 'text-sky-600 dark:text-sky-400' },
+  completo:   { bar: 'bg-emerald-600',        text: 'text-emerald-600 dark:text-emerald-400' },
+  excedido:   { bar: 'bg-destructive',        text: 'text-destructive' },
+};
+
+const fmt = (n: number) => n.toLocaleString('es-CL');
+
+/**
+ * Una orden grande sale por guías parciales, así que "¿está entregada?" no es
+ * un sí/no. Esta celda muestra las tres cifras que resuelven la pregunta: lo
+ * entregado, lo que sigue en planta, y en cuántas guías salió.
+ */
+function DeliveryCell({ progress }: { progress: DeliveryProgress }) {
+  const { stage, delivered, inProcess, ordered, pct, guides } = progress;
+  const style = STAGE_STYLE[stage];
+
+  if (stage === 'sin_datos') {
+    return <span className="text-base text-muted-foreground italic">Sin despachos</span>;
+  }
+
+  return (
+    <div className="flex flex-col gap-1">
+      <div className="flex items-baseline justify-between gap-2">
+        <span className={`text-sm font-semibold tabular-nums ${style.text}`}>
+          {fmt(delivered)}
+          <span className="text-muted-foreground font-normal"> / {fmt(ordered)}</span>
+        </span>
+        <span className={`text-xs font-semibold tabular-nums ${style.text}`}>{pct}%</span>
+      </div>
+
+      <div
+        className="h-1.5 w-full overflow-hidden rounded-full bg-muted"
+        role="progressbar"
+        aria-valuenow={pct}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-label={`Entregado al cliente: ${pct}%`}
+      >
+        <div className={`h-full rounded-full transition-all ${style.bar}`} style={{ width: `${pct}%` }} />
+      </div>
+
+      {/* Dos líneas en vez de una que se parte sola: a 190px la etiqueta y los
+          dos datos se envolvían dejando separadores huérfanos al inicio. */}
+      <div className="text-xs leading-tight">
+        <div className={`font-medium ${style.text}`}>{DELIVERY_STAGE_LABEL[stage]}</div>
+        {(inProcess > 0 || guides > 0) && (
+          <div className="text-muted-foreground tabular-nums">
+            {[
+              inProcess > 0 ? `${fmt(inProcess)} en planta` : null,
+              guides > 0 ? `${guides} ${guides === 1 ? 'guía' : 'guías'}` : null,
+            ]
+              .filter(Boolean)
+              .join(' · ')}
+          </div>
+        )}
+      </div>
+    </div>
+  );
 }
 
 // ─── Inline editable cell ───────────────────────────────────────────────────
@@ -113,6 +185,10 @@ function InlineEditable({
 
 export function OrdenesEnProceso() {
   const { data: ots = [], isLoading, refetch } = useActiveOTs();
+  // `ot_fulfillment` ya suma las guías de despacho por OT; la vista, la ruta y
+  // este hook existían y sólo los consumía /comercial/despachos.
+  const { data: fulfillment = [] } = useFulfillment();
+  const fulfillmentByOt = useMemo(() => indexByOt(fulfillment), [fulfillment]);
   const { isConnected } = useRealtimeProduction();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('');
@@ -249,13 +325,13 @@ export function OrdenesEnProceso() {
             <table className="w-full text-base border-collapse print:text-xs">
               <thead>
                 <tr className="border-b border-border bg-muted/40 text-muted-foreground text-base uppercase tracking-wide">
-                  <th className="px-2 py-2.5 text-left font-medium w-[180px]" title="Orden confirmada → Prueba lista → Visto Bueno cliente → Programada → Papel en bodega">Avance</th>
+                  <th className="px-2 py-2.5 text-left font-medium w-[210px]" title="Orden confirmada → Prueba lista → Visto Bueno cliente → Programada → Papel en bodega. Debajo, la etapa actual y la nota de avance.">Avance</th>
                   <th className="px-3 py-2.5 text-left font-medium w-[90px]">OT</th>
                   <th className="px-3 py-2.5 text-left font-medium">Cliente</th>
                   <th className="px-3 py-2.5 text-left font-medium">Trabajo</th>
                   <th className="px-3 py-2.5 text-right font-medium w-[70px]">Cant.</th>
                   <th className="px-3 py-2.5 text-center font-medium w-[60px]">Color</th>
-                  <th className="px-3 py-2.5 text-left font-medium min-w-[180px]">Procesos / Avance</th>
+                  <th className="px-3 py-2.5 text-left font-medium w-[190px]" title="Cuánto se despachó al cliente y cuánto sigue en planta">Entregado</th>
                   <th className="px-3 py-2.5 text-right font-medium w-[55px]">HRS</th>
                   <th className="px-3 py-2.5 text-center font-medium w-[80px]">Entrega</th>
                   <th className="px-3 py-2.5 text-left font-medium w-[120px]">MAQ</th>
@@ -277,13 +353,29 @@ export function OrdenesEnProceso() {
                           !(ot as any).flag_paper_arrived ? 'bg-amber-500/5' : idx % 2 === 0 ? '' : 'bg-muted/10'
                       }`}
                     >
-                        {/* AVANCE — one control instead of 5 independent pills */}
-                        <td className="px-2 py-2">
-                          <AdvanceFlags
-                            ot={ot as Record<string, unknown>}
-                            onAdvance={(key) => patchOT(ot.id, { [key]: true })}
-                            onUndo={(key) => patchOT(ot.id, { [key]: false })}
-                          />
+                        {/* AVANCE — la cadena de hitos, la etapa actual y la nota
+                            en una sola celda. Antes la etapa y la nota vivían en
+                            una segunda columna también llamada "Avance", así que
+                            cada fila traía dos barras de progreso compitiendo. */}
+                        <td className="px-2 py-2 align-top">
+                          <div className="flex flex-col gap-1.5">
+                            <AdvanceFlags
+                              ot={ot as Record<string, unknown>}
+                              onAdvance={(key) => patchOT(ot.id, { [key]: true })}
+                              onUndo={(key) => patchOT(ot.id, { [key]: false })}
+                            />
+                            <Badge
+                              variant="outline"
+                              className={`text-xs px-2 py-0.5 border w-fit ${otStatusBadgeClass(ot.status)}`}
+                            >
+                              {otStatusLabel(ot.status)}
+                            </Badge>
+                            <InlineEditable
+                              value={procesoActual}
+                              placeholder="Agregar nota de avance…"
+                              onSave={(val) => patchOT(ot.id, { proceso_actual: val || null })}
+                            />
+                          </div>
                         </td>
 
                         {/* OT # */}
@@ -311,25 +403,9 @@ export function OrdenesEnProceso() {
                         {colorLabel}
                       </td>
 
-                      {/* PROCESOS / AVANCE */}
-                      <td className="px-3 py-2">
-                        <div className="flex flex-col gap-1">
-                          <Badge
-                            variant="outline"
-                            className={`text-base px-2 py-0.5 border w-fit ${
-                              otStatusBadgeClass(ot.status)
-                            }`}
-                          >
-                            {otStatusLabel(ot.status)}
-                          </Badge>
-                          <InlineEditable
-                            value={procesoActual}
-                            placeholder="Agregar nota de avance…"
-                            onSave={(val) =>
-                              patchOT(ot.id, { proceso_actual: val || null })
-                            }
-                          />
-                        </div>
+                      {/* ENTREGADO — avance parcial hacia el cliente */}
+                      <td className="px-3 py-2 align-top">
+                        <DeliveryCell progress={deliveryProgress(fulfillmentByOt.get(ot.id))} />
                       </td>
 
                       {/* ENTREGA */}
