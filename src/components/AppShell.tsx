@@ -82,9 +82,11 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const [searchOpen, setSearchOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
-  const [expandedNav, setExpandedNav] = useState<Record<string, boolean>>({});
+  // Accordion: at most one nav group open at a time, so the sidebar can't grow
+  // past the viewport once several groups have been visited.
+  const [expandedNav, setExpandedNav] = useState<string | null>(null);
   const toggleExpanded = (href: string) =>
-    setExpandedNav(prev => ({ ...prev, [href]: !prev[href] }));
+    setExpandedNav(prev => (prev === href ? null : href));
 
   useCostOverrunAlerts();
 
@@ -109,7 +111,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   // Auto-expand parent nav when navigating to a child route
   useEffect(() => {
     const parent = navItems.find(i => i.children && pathname.startsWith(i.href + '/'));
-    if (parent) setExpandedNav(prev => ({ ...prev, [parent.href]: true }));
+    if (parent) setExpandedNav(parent.href);
   }, [pathname]);
 
   // Kick unauthenticated visitors off protected routes. This runs in an effect
@@ -167,7 +169,10 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     return pathname === href || pathname.startsWith(href + '/');
   };
 
-  const SidebarContent = () => (
+  // A plain element, not a component: declaring `const SidebarContent = () => ...`
+  // here mints a new component type on every render, so React remounts the whole
+  // sidebar on each state change and CSS transitions never get a start state.
+  const sidebarContent = (
     <div className="flex flex-col h-full">
       {/* Logo */}
       {/* h-16 is shared with the desktop header below so the two bottom borders
@@ -191,7 +196,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             const Icon = item.icon;
             const active = isActive(item.href);
             const hasChildren = !!item.children?.length;
-            const isExpanded = expandedNav[item.href] ?? false;
+            const isExpanded = expandedNav === item.href;
             const childActive = hasChildren && item.children!.some(g => g.items.some(s => pathname === s.href || pathname.startsWith(s.href + '/')));
 
             const button = (
@@ -199,8 +204,18 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                 key={item.href}
                 onClick={() => {
                   if (hasChildren) {
-                    toggleExpanded(item.href);
-                    if (!isExpanded) { router.push(item.href); }
+                    // Parents only open their submenu — navigation happens from the
+                    // children. Pushing the module landing route here made every
+                    // expand pay for a dynamic page render, which stalled the
+                    // open/close animation.
+                    if (collapsed) {
+                      // No room for a submenu on the icon rail, so open the rail
+                      // and reveal this group rather than toggling it unseen.
+                      setCollapsed(false);
+                      setExpandedNav(item.href);
+                    } else {
+                      toggleExpanded(item.href);
+                    }
                   } else {
                     router.push(item.href);
                     setMobileOpen(false);
@@ -220,38 +235,52 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                 </span>
                 {!collapsed && <span className="truncate flex-1 text-left">{item.label}</span>}
                 {!collapsed && hasChildren && (
-                  <ChevronDown className={cn("w-3.5 h-3.5 shrink-0 transition-transform duration-200 opacity-60", isExpanded && "rotate-180")} />
+                  <ChevronDown className={cn("w-3.5 h-3.5 shrink-0 transition-transform duration-100 opacity-60", isExpanded && "rotate-180")} />
                 )}
               </button>
             );
 
-            const subMenu = hasChildren && isExpanded && !collapsed ? (
-              <div className="ml-3 pl-3 border-l border-border/40 space-y-3 py-1 mb-1">
-                {item.children!.map((group) => (
-                  <div key={group.group}>
-                    <p className="px-2 pb-0.5 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/40">
-                      {group.group}
-                    </p>
-                    {group.items.map((sub) => {
-                      const subActive = pathname === sub.href || pathname.startsWith(sub.href + '/');
-                      return (
-                        <button
-                          key={sub.href}
-                          onClick={() => { router.push(sub.href); setMobileOpen(false); }}
-                          className={cn(
-                            "w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs transition-colors",
-                            subActive
-                              ? cn(item.activeBg, item.activeIcon, "font-medium")
-                              : "text-foreground/40 hover:text-foreground/70 hover:bg-black/5 dark:hover:bg-white/5"
-                          )}
-                        >
-                          <span className={cn("w-1.5 h-1.5 rounded-full shrink-0", subActive ? item.dot : "bg-foreground/20")} />
-                          <span className="truncate">{sub.label}</span>
-                        </button>
-                      );
-                    })}
+            // Open/close animates via the grid 0fr→1fr trick: it interpolates to the
+            // content's natural height without measuring it in JS. `visibility` is in
+            // the same transition so the collapsed rows leave the tab order only once
+            // the animation has finished (CSS keeps it visible for the whole run).
+            const subMenu = hasChildren && !collapsed ? (
+              <div className={cn(
+                "grid transition-[grid-template-rows] duration-100 ease-out motion-reduce:transition-none",
+                isExpanded ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
+              )}>
+                <div className={cn(
+                  "overflow-hidden transition-[visibility,opacity] duration-100 ease-out motion-reduce:transition-none",
+                  isExpanded ? "visible opacity-100" : "invisible opacity-0"
+                )}>
+                  <div className="ml-3 pl-3 border-l border-border/40 space-y-3 py-1 mb-1">
+                    {item.children!.map((group) => (
+                      <div key={group.group}>
+                        <p className="px-2 pb-0.5 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/40">
+                          {group.group}
+                        </p>
+                        {group.items.map((sub) => {
+                          const subActive = pathname === sub.href || pathname.startsWith(sub.href + '/');
+                          return (
+                            <button
+                              key={sub.href}
+                              onClick={() => { router.push(sub.href); setMobileOpen(false); }}
+                              className={cn(
+                                "w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs transition-colors",
+                                subActive
+                                  ? cn(item.activeBg, item.activeIcon, "font-medium")
+                                  : "text-foreground/40 hover:text-foreground/70 hover:bg-black/5 dark:hover:bg-white/5"
+                              )}
+                            >
+                              <span className={cn("w-1.5 h-1.5 rounded-full shrink-0", subActive ? item.dot : "bg-foreground/20")} />
+                              <span className="truncate">{sub.label}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    ))}
                   </div>
-                ))}
+                </div>
               </div>
             ) : null;
 
@@ -340,7 +369,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           mobileOpen ? "translate-x-0" : "-translate-x-full"
         )}
       >
-        <SidebarContent />
+        {sidebarContent}
       </aside>
 
       {/* Desktop sidebar */}
@@ -353,7 +382,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           collapsed ? "w-[56px]" : "w-60"
         )}
       >
-        <SidebarContent />
+        {sidebarContent}
         {/* Collapse toggle */}
         <button
           onClick={() => setCollapsed(!collapsed)}
