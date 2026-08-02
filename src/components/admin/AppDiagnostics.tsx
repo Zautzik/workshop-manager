@@ -77,9 +77,9 @@ interface DiagnosticsData {
 	};
 	crossModuleChecks: {
 		machineWorkerNameCollisions: Array<{ id: string; name: string }>;
-		workstationMachineNameCollisions: Array<{ workstationName: string; machineName: string }>;
-		unlinkedWorkstations: Array<{ id: string; name: string }>;
-		machinesWithoutWorkstation: Array<{ id: string; name: string; status: string }>;
+		duplicateWorkers: Array<{ name: string; count: number }>;
+		workersWithoutEmployee: Array<{ id: string; name: string }>;
+		orphanAssignments: Array<{ id: string; date: string; role: string }>;
 		brokenEmployeeWorkerLinks: Array<{ id: string; name: string; legacyId: string }>;
 	};
 }
@@ -561,31 +561,28 @@ function CoherencePanel({ data }: { data: DiagnosticsData }) {
 			severity: c.machineWorkerNameCollisions.length > 0 ? 'error' : 'ok',
 		},
 		{
-			id: 'workstation-machine-names',
-			label: 'Estación con mismo nombre que su Máquina',
-			description: 'Estaciones de trabajo con el mismo nombre que la máquina enlazada (produce duplicados en Planta)',
-			modules: 'Planta interno',
-			items: c.workstationMachineNameCollisions.map(col => ({
-				label: col.workstationName,
-				detail: `= máquina: ${col.machineName}`,
-			})),
-			severity: c.workstationMachineNameCollisions.length > 0 ? 'warning' : 'ok',
+			id: 'duplicate-workers',
+			label: 'Operarios repetidos',
+			description: 'El mismo nombre en más de una ficha de operario — las horas y las competencias se reparten entre las copias',
+			modules: 'Personas interno',
+			items: c.duplicateWorkers.map(w => ({ label: w.name, detail: `${w.count} fichas` })),
+			severity: c.duplicateWorkers.length > 0 ? 'error' : 'ok',
 		},
 		{
-			id: 'unlinked-workstations',
-			label: 'Estaciones sin máquina asignada',
-			description: 'Estaciones de trabajo sin machine_id — no aparecerán en Planta',
-			modules: 'Planta',
-			items: c.unlinkedWorkstations.map(ws => ({ label: ws.name })),
-			severity: c.unlinkedWorkstations.length > 0 ? 'warning' : 'ok',
+			id: 'workers-without-employee',
+			label: 'Operarios sin ficha de empleado',
+			description: 'Sin empleado enlazado no tienen sueldo ni competencias, así que su costo de mano de obra vale cero',
+			modules: 'Operarios → Personas',
+			items: c.workersWithoutEmployee.map(w => ({ label: w.name })),
+			severity: c.workersWithoutEmployee.length > 0 ? 'warning' : 'ok',
 		},
 		{
-			id: 'machines-no-workstation',
-			label: 'Máquinas activas sin estación',
-			description: 'Máquinas activas sin workstation_id — ocultas en la vista de Planta',
-			modules: 'Planta',
-			items: c.machinesWithoutWorkstation.map(m => ({ label: m.name, detail: m.status })),
-			severity: c.machinesWithoutWorkstation.length > 0 ? 'warning' : 'ok',
+			id: 'orphan-assignments',
+			label: 'Asignaciones sin empleado',
+			description: 'No resuelven a nadie: no acumulan horas ni competencias. Son anteriores al control de cumplimiento, que hoy las rechazaría',
+			modules: 'Planta → Personas',
+			items: c.orphanAssignments.map(a => ({ label: a.date, detail: a.role })),
+			severity: c.orphanAssignments.length > 0 ? 'error' : 'ok',
 		},
 		{
 			id: 'broken-employee-worker-links',
@@ -758,9 +755,9 @@ export default function AppDiagnostics() {
 						const c = data.crossModuleChecks;
 						const issues =
 							c.machineWorkerNameCollisions.length +
-							c.workstationMachineNameCollisions.length +
-							c.unlinkedWorkstations.length +
-							c.machinesWithoutWorkstation.length +
+							c.duplicateWorkers.length +
+							c.workersWithoutEmployee.length +
+							c.orphanAssignments.length +
 							c.brokenEmployeeWorkerLinks.length;
 						return issues > 0 ? (
 							<>

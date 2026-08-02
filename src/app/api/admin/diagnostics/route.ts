@@ -39,7 +39,7 @@ export async function GET() {
 		accessLogs,
 		authUsersResult,
 		allWorkers,
-		allWorkstations,
+		assignmentsNoEmployee,
 		employeesWithLegacy,
 	] = await Promise.allSettled([
 		// 1. DB latency
@@ -96,10 +96,8 @@ export async function GET() {
 		// 11. All worker names (cross-module: Planta↔Personas name collision)
 		supabaseAdmin.from('workers').select('id,name'),
 
-		// 12. La flota. Antes se leían los puestos para detectar huérfanos y
-		//     nombres que no coincidían con su máquina; al fusionar las dos
-		//     tablas ese desajuste dejó de poder existir.
-		supabaseAdmin.from('machines').select('id,name'),
+		// 12. Asignaciones sin empleado resuelto (cross-module: Planta↔Personas)
+		supabaseAdmin.from('worker_assignments').select('id,employee_id,worker_id,date,role'),
 
 		// 13. Employees with worker_legacy_id set (cross-module: broken link check)
 		supabaseAdmin.from('employees')
@@ -130,8 +128,6 @@ export async function GET() {
 	// ── Cross-module integrity checks ────────────────────────────────────────
 	const workerRows2 =
 		allWorkers.status === 'fulfilled' ? (allWorkers.value.data ?? []) : [];
-	const workstationRows =
-		allWorkstations.status === 'fulfilled' ? (allWorkstations.value.data ?? []) : [];
 	const legacyEmployeeRows =
 		employeesWithLegacy.status === 'fulfilled' ? (employeesWithLegacy.value.data ?? []) : [];
 
@@ -143,30 +139,41 @@ export async function GET() {
 		.filter((m: any) => m.name && workerNameSet.has(m.name.toLowerCase().trim()))
 		.map((m: any) => ({ id: m.id, name: m.name }));
 
-	// Check 2: workstations where name === linked machine name (Planta internal duplication)
-	const machineNameById: Record<string, string> = Object.fromEntries(
-		machineRows.map((m: any) => [m.id, m.name ?? '']),
+	// Los tres chequeos que había aquí —nombre de puesto igual al de su máquina,
+	// puestos sin máquina, y máquinas sin puesto— medían el enlace entre
+	// `workstations` y `machines`. Al fusionar las dos tablas ese enlace dejó de
+	// existir, así que no pueden fallar: mantenerlos sería reportar siempre cero
+	// sobre algo que ya no se puede romper. Se reemplazan por los desajustes que
+	// sí siguen vivos entre Planta y Personas.
+
+	// Check 2: operarios repetidos (mismo nombre, distinta fila)
+	const workersByName = new Map<string, { id: string; name: string }[]>();
+	for (const w of workerRows2 as any[]) {
+		const key = (w.name ?? '').toLowerCase().trim();
+		if (!key) continue;
+		workersByName.set(key, [...(workersByName.get(key) ?? []), { id: w.id, name: w.name }]);
+	}
+	const duplicateWorkers = [...workersByName.values()]
+		.filter((rows) => rows.length > 1)
+		.map((rows) => ({ name: rows[0].name as string, count: rows.length }));
+
+	// Check 3: operarios sin ficha de empleado — no tienen sueldo ni competencias,
+	// así que cualquier costo de mano de obra que pase por ellos vale cero.
+	const linkedWorkerIds = new Set(
+		legacyEmployeeRows.map((e: any) => e.worker_legacy_id).filter(Boolean),
 	);
-	const workstationMachineNameCollisions = workstationRows
-		.filter((ws: any) => {
-			if (!ws.machine_id) return false;
-			const machineName = machineNameById[ws.machine_id] ?? '';
-			return machineName && (ws.name ?? '').toLowerCase().trim() === machineName.toLowerCase().trim();
-		})
-		.map((ws: any) => ({
-			workstationName: ws.name as string,
-			machineName: machineNameById[ws.machine_id] as string,
-		}));
+	const workersWithoutEmployee = (workerRows2 as any[])
+		.filter((w) => !linkedWorkerIds.has(w.id))
+		.map((w) => ({ id: w.id, name: w.name as string }));
 
-	// Check 3: workstations with no machine linked
-	const unlinkedWorkstations = workstationRows
-		.filter((ws: any) => !ws.machine_id)
-		.map((ws: any) => ({ id: ws.id, name: ws.name as string }));
-
-	// Check 4: active machines with no workstation
-	const machinesWithoutWorkstation = machineRows
-		.filter((m: any) => m.is_active && !m.workstation_id)
-		.map((m: any) => ({ id: m.id, name: m.name as string, status: m.status as string }));
+	// Check 4: asignaciones que no resuelven a ningún empleado. El trigger de
+	// cumplimiento las rechaza hoy, así que son anteriores a él y quedaron
+	// atascadas: no acumulan horas ni competencias para nadie.
+	const assignmentRows =
+		assignmentsNoEmployee.status === 'fulfilled' ? (assignmentsNoEmployee.value.data ?? []) : [];
+	const orphanAssignments = (assignmentRows as any[])
+		.filter((a) => !a.employee_id && !linkedWorkerIds.has(a.worker_id))
+		.map((a) => ({ id: a.id, date: a.date as string, role: a.role as string }));
 
 	// Check 5: employees whose worker_legacy_id points to a non-existent worker
 	const workerIdSet = new Set(workerRows2.map((w: any) => w.id));
@@ -231,9 +238,9 @@ export async function GET() {
 		},
 		crossModuleChecks: {
 			machineWorkerNameCollisions,
-			workstationMachineNameCollisions,
-			unlinkedWorkstations,
-			machinesWithoutWorkstation,
+			duplicateWorkers,
+			workersWithoutEmployee,
+			orphanAssignments,
 			brokenEmployeeWorkerLinks,
 		},
 	});
