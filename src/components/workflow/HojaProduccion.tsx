@@ -1,7 +1,14 @@
 'use client';
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useDaySchedule, useUnscheduledOTs } from '@/hooks/use-workflow-queries';
+import { useMachines } from '@/hooks/use-machines';
+import {
+  groupMachinesForAssignment,
+  suggestedSlot,
+  type MachineLike,
+  type OtHoursLike,
+} from '@/lib/machine-assignment';
 import { useRealtimeProduction } from '@/hooks/use-realtime-production';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -90,13 +97,33 @@ function ShiftLoadBar({ totalHours, shiftHours = 9 }: { totalHours: number; shif
   );
 }
 
+/**
+ * "2026-08-02" + "08:00" → el instante UTC de las 08:00 EN EL TALLER.
+ * Sin la `Z`, `new Date` interpreta la cadena como hora local, que es
+ * exactamente lo que el operador escribió en el reloj de la pared.
+ */
+function localWallClockToIso(date: string, hhmm: string): string {
+  return new Date(`${date}T${hhmm}:00`).toISOString();
+}
+
 // ─── Add-to-schedule dialog (inline) ────────────────────────────────────────
 
 function AddSlotRow({
-  otId, machineId, date, onDone,
-}: { otId: string; machineId: string; date: string; onDone: () => void }) {
-  const [startTime, setStartTime] = useState('08:00');
-  const [endTime, setEndTime] = useState('17:00');
+  otId, machineId, machineName, date, ot, onDone,
+}: {
+  otId: string;
+  machineId: string;
+  machineName?: string;
+  date: string;
+  ot?: OtHoursLike | null;
+  onDone: () => void;
+}) {
+  // El horario propuesto sale de las horas que la propia OT ya calculó. Antes
+  // se ofrecía 08:00–17:00 fijo, así que una OT de dos horas bloqueaba la
+  // máquina el día entero en la hoja.
+  const suggested = useMemo(() => suggestedSlot(ot), [ot]);
+  const [startTime, setStartTime] = useState(suggested.start);
+  const [endTime, setEndTime] = useState(suggested.end);
   const [hoursOverride, setHoursOverride] = useState('');
   const [paperType, setPaperType] = useState('');
   const [saving, setSaving] = useState(false);
@@ -110,17 +137,53 @@ function AddSlotRow({
       body: JSON.stringify({
         ot_id: otId,
         machine_id: machineId,
-        scheduled_start: `${date}T${startTime}:00.000Z`,
-        scheduled_end:   `${date}T${endTime}:00.000Z`,
+        // El operador escribe la hora del taller. Pegarle una "Z" la declaraba
+        // UTC, así que un turno de 08:00 se guardaba como 08:00 UTC y la hoja lo
+        // devolvía a las 04:00 de la mañana. Construir la fecha sin sufijo la
+        // interpreta como hora local, y toISOString() la convierte al instante
+        // correcto.
+        scheduled_start: localWallClockToIso(date, startTime),
+        scheduled_end:   localWallClockToIso(date, endTime),
         hours_override:  hoursOverride ? parseFloat(hoursOverride) : null,
         paper_type_label: paperType || null,
       }),
     });
-    setSaving(false);
+
     if (!res.ok) {
+      setSaving(false);
       toast({ title: 'Error al agregar', variant: 'destructive' });
       return;
     }
+
+    // ── Hilo dorado ──────────────────────────────────────────────────────────
+    // La máquina de una OT vive en DOS tablas: `ot_machine_schedule` (la agenda
+    // del día, que es lo que se acaba de escribir) y `ots.assigned_machine_id`
+    // (lo que leen Órdenes en Proceso, Planta y el costeo). Escribir sólo una
+    // dejaba las dos versiones en desacuerdo: la hoja decía "sin programar"
+    // mientras Órdenes en Proceso ya mostraba una máquina. Se escriben las dos
+    // en el mismo gesto.
+    const link = await fetch(`/api/ots/${otId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ assigned_machine_id: machineId }),
+    });
+    setSaving(false);
+
+    if (!link.ok) {
+      // El turno sí quedó; lo que falló es la propagación. Decirlo, en vez de
+      // dejar al usuario creyendo que todo cuadró.
+      toast({
+        title: 'Turno agregado, pero la OT no quedó enlazada',
+        description: 'La hoja de hoy la muestra, pero Órdenes en Proceso puede seguir mostrando otra máquina.',
+        variant: 'destructive',
+      });
+    } else {
+      toast({
+        title: 'OT asignada',
+        description: `${machineName ?? 'Máquina'} · ${startTime}–${endTime}`,
+      });
+    }
+
     onDone();
   };
 
@@ -163,11 +226,30 @@ export function HojaProduccion() {
   const [selectedDate, setSelectedDate] = useState(getDateIso(today));
   const { data: slots = [], isLoading, refetch } = useDaySchedule(selectedDate);
   const { data: unscheduled = [] } = useUnscheduledOTs(selectedDate);
+  const { data: allMachines = [] } = useMachines();
   const { isConnected } = useRealtimeProduction();
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
   const [addingSlot, setAddingSlot] = useState<{ otId: string; machineId: string } | null>(null);
+
+  const machineNameById = useMemo(
+    () => new Map((allMachines ?? []).map((m: MachineLike) => [m.id, m.name])),
+    [allMachines],
+  );
+
+  // ── Hilo dorado ────────────────────────────────────────────────────────────
+  // Asignar una máquina toca la agenda del día Y la OT. Invalidar sólo
+  // 'schedule' dejaba a Órdenes en Proceso y a Planta mostrando la máquina
+  // anterior hasta que alguien recargaba a mano.
+  // `['schedule']` cubre por prefijo tanto la agenda del día como la lista de
+  // OTs sin programar (`['schedule','unscheduled',date]`), y `['ots']` cubre
+  // `['ots','active']`, que es de donde lee Órdenes en Proceso.
+  const refreshGoldenThread = useCallback(() => {
+    for (const key of [['schedule'], ['ots'], ['machines']]) {
+      queryClient.invalidateQueries({ queryKey: key });
+    }
+  }, [queryClient]);
 
   // ── patch flag helper ──────────────────────────────────────────────────────
   const patchFlag = useCallback(async (otId: string, flag: string, value: boolean) => {
@@ -214,8 +296,15 @@ export function HojaProduccion() {
   }
   const machineGroups = Object.values(byMachine);
 
-  // ── All unique machines from slots (for unscheduled add row) ──────────────
-  const machines = machineGroups.map(g => g.machine).filter(Boolean);
+  // ── Máquinas asignables ───────────────────────────────────────────────────
+  // Vienen de la flota, no de los turnos ya programados. Derivarlas de los
+  // turnos creaba un punto muerto: con la agenda del día vacía no había ninguna
+  // máquina que ofrecer, así que la primera OT del día no se podía programar
+  // nunca. Agrupadas por función para no leer 17 nombres sueltos.
+  const assignableGroups = useMemo(
+    () => groupMachinesForAssignment((allMachines ?? []) as MachineLike[]),
+    [allMachines],
+  );
 
   const printDate = new Date(selectedDate + 'T12:00:00').toLocaleDateString('es-CL', {
     weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric',
@@ -450,10 +539,11 @@ export function HojaProduccion() {
                       <AddSlotRow
                         otId={addingSlot!.otId}
                         machineId={machine.id}
+                        machineName={machine?.name}
                         date={selectedDate}
                         onDone={() => {
                           setAddingSlot(null);
-                          queryClient.invalidateQueries({ queryKey: ['schedule'] });
+                          refreshGoldenThread();
                         }}
                       />
                     )}
@@ -499,28 +589,47 @@ export function HojaProduccion() {
                       {fmtDate(ot.deadline)}
                     </td>
                     <td className="px-2 py-1.5 text-center print:hidden">
-                      {machines.length > 0 ? (
+                      {assignableGroups.length > 0 ? (
                         <select
-                          defaultValue=""
+                          value=""
+                          aria-label={`Asignar máquina a la OT ${ot.ot_number}`}
                           onChange={e => {
-                            if (e.target.value) {
-                              setAddingSlot({ otId: ot.id, machineId: e.target.value });
-                              e.target.value = '';
-                            }
+                            const m = e.target.value;
+                            if (m) setAddingSlot({ otId: ot.id, machineId: m });
                           }}
                           className="h-6 rounded border border-input bg-card text-xs px-1 text-foreground"
                         >
                           <option value="">+ Máquina…</option>
-                          {machines.map((m: any) => (
-                            <option key={m.id} value={m.id}>{m.name}</option>
+                          {assignableGroups.map(group => (
+                            <optgroup key={group.role} label={group.label}>
+                              {group.machines.map(m => (
+                                <option key={m.id} value={m.id}>{m.name}</option>
+                              ))}
+                            </optgroup>
                           ))}
                         </select>
                       ) : (
-                        <span className="text-muted-foreground text-[10px]">Sin máquinas</span>
+                        <span className="text-muted-foreground text-[10px]">Cargando flota…</span>
                       )}
                     </td>
                   </tr>
                 ))}
+
+                {/* La fila de horarios se abre bajo la OT elegida, aunque esa
+                    máquina todavía no tenga ninguna tarjeta en la hoja. */}
+                {addingSlot && unscheduled.some((o: any) => o.id === addingSlot.otId) && (
+                  <AddSlotRow
+                    otId={addingSlot.otId}
+                    machineId={addingSlot.machineId}
+                    machineName={machineNameById.get(addingSlot.machineId)}
+                    date={selectedDate}
+                    ot={unscheduled.find((o: any) => o.id === addingSlot.otId) as OtHoursLike}
+                    onDone={() => {
+                      setAddingSlot(null);
+                      refreshGoldenThread();
+                    }}
+                  />
+                )}
               </tbody>
             </table>
           </div>
