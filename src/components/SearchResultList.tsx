@@ -1,8 +1,8 @@
 'use client';
 
 /**
- * SearchResultList — the result rows shared by the inline navbar bar and the
- * mobile dialog. Presentational: the parent owns query, selection and routing.
+ * SearchResultList — the result rows rendered in the top bar's search dropdown.
+ * Presentational: the parent owns query, selection and routing.
  */
 
 import { Badge } from '@/components/ui/badge';
@@ -26,10 +26,7 @@ export function SearchResultList({ results, selected, query, onSelect, onHover, 
       onMouseDown={e => e.preventDefault()}
       className={cn('max-h-72 overflow-y-auto', className)}
     >
-      {query.trim() === '' && (
-        <p className="text-xs text-muted-foreground text-center py-8">Empieza a escribir para buscar</p>
-      )}
-      {query.trim() !== '' && results.length === 0 && (
+      {results.length === 0 && (
         <p className="text-xs text-muted-foreground text-center py-8">Sin resultados para &quot;{query}&quot;</p>
       )}
       {results.map((item, idx) => {

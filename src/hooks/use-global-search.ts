@@ -1,8 +1,7 @@
 'use client';
 
 /**
- * useGlobalSearchResults — shared matching logic behind both search surfaces:
- * the inline navbar bar (desktop) and the dialog (mobile).
+ * useGlobalSearchResults — the matching logic behind the top bar's search field.
  *
  * The three lists come from React Query with a 60s staleTime and are already
  * warm from the module pages, so filtering stays a synchronous useMemo — no
@@ -12,13 +11,6 @@
 import { useMemo } from 'react';
 import { FileText, Users, Wrench } from 'lucide-react';
 import { useOTs, useWorkers, useMachines } from '@/hooks/use-operations-queries';
-
-/**
- * Matches Tailwind's `md` breakpoint — the width at which the desktop header
- * (and its inline search bar) takes over from the mobile header and its dialog.
- * Both surfaces stay mounted at every width, so the Cmd+K handlers use this to
- * decide which one owns the shortcut.
- */
 
 export type ResultItem = {
   id: string;

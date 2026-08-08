@@ -18,7 +18,6 @@ import {
   Moon,
   Sun,
   Menu,
-  Search,
   ChevronDown,
 } from 'lucide-react';
 import { HEADER_ICON, HEADER_ICON_BUTTON } from '@/components/shell/header-controls';
@@ -75,6 +74,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(true);
   const [mobileOpen, setMobileOpen] = useState(false);
+  // Mirrors GlobalSearch's own state. Only the top bar's layout reads it — the
+  // field still owns opening and closing itself.
+  const [searchOpen, setSearchOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
   // Accordion: at most one nav group open at a time, so the sidebar can't grow
@@ -95,13 +97,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       setMobileOpen((prev) => !prev);
     }
   };
-
-  // Resolved after mount for the same reason — `navigator` has no server value.
-  const searchHint = !mounted
-    ? ''
-    : /Mac|iPhone|iPad|iPod/.test(navigator.userAgent)
-      ? '⌘K'
-      : 'Ctrl+K';
 
   // Persist sidebar collapsed preference
   useEffect(() => {
@@ -404,8 +399,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
       {/* Main content */}
       <main className="flex-1 flex flex-col overflow-hidden relative">
-        <GlobalSearch />
-
         {/* Top bar. It floats over the content instead of occupying a row of its
             own — a 56px band whose middle was always empty was costing every
             page a fifth of a viewport that never scrolls. `pointer-events-none`
@@ -414,8 +407,16 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         <header className="pointer-events-none absolute inset-x-0 top-0 z-30 flex h-14 items-center gap-1 px-2 sm:px-3">
           {/* Below md there is no rail, so the menu button and the brand live
               here. From md up the rail head carries them and this side stays
-              empty, leaving the corner to each page's own title. */}
-          <div className="pointer-events-auto flex min-w-0 items-center gap-2.5 md:hidden">
+              empty, leaving the corner to each page's own title.
+
+              A phone row cannot hold the brand, the quick links, three icons
+              and a typable field at once — something has to give, and it is
+              never the field. So while search is open below md the rest of the
+              bar stands down and the field takes the whole row. */}
+          <div className={cn(
+            'pointer-events-auto flex min-w-0 items-center gap-2.5 md:hidden',
+            searchOpen && 'hidden'
+          )}>
             <button
               type="button"
               onClick={toggleSideMenu}
@@ -435,31 +436,29 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
               inside the page, which put it underneath this cluster — anything
               that belongs up here has to be a sibling of it, not a second
               free-floating overlay. */}
-          <div className="pointer-events-auto ml-auto flex min-w-0 items-center gap-2">
-            {pathname === '/home' && <QuickLinks />}
+          <div className={cn(
+            'pointer-events-auto ml-auto flex min-w-0 items-center gap-2',
+            searchOpen && 'w-full md:w-auto'
+          )}>
+            {pathname === '/home' && (
+              <div className={cn('min-w-0', searchOpen && 'hidden md:block')}>
+                <QuickLinks />
+              </div>
+            )}
 
             {/* One blurred cluster so the three controls stay legible over whatever
-                the page happens to render underneath them. */}
-            <div className="flex shrink-0 items-center gap-0.5 rounded-xl border border-border/40 bg-card/70 p-0.5 backdrop-blur-sm">
-              <Tooltip delayDuration={200}>
-                <TooltipTrigger asChild>
-                  <button
-                    type="button"
-                    onClick={() => { const e = new KeyboardEvent('keydown', { key: 'k', ctrlKey: true, bubbles: true }); window.dispatchEvent(e); }}
-                    aria-label="Buscar"
-                    className={HEADER_ICON_BUTTON}
-                  >
-                    <Search className={HEADER_ICON} />
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent side="bottom">
-                  Buscar
-                  {searchHint && <span className="ml-1.5 text-muted-foreground">{searchHint}</span>}
-                </TooltipContent>
-              </Tooltip>
-
-              <ReportingQuickActions isAdmin={role === 'admin'} />
-              <NotificationCenter />
+                the page happens to render underneath them. The cluster widens as
+                the search field expands, which is why it is the search's own
+                width that animates rather than this row's layout. */}
+            <div className={cn(
+              'flex shrink-0 items-center gap-0.5 rounded-xl border border-border/40 bg-card/70 p-0.5 backdrop-blur-sm',
+              searchOpen && 'w-full md:w-auto'
+            )}>
+              <GlobalSearch onOpenChange={setSearchOpen} />
+              <div className={cn('flex items-center gap-0.5', searchOpen && 'hidden md:flex')}>
+                <ReportingQuickActions isAdmin={role === 'admin'} />
+                <NotificationCenter />
+              </div>
             </div>
           </div>
         </header>
