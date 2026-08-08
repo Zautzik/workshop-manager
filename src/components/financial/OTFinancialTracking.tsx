@@ -9,6 +9,7 @@ import { toast } from 'sonner';
 import { TrendingUp, TrendingDown, Plus } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useOtCostSummary } from '@/hooks/use-financial-queries';
+import { aggregateMarginConfidence, marginConfidence } from '@/lib/margin-confidence';
 import { useOTs } from '@/hooks/use-operations-queries';
 import { formatCLP } from '@/lib/format';
 
@@ -41,8 +42,10 @@ export const OTFinancialTracking = () => {
     const estimated = rows.reduce((s, r) => s + Number(r.estimated_cost || 0), 0);
     const actual    = rows.reduce((s, r) => s + Number(r.actual_cost || 0), 0);
     const margin    = rows.reduce((s, r) => s + Number(r.gross_margin || 0), 0);
-    const marginPct = revenue > 0 ? Math.round((margin / revenue) * 100) : 0;
-    return { revenue, estimated, actual, margin, marginPct };
+    // El porcentaje ya no se calcula aquí: con costo real en cero, margen es
+    // igual a ingreso y esto informaba 100%.
+    const verdict   = aggregateMarginConfidence(rows);
+    return { revenue, estimated, actual, margin, verdict };
   }, [rows]);
 
   const resetForm = () => {
@@ -92,13 +95,34 @@ export const OTFinancialTracking = () => {
           <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">Costo real</CardTitle></CardHeader>
           <CardContent><div className="text-2xl font-bold text-destructive">{formatCLP(totals.actual)}</div></CardContent>
         </Card>
-        <Card className={totals.margin >= 0 ? 'border-green-500/20' : 'border-red-500/20'}>
-          <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">Margen ({totals.marginPct}%)</CardTitle></CardHeader>
+        <Card className={
+          totals.verdict.confidence !== 'medido' ? 'border-border'
+            : totals.margin >= 0 ? 'border-green-500/20' : 'border-red-500/20'
+        }>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Margen{totals.verdict.pct !== null ? ` (${totals.verdict.pct}%)` : ''}
+            </CardTitle>
+          </CardHeader>
           <CardContent>
-            <div className={`text-2xl font-bold flex items-center gap-2 ${totals.margin >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-              {totals.margin >= 0 ? <TrendingUp className="h-5 w-5" /> : <TrendingDown className="h-5 w-5" />}
-              {formatCLP(totals.margin)}
-            </div>
+            {totals.verdict.confidence === 'sin_costo' || totals.verdict.confidence === 'sin_datos' ? (
+              // Sin costo real no se afirma un margen. Antes aquí salía el ingreso
+              // completo en verde, que es la mentira más cómoda de creer.
+              <div className="text-sm text-muted-foreground leading-snug">
+                <span className="font-semibold text-foreground">Sin determinar</span>
+                {totals.verdict.hint && <p className="text-xs mt-1">{totals.verdict.hint}</p>}
+              </div>
+            ) : (
+              <>
+                <div className={`text-2xl font-bold flex items-center gap-2 ${totals.margin >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                  {totals.margin >= 0 ? <TrendingUp className="h-5 w-5" /> : <TrendingDown className="h-5 w-5" />}
+                  {formatCLP(totals.margin)}
+                </div>
+                {totals.verdict.hint && (
+                  <p className="text-xs text-amber-600 dark:text-amber-400 mt-1 leading-snug">{totals.verdict.hint}</p>
+                )}
+              </>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -170,7 +194,7 @@ export const OTFinancialTracking = () => {
                   <tr><td colSpan={7} className="py-8 text-center text-muted-foreground">Sin datos en el ledger todavía.</td></tr>
                 )}
                 {rows.map((r) => {
-                  const pct = r.revenue > 0 ? Math.round((r.gross_margin / r.revenue) * 100) : 0;
+                  const v = marginConfidence(r);
                   return (
                     <tr key={r.ot_id} className="border-b hover:bg-muted/50">
                       <td className="py-2 px-3 font-medium">{r.ot_number}</td>
@@ -178,8 +202,16 @@ export const OTFinancialTracking = () => {
                       <td className="py-2 px-3 text-right text-amber-600">{formatCLP(r.estimated_cost)}</td>
                       <td className="py-2 px-3 text-right text-destructive">{formatCLP(r.actual_cost)}</td>
                       <td className="py-2 px-3 text-right text-primary">{formatCLP(r.revenue)}</td>
-                      <td className={`py-2 px-3 text-right font-semibold ${r.gross_margin >= 0 ? 'text-green-600' : 'text-red-500'}`}>{formatCLP(r.gross_margin)}</td>
-                      <td className="py-2 px-3 text-right">{pct}%</td>
+                      <td className={`py-2 px-3 text-right font-semibold ${
+                        v.confidence !== 'medido' ? 'text-muted-foreground' : v.amount! >= 0 ? 'text-green-600' : 'text-red-500'
+                      }`}>
+                        {v.confidence === 'medido' ? formatCLP(v.amount!) : '—'}
+                      </td>
+                      <td className="py-2 px-3 text-right" title={v.hint ?? undefined}>
+                        {v.pct !== null
+                          ? `${v.pct}%`
+                          : <span className="text-muted-foreground text-xs italic">{v.label}</span>}
+                      </td>
                     </tr>
                   );
                 })}

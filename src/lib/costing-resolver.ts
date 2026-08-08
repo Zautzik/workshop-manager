@@ -14,6 +14,7 @@
 import type { CostCenterItem } from '@/types/work-category';
 import type { CostOverrides } from '@/lib/ot-calculations';
 import type { MaterialCost } from '@/hooks/use-cost-catalog';
+import { chooseMaterialPrice } from '@/lib/material-price-sanity';
 
 export interface CostSpec {
   color_front: string;
@@ -98,12 +99,25 @@ function resolveSubstrateCost(
     )[0];
   };
 
-  // Prefer the real purchase-weighted cost when a matching material has lots.
+  // El costo real manda sobre el catálogo — pero sólo si es creíble.
+  //
+  // Antes esta preferencia era incondicional, y con lotes cargados en otra
+  // escala hacía que el motor eligiera SIEMPRE el número equivocado: cartulina
+  // a $3,20 el kilo en vez de $2.800, una subestimación de 875 veces en la
+  // partida más grande de una imprenta. Y como los lotes conviven en kg, resma
+  // y unidad sin conversión, un precio por resma cobrado como kilo erraba once
+  // veces al otro lado.
   const real = closest((materialCost ?? []).filter((m) => m.lot_count > 0));
-  if (real) return Number(real.weighted_cost);
-
   const cat = closest(catalog.filter((c) => c.category === 'papel' && c.is_active));
-  return cat ? cat.unit_cost : undefined;
+
+  const choice = chooseMaterialPrice(
+    real ? { value: Number(real.weighted_cost), unit: real.unit } : null,
+    // El catálogo de papel se cotiza por kilo; no trae columna de unidad.
+    cat ? { value: cat.unit_cost, unit: 'kg' } : null,
+    'kg',
+  );
+
+  return choice.value ?? undefined;
 }
 
 /**
