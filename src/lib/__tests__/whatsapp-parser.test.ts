@@ -146,3 +146,39 @@ describe('papel perdido — mensajes reales del taller', () => {
     expect(r.production_data?.merma).toBe(340);
   });
 });
+
+describe('horas declaradas — el dato más frecuente y el que no se extraía', () => {
+  it('lee las horas de mensajes reales de la planta', () => {
+    for (const [texto, esperado] of [
+      ['OT 40494 lista, 6 horas offset turno noche', 6],
+      ['cajas hogarmax 40492 terminadas, barniz uv 5 hrs', 5],
+      ['troquel 40498 terminado 4 hrs, 1 reventón ajustado', 4],
+      ['promo distribuidora 40488 impresa, 8 hrs ryobi 2', 8],
+      ['listo 40499, 3.5 horas offset, 12 planchas', 3.5],
+      ['termine pre prensa 40500, 2 horas', 2],
+    ] as const) {
+      expect(parseWhatsAppMessage(texto).production_data?.hours_reported, texto).toBe(esperado);
+    }
+  });
+
+  it('acepta el decimal con coma, como se escribe en Chile', () => {
+    expect(parseWhatsAppMessage('fin 1234, 2,5 horas').production_data?.hours_reported).toBe(2.5);
+  });
+
+  it('descarta una jornada imposible en vez de costearla', () => {
+    // Más de 24 h es un número mal tipeado; entrar al costo laboral lo dispara
+    // sin que nadie lo note.
+    expect(parseWhatsAppMessage('fin 1234, 400 horas').production_data?.hours_reported).toBeNull();
+  });
+
+  it('no confunde el número de OT con horas', () => {
+    expect(parseWhatsAppMessage('fin ot 40879 7.600 pliegos').production_data?.hours_reported).toBeNull();
+  });
+
+  it('no se traga los pliegos como si fueran horas', () => {
+    const r = parseWhatsAppMessage('fin 40500, 12.000 pliegos, 340 fallados, 6 horas');
+    expect(r.production_data?.hours_reported).toBe(6);
+    expect(r.production_data?.pliegos_produced).toBe(12000);
+    expect(r.production_data?.merma).toBe(340);
+  });
+});

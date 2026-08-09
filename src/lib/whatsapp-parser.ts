@@ -132,8 +132,13 @@ export function classifyMessage(raw: string): WhatsAppMessageType {
     if (hasKeyword(text, kw)) return 'start';
   }
 
-  // If there are production numbers (pliegos, merma, etc.) it's likely an end message
-  if (/\b\d+\s*(pliegos?|merma|buenos?|unidades?|hojas?)\b/.test(text)) {
+  // If there are production numbers (pliegos, merma, etc.) it's likely an end message.
+  //
+  // Las HORAS cuentan como cifra de producción: «OT 40494 lista, 6 horas offset»
+  // es un parte de término aunque no diga «fin». Es además la cifra que más
+  // aparece en los mensajes reales, y sin esto quedaban como 'unknown', que no
+  // extrae nada.
+  if (/\b\d+([.,]\d+)?\s*(pliegos?|merma|buenos?|unidades?|hojas?|h\b|hrs?\b|horas?)\b/.test(text)) {
     return 'end';
   }
 
@@ -146,6 +151,26 @@ interface QuantityMatch {
   value: number;
   label: string;
   position: number;
+}
+
+/**
+ * Horas de trabajo declaradas por el operario: «6 horas offset», «5 hrs»,
+ * «3.5 horas», «4 hrs».
+ *
+ * Se acepta el decimal con coma o con punto porque el taller escribe de las dos
+ * formas. Se descarta cualquier cosa sobre 24: una jornada más larga que un día
+ * es un número mal tipeado, y meterla al costo laboral lo dispara sin que nadie
+ * lo note.
+ */
+function extractHours(text: string): number | null {
+  const normalized = normalize(text);
+  const re = /(\d+(?:[.,]\d+)?)\s*(?:h\b|hrs?\b|horas?\b)/g;
+  let match: RegExpExecArray | null;
+  while ((match = re.exec(normalized)) !== null) {
+    const value = parseFloat(match[1].replace(',', '.'));
+    if (Number.isFinite(value) && value > 0 && value <= 24) return value;
+  }
+  return null;
 }
 
 function extractQuantities(text: string): QuantityMatch[] {
@@ -391,6 +416,7 @@ export function parseWhatsAppMessage(rawMessage: string): ParseResult {
     pliegos_produced: pliegos?.value ?? null,
     merma: merma?.value ?? null,
     buenos: buenos?.value ?? null,
+    hours_reported: extractHours(rawMessage),
     processes_mentioned: processes,
     machine_mentioned: machine,
     paper_mentioned: paper,

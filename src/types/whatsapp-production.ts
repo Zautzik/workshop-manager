@@ -30,6 +30,16 @@ export interface ParsedProductionData {
   merma: number | null;
   /** Good units produced */
   buenos: number | null;
+  /**
+   * Horas que el operario dice haber ocupado en el trabajo.
+   *
+   * Es el dato que más veces aparece en los mensajes reales —«6 horas offset»,
+   * «barniz uv 5 hrs», «troquel terminado 4 hrs»— y el que no se extraía. Vale
+   * porque las horas × la tarifa SON el costo de mano de obra, y hoy ese
+   * eslabón está cortado por otro lado: ninguna asignación de Planta tiene OT.
+   * Lo que el operario reporta es una segunda vía al mismo número.
+   */
+  hours_reported: number | null;
   /** Processes mentioned: doblado, corte, corchetes, etc. */
   processes_mentioned: string[];
   /** Machine mentioned (if any) */
