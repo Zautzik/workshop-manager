@@ -104,3 +104,45 @@ describe('extractOTNumber', () => {
     expect(extractOTNumber('la 40879')).toBe('40879');
   });
 });
+
+describe('papel perdido — mensajes reales del taller', () => {
+  it('«8000 pliegos fallados» es merma, NO producción', () => {
+    // El defecto: el patrón de pliegos ganaba y ocho mil pliegos arruinados
+    // entraban como producción. Mensaje real de la bandeja de capturas.
+    const r = parseWhatsAppMessage('45500, 5 horas, 8000 pliegos fallados');
+    expect(r.production_data?.merma).toBe(8000);
+    expect(r.production_data?.pliegos_produced).toBeNull();
+  });
+
+  it('sigue leyendo la merma nombrada de la forma canónica', () => {
+    const r = parseWhatsAppMessage('Fin 40502, 62.000 pliegos, 900 de merma, offset 4 colores ok');
+    expect(r.production_data?.pliegos_produced).toBe(62000);
+    expect(r.production_data?.merma).toBe(900);
+    // `buenos` sólo se llena si el mensaje lo dice; el parser no lo deriva de
+    // pliegos − merma. Derivarlo sería otra decisión, no parte de este arreglo.
+    expect(r.production_data?.buenos).toBeNull();
+  });
+
+  it('reconoce las otras palabras con que se nombra lo perdido', () => {
+    for (const [texto, esperado] of [
+      ['fin 1234, 200 pliegos malogrados', 200],
+      ['fin 1234, 150 hojas perdidas', 150],
+      ['fin 1234, 90 de desperdicio', 90],
+      ['fin 1234, 45 pliegos desechados', 45],
+    ] as const) {
+      expect(parseWhatsAppMessage(texto).production_data?.merma, texto).toBe(esperado);
+    }
+  });
+
+  it('un tiraje limpio no inventa merma', () => {
+    const r = parseWhatsAppMessage('fin ot 40879 7.600 pliegos');
+    expect(r.production_data?.pliegos_produced).toBe(7600);
+    expect(r.production_data?.merma).toBeNull();
+  });
+
+  it('producción y pérdida en el mismo mensaje no se confunden', () => {
+    const r = parseWhatsAppMessage('fin 40500, 12.000 pliegos, 340 fallados');
+    expect(r.production_data?.pliegos_produced).toBe(12000);
+    expect(r.production_data?.merma).toBe(340);
+  });
+});

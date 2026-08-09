@@ -152,9 +152,24 @@ function extractQuantities(text: string): QuantityMatch[] {
   const matches: QuantityMatch[] = [];
   const normalized = normalize(text);
 
-  // Pattern: "500 pliegos", "3 de merma", "1.500 buenos", "merma 50"
+  // Palabras con que el taller nombra el papel perdido. «8000 pliegos FALLADOS»
+  // no son ocho mil pliegos producidos: son ocho mil perdidos, y contarlos como
+  // producción mete la merma dentro de lo que se cobra.
+  //
+  // Se arma con RegExp y cadenas escapadas —no con plantillas— porque en una
+  // plantilla `\d` colapsa a `d` y el patrón termina buscando la letra.
+  const PERDIDO = '(?:fallad|malogr|perdid|desechad|arruinad)[oa]s?|desperdicio|desecho';
+
+  // El orden importa: lo perdido se reconoce ANTES que la producción, y el
+  // patrón de pliegos lleva una mirada adelante que lo excluye cuando viene
+  // calificado como perdido.
   const qtyPatterns = [
-    { re: /([\d.]+)\s*(?:de\s+)?pliegos?/g, label: 'pliegos' },
+    { re: new RegExp('([\\d.]+)\\s*(?:de\\s+)?(?:pliegos?|hojas?)\\b\\s+(?:' + PERDIDO + ')', 'g'), label: 'merma' },
+    { re: new RegExp('([\\d.]+)\\s*(?:de\\s+)?(?:' + PERDIDO + ')', 'g'), label: 'merma' },
+    // El `\b` es lo que impide que `pliegos?` retroceda a «pliego» y deje la
+    // «s» suelta: sin él la mirada adelante no encontraba el espacio, daba por
+    // buena la exclusión, y «8000 pliegos fallados» entraba como producción.
+    { re: new RegExp('([\\d.]+)\\s*(?:de\\s+)?pliegos?\\b(?!\\s+(?:' + PERDIDO + '))', 'g'), label: 'pliegos' },
     { re: /([\d.]+)\s*(?:de\s+)?merma/g, label: 'merma' },
     { re: /([\d.]+)\s*(?:de\s+)?(?:buenos?|buenas?)/g, label: 'buenos' },
     { re: /([\d.]+)\s*(?:de\s+)?(?:unidades?|unid)/g, label: 'unidades' },
