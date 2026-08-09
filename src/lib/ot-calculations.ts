@@ -81,7 +81,11 @@ export const CALIBRATION = {
   /** Per-finish time model: fixed setup + sheets/hour throughput. */
   FINISH_RATES: {
     corte: { setupH: 0.3, sheetsPerHour: 3000 },
-    troquelado: { setupH: 1.5, sheetsPerHour: 1200 },
+    // La troqueladora del taller declara 3.500 pliegos/hora óptimos en
+    // `machines.optimal_speed_sheets_hr`. Aquí decía 1.200: la misma máquina
+    // costeada tres veces más lenta de lo que la propia ficha afirma, que en un
+    // tiraje de 100.000 pliegos son 57 horas de troquelado inventadas.
+    troquelado: { setupH: 1.5, sheetsPerHour: 3500 },
     plegado: { setupH: 0.5, sheetsPerHour: 3000 },
     pegado: { setupH: 0.5, sheetsPerHour: 2500 },
     laminado: { setupH: 0.5, sheetsPerHour: 2000 },
@@ -98,8 +102,16 @@ export const CALIBRATION = {
  * Base ink load in kg per 70×100 sheet per colour pass, at *medium* coverage
  * on a *coated* stock; scaled by the chosen format's area, coverage class and
  * substrate absorbency.
+ *
+ * 0,00085 kg sobre 0,7 m² son 1,2 g/m² por color, que es la banda con la que se
+ * trabaja en offset a cobertura media. Antes decía 0,003 — 4,3 g/m² por color,
+ * un depósito de tinta de solidez plena en todo el pliego. La consecuencia no
+ * era académica: en un estuche de 200.000 unidades la tinta salía $11,3 millones
+ * contra $15,0 de cartulina, casi a la par del papel. En una imprenta la tinta
+ * es del orden del 5% de la venta y el papel del 35%; ninguna cotización con esa
+ * proporción sobrevive la mirada de un impresor.
  */
-const INK_KG_PER_SHEET_70x100 = 0.003;
+const INK_KG_PER_SHEET_70x100 = 0.00085;
 const REF_SHEET_AREA_M2 = 0.7; // 70×100 cm
 
 const INK_COVERAGE_FACTOR: Record<InkCoverage, number> = {

@@ -269,3 +269,52 @@ describe('imposición limitada por la prensa (Ryobi 524GS)', () => {
 		expect(ops.find((o) => o.name.startsWith('Corte de resma'))).toBeUndefined();
 	});
 });
+
+/* ─── Calibración: las proporciones que un impresor reconoce ── */
+
+describe('CALIBRATION — la tinta pesa lo que pesa', () => {
+	// Un estuche plegadizo real: 20×30 cm, cartulina 300 g, 4/0, 200.000
+	// unidades en una Ryobi 524GS (media prensa 35×50).
+	const RYOBI = { maxWidthCm: 37, maxHeightCm: 52 };
+	const ESTUCHE = {
+		...INITIAL_OT_FORM,
+		quantity: 200_000,
+		width_cm: 20, height_cm: 30,
+		grammage_gsm: 300,
+		substrate_type: 'cartulina' as const,
+		color_front: 'cmyk' as const,
+	};
+
+	it('la tinta queda en la banda de 1 a 1,5 g/m² por color', () => {
+		const c = computeOTCalculations(ESTUCHE, { pressLimit: RYOBI, pressBodies: 4 });
+		const areaM2 = c.calc_sheets * 0.35 * 0.5;
+		// 4 colores al frente, sin retiro.
+		const gramosPorM2PorColor = (c.calc_ink_kg * 1000) / areaM2 / 4;
+		expect(gramosPorM2PorColor).toBeGreaterThan(1);
+		expect(gramosPorM2PorColor).toBeLessThan(1.5);
+	});
+
+	it('la tinta no compite con el papel en el costo del trabajo', () => {
+		// La prueba que fallaba: con 0,003 kg/pliego la tinta salía $11,3 millones
+		// contra $15,0 de cartulina. La tinta de una imprenta es un accesorio caro,
+		// no la mitad de la materia prima.
+		const c = computeOTCalculations(ESTUCHE, { pressLimit: RYOBI, pressBodies: 4 });
+		const ops = generateDefaultOperations(ESTUCHE, c, { substrate_per_kg: 2800, ink_per_kg: 31915 });
+		const papel = ops.find((o) => o.name === 'Sustrato/Papel')!.total_cost;
+		const tinta = ops.find((o) => o.name === 'Tintas')!.total_cost;
+		expect(tinta / papel).toBeLessThan(0.25);
+	});
+});
+
+describe('CALIBRATION — el troquelado corre a la velocidad de la troqueladora', () => {
+	it('100.000 pliegos se troquelan en unas 30 horas, no en 85', () => {
+		// `machines.optimal_speed_sheets_hr` de la troqueladora dice 3.500 pliegos
+		// por hora. Costear a 1.200 inventaba 57 horas de máquina que nadie trabajó.
+		const c = computeOTCalculations(
+			{ ...FORM_10x14, quantity: 100_000, finishes: { ...EMPTY_FINISHES, finish_troquelado: true } },
+		);
+		// setup 1,5 h + pliegos/3.500
+		expect(c.calc_finish_hours).toBeCloseTo(1.5 + c.calc_sheets / 3500, 1);
+		expect(c.calc_finish_hours).toBeLessThan(40);
+	});
+});
