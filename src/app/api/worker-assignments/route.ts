@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { requireAuth, isAuthError } from '@/lib/api-middleware';
 import { supabaseAdmin } from '@/integrations/supabase/server';
+import { checkAssignment } from '@/lib/assignment-rules';
 
 export const dynamic = 'force-dynamic';
 
@@ -99,6 +100,46 @@ export async function GET(req: NextRequest) {
   });
 }
 
+/**
+ * Un turno en una máquina de producción tiene que decir a qué OT se carga.
+ *
+ * La comprobación vive acá y no sólo en la pantalla porque la pantalla se puede
+ * saltar: cualquiera con sesión de supervisor puede llamar a este endpoint. Y
+ * porque la consecuencia no es cosmética — una asignación sin OT son horas que
+ * no entran al costo de ningún trabajo, y un margen que sale más alto de lo que
+ * fue sin que nadie lo note.
+ *
+ * La regla —qué tipos de máquina exigen OT y por qué el reparto no— vive en
+ * `assignment-rules.ts`, con pruebas.
+ */
+async function rechazarSinOT(
+  filas: { machine_id: string; ot_id?: string | null }[],
+): Promise<NextResponse | null> {
+  const ids = [...new Set(filas.map((f) => f.machine_id))];
+  const { data: maquinas } = await supabaseAdmin
+    .from('machines')
+    .select('id, name, type')
+    .in('id', ids);
+
+  const tipoDe = new Map((maquinas ?? []).map((m: any) => [m.id, m.type]));
+  const nombreDe = new Map((maquinas ?? []).map((m: any) => [m.id, m.name]));
+
+  for (const f of filas) {
+    const veredicto = checkAssignment({ machineType: tipoDe.get(f.machine_id), otId: f.ot_id });
+    if (!veredicto.ok) {
+      return NextResponse.json(
+        {
+          error: veredicto.reason,
+          machine: nombreDe.get(f.machine_id) ?? null,
+          field: 'ot_id',
+        },
+        { status: 400 },
+      );
+    }
+  }
+  return null;
+}
+
 export async function POST(req: NextRequest) {
   const auth = await requireAuth(['admin', 'supervisor', 'manager']);
   if (isAuthError(auth)) return auth;
@@ -114,6 +155,9 @@ export async function POST(req: NextRequest) {
           { status: 400 }
         );
       }
+
+      const rechazo = await rechazarSinOT(parsed.data);
+      if (rechazo) return rechazo;
 
       const { data, error } = await supabaseAdmin
         .from('worker_assignments')
@@ -134,6 +178,9 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       );
     }
+
+    const rechazo = await rechazarSinOT([parsed.data]);
+    if (rechazo) return rechazo;
 
     const { data, error } = await supabaseAdmin
       .from('worker_assignments')

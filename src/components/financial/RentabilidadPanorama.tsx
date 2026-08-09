@@ -48,6 +48,7 @@ import {
 } from './charts/viz-tokens';
 import { MermaPanel } from './MermaPanel';
 import { HoraPrensaPanel } from './HoraPrensaPanel';
+import { ClientesPanel } from './ClientesPanel';
 
 export interface OtCostRow {
 	ot_id: string;
@@ -238,6 +239,10 @@ export function RentabilidadPanorama({ rows }: { rows: OtCostRow[] }) {
 				<HoraPrensaPanel />
 				<MermaPanel />
 			</div>
+
+			{/* Por cliente: la pregunta por la que existe el módulo. `rollupByClient`
+			    la respondía desde hace tiempo y ninguna pantalla la leía. */}
+			<ClientesPanel />
 
 			{conCosto.length === 0 ? (
 				<SinCosto ots={rows.length} />

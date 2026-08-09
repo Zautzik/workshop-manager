@@ -136,3 +136,130 @@ export function ratingLabel(rating: string | null | undefined): string {
   if (!rating) return '';
   return RATING_LABELS[rating] ?? rating;
 }
+
+/* ─── Los otros estados del recorrido ────────────────────────── */
+
+/**
+ * Una OT no es lo único que tiene estado. Un presupuesto se firma, una orden de
+ * compra se factura, una guía se entrega y una factura se paga — y hasta acá
+ * esas cuatro salían crudas en pantalla: el cliente leía `signed`, `invoiced`,
+ * `dispatched`, `issued`.
+ *
+ * Cada enum tiene su función. No es ceremonia: un `Record` suelto obliga a cada
+ * pantalla a decidir qué hacer con el valor desconocido, y ahí es donde se
+ * escapan los `undefined` y los `snake_case`. La función decide una vez.
+ */
+
+/** `vb_status` — el presupuesto, desde que se escribe hasta que se convierte. */
+export const VB_STATUS_LABELS: Record<string, string> = {
+  draft: 'Borrador',
+  sent: 'Enviado al cliente',
+  signed: 'Firmado',
+  converted: 'Convertido en OT',
+  rejected: 'Rechazado',
+  expired: 'Vencido',
+};
+
+/** `oc_status` — la orden de compra al proveedor. */
+export const OC_STATUS_LABELS: Record<string, string> = {
+  draft: 'Borrador',
+  sent: 'Enviada al proveedor',
+  received: 'Recibida en bodega',
+  invoiced: 'Facturada',
+  closed: 'Cerrada',
+  cancelled: 'Anulada',
+};
+
+/** `sales_invoice_status` — la factura de venta. */
+export const SALES_INVOICE_STATUS_LABELS: Record<string, string> = {
+  issued: 'Emitida',
+  sent: 'Enviada',
+  paid: 'Pagada',
+  cancelled: 'Anulada',
+};
+
+/** `factura_compra_status` — la factura del proveedor. */
+export const PURCHASE_INVOICE_STATUS_LABELS: Record<string, string> = {
+  received: 'Recibida',
+  matched: 'Cuadrada con la OC',
+  disputed: 'En disputa',
+  paid: 'Pagada',
+};
+
+/** `dispatch_status` — la guía de despacho. */
+export const DISPATCH_STATUS_LABELS: Record<string, string> = {
+  draft: 'Borrador',
+  dispatched: 'Despachada',
+  delivered: 'Entregada',
+  cancelled: 'Anulada',
+};
+
+/** `capture_status` — el parte que manda el taller. */
+export const CAPTURE_STATUS_LABELS: Record<string, string> = {
+  pending: 'Por revisar',
+  approved: 'Aprobado',
+  auto_approved: 'Aprobado automáticamente',
+  rejected: 'Rechazado',
+  needs_revision: 'Necesita corrección',
+};
+
+/** `employee_status` — la situación de una persona. */
+export const EMPLOYEE_STATUS_LABELS: Record<string, string> = {
+  active: 'Activo',
+  inactive: 'Inactivo',
+  on_leave: 'Con permiso',
+  terminated: 'Desvinculado',
+};
+
+/** `maintenance_status` — el trabajo de mantención. */
+export const MAINTENANCE_STATUS_LABELS: Record<string, string> = {
+  scheduled: 'Programada',
+  in_progress: 'En curso',
+  completed: 'Completada',
+  cancelled: 'Anulada',
+  overdue: 'Atrasada',
+};
+
+/**
+ * El respaldo cuando el valor no está en el mapa.
+ *
+ * Devolver el crudo tal cual —`needs_revision`— es peor que no traducir: parece
+ * un error de la app. Se le saca el guión bajo y se le pone mayúscula, que al
+ * menos se lee como texto. Y nunca devuelve vacío: una celda en blanco no
+ * distingue «sin estado» de «se rompió algo».
+ */
+function traducir(mapa: Record<string, string>, valor: string | null | undefined): string {
+  if (!valor) return '—';
+  const conocido = mapa[valor];
+  if (conocido) return conocido;
+  const suelto = valor.replace(/_/g, ' ');
+  return suelto.charAt(0).toUpperCase() + suelto.slice(1);
+}
+
+export const vbStatusLabel = (s: string | null | undefined) => traducir(VB_STATUS_LABELS, s);
+export const ocStatusLabel = (s: string | null | undefined) => traducir(OC_STATUS_LABELS, s);
+export const salesInvoiceStatusLabel = (s: string | null | undefined) => traducir(SALES_INVOICE_STATUS_LABELS, s);
+export const purchaseInvoiceStatusLabel = (s: string | null | undefined) => traducir(PURCHASE_INVOICE_STATUS_LABELS, s);
+export const dispatchStatusLabel = (s: string | null | undefined) => traducir(DISPATCH_STATUS_LABELS, s);
+export const captureStatusLabel = (s: string | null | undefined) => traducir(CAPTURE_STATUS_LABELS, s);
+export const employeeStatusLabel = (s: string | null | undefined) => traducir(EMPLOYEE_STATUS_LABELS, s);
+export const maintenanceStatusLabel = (s: string | null | undefined) => traducir(MAINTENANCE_STATUS_LABELS, s);
+
+/**
+ * Semáforo para los estados que importan comercialmente: pagado y entregado en
+ * verde, anulado y rechazado en rojo, lo que espera algo en ámbar.
+ */
+const TONO: Record<string, keyof typeof PHASE_BADGE> = {
+  paid: 'green', delivered: 'green', converted: 'green', completed: 'green',
+  approved: 'green', auto_approved: 'green', closed: 'green', matched: 'green', active: 'green',
+  signed: 'cyan', sent: 'cyan', issued: 'cyan', dispatched: 'cyan', received: 'cyan', in_progress: 'cyan',
+  draft: 'gray', inactive: 'gray', scheduled: 'gray',
+  pending: 'amber', needs_revision: 'amber', on_leave: 'amber', expired: 'amber',
+  cancelled: 'slate', terminated: 'slate',
+  rejected: 'violet', disputed: 'violet', overdue: 'violet',
+};
+
+/** Chip translúcido para cualquiera de los estados de arriba. */
+export function statusBadgeClass(status: string | null | undefined): string {
+  return PHASE_BADGE[(status && TONO[status]) || 'gray'];
+}
