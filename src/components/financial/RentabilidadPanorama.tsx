@@ -46,6 +46,7 @@ import {
 	costPartColor,
 	type CostPartKey,
 } from './charts/viz-tokens';
+import { MermaPanel } from './MermaPanel';
 
 export interface OtCostRow {
 	ot_id: string;
@@ -229,6 +230,8 @@ export function RentabilidadPanorama({ rows }: { rows: OtCostRow[] }) {
 					}
 				/>
 			</div>
+
+			<MermaPanel />
 
 			{conCosto.length === 0 ? (
 				<SinCosto ots={rows.length} />
