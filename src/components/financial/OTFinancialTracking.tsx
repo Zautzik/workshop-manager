@@ -10,6 +10,7 @@ import { TrendingUp, TrendingDown, Plus } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useOtCostSummary } from '@/hooks/use-financial-queries';
 import { aggregateMarginConfidence, marginConfidence } from '@/lib/margin-confidence';
+import { RentabilidadPanorama } from '@/components/financial/RentabilidadPanorama';
 import { useOTs } from '@/hooks/use-operations-queries';
 import { formatCLP } from '@/lib/format';
 
@@ -82,50 +83,11 @@ export const OTFinancialTracking = () => {
   return (
     <div className="space-y-6">
       {/* Summary — straight from the unified cost ledger */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card className="border-primary/20">
-          <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">Ingresos</CardTitle></CardHeader>
-          <CardContent><div className="text-2xl font-bold text-primary">{formatCLP(totals.revenue)}</div></CardContent>
-        </Card>
-        <Card className="border-amber-500/20">
-          <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">Costo estimado</CardTitle></CardHeader>
-          <CardContent><div className="text-2xl font-bold text-amber-600">{formatCLP(totals.estimated)}</div></CardContent>
-        </Card>
-        <Card className="border-destructive/20">
-          <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">Costo real</CardTitle></CardHeader>
-          <CardContent><div className="text-2xl font-bold text-destructive">{formatCLP(totals.actual)}</div></CardContent>
-        </Card>
-        <Card className={
-          totals.verdict.confidence !== 'medido' ? 'border-border'
-            : totals.margin >= 0 ? 'border-green-500/20' : 'border-red-500/20'
-        }>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Margen{totals.verdict.pct !== null ? ` (${totals.verdict.pct}%)` : ''}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {totals.verdict.confidence === 'sin_costo' || totals.verdict.confidence === 'sin_datos' ? (
-              // Sin costo real no se afirma un margen. Antes aquí salía el ingreso
-              // completo en verde, que es la mentira más cómoda de creer.
-              <div className="text-sm text-muted-foreground leading-snug">
-                <span className="font-semibold text-foreground">Sin determinar</span>
-                {totals.verdict.hint && <p className="text-xs mt-1">{totals.verdict.hint}</p>}
-              </div>
-            ) : (
-              <>
-                <div className={`text-2xl font-bold flex items-center gap-2 ${totals.margin >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                  {totals.margin >= 0 ? <TrendingUp className="h-5 w-5" /> : <TrendingDown className="h-5 w-5" />}
-                  {formatCLP(totals.margin)}
-                </div>
-                {totals.verdict.hint && (
-                  <p className="text-xs text-amber-600 dark:text-amber-400 mt-1 leading-snug">{totals.verdict.hint}</p>
-                )}
-              </>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+      {/* Panorama: fichas de titular y los dos gráficos. Reemplaza la fila de
+          cuatro tarjetas de texto — el margen sigue siendo el mismo veredicto,
+          ahora con la forma que le corresponde a cada dato. */}
+      <RentabilidadPanorama rows={rows as any} />
+
 
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
         <DialogTrigger asChild>
@@ -182,6 +144,13 @@ export const OTFinancialTracking = () => {
                 <tr className="border-b">
                   <th className="text-left py-2 px-3 font-medium">OT</th>
                   <th className="text-left py-2 px-3 font-medium">Cliente</th>
+                  {/* Vista de tabla del desglose: en claro, «Máquina» y «Otros»
+                      quedan bajo 3:1 de contraste en el gráfico, y la regla de
+                      relieve exige que su valor se pueda leer sin el tooltip. */}
+                  <th className="text-right py-2 px-3 font-medium">Materiales</th>
+                  <th className="text-right py-2 px-3 font-medium">Mano de obra</th>
+                  <th className="text-right py-2 px-3 font-medium">Máquina</th>
+                  <th className="text-right py-2 px-3 font-medium">Otros</th>
                   <th className="text-right py-2 px-3 font-medium text-amber-600">Estimado</th>
                   <th className="text-right py-2 px-3 font-medium text-destructive">Real</th>
                   <th className="text-right py-2 px-3 font-medium text-primary">Ingresos</th>
@@ -191,7 +160,7 @@ export const OTFinancialTracking = () => {
               </thead>
               <tbody>
                 {rows.length === 0 && (
-                  <tr><td colSpan={7} className="py-8 text-center text-muted-foreground">Sin datos en el ledger todavía.</td></tr>
+                  <tr><td colSpan={11} className="py-8 text-center text-muted-foreground">Sin datos en el ledger todavía.</td></tr>
                 )}
                 {rows.map((r) => {
                   const v = marginConfidence(r);
@@ -199,6 +168,10 @@ export const OTFinancialTracking = () => {
                     <tr key={r.ot_id} className="border-b hover:bg-muted/50">
                       <td className="py-2 px-3 font-medium">{r.ot_number}</td>
                       <td className="py-2 px-3 text-muted-foreground">{r.client_name}</td>
+                      <td className="py-2 px-3 text-right tabular-nums text-muted-foreground">{formatCLP(r.material_actual)}</td>
+                      <td className="py-2 px-3 text-right tabular-nums text-muted-foreground">{formatCLP(r.labor_actual)}</td>
+                      <td className="py-2 px-3 text-right tabular-nums text-muted-foreground">{formatCLP(r.machine_actual)}</td>
+                      <td className="py-2 px-3 text-right tabular-nums text-muted-foreground">{formatCLP(r.other_actual)}</td>
                       <td className="py-2 px-3 text-right text-amber-600">{formatCLP(r.estimated_cost)}</td>
                       <td className="py-2 px-3 text-right text-destructive">{formatCLP(r.actual_cost)}</td>
                       <td className="py-2 px-3 text-right text-primary">{formatCLP(r.revenue)}</td>
