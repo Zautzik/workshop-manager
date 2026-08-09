@@ -111,7 +111,22 @@ function resolveSubstrateCost(
   const cat = closest(catalog.filter((c) => c.category === 'papel' && c.is_active));
 
   const choice = chooseMaterialPrice(
-    real ? { value: Number(real.weighted_cost), unit: real.unit } : null,
+    real
+      ? {
+          value: Number(real.weighted_cost),
+          unit: real.unit,
+          // Con la geometría, una resma se traduce a kilos en vez de perderse.
+          sheet:
+            real.sheet_width_cm && real.sheet_height_cm && real.grammage_gsm
+              ? {
+                  widthCm: Number(real.sheet_width_cm),
+                  heightCm: Number(real.sheet_height_cm),
+                  gsm: Number(real.grammage_gsm),
+                  sheetsPerPackage: real.sheets_per_package ?? undefined,
+                }
+              : null,
+        }
+      : null,
     // El catálogo de papel se cotiza por kilo; no trae columna de unidad.
     cat ? { value: cat.unit_cost, unit: 'kg' } : null,
     'kg',

@@ -71,6 +71,11 @@ export interface MaterialCost {
   weighted_cost: number;
   lot_count: number;
   total_received: number;
+  // Geometría del pliego: permite convertir un precio por resma a por kilo.
+  sheet_width_cm: number | null;
+  sheet_height_cm: number | null;
+  grammage_gsm: number | null;
+  sheets_per_package: number | null;
   latest_cost: number | null;
   latest_received: string | null;
 }

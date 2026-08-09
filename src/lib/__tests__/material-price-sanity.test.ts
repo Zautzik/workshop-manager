@@ -101,3 +101,39 @@ describe('chooseMaterialPrice', () => {
 		}
 	});
 });
+
+describe('conversión con geometría — el motor traduce en vez de descartar', () => {
+	const BOND_70x100_80 = { widthCm: 70, heightCm: 100, gsm: 80, sheetsPerPackage: 500 };
+
+	it('una resma se traduce a kilos y se usa', () => {
+		// SUB-BON-080: $32.200 la resma de 70×100 a 80 g. Son 28 kg → $1.150/kg.
+		const c = chooseMaterialPrice(
+			{ value: 32200, unit: 'resma', sheet: BOND_70x100_80 },
+			{ value: 1100, unit: 'kg' },
+			'kg',
+		);
+		expect(c.source).toBe('real');
+		expect(c.value).toBeCloseTo(1150, 0);
+		expect(c.warning).toBeNull();
+	});
+
+	it('sin geometría sigue descartándose, no se adivina', () => {
+		const c = chooseMaterialPrice(
+			{ value: 32200, unit: 'resma' },
+			{ value: 1100, unit: 'kg' },
+			'kg',
+		);
+		expect(c.source).toBe('catalogo');
+		expect(c.warning).toContain('conversión');
+	});
+
+	it('la conversión también se somete a la banda de cordura', () => {
+		// Una resma a $50 daría $1,79/kg: convertida sigue siendo absurda.
+		const c = chooseMaterialPrice(
+			{ value: 50, unit: 'resma', sheet: BOND_70x100_80 },
+			{ value: 1100, unit: 'kg' },
+			'kg',
+		);
+		expect(c.source).toBe('catalogo');
+	});
+});

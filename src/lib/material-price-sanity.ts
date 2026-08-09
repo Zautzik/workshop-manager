@@ -1,3 +1,5 @@
+import { costPerKg, type SheetSpec } from '@/lib/paper-units';
+
 /**
  * ¿Se puede creer este precio de material?
  *
@@ -61,6 +63,12 @@ export interface PriceCheck {
 export interface PriceCandidate {
 	value: number | null | undefined;
 	unit: string | null | undefined;
+	/**
+	 * Geometría del pliego, cuando el material la tiene. Con ella una resma se
+	 * traduce a kilos en vez de descartarse: es la diferencia entre «no puedo
+	 * usar este precio» y «puedo, convertido».
+	 */
+	sheet?: SheetSpec | null;
 }
 
 /**
@@ -109,20 +117,38 @@ export interface PriceChoice {
 	warning: string | null;
 }
 
+/**
+ * Traduce un precio a la unidad esperada cuando la geometría lo permite.
+ * Una resma de 70×100 a 80 g son 28 kilos: el precio por kilo se puede deducir,
+ * no hace falta descartarlo.
+ */
+function convertir(c: PriceCandidate, expected: MaterialUnit): PriceCandidate {
+	const unit = (c.unit ?? '').trim().toLowerCase();
+	if (!c.sheet || unit === expected || typeof c.value !== 'number') return c;
+
+	if (expected === 'kg' && (unit === 'resma' || unit === 'pliego')) {
+		const perKg = costPerKg({ value: c.value, unit: unit as 'resma' | 'pliego' }, c.sheet);
+		if (perKg !== null) return { ...c, value: perKg, unit: 'kg' };
+	}
+	return c;
+}
+
 export function chooseMaterialPrice(
 	real: PriceCandidate | null | undefined,
 	catalogo: PriceCandidate | null | undefined,
 	expected: MaterialUnit,
 ): PriceChoice {
-	const realCheck = real ? checkMaterialPrice(real, expected) : null;
+	const realConv = real ? convertir(real, expected) : null;
+	const realCheck = realConv ? checkMaterialPrice(realConv, expected) : null;
 	if (realCheck?.usable) {
-		return { value: real!.value as number, source: 'real', warning: null };
+		return { value: realConv!.value as number, source: 'real', warning: null };
 	}
 
-	const catCheck = catalogo ? checkMaterialPrice(catalogo, expected) : null;
+	const catConv = catalogo ? convertir(catalogo, expected) : null;
+	const catCheck = catConv ? checkMaterialPrice(catConv, expected) : null;
 	if (catCheck?.usable) {
 		return {
-			value: catalogo!.value as number,
+			value: catConv!.value as number,
 			source: 'catalogo',
 			warning: realCheck ? `Se ignoró el costo real: ${realCheck.reason}` : null,
 		};
