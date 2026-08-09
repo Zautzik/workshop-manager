@@ -446,7 +446,7 @@ problems is marketing.
 - **Purchase order lines have no UI.** The seed writes 261 of them; a buyer cannot write
   the 262nd. Until that exists, real material cost stops resolving the moment someone
   actually buys paper.
-- **Eighteen of forty-seven libraries have no tests**, and they are the wrong eighteen:
+- **Eighteen of forty-eight libraries have no tests**, and they are the wrong eighteen:
   `auth`, `api-middleware`, `identity`, `whatsapp-ingest`. The domain is tested; the
   perimeter is not.
 - **`LanguageContext` survives in seven components** of an application that has decided
