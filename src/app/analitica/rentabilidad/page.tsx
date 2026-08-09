@@ -9,7 +9,10 @@ import { OrderLaborMarginAnalysis } from '@/components/financial/OrderLaborMargi
 import { OTCostAnalysisReport } from '@/components/financial/OTCostAnalysisReport';
 import { OTFinancialTracking } from '@/components/financial/OTFinancialTracking';
 
-const VALID_TABS = ['margenes', 'costos', 'seguimiento'] as const;
+// El orden importa: se aterriza en el margen del TRABAJO, no en una de sus
+// partidas. La mano de obra es un componente del costo, no la pregunta —
+// abrir en ella era heredado de cuando el módulo se organizaba por partida.
+const VALID_TABS = ['seguimiento', 'costos', 'margenes'] as const;
 type TabKey = (typeof VALID_TABS)[number];
 
 function RentabilidadTabs() {
@@ -18,7 +21,7 @@ function RentabilidadTabs() {
   const requested = params.get('tab');
   const active: TabKey = (VALID_TABS as readonly string[]).includes(requested ?? '')
     ? (requested as TabKey)
-    : 'margenes';
+    : 'seguimiento';
 
   // Keep the URL in sync so each tab is bookmarkable / shareable.
   const onChange = (value: string) => {
@@ -30,14 +33,14 @@ function RentabilidadTabs() {
   return (
     <Tabs value={active} onValueChange={onChange} className="w-full">
       <TabsList className="grid w-full max-w-xl grid-cols-3">
-        <TabsTrigger value="margenes" className="gap-2">
-          <PieChart className="h-4 w-4" /> Márgenes
+        <TabsTrigger value="seguimiento" className="gap-2">
+          <PieChart className="h-4 w-4" /> Margen por trabajo
         </TabsTrigger>
         <TabsTrigger value="costos" className="gap-2">
-          <FileSpreadsheet className="h-4 w-4" /> Estimado vs Real
+          <FileSpreadsheet className="h-4 w-4" /> Estimado vs real
         </TabsTrigger>
-        <TabsTrigger value="seguimiento" className="gap-2">
-          <ClipboardList className="h-4 w-4" /> Costos Reales
+        <TabsTrigger value="margenes" className="gap-2">
+          <ClipboardList className="h-4 w-4" /> Mano de obra
         </TabsTrigger>
       </TabsList>
 

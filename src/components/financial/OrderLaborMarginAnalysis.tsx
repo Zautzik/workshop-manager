@@ -1,5 +1,7 @@
 'use client';
 
+import Link from 'next/link';
+
 import { useState } from 'react';
 import { format, subMonths, startOfMonth, endOfMonth } from 'date-fns';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -7,12 +9,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useOrderLaborMargin } from '@/hooks/use-financial-queries';
 import { useOTs } from '@/hooks/use-operations-queries';
-import { Loader2, TrendingUp, TrendingDown, DollarSign, AlertCircle, CheckCircle } from 'lucide-react';
-import { useLanguage } from '@/contexts/LanguageContext';
+import { ArrowRight, Info, Loader2, TrendingUp, TrendingDown, DollarSign, AlertCircle, CheckCircle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 
 export function OrderLaborMarginAnalysis() {
-  const { t } = useLanguage();
   const { data: ots, isLoading: otsLoading } = useOTs();
 
   // State
@@ -80,17 +80,16 @@ export function OrderLaborMarginAnalysis() {
       {/* Controls */}
       <Card>
         <CardHeader>
-          <CardTitle>{t('financial.orderLaborMargin') || 'Order Labor Margin'}</CardTitle>
+          <CardTitle>Margen laboral por orden</CardTitle>
           <CardDescription>
-            {t('financial.orderLaborMarginDesc') || 
-              'Analyze profitability per order comparing revenue vs labor costs and incentives'}
+            Cuánto queda de cada trabajo después de pagar las horas de la gente que lo hizo, incluidos sobretiempo e incentivos.
           </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="text-sm font-medium mb-1 block">
-                {t('common.order') || 'Order (Optional)'}
+                Orden de trabajo
               </label>
               <Select value={selectedOtId} onValueChange={setSelectedOtId}>
                 <SelectTrigger>
@@ -109,17 +108,17 @@ export function OrderLaborMarginAnalysis() {
 
             <div>
               <label className="text-sm font-medium mb-1 block">
-                {t('common.timeRange') || 'Time Range'}
+                Período
               </label>
               <Select value={rangeMonths.toString()} onValueChange={(v) => setRangeMonths(Number(v))}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="3">Últimos 3 {t('common.months') || 'meses'}</SelectItem>
-                  <SelectItem value="6">Últimos 6 {t('common.months') || 'meses'}</SelectItem>
-                  <SelectItem value="12">Últimos 12 {t('common.months') || 'meses'}</SelectItem>
-                  <SelectItem value="24">Últimos 24 {t('common.months') || 'meses'}</SelectItem>
+                  <SelectItem value="3">Últimos 3 meses</SelectItem>
+                  <SelectItem value="6">Últimos 6 meses</SelectItem>
+                  <SelectItem value="12">Últimos 12 meses</SelectItem>
+                  <SelectItem value="24">Últimos 24 meses</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -200,7 +199,7 @@ export function OrderLaborMarginAnalysis() {
       {/* Margin Table */}
       <Card>
         <CardHeader>
-          <CardTitle>{t('financial.marginBreakdown') || 'Margin Breakdown'}</CardTitle>
+          <CardTitle>Detalle por orden</CardTitle>
         </CardHeader>
         <CardContent>
           {marginsLoading ? (
@@ -208,19 +207,42 @@ export function OrderLaborMarginAnalysis() {
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
             </div>
           ) : !margins || margins.length === 0 ? (
-            <div className="mx-auto max-w-xl py-8 text-center">
+            /* El diagnóstico ya decía qué falta; faltaba ofrecer el sitio donde
+               se arregla. Alineado a la izquierda y con acción, como el panorama:
+               un texto centrado en medio de una tarjeta vacía se lee como un
+               error, no como una instrucción. */
+            <div className="flex max-w-2xl flex-col items-start gap-3 py-6">
               {diagnostics?.blocked && diagnostics.reasons.length > 0 ? (
                 <>
-                  <p className="font-medium text-foreground">
-                    No se puede calcular el margen laboral todavía
-                  </p>
+                  <div className="flex items-center gap-2 text-foreground">
+                    <Info className="h-4 w-4 shrink-0 text-amber-500" />
+                    <span className="font-semibold">No se puede calcular el margen laboral todavía</span>
+                  </div>
                   {diagnostics.reasons.map((r) => (
-                    <p key={r} className="mt-2 text-sm text-muted-foreground">{r}</p>
+                    <p key={r} className="text-sm leading-relaxed text-muted-foreground">{r}</p>
                   ))}
-                  <p className="mt-3 font-mono text-xs text-muted-foreground">
-                    {diagnostics.assignments_with_ot} de {diagnostics.assignments_total} partes con OT ·{' '}
-                    {diagnostics.clock_events} marcas de reloj · {diagnostics.rates} tarifas
-                  </p>
+
+                  {/* Las tres cifras que explican el bloqueo, cada una con su
+                      nombre: antes iban en una línea monoespaciada seguida. */}
+                  <dl className="flex flex-wrap gap-x-6 gap-y-2 rounded-lg border border-border bg-muted/30 px-3 py-2">
+                    {[
+                      { k: 'Partes con OT', v: `${diagnostics.assignments_with_ot} de ${diagnostics.assignments_total}`, mal: diagnostics.assignments_with_ot === 0 },
+                      { k: 'Marcas de reloj', v: String(diagnostics.clock_events), mal: diagnostics.clock_events === 0 },
+                      { k: 'Tarifas cargadas', v: String(diagnostics.rates), mal: diagnostics.rates === 0 },
+                    ].map((d) => (
+                      <div key={d.k}>
+                        <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">{d.k}</dt>
+                        <dd className={`text-sm font-semibold tabular-nums ${d.mal ? 'text-destructive' : 'text-foreground'}`}>{d.v}</dd>
+                      </div>
+                    ))}
+                  </dl>
+
+                  <Link
+                    href="/operaciones/planta"
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-sm font-medium text-foreground transition-colors hover:bg-muted"
+                  >
+                    Asignar personal a una OT en Planta <ArrowRight className="h-3.5 w-3.5" />
+                  </Link>
                 </>
               ) : (
                 <p className="text-sm text-muted-foreground">
@@ -233,18 +255,18 @@ export function OrderLaborMarginAnalysis() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>{t('common.otNumber') || 'OT Number'}</TableHead>
-                    <TableHead>{t('common.client') || 'Client'}</TableHead>
-                    <TableHead>{t('common.orderDate') || 'Order Date'}</TableHead>
-                    <TableHead className="text-right">{t('financial.revenue') || 'Revenue'}</TableHead>
-                    <TableHead className="text-right">{t('financial.laborCost') || 'Labor Cost'}</TableHead>
-                    <TableHead className="text-right">{t('financial.otPremium') || 'OT Premium'}</TableHead>
-                    <TableHead className="text-right">{t('financial.incentives') || 'Incentives'}</TableHead>
-                    <TableHead className="text-right">{t('financial.totalCost') || 'Total Cost'}</TableHead>
-                    <TableHead className="text-right">{t('financial.margin') || 'Margin'}</TableHead>
-                    <TableHead className="text-center">{t('financial.status') || 'Status'}</TableHead>
-                    <TableHead className="text-right">{t('financial.hours') || 'Hours'}</TableHead>
-                    <TableHead className="text-right">{t('financial.costPerHour') || '$/hr'}</TableHead>
+                    <TableHead>OT</TableHead>
+                    <TableHead>Cliente</TableHead>
+                    <TableHead>Fecha</TableHead>
+                    <TableHead className="text-right">Ingresos</TableHead>
+                    <TableHead className="text-right">Mano de obra</TableHead>
+                    <TableHead className="text-right">Sobretiempo</TableHead>
+                    <TableHead className="text-right">Incentivos</TableHead>
+                    <TableHead className="text-right">Costo total</TableHead>
+                    <TableHead className="text-right">Margen</TableHead>
+                    <TableHead className="text-center">Estado</TableHead>
+                    <TableHead className="text-right">Horas</TableHead>
+                    <TableHead className="text-right">$/hora</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
