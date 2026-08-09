@@ -47,6 +47,7 @@ import {
 	type CostPartKey,
 } from './charts/viz-tokens';
 import { MermaPanel } from './MermaPanel';
+import { HoraPrensaPanel } from './HoraPrensaPanel';
 
 export interface OtCostRow {
 	ot_id: string;
@@ -231,7 +232,12 @@ export function RentabilidadPanorama({ rows }: { rows: OtCostRow[] }) {
 				/>
 			</div>
 
-			<MermaPanel />
+			{/* Las dos caras de un trabajo: cuánto papel se perdió, y cuánto deja
+			    la hora de máquina que ocupó. */}
+			<div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+				<HoraPrensaPanel />
+				<MermaPanel />
+			</div>
 
 			{conCosto.length === 0 ? (
 				<SinCosto ots={rows.length} />
