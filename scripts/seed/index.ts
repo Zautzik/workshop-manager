@@ -411,14 +411,14 @@ function informeDelPlan(planes: MonthPlan[], turnero: ScheduleReport): void {
 	const top = [...turnero.perPerson].sort((a, b) => b[1] - a[1]).slice(0, 3);
 	console.log(
 		`  ${turnero.shifts} turnos repartidos · ${turnero.moved} corridos de día porque la banca estaba tomada · ` +
-		`${turnero.dropped > 0 ? `[31m${turnero.dropped} sin cubrir[0m` : '[32mtodos cubiertos[0m'}`,
+		`${turnero.dropped > 0 ? `\x1b[31m${turnero.dropped} sin cubrir\x1b[0m` : '\x1b[32mtodos cubiertos\x1b[0m'}`,
 	);
 	if (top.length > 0) {
 		console.log(`  Los más cargados: ${top.map(([n, v]) => `${n} (${v})`).join(' · ')}`);
 	}
 	if (turnero.dropped > 0) {
-		console.log('  [33mUn turno sin cubrir es trabajo que nadie hizo: su mano de obra no se carga a la OT.[0m');
-		console.log('  [33mSi el número es alto, al taller le falta gente para el volumen del plan.[0m');
+		console.log('  \x1b[33mUn turno sin cubrir es trabajo que nadie hizo: su mano de obra no se carga a la OT.\x1b[0m');
+		console.log('  \x1b[33mSi el número es alto, al taller le falta gente para el volumen del plan.\x1b[0m');
 	}
 
 	const fuera = cerrados.filter((j) => j.finishingOutsourced);
@@ -953,9 +953,41 @@ async function main() {
 		console.log(`  Margen bruto acumulado       ${pad(clp(margen), 18)}`);
 		console.log(`  Margen por mes               ${pad(clp(margen / meses), 18)}  \x1b[2m(objetivo ${clp(MONTHLY_MARGIN_TARGET_CLP)})\x1b[0m`);
 
-		const asigns = await contar('worker_assignments');
-		const sinOt = (await leer<any>('worker_assignments?select=id&ot_id=is.null&limit=1')).length;
-		console.log(`  Turnos                       ${pad(asigns, 6)} · sin OT: ${sinOt === 0 ? '\x1b[32mninguno\x1b[0m' : '\x1b[31m' + sinOt + '\x1b[0m'}`);
+		// ── La cadena, eslabón por eslabón ────────────────────────────────────
+		// No basta con que las filas hayan entrado: la tesis del sembrador es que
+		// NADA nace huérfano. Se comprueba preguntando por lo HUÉRFANO, que es la
+		// única forma de saberlo — contar filas no distingue una cadena entera de
+		// veinte tablas llenas que no se conocen entre sí.
+		const eslabones: [string, string, string][] = [
+			['Turnos sin OT', 'worker_assignments', 'ot_id=is.null'],
+			['Turnos sin persona', 'worker_assignments', 'employee_id=is.null'],
+			['Capturas sin OT', 'capture_events', 'ot_id=is.null'],
+			['OT sin cliente', 'ots', 'client_id=is.null'],
+			['OT sin cotización', 'ots', 'vb_id=is.null'],
+			['Cotizaciones sin OT', 'vistos_buenos', 'ot_id=is.null'],
+			['Líneas de costo sin OT', 'ot_cost_lines', 'ot_id=is.null'],
+			['Órdenes de compra sin OT', 'purchases', 'ot_id=is.null'],
+			['Líneas de compra sin lote', 'purchase_items', 'lot_id=is.null'],
+			['Lotes sin orden de compra', 'inventory_lots', 'purchase_id=is.null'],
+			['Guías sin OT', 'dispatch_guides', 'ot_id=is.null'],
+			['Facturas sin OT', 'sales_invoices', 'ot_id=is.null'],
+		];
+
+		console.log('');
+		let rotos = 0;
+		for (const [etiqueta, tabla, filtro] of eslabones) {
+			// Las dos OT históricas no tienen cotización ni cliente y se conservan
+			// a propósito: son del mundo anterior. Se descuentan.
+			const historicas = etiqueta.startsWith('OT sin') ? 2 : 0;
+			const n = Math.max(0, (await leer<any>(`${tabla}?select=id&${filtro}&limit=500`)).length - historicas);
+			if (n > 0) rotos += 1;
+			console.log(`  ${etiqueta.padEnd(30)} ${n === 0 ? '\x1b[32mninguno\x1b[0m' : `\x1b[31m${n}\x1b[0m`}`);
+		}
+		if (rotos === 0) {
+			console.log('\n  \x1b[32mLa cadena está entera: el costo de cualquier OT se\x1b[0m');
+			console.log('  \x1b[32mpuede reconstruir hasta el parte del taller y la factura\x1b[0m');
+			console.log('  \x1b[32mdel proveedor.\x1b[0m');
+		}
 	}
 
 	console.log(
