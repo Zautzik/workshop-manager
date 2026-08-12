@@ -611,7 +611,7 @@ async function escribirTrabajos(
 		actual_start: enTiempo(j.startedOn, 8),
 		actual_end: j.finishedOn ? enTiempo(j.finishedOn, 17) : null,
 		estimated_hours: j.calcs.calc_print_hours,
-		actual_hours: j.closed ? j.pressHours : null,
+		actual_hours: j.closed ? Math.round(j.pressHours * 100) / 100 : null,
 		calc_sheets: j.calcs.calc_sheets,
 		sheet_width_cm: j.form.imposition?.format_w ?? null,
 		sheet_height_cm: j.form.imposition?.format_h ?? null,
@@ -801,7 +801,12 @@ async function compras(planes: MonthPlan[], otPorNumero: Map<string, string>): P
 				});
 				movimientos.push({
 					item_id: item.id, lot_id: loteId, tx_type: 'consumption',
-					quantity: -cantidad, unit_cost: costoUnit,
+					// La cantidad va POSITIVA: la dirección la lleva `tx_type`, y la
+					// tabla tiene CHECK (quantity > 0). Mandar el consumo en negativo
+					// —que es como se piensa un egreso— hace que Postgres rechace la
+					// fila. El signo y el tipo son dos formas de decir lo mismo, y
+					// esta base eligió el tipo.
+					quantity: cantidad, unit_cost: costoUnit,
 					reference_code: `OT-${j.otNumber}`,
 					notes: `Consumo de la OT ${j.otNumber} — ${j.sheetsEntered.toLocaleString('es-CL')} pliegos entrados a máquina`,
 				});

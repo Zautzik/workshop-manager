@@ -56,6 +56,39 @@ export async function leer<T = any>(consulta: string): Promise<T[]> {
 }
 
 /**
+ * PostgREST exige que TODOS los objetos de un lote tengan las mismas claves.
+ *
+ * Si una fila lleva `notes` y la siguiente no, rechaza el lote entero con
+ * `PGRST102: All object keys must match`. No es una validación de datos —es una
+ * restricción del protocolo, porque arma un solo INSERT con una lista de
+ * columnas fija.
+ *
+ * Se normaliza acá y no en cada llamada porque el error aparece cada vez que
+ * alguien agrega un campo condicional a una fila, que es lo más natural del
+ * mundo. Un solo arreglo, en la única puerta por la que pasan todos los inserts.
+ *
+ * CUIDADO: rellenar con `null` no es lo mismo que omitir. Una columna con
+ * DEFAULT recibe el default sólo si la clave no viaja; si viaja como `null`,
+ * recibe `null`. Por eso un lote donde algunas filas quieren el default y otras
+ * no, no se puede mezclar — hay que partirlo en dos llamadas.
+ */
+export function mismaForma(filas: Record<string, unknown>[]): Record<string, unknown>[] {
+	if (filas.length < 2) return filas;
+
+	const claves = new Set<string>();
+	for (const f of filas) for (const k of Object.keys(f)) claves.add(k);
+
+	// Si ya son todas iguales, no se toca nada.
+	if (filas.every((f) => Object.keys(f).length === claves.size)) return filas;
+
+	return filas.map((f) => {
+		const salida: Record<string, unknown> = {};
+		for (const k of claves) salida[k] = k in f ? f[k] : null;
+		return salida;
+	});
+}
+
+/**
  * Inserta por lotes y devuelve las filas creadas.
  *
  * Un error no se traga: si una fila no entra, la siembra se detiene ahí. Media
@@ -69,8 +102,10 @@ export async function insertar<T = any>(
 	if (filas.length === 0) return [];
 	const salida: T[] = [];
 
-	for (let i = 0; i < filas.length; i += LOTE) {
-		const trozo = filas.slice(i, i + LOTE);
+	const normalizadas = mismaForma(filas);
+
+	for (let i = 0; i < normalizadas.length; i += LOTE) {
+		const trozo = normalizadas.slice(i, i + LOTE);
 		const prefer = [
 			opciones.devolver ? 'return=representation' : 'return=minimal',
 			opciones.conflicto ? 'resolution=merge-duplicates' : null,
