@@ -33,6 +33,7 @@ import {
 	MONTHS,
 	CLIENT_BOOK,
 	SALESMEN,
+	TURNOS,
 	planShop,
 	type MonthPlan,
 	type PersonRef,
@@ -635,8 +636,12 @@ async function escribirTrabajos(
 	const marcas = trabajos
 		.filter((j) => j.month === mesActual)
 		.flatMap((j) => j.crew.flatMap((c) => [
-			{ employee_id: c.personId, machine_id: c.machineId, event_type: 'check_in', method: 'qr', at: enTiempo(c.date, 8) },
-			{ employee_id: c.personId, machine_id: c.machineId, event_type: 'check_out', method: 'qr', at: enTiempo(c.date, 8 + Math.ceil(c.hours)) },
+			// `clock_in` / `clock_out`, no `check_in`. Es el vocabulario del enum de
+			// la tabla y el que usa `/api/attendance/clock` — inventar un tercero
+			// habría dejado las marcas sembradas invisibles para la pantalla que
+			// las lee, aunque estuvieran en la base.
+			{ employee_id: c.personId, machine_id: c.machineId, event_type: 'clock_in', method: 'qr', at: enTiempo(c.date, TURNOS[c.turno].inicio) },
+			{ employee_id: c.personId, machine_id: c.machineId, event_type: 'clock_out', method: 'qr', at: enTiempo(c.date, TURNOS[c.turno].fin) },
 		]));
 	if (ESCRIBIR) await insertar('attendance_events', marcas);
 	console.log(`  ${marcas.length} marcas de asistencia del mes en curso`);
