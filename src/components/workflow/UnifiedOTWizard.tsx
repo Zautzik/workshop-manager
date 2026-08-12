@@ -530,7 +530,15 @@ export function UnifiedOTWizard({ onClose, onSuccess }: Props) {
   const isLastStep = step === UNIFIED_STEPS.length - 1;
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    // `h-screen` y no `min-h-screen`: con altura mínima el contenedor crece con
+    // el contenido, `main` nunca se acota, y el que hace scroll es la PÁGINA. La
+    // barra de abajo es `sticky`, así que en ese escenario se pega al borde de
+    // la ventana y tapa lo que hay detrás — que es por qué la última fila de
+    // tarjetas aparecía cortada por la mitad.
+    //
+    // Con altura fija el que hace scroll es `main`, y la barra vuelve a ser un
+    // hermano que nunca se superpone.
+    <div className="h-screen bg-background flex flex-col overflow-hidden">
       {/* ─── Top bar ─────────────────────────────────────────── */}
       <header className="sticky top-0 z-40 bg-card/95 backdrop-blur-sm border-b border-border px-4 py-3">
         <div className="max-w-5xl mx-auto flex items-center justify-between">
@@ -592,8 +600,12 @@ export function UnifiedOTWizard({ onClose, onSuccess }: Props) {
       </header>
 
       {/* ─── Content ─────────────────────────────────────────── */}
-      <main className="flex-1 overflow-y-auto">
-        <div className="max-w-5xl mx-auto p-4 md:p-6">
+      {/* `pb-24` no es decoración: la barra de navegación es sticky y sin este
+          espacio la última fila de contenido queda cortada por la mitad debajo
+          de ella. Un corte a media tarjeta no se lee como «hay más abajo», se
+          lee como que la pantalla está rota. */}
+      <main className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+        <div className="max-w-5xl mx-auto p-4 pb-24 md:p-6 md:pb-28">
           {draftRestored && (
             <div className="mb-4 flex items-center justify-between gap-3 rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-2.5 text-sm">
               <span className="text-amber-700 dark:text-amber-300">

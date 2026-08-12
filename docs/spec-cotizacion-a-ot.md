@@ -6,30 +6,53 @@ que ese precio origina pide cuarenta campos. Hoy los dos formularios no se habla
 
 ---
 
-## 1 · Lo que la observación destapa
+## 1 · Hay un solo Visto Bueno, y es el de prueba
 
 El pedido era «igualar la información entre `+Nueva Cotización` y `+Nueva OT`, y agregar
 una fase de Visto Bueno antes de Compra de Papel».
 
-Al ir a implementarlo aparece que **«visto bueno» nombra dos cosas distintas** en esta
-app, y que confundirlas es la razón por la que el flujo no cierra:
+La primera versión de esta especificación proponía **dos** aprobaciones: una comercial
+(el cliente acepta el precio) y una técnica (el cliente aprueba la prueba). El dueño la
+corrigió, y la corrección es la que ordena todo lo demás:
 
-| | Qué es | Dónde vive hoy |
-|---|---|---|
-| **Aprobación comercial** | El cliente acepta el precio. Todavía no se fabricó nada. | Tabla `vistos_buenos`, estado `signed` |
-| **Visto bueno de prueba** | El cliente aprueba la prueba de color y el montaje. Después de esto se compra papel y se graban planchas. | Enum `ot_status.visto_bueno` |
+> *Aceptar el precio no significa nada hasta que se aprueba el visto bueno de prueba, y
+> es ahí donde quedan definidos los costos estimados. Visto Bueno es siempre visto bueno
+> de prueba.*
 
-En una imprenta son dos actos separados por días y por un punto de no retorno. El
-segundo es el que importa operativamente: **una vez comprado el papel y grabadas las
-planchas, el trabajo está comprometido.** Por eso el enum ya tiene el orden correcto y
-nadie lo estaba usando:
+Es correcto y es cómo funciona el oficio. Un cliente que dice «dale, mándame la prueba»
+no compró nada: no hay documento, no hay compromiso, y el taller no movió un pliego. **El
+único acto que obliga a las dos partes es la firma sobre la prueba**, y ocurre después de
+que Pre-Prensa hizo el trabajo de saber qué se va a imprimir de verdad.
+
+Eso tiene tres consecuencias de diseño:
+
+**a) La cotización es una estimación, no un contrato.** Sirve para que el cliente decida
+si sigue conversando. Vive como `vistos_buenos` en estado `draft` y no fija nada.
+
+**b) El Visto Bueno se firma en la fase `visto_bueno`, no al cotizar.** Hoy la pantalla
+de Cotizaciones tiene un botón «Marcar firmada» que dispara la firma antes de que exista
+una prueba. Eso es firmar un papel en blanco.
+
+**c) Los costos quedan definidos en el Visto Bueno.** No en la cotización, donde son una
+banda, ni en Pre-Prensa, donde todavía se están completando. Al firmar la prueba se
+congela el precio y a partir de ahí toda diferencia es del taller.
+
+El recorrido, entonces:
 
 ```
-pre_press  →  visto_bueno  →  paper_purchase  →  …
+Cotización            estimación con banda · el cliente decide si sigue
+      ↓
+OT nace en pre_press  hereda todo lo cotizado, con la lista de lo que falta
+      ↓
+Pre-Prensa            completa el nivel 2 y produce la prueba
+      ↓
+VISTO BUENO           el cliente firma la prueba · AQUÍ SE FIJAN LOS COSTOS
+      ↓
+Compra de Papel       punto de no retorno: se compra y se graban planchas
 ```
 
-El diseño que sigue trata a los dos como lo que son, y usa `pre_press` como la
-**compuerta de completitud** que el pedido describe.
+El enum `ot_status` ya tiene ese orden —`pre_press → visto_bueno → paper_purchase`— y
+nadie lo estaba usando como parada real.
 
 ---
 
@@ -131,12 +154,14 @@ Lo que ensancha la banda es concreto y enumerable:
 | el montaje real | ±20% — la mejor imposición teórica rara vez es la que se monta |
 | las terminaciones exactas | ±25% — troquel, pegado y hot stamping no son una casilla |
 
-**b) Si el precio firme se aleja, hay que volver al cliente.** Regla explícita: si el
-precio de nivel 2 supera al cotizado en más de un umbral (propongo **10%**), la OT **no
-pasa de `visto_bueno` a `paper_purchase`** sin una nueva aprobación comercial.
+**b) La prueba se firma sobre el precio firme, no sobre el cotizado.** Como el Visto
+Bueno es el único acto que obliga, el documento que el cliente firma tiene que llevar el
+precio de nivel 2 — el que salió del montaje real y del papel real.
 
-Eso convierte la banda en una promesa con consecuencia, y es lo que protege al taller de
-haber vendido barato por apuro.
+Si ese precio se alejó de la banda cotizada, la pantalla lo dice antes de mandar la
+prueba: *«cotizado $976.811, firme $1.426.613, 46% arriba — está fuera de la banda que se
+le dio al cliente»*. No lo bloquea: el vendedor decide si absorbe, renegocia o explica.
+Lo que no puede pasar es que se entere después de firmar.
 
 ---
 

@@ -13,17 +13,49 @@ import { toast } from 'sonner';
 import { Plus, PenLine, ArrowRight, FileSpreadsheet } from 'lucide-react';
 import { useVistosBuenos } from '@/hooks/use-commercial-queries';
 import { useOTs } from '@/hooks/use-operations-queries';
+import { useQuery } from '@tanstack/react-query';
+import { useMachines } from '@/hooks/use-operations-queries';
 import { formatCLP } from '@/lib/format';
 import { computeOTCalculations, computeImposition, generateDefaultOperations } from '@/lib/ot-calculations';
 import { resolveCostOverrides } from '@/lib/costing-resolver';
 import { useCostCatalog, useMaterialCost } from '@/hooks/use-cost-catalog';
 import type { OTFormData } from '@/types/ot';
+import { EMPTY_FINISHES } from '@/types/ot';
+import { RepetirTrabajo } from '@/components/comercial/RepetirTrabajo';
 import type { CostCenterItem } from '@/types/work-category';
 
 const INK_COVERAGE = { light: 0.5, medium: 1, heavy: 2 } as const;
 type Coverage = keyof typeof INK_COVERAGE;
 
 interface EstimateLine { category: string; description: string; quantity: number; unit: string; unit_cost: number; }
+
+/** Las terminaciones que el taller ofrece, con el nombre que usa el vendedor. */
+const TERMINACIONES = [
+  { key: 'finish_troquelado', label: 'Troquelado' },
+  { key: 'finish_plegado', label: 'Plegado' },
+  { key: 'finish_pegado', label: 'Pegado' },
+  { key: 'finish_laminado', label: 'Laminado' },
+  { key: 'finish_barniz', label: 'Barniz' },
+  { key: 'finish_relieve', label: 'Relieve' },
+  { key: 'finish_perforado', label: 'Perforado' },
+  { key: 'finish_hot_stamping', label: 'Hot stamping' },
+  { key: 'finish_uv_localizado', label: 'UV localizado' },
+  { key: 'finish_numeracion', label: 'Numeración' },
+] as const;
+
+/** Los productos que el taller sabe hacer. Antes toda cotización nacía «etiqueta». */
+const TIPOS_PRODUCTO = [
+  { key: 'etiqueta', label: 'Etiqueta' },
+  { key: 'caja_plegadiza', label: 'Caja plegadiza' },
+  { key: 'caja_display', label: 'Caja display' },
+  { key: 'volante', label: 'Volante' },
+  { key: 'afiche', label: 'Afiche' },
+  { key: 'brochure', label: 'Folleto' },
+  { key: 'carpeta', label: 'Carpeta' },
+  { key: 'sobre', label: 'Sobre' },
+  { key: 'bolsa', label: 'Bolsa' },
+  { key: 'otro', label: 'Otro' },
+] as const;
 
 const COLOR_MODE_BY_COUNT: Record<number, string> = {
   0: 'sin_impresion', 1: '1_color', 2: '2_color', 3: '3_color', 4: 'cmyk', 5: 'cmyk_pantone',
@@ -44,14 +76,25 @@ const COLOR_MODE_BY_COUNT: Record<number, string> = {
  * este proyecto lleva meses cerrando. Ahora hay una sola — y cuando Guillermo
  * calibre §6.6, las cotizaciones mejoran solas.
  */
+export interface PressRef {
+  id: string;
+  name: string;
+  bodies: number;
+  speedSheetsHr: number;
+  maxWidthCm: number;
+  maxHeightCm: number;
+}
+
 function buildEstimate(
   s: {
     quantity: number; width_cm: number; height_cm: number; grammage_gsm: number;
-    colors_front: number; colors_back: number; substrate_type: string; finishing: boolean;
+    colors_front: number; colors_back: number; substrate_type: string;
+    finishes: Record<string, boolean>;
     coverage: Coverage;
   },
   catalog: CostCenterItem[],
-  materialCost: any[]
+  materialCost: any[],
+  press: PressRef | null
 ) {
   const calcInput = {
     quantity: s.quantity,
@@ -61,14 +104,32 @@ function buildEstimate(
     substrate_type: s.substrate_type,
     color_front: COLOR_MODE_BY_COUNT[s.colors_front] ?? 'cmyk',
     color_back: COLOR_MODE_BY_COUNT[s.colors_back] ?? 'sin_impresion',
-    finishes: { finish_corte: true, finish_plegado: s.finishing },
+    finishes: s.finishes,
   } as unknown as OTFormData;
 
   // La cobertura del arte multiplica el consumo de tinta: un fondo sólido a
   // full come mucho más que una línea fina, y es el caso que se cotiza barato
   // y se imprime caro.
-  const calcs = computeOTCalculations(calcInput, { inkCoverage: s.coverage });
-  const impo = computeImposition(s.width_cm, s.height_cm, s.quantity);
+  // La prensa decide qué pliego se puede montar, y el pliego decide todo lo
+  // demás: poses, cantidad de pliegos, kilos de papel y horas de máquina.
+  //
+  // Sin este límite el motor elegía el pliego que mejor aprovecha el papel —un
+  // 77×110— que ninguna de las dos Ryobi del taller puede agarrar: su área
+  // máxima es 37×52. Medido sobre 100.000 etiquetas de 9×12, la diferencia era
+  // 1.667 pliegos contra 10.320, y un costo de $723.564 contra $1.056.750. El
+  // vendedor cotizaba $976.811 y vendía a pérdida creyendo que ganaba 26%.
+  const limit = press ? { maxWidthCm: press.maxWidthCm, maxHeightCm: press.maxHeightCm } : null;
+  const impo = computeImposition(s.width_cm, s.height_cm, s.quantity, limit);
+  // La imposición viaja DENTRO del formulario: `generateDefaultOperations` la
+  // necesita para cobrar el corte previo de resma cuando el pliego de prensa
+  // sale de partir uno de compra. Sin ella esa operación no se cotizaba.
+  (calcInput as any).imposition = impo;
+  const calcs = computeOTCalculations(calcInput, {
+    inkCoverage: s.coverage,
+    pressLimit: limit,
+    machineSpeedSheetsHr: press?.speedSheetsHr,
+    pressBodies: press?.bodies,
+  });
   const overrides = resolveCostOverrides(
     catalog,
     {
@@ -107,11 +168,44 @@ function CotizacionesInner() {
   const { data: vbs = [] } = useVistosBuenos();
   const { data: ots = [] } = useOTs();
 
-  const clients = useMemo(() => {
-    const m = new Map<string, string>();
-    for (const o of ots as any[]) if (o.client_id) m.set(o.client_id, o.client_name);
-    return Array.from(m, ([id, name]) => ({ id, name }));
-  }, [ots]);
+  // La cartera completa, no sólo quien ya tiene una OT.
+  //
+  // Antes esta lista se armaba recorriendo las órdenes existentes, así que sólo
+  // ofrecía clientes a los que YA se les había vendido. Es exactamente al revés
+  // de para qué sirve una cotización: el caso normal es un cliente nuevo, o uno
+  // que hace tiempo no pide nada. De trece clientes en la base, el desplegable
+  // mostraba uno.
+  const { data: clients = [] } = useQuery<{ id: string; name: string }[]>({
+    queryKey: ['clients', 'todos'],
+    queryFn: async () => {
+      const r = await fetch('/api/clients?q=', { credentials: 'include' });
+      if (!r.ok) throw new Error('No se pudo cargar la cartera');
+      const j = await r.json();
+      return (Array.isArray(j) ? j : j?.data ?? []).map((c: any) => ({ id: c.id, name: c.name }));
+    },
+  });
+
+  // Las prensas del taller. La elegida decide el pliego que se puede montar, y
+  // eso mueve el precio más que cualquier otro campo de esta pantalla.
+  const { data: maquinas = [] } = useMachines();
+  const prensas: PressRef[] = useMemo(
+    () => (maquinas as any[])
+      .filter((m) => m.type === 'offset_printer' && m.is_active !== false)
+      .map((m) => ({
+        id: m.id,
+        name: m.name,
+        bodies: m.colors ?? 4,
+        speedSheetsHr: m.optimal_speed_sheets_hr ?? m.nominal_speed_sheets_hr ?? 3000,
+        // La ficha guarda milímetros; la imposición razona en centímetros.
+        maxWidthCm: m.max_print_width_mm ? m.max_print_width_mm / 10 : 37,
+        maxHeightCm: m.max_print_height_mm ? m.max_print_height_mm / 10 : 52,
+      }))
+      // La más capaz primero: una prensa de cuatro cuerpos resuelve un CMYK en
+      // una pasada y la de un cuerpo necesita cuatro. Dejar arriba la de menos
+      // cuerpos hace que el precio por defecto salga del caso peor.
+      .sort((a, b) => b.bodies - a.bodies || a.name.localeCompare(b.name)),
+    [maquinas],
+  );
 
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -125,21 +219,32 @@ function CotizacionesInner() {
   const { data: materialCost = [] } = useMaterialCost();
 
   const [form, setForm] = useState({
-    client_id: '', product_name: '', quantity: 100000,
+    client_id: '', product_name: '', product_type: 'etiqueta', quantity: 100000,
     width_cm: 9, height_cm: 12, grammage_gsm: 115,
-    colors_front: 4, colors_back: 0, coverage: 'medium' as Coverage, finishing: false,
+    colors_front: 4, colors_back: 0, coverage: 'medium' as Coverage,
+    finishes: { ...EMPTY_FINISHES } as Record<string, boolean>,
     substrate_type: 'couche',
+    press_id: '',
+    deadline: '',
+    priority_level: 'normal',
     markup: 35,
   });
 
+  // Sin elección explícita se asume la primera prensa del taller. Cotizar sin
+  // prensa no es una opción: era lo que producía la imposición imposible.
+  const prensaElegida = useMemo(
+    () => prensas.find((m) => m.id === form.press_id) ?? prensas[0] ?? null,
+    [prensas, form.press_id],
+  );
+
   const calc = useMemo(() => {
-    const { lines, subtotal, calcs, impo } = buildEstimate(form, catalog, materialCost);
+    const { lines, subtotal, calcs, impo } = buildEstimate(form, catalog, materialCost, prensaElegida);
     const total = Math.round(subtotal * (1 + form.markup / 100));
     const floor = Math.round(subtotal * 1.10);
     const unit = form.quantity > 0 ? total / form.quantity : 0;
     const marginPct = total > 0 ? Math.round(((total - subtotal) / total) * 100) : 0;
     return { lines, subtotal, total, floor, unit, marginPct, belowFloor: total < floor, calcs, impo };
-  }, [form, catalog, materialCost]);
+  }, [form, catalog, materialCost, prensaElegida]);
 
   const save = async () => {
     const client = clients.find((c) => c.id === form.client_id);
@@ -151,7 +256,10 @@ function CotizacionesInner() {
       body: JSON.stringify({
         client_id: client.id, client_name: client.name,
         product_name: form.product_name || 'Trabajo de impresión',
-        product_type: 'etiqueta', quantity: form.quantity,
+        product_type: form.product_type, quantity: form.quantity,
+        deadline: form.deadline || null,
+        priority_level: form.priority_level,
+        finishes: form.finishes,
         width_cm: form.width_cm, height_cm: form.height_cm, grammage_gsm: form.grammage_gsm,
         // El sustrato viajaba sin enviarse: la OT convertida heredaba el default
         // del esquema en vez del papel que el vendedor cotizó.
@@ -235,7 +343,31 @@ function CotizacionesInner() {
             <Button><Plus className="mr-2 h-4 w-4" /> Nueva Cotización</Button>
           </DialogTrigger>
           <DialogContent className="max-w-3xl">
-            <DialogHeader><DialogTitle>Nueva Cotización (Visto Bueno)</DialogTitle></DialogHeader>
+            <DialogHeader><DialogTitle>Nueva Cotización</DialogTitle></DialogHeader>
+
+            {/* La primera pregunta de una imprenta, no la última: la mayoría de
+                los trabajos son repeticiones. El mismo bloque que abre el
+                asistente de producción, con la misma regla — se copia el
+                trabajo, nunca el precio. */}
+            <RepetirTrabajo
+              precioActual={calc.total}
+              cantidadActual={form.quantity}
+              onAplicar={(spec) => setForm((f) => ({
+                ...f,
+                client_id: spec.client_id || f.client_id,
+                product_name: spec.product_name,
+                product_type: spec.product_type,
+                quantity: spec.quantity,
+                width_cm: spec.width_cm,
+                height_cm: spec.height_cm,
+                substrate_type: spec.substrate_type,
+                grammage_gsm: spec.grammage_gsm,
+                colors_front: spec.colors_front,
+                colors_back: spec.colors_back,
+                coverage: spec.ink_coverage,
+              }))}
+            />
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               {/* Spec */}
               <div className="space-y-3">
@@ -247,7 +379,16 @@ function CotizacionesInner() {
                     {clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
                   </select>
                 </div>
-                <div><Label>Producto</Label><Input value={form.product_name} onChange={(e) => setForm({ ...form, product_name: e.target.value })} placeholder="Ej: Etiqueta frasco 250ml" /></div>
+                <div className="grid grid-cols-[1fr_auto] gap-2">
+                  <div><Label>Producto</Label><Input value={form.product_name} onChange={(e) => setForm({ ...form, product_name: e.target.value })} placeholder="Ej: Etiqueta frasco 250ml" /></div>
+                  <div>
+                    <Label className="text-xs">Tipo</Label>
+                    <select className="w-full h-9 rounded-md border border-input bg-background px-2 text-sm"
+                      value={form.product_type} onChange={(e) => setForm({ ...form, product_type: e.target.value })}>
+                      {TIPOS_PRODUCTO.map((t) => <option key={t.key} value={t.key}>{t.label}</option>)}
+                    </select>
+                  </div>
+                </div>
                 <div className="grid grid-cols-3 gap-2">
                   <div><Label className="text-xs">Cantidad</Label><Input type="number" value={form.quantity} onChange={(e) => setForm({ ...form, quantity: num(e.target.value) })} /></div>
                   <div><Label className="text-xs">Ancho (cm)</Label><Input type="number" value={form.width_cm} onChange={(e) => setForm({ ...form, width_cm: num(e.target.value) })} /></div>
@@ -283,10 +424,59 @@ function CotizacionesInner() {
                       <option value="heavy">Alta (sólidos)</option>
                     </select>
                   </div>
-                  <label className="flex items-center gap-2 text-sm pb-2">
-                    <input type="checkbox" checked={form.finishing} onChange={(e) => setForm({ ...form, finishing: e.target.checked })} />
-                    Terminaciones
-                  </label>
+                  <div>
+                    <Label className="text-xs">Prensa</Label>
+                    <select className="w-full mt-1 rounded-md border border-input bg-background px-3 py-2 text-sm"
+                      value={prensaElegida?.id ?? ''} onChange={(e) => setForm({ ...form, press_id: e.target.value })}>
+                      {prensas.map((m) => (
+                        <option key={m.id} value={m.id}>{m.name} · {m.maxWidthCm}×{m.maxHeightCm} cm</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <Label className="text-xs">Fecha de entrega</Label>
+                    <Input type="date" value={form.deadline} onChange={(e) => setForm({ ...form, deadline: e.target.value })} />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Prioridad</Label>
+                    <select className="w-full h-9 rounded-md border border-input bg-background px-2 text-sm"
+                      value={form.priority_level} onChange={(e) => setForm({ ...form, priority_level: e.target.value })}>
+                      <option value="baja">Baja</option>
+                      <option value="normal">Normal</option>
+                      <option value="alta">Alta</option>
+                      <option value="urgente">Urgente</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Terminaciones de verdad. Eran una casilla que activaba sólo
+                    plegado, y son entre el 15 y el 20% del costo — donde vive
+                    el margen de un estuche. */}
+                <div>
+                  <Label className="text-xs">Terminaciones</Label>
+                  <div className="mt-1.5 flex flex-wrap gap-1.5">
+                    {TERMINACIONES.map((t) => {
+                      const activa = !!form.finishes[t.key];
+                      return (
+                        <button
+                          key={t.key}
+                          type="button"
+                          aria-pressed={activa}
+                          onClick={() => setForm({ ...form, finishes: { ...form.finishes, [t.key]: !activa } })}
+                          className={`rounded-full border px-2.5 py-1 text-xs transition-colors ${
+                            activa
+                              ? 'border-primary bg-primary text-primary-foreground'
+                              : 'border-input bg-background text-muted-foreground hover:border-primary/50 hover:text-foreground'
+                          }`}
+                        >
+                          {t.label}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
 

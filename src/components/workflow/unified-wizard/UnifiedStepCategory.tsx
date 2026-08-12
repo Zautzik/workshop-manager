@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { DieLine } from './DieLine';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -59,6 +60,7 @@ export function UnifiedStepCategory({ selected, onSelect, onRepeat }: Props) {
             className={`
               relative group rounded-xl border-2 p-4 text-left transition-all duration-200
               hover:shadow-md hover:scale-[1.02] cursor-pointer
+              text-foreground/45 hover:text-foreground/70
               ${
                 chosen === cat.key
                   ? 'ring-2 ring-offset-2 shadow-md'
@@ -75,7 +77,13 @@ export function UnifiedStepCategory({ selected, onSelect, onRepeat }: Props) {
                 ✓
               </div>
             )}
-            <div className="text-2xl mb-2">{cat.icon}</div>
+            {/* El troquel, no un emoji: un impresor reconoce el producto por su
+                línea de corte y su hendido antes de leer el título. */}
+            <DieLine
+              kind={cat.key}
+              className="mb-2 h-12 w-12 transition-colors"
+              style={{ color: chosen === cat.key || hovering === cat.key ? cat.color : undefined }}
+            />
             <div className="font-semibold text-sm leading-tight">{cat.label}</div>
             <div className="text-[11px] text-muted-foreground mt-1 line-clamp-2">
               {cat.description}
