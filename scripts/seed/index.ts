@@ -88,14 +88,27 @@ async function inventario(): Promise<void> {
 	}
 }
 
+/** La numeración que el sembrador se reserva. Todo lo de abajo es histórico. */
+const PRIMERA_OT_SEMBRADA = 41001;
+
 /**
- * Las dos OT históricas se conservan. La numeración nueva parte en 41001 para
- * no chocar con ellas: preferimos convivir con dos registros viejos a borrar el
- * único trabajo real que la base tenía.
+ * Las OT históricas se conservan; las sembradas se reemplazan.
+ *
+ * El criterio es el NÚMERO, no «lo que haya hoy en la tabla». La primera
+ * versión preguntaba por todas las filas existentes y las preservaba, lo cual
+ * funciona exactamente una vez: en la segunda corrida preserva las 258 que
+ * sembró la primera y escribe 256 encima. Una siembra que no se puede repetir
+ * no sirve, porque la primera corrida siempre encuentra algo que arreglar.
  */
 async function otsQueSobreviven(): Promise<string[]> {
 	const filas = await leer<{ id: string; ot_number: string }>('ots?select=id,ot_number');
-	return filas.map((f) => f.id);
+	return filas
+		.filter((f) => {
+			const n = parseInt(String(f.ot_number).replace(/\D/g, ''), 10);
+			// Sin número legible se conserva: borrar algo que no se entiende es peor.
+			return !Number.isFinite(n) || n < PRIMERA_OT_SEMBRADA;
+		})
+		.map((f) => f.id);
 }
 
 async function limpiar(conservar: string[]): Promise<void> {
@@ -355,7 +368,7 @@ const CAPACIDAD_TERMINACIONES_MES = 6 * 2 * 22 * 8;
 
 function planificar(plant: Plant): MonthPlan[] {
 	const planes: MonthPlan[] = [];
-	let numero = 41001;
+	let numero = PRIMERA_OT_SEMBRADA;
 	// El promedio de trabajos de los meses cerrados fija el ritmo del mes en
 	// curso: al día 9 el taller no lleva un mes de margen, lleva nueve días.
 	for (const mes of MONTHS) {
@@ -527,9 +540,12 @@ async function escribirTrabajos(
 	for (const j of trabajos) {
 		const otId = otPorNumero.get(j.otNumber)!;
 		j.operations.forEach((o, i) => {
+			// `total_cost` es una columna GENERADA —ROUND(quantity × unit_cost)— y
+			// mandarla hace que Postgres rechace la fila entera. Es la misma
+			// trampa que `ot_cost_lines.total`, en otra tabla.
 			ops.push({
 				ot_id: otId, category: o.category, name: o.name, unit: o.unit,
-				quantity: o.quantity, unit_cost: o.unit_cost, total_cost: o.total_cost, sort_order: i,
+				quantity: o.quantity, unit_cost: o.unit_cost, sort_order: i,
 			});
 		});
 
@@ -562,8 +578,9 @@ async function escribirTrabajos(
 				machine_cost: j.actualLines.filter((l) => l.category === 'machine').reduce((s, l) => s + l.total, 0),
 				outsourcing_cost: j.actualLines.filter((l) => l.category === 'outsourced').reduce((s, l) => s + l.total, 0),
 				overhead_cost: j.actualLines.filter((l) => l.category === 'overhead').reduce((s, l) => s + l.total, 0),
-				total_cost: j.actualCost,
-				profit: j.grossMargin,
+				// `total_cost` y `profit` son columnas generadas: las calcula la
+				// base sumando las partidas de arriba. La migración de 2026-08-11
+				// las recreó incluyendo el tercerizado, que antes omitían.
 				hours_spent: Math.round((j.pressHours + j.finishHours) * 100) / 100,
 				notes: j.deviation.causa,
 			});
@@ -839,7 +856,9 @@ async function maquinasMes(planes: MonthPlan[], plant: Plant): Promise<void> {
 					maintenance_cost: fijo.mant,
 					spare_parts_cost: Math.round(fijo.mant * 0.35),
 					labor_cost: 0, outsourcing_cost: 0,
-					total_operating_cost: Math.round(horas * fijo.energia + fijo.mant + fijo.deprec),
+					// `total_operating_cost` es generada. La depreciación queda
+					// fuera de esa suma a propósito: es un cargo contable, no una
+					// salida de caja del mes, y la tabla suma costos de operar.
 					revenue_generated: esPrensa ? Math.round(plan.revenue / plant.presses.length) : 0,
 					notes: i === 0 ? 'Costo fijo mensual: energía sobre horas trabajadas, más mantención y depreciación.' : null,
 				});
