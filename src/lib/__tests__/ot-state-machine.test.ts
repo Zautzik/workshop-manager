@@ -160,3 +160,88 @@ describe('validateTransition', () => {
 		expect(result.ok).toBe(true);
 	});
 });
+
+/* ─── Las compuertas de completitud ──────────────────────────── */
+
+describe('no se sale de Pre-Prensa con la ficha a medias', () => {
+	const COTIZABLE = {
+		clientId: 'c1', productType: 'caja_plegadiza', quantity: 200_000,
+		widthCm: 20, heightCm: 30, substrateType: 'cartulina', grammageGsm: 300,
+		colorFront: 'cmyk', deadline: '2026-09-15', pressId: 'r1',
+	};
+	const PRODUCIBLE = {
+		...COTIZABLE, substrateBrand: 'Ártica', substrateSupplier: 'Bío Bío',
+		impositionConfirmed: true, machineId: 'r1', artAttached: true, operationsReviewed: true,
+	};
+	const base = {
+		fromStatus: 'pre_press' as const, toStatus: 'visto_bueno' as const,
+		role: 'admin' as const, hasApprovedApproval: false, hasAnyRealCosts: false,
+	};
+
+	it('una OT cotizable pero no producible no llega a la prueba', () => {
+		// Firmar una prueba es el punto de no retorno: después se compra papel y
+		// se graban planchas. Pedirle al cliente que apruebe una orden que no sabe
+		// qué papel lleva es pedirle que apruebe algo que no existe.
+		const v = validateTransition({ ...base, spec: COTIZABLE });
+		expect(v.ok).toBe(false);
+		expect(v.code).toBe('SPEC_INCOMPLETE');
+	});
+
+	it('el mensaje NOMBRA lo que falta', () => {
+		// «Ficha incompleta» obliga a adivinar. Esto se puede accionar.
+		const v = validateTransition({ ...base, spec: COTIZABLE });
+		expect(v.message).toContain('marca del sustrato');
+		expect(v.gaps!.length).toBeGreaterThan(0);
+	});
+
+	it('con la ficha completa pasa', () => {
+		expect(validateTransition({ ...base, spec: PRODUCIBLE }).ok).toBe(true);
+	});
+
+	it('sin ficha se comporta como antes: la compuerta no rompe a nadie', () => {
+		// Una compuerta que rompe todos los llamadores existentes no se despliega.
+		expect(validateTransition(base).ok).toBe(true);
+	});
+
+	it('sólo vigila el paso a la prueba, no cualquier avance', () => {
+		const v = validateTransition({
+			...base, fromStatus: 'offset_printing', toStatus: 'die_cutting', spec: COTIZABLE,
+		});
+		expect(v.ok).toBe(true);
+	});
+});
+
+describe('el precio firme no se aleja en silencio', () => {
+	const base = {
+		fromStatus: 'visto_bueno' as const, toStatus: 'paper_purchase' as const,
+		role: 'admin' as const, hasApprovedApproval: false, hasAnyRealCosts: false,
+	};
+
+	it('46% arriba frena la compra de papel', () => {
+		// Comprar papel y grabar planchas es donde el trabajo queda comprometido.
+		const v = validateTransition({ ...base, quotedPrice: 976_811, firmPrice: 1_426_613 });
+		expect(v.ok).toBe(false);
+		expect(v.code).toBe('REPRICE_REQUIRED');
+		expect(v.message).toContain('reconfirmar');
+	});
+
+	it('con el cliente reconfirmado sigue', () => {
+		// No se bloquea para siempre: se pide que alguien se haga cargo.
+		const v = validateTransition({
+			...base, quotedPrice: 976_811, firmPrice: 1_426_613, repriceApproved: true,
+		});
+		expect(v.ok).toBe(true);
+	});
+
+	it('una diferencia chica no molesta a nadie', () => {
+		expect(validateTransition({ ...base, quotedPrice: 1_000_000, firmPrice: 1_050_000 }).ok).toBe(true);
+	});
+
+	it('si salió MÁS BARATO no hay nada que reconfirmar', () => {
+		expect(validateTransition({ ...base, quotedPrice: 1_000_000, firmPrice: 700_000 }).ok).toBe(true);
+	});
+
+	it('sin los dos precios no inventa una compuerta', () => {
+		expect(validateTransition({ ...base, quotedPrice: null, firmPrice: 1_426_613 }).ok).toBe(true);
+	});
+});
