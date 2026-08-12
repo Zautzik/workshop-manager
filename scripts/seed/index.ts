@@ -520,6 +520,21 @@ async function escribirTrabajos(
 	if (ESCRIBIR) await insertar('ots', otFilas);
 	console.log(`  ${otFilas.length} OT`);
 
+	// El vínculo iba en una sola dirección: la OT sabía de qué cotización salió
+	// (`ots.vb_id`) y la cotización no sabía en qué OT se convirtió. La columna
+	// existe y estaba vacía, así que la pantalla de Cotizaciones no puede llevar
+	// a la orden que originó — que es la pregunta obvia del vendedor.
+	//
+	// Se llena DESPUÉS de insertar las OT, porque antes no hay a qué apuntar.
+	if (ESCRIBIR) {
+		for (const j of trabajos) {
+			const vbId = vbPorOt.get(j.otNumber);
+			const otId = otPorNumero.get(j.otNumber);
+			if (vbId && otId) await actualizar('vistos_buenos', `id=eq.${vbId}`, { ot_id: otId });
+		}
+		console.log(`  ${trabajos.length} cotizaciones enlazadas a su OT`);
+	}
+
 	// ── Operaciones y ledger ─────────────────────────────────────────────────
 	const ops: any[] = [];
 	const lineas: any[] = [];
@@ -813,9 +828,14 @@ async function compras(planes: MonthPlan[], otPorNumero: Map<string, string>): P
 	}
 
 	if (ESCRIBIR) {
+		// El orden NO es cosmético: `purchase_items.lot_id` apunta a
+		// `inventory_lots`, y `inventory_lots.purchase_id` a `purchases`. Escribir
+		// la línea de compra antes que el lote que cita es exactamente el pecado
+		// que este sembrador dice no cometer — una fila que nace apuntando a algo
+		// que todavía no existe.
 		await insertar('purchases', ocs);
-		await insertar('purchase_items', lineasOc);
 		await insertar('inventory_lots', lotes);
+		await insertar('purchase_items', lineasOc);
 		await insertar('purchase_invoices', facturasCompra);
 		await insertar('inventory_stock_transactions', movimientos);
 	}
