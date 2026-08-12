@@ -89,6 +89,54 @@ operaciones revisadas             → el jefe de taller corrige lo que el motor 
 
 **Produce:** precio firme. **Compuerta:** sin nivel 2 no se sale de `pre_press`.
 
+### La maqueta: el costo que ocurre en el medio
+
+Entre el nivel 1 y el 2 pasa algo que no es un campo del formulario. En Pre-Prensa
+se arma a mano un ejemplar del producto —cortado con bisturí o en mesa de muestras,
+doblado y pegado— para que el cliente lo tenga en la mano antes de aprobar. En envase
+es casi obligatorio: nadie firma un estuche mirando un PDF.
+
+Es el costo que todos los sistemas pierden, y por tres razones a la vez:
+
+1. **Ocurre antes de que el trabajo exista.** No hay tiraje al que cargarlo, no hay
+   pliegos que contar. Se paga y se disuelve en «gastos generales».
+2. **Se repite.** Un cliente exigente pide tres vueltas, y cada vuelta es material
+   nuevo, impresión nueva y horas nuevas de alguien.
+3. **Se paga aunque el trabajo no salga.** Si el cliente no aprueba el Visto Bueno,
+   la maqueta ya se hizo. Eso es lo que cuesta perder una cotización, y hoy no
+   aparece en ninguna parte — así que nadie sabe cuánto cuesta perder.
+
+Medido sobre una vuelta típica —cuatro pliegos de cartulina 300, impresos en digital,
+dos horas de armado a mano:
+
+```
+material     $1.960     4 pliegos × $490
+impresión    $2.380     4 clics × $595
+mano de obra $13.000    2 h × $6.500
+             ───────
+             $17.340    por vuelta
+```
+
+**La mano de obra es tres veces todo lo demás junto.** Es lo que hace que una maqueta
+sorprenda: cuatro pliegos de cartulina no son nada, dos horas de alguien armándola sí.
+Tres vueltas son $52.020 antes de imprimir el primer pliego del tiraje.
+
+Dos decisiones de modelado, en `maqueta.ts` con pruebas:
+
+- **El troquel de muestra no se repite entre vueltas.** Se corta una vez y la segunda
+  maqueta lo reutiliza. Multiplicarlo por vuelta sería inventar un costo que el taller
+  no pagó.
+- **Entra al ledger descompuesto**, no como un bulto llamado «maqueta»: material,
+  máquina y mano de obra por separado, con la vuelta en la descripción. Un bulto deja
+  la pantalla de «Estimado vs Real» con una diferencia sin explicación; descompuesto se
+  ve que fueron cuatro pliegos y tres horas.
+
+Y una lectura que corrige la rentabilidad por cliente: **un cliente que pide tres
+vueltas y aprueba a la tercera puede dejar menos que uno que paga menos y aprueba a la
+primera**, y mirando sólo el margen del tiraje los dos se ven iguales.
+`maquetaLoadByClient` expone las vueltas por trabajo — arriba de 2 es un cliente que
+cuesta convencer.
+
 ### Nivel 3 · Cerrable
 
 Costos reales cargados, guía emitida, factura emitida. Ya existe y ya se mide
@@ -304,5 +352,6 @@ signifique nada operativo.
 | 5 | Herencia VB → OT y recorrido de Pre-Prensa | Es el corazón del pedido | 2 días |
 | 6 | Compuertas en la máquina de estados | Sin esto, lo anterior es una sugerencia | 1 día |
 | 7 | Chips, columna y comparación | Lo hace visible | 1 día |
+| 8 | Registro de maquetas en Pre-Prensa | El costo existe y hoy se disuelve | 1 día |
 
 Los dos primeros se pueden hacer hoy y no dependen de nada.
