@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth, isAuthError } from '@/lib/api-middleware';
 import { supabaseAdmin } from '@/integrations/supabase/server';
+import { fetchAll } from '@/lib/fetch-all';
 import {
   attributeLabor, groupLinesByOt,
   type ClockEvent, type AssignmentRow, type RateRow,
@@ -38,26 +39,33 @@ export async function GET(req: NextRequest) {
   const to = searchParams.get('to');
   const otId = searchParams.get('ot_id');
 
-  let asgQuery = supabaseAdmin
-    .from('worker_assignments')
-    .select('employee_id, machine_id, ot_id, date, role');
-  if (from) asgQuery = asgQuery.gte('date', from);
-  if (to) asgQuery = asgQuery.lte('date', to);
-  if (otId) asgQuery = asgQuery.eq('ot_id', otId);
+  // Paginado: 1.768 turnos en cuatro meses, y PostgREST entrega 1.000. Sin esto
+  // la mano de obra de la app quedaba en dos tercios de la real — y como el
+  // costo bajaba, el margen subía.
+  const asignacionesPagina = (desde: number, hasta: number) => {
+    let q = supabaseAdmin
+      .from('worker_assignments')
+      .select('employee_id, machine_id, ot_id, date, role');
+    if (from) q = q.gte('date', from);
+    if (to) q = q.lte('date', to);
+    if (otId) q = q.eq('ot_id', otId);
+    return q.range(desde, hasta) as any;
+  };
 
-  const [{ data: asignaciones }, { data: eventos }, { data: tarifas }, { data: empleados }] =
+  const [{ rows: asignaciones }, { rows: eventos }, { data: tarifas }, { data: empleados }] =
     await Promise.all([
-      asgQuery,
-      supabaseAdmin
+      fetchAll<any>(asignacionesPagina),
+      fetchAll<any>((desde, hasta) => supabaseAdmin
         .from('attendance_events')
-        .select('employee_id, machine_id, event_type, at'),
+        .select('employee_id, machine_id, event_type, at')
+        .range(desde, hasta) as any),
       supabaseAdmin
         .from('compensation_rates')
         .select('employee_id, hourly_rate, currency_code, overtime_multiplier_50, effective_from, effective_to'),
       supabaseAdmin.from('employees').select('id, full_name'),
     ]);
 
-  const conOt = (asignaciones ?? []).filter((a) => a.ot_id);
+  const conOt = asignaciones.filter((a: any) => a.ot_id);
 
   // ── Por qué no se puede atribuir, cuando no se puede ──
   const bloqueos: string[] = [];

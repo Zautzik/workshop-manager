@@ -437,3 +437,49 @@ describe('nadie sale a las 23:00 y vuelve a las 07:00', () => {
 		expect(usados.has('tarde')).toBe(true);
 	});
 });
+
+/* ─── La merma tiene que parecerse a la de una imprenta ──────── */
+
+describe('la merma queda en la banda del oficio', () => {
+	const { plans } = planShop({
+		months: MONTHS,
+		plant: PLANTA_COMPLETA,
+		targetMargin: MONTHLY_MARGIN_TARGET_CLP,
+		currentMonthThroughDay: 9,
+		startingOtNumber: 41001,
+		finishingCapacityHours: 2_112,
+	});
+	const cerrados = plans.flatMap((p) => p.jobs).filter((j) => j.closed);
+
+	it('el total del taller queda entre 3% y 8%', () => {
+		// Antes daba 10% y Analítica marcaba «crítica» a casi toda la producción,
+		// porque «el papel subió» sumaba 14% de PLIEGOS en vez de 14% de PRECIO.
+		// Un aumento de precio encarece el trabajo, no consume papel.
+		const entrados = cerrados.reduce((s, j) => s + j.sheetsEntered, 0);
+		const perdidos = cerrados.reduce((s, j) => s + j.sheetsWasted, 0);
+		const tasa = perdidos / entrados;
+		expect(tasa).toBeGreaterThan(0.03);
+		expect(tasa).toBeLessThan(0.08);
+	});
+
+	it('casi ningún trabajo pasa del 10%', () => {
+		// Un tablero donde todo está en rojo no distingue nada. La excepción es
+		// legítima —hay trabajos que se van de merma— pero tiene que ser excepción.
+		const altos = cerrados.filter((j) => j.sheetsWasted / j.sheetsEntered > 0.10);
+		expect(altos.length / cerrados.length).toBeLessThan(0.05);
+	});
+
+	it('pero alguno se va de merma: el tablero tiene algo que señalar', () => {
+		const sobre5 = cerrados.filter((j) => j.sheetsWasted / j.sheetsEntered > 0.05);
+		expect(sobre5.length).toBeGreaterThan(0);
+	});
+
+	it('el sobreprecio del papel encarece sin agregar pliegos', () => {
+		const subio = cerrados.filter((j) => j.deviation.key === 'papel_subio');
+		expect(subio.length).toBeGreaterThan(0);
+		for (const j of subio) {
+			// Su merma es la de su línea de producto, sin recargo por el precio.
+			expect(j.sheetsWasted / j.sheetsEntered).toBeLessThan(0.09);
+		}
+	});
+});

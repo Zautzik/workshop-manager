@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
 import { requireAuth, isAuthError } from '@/lib/api-middleware';
 import { supabaseAdmin } from '@/integrations/supabase/server';
+import { fetchAll } from '@/lib/fetch-all';
 import { aggregateMerma, evaluateMerma } from '@/lib/merma';
 
 export const dynamic = 'force-dynamic';
@@ -25,16 +26,16 @@ export async function GET(_req: NextRequest) {
 	const auth = await requireAuth(['admin', 'manager', 'supervisor']);
 	if (isAuthError(auth)) return auth;
 
-	const { data: capturas, error } = await supabaseAdmin
-		.from('capture_events')
-		.select('id, ot_id, ot_number, operator_name, parsed_data, message_timestamp')
-		.eq('domain', 'production');
-
-	if (error) {
-		return NextResponse.json({ error: error.message }, { status: 500 });
-	}
-
-	const filas = (capturas ?? []) as any[];
+	// Paginado: hoy son 687 partes y en dos meses de operación pasan los 1.000
+	// que PostgREST entrega por consulta. Sin esto la merma se calcularía sobre
+	// una parte del papel y saldría más baja de lo real, sin avisar.
+	const { rows: filas } = await fetchAll<any>((desde, hasta) =>
+		supabaseAdmin
+			.from('capture_events')
+			.select('id, ot_id, ot_number, operator_name, parsed_data, message_timestamp')
+			.eq('domain', 'production')
+			.range(desde, hasta) as any,
+	);
 
 	/** Sólo las que traen alguna cifra de papel; las demás son partes de estado. */
 	const conCifras = filas.filter((c) => {

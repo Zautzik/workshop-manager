@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { isAuthError, requireAuth } from '@/lib/api-middleware';
 import { supabaseAdmin } from '@/integrations/supabase/server';
+import { fetchAll } from '@/lib/fetch-all';
 import { rollupCosts, type CostLine } from '@/lib/cost-rollup';
 import { evaluateAlarm, actionableAlarms, summarizeAlarms } from '@/lib/cost-alarms';
 
@@ -59,13 +60,16 @@ export async function GET(_req: NextRequest) {
   if (otsError) return NextResponse.json({ error: otsError.message }, { status: 500 });
 
   const otIds = (ots ?? []).map((o) => o.id);
-  const { data: lines, error: linesError } = otIds.length
-    ? await supabaseAdmin
-        .from('ot_cost_lines')
-        .select('ot_id, kind, category, total, source')
-        .in('ot_id', otIds)
-    : { data: [], error: null };
-  if (linesError) return NextResponse.json({ error: linesError.message }, { status: 500 });
+  // Paginado: las mismas 4.256 líneas que truncaban la pantalla de Rentabilidad.
+  const { rows: lines } = otIds.length
+    ? await fetchAll<any>((desde, hasta) =>
+        supabaseAdmin
+          .from('ot_cost_lines')
+          .select('ot_id, kind, category, total, source')
+          .in('ot_id', otIds)
+          .range(desde, hasta) as any,
+      )
+    : { rows: [] as any[] };
 
   // Mismo motor que la analítica: una sola verdad de costo, sin lo sembrado.
   const rollup = rollupCosts((lines ?? []) as CostLine[], (ots ?? []).map((o) => ({

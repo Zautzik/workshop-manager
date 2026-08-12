@@ -130,7 +130,7 @@ export const PRODUCT_LINES: readonly ProductLine[] = [
 		finishes: ['finish_troquelado', 'finish_plegado', 'finish_pegado', 'finish_hot_stamping', 'finish_relieve'],
 		runs: [30_000, 140_000],
 		marginPct: 32, incrementPct: 12,
-		mermaBand: [0.03, 0.07],
+		mermaBand: [0.015, 0.035],
 		weight: 16,
 		press: 'ryobi',
 	},
@@ -145,7 +145,7 @@ export const PRODUCT_LINES: readonly ProductLine[] = [
 		finishes: ['finish_troquelado', 'finish_plegado', 'finish_pegado', 'finish_laminado'],
 		runs: [80_000, 320_000],
 		marginPct: 21, incrementPct: 10,
-		mermaBand: [0.02, 0.05],
+		mermaBand: [0.012, 0.028],
 		weight: 24,
 		press: 'ryobi',
 	},
@@ -160,7 +160,7 @@ export const PRODUCT_LINES: readonly ProductLine[] = [
 		finishes: ['finish_troquelado', 'finish_plegado', 'finish_uv_localizado'],
 		runs: [15_000, 70_000],
 		marginPct: 27, incrementPct: 12,
-		mermaBand: [0.04, 0.09],
+		mermaBand: [0.02, 0.045],
 		weight: 11,
 		press: 'ryobi',
 	},
@@ -175,7 +175,7 @@ export const PRODUCT_LINES: readonly ProductLine[] = [
 		finishes: ['finish_troquelado', 'finish_barniz'],
 		runs: [120_000, 600_000],
 		marginPct: 25, incrementPct: 10,
-		mermaBand: [0.02, 0.06],
+		mermaBand: [0.012, 0.03],
 		weight: 15,
 		press: 'ryobi',
 	},
@@ -190,7 +190,7 @@ export const PRODUCT_LINES: readonly ProductLine[] = [
 		finishes: ['finish_troquelado', 'finish_barniz', 'finish_relieve'],
 		runs: [60_000, 350_000],
 		marginPct: 29, incrementPct: 11,
-		mermaBand: [0.03, 0.07],
+		mermaBand: [0.015, 0.035],
 		weight: 12,
 		press: 'ryobi',
 	},
@@ -205,7 +205,7 @@ export const PRODUCT_LINES: readonly ProductLine[] = [
 		finishes: ['finish_plegado'],
 		runs: [40_000, 200_000],
 		marginPct: 13, incrementPct: 8,
-		mermaBand: [0.02, 0.05],
+		mermaBand: [0.012, 0.028],
 		weight: 10,
 		press: 'ryobi',
 	},
@@ -220,7 +220,7 @@ export const PRODUCT_LINES: readonly ProductLine[] = [
 		finishes: [],
 		runs: [4_000, 25_000],
 		marginPct: 18, incrementPct: 10,
-		mermaBand: [0.05, 0.12],
+		mermaBand: [0.03, 0.07],
 		weight: 5,
 		press: 'ryobi',
 	},
@@ -235,7 +235,7 @@ export const PRODUCT_LINES: readonly ProductLine[] = [
 		finishes: ['finish_plegado'],
 		runs: [50_000, 250_000],
 		marginPct: 11, incrementPct: 7,
-		mermaBand: [0.02, 0.05],
+		mermaBand: [0.012, 0.028],
 		weight: 7,
 		press: 'roland',
 	},
@@ -310,6 +310,17 @@ export interface Deviation {
 	causa: string;
 	/** Papel de más que entró a máquina, sobre la merma ya planificada. */
 	papelExtra: number;
+	/**
+	 * Sobreprecio del papel, sin pliegos de más.
+	 *
+	 * Va aparte de `papelExtra` porque son cosas distintas y confundirlas
+	 * inventa merma: que la cartulina haya subido 14% entre la cotización y la
+	 * orden de compra encarece el trabajo, no hace que entren más pliegos a la
+	 * máquina. Sumarlo al papel consumido llevaba la merma de la demo a 19% —el
+	 * doble de lo que un taller tolera— y hacía que Analítica marcara «crítica»
+	 * a casi toda la producción.
+	 */
+	precioExtra: number;
 	/** Horas de máquina y de gente de más. */
 	horasExtra: number;
 	/** Trabajo que hubo que mandar afuera, como fracción del costo estimado. */
@@ -318,13 +329,13 @@ export interface Deviation {
 }
 
 export const DEVIATIONS: readonly Deviation[] = [
-	{ key: 'limpio', causa: 'El trabajo corrió como se cotizó.', papelExtra: 0.005, horasExtra: 0.02, tercerizado: 0, probability: 0.46 },
-	{ key: 'merma_alta', causa: 'Merma sobre lo planificado: el papel llegó con humedad y la prensa perdió registro.', papelExtra: 0.11, horasExtra: 0.08, tercerizado: 0, probability: 0.15 },
-	{ key: 'reproceso', causa: 'Reproceso: se reimprimió un pliego por variación de color en el tiraje.', papelExtra: 0.07, horasExtra: 0.28, tercerizado: 0, probability: 0.11 },
-	{ key: 'papel_subio', causa: 'El papel subió entre la cotización y la orden de compra.', papelExtra: 0.14, horasExtra: 0.01, tercerizado: 0, probability: 0.09 },
-	{ key: 'tercerizado', causa: 'El troquel se envió fuera: la troqueladora estaba comprometida.', papelExtra: 0.02, horasExtra: -0.15, tercerizado: 0.09, probability: 0.08 },
-	{ key: 'apuro', causa: 'Se corrió en turno de noche para llegar a la fecha comprometida.', papelExtra: 0.03, horasExtra: 0.22, tercerizado: 0, probability: 0.06 },
-	{ key: 'salio_mejor', causa: 'El tiraje corrió sin parar: menos alistamiento del previsto.', papelExtra: -0.02, horasExtra: -0.12, tercerizado: 0, probability: 0.05 },
+	{ key: 'limpio', causa: 'El trabajo corrió como se cotizó.', papelExtra: 0.005, precioExtra: 0, horasExtra: 0.02, tercerizado: 0, probability: 0.46 },
+	{ key: 'merma_alta', causa: 'Merma sobre lo planificado: el papel llegó con humedad y la prensa perdió registro.', papelExtra: 0.05, precioExtra: 0, horasExtra: 0.08, tercerizado: 0, probability: 0.15 },
+	{ key: 'reproceso', causa: 'Reproceso: se reimprimió un pliego por variación de color en el tiraje.', papelExtra: 0.035, precioExtra: 0, horasExtra: 0.28, tercerizado: 0, probability: 0.11 },
+	{ key: 'papel_subio', causa: 'El papel subió entre la cotización y la orden de compra.', papelExtra: 0, precioExtra: 0.14, horasExtra: 0.01, tercerizado: 0, probability: 0.09 },
+	{ key: 'tercerizado', causa: 'El troquel se envió fuera: la troqueladora estaba comprometida.', papelExtra: 0.01, precioExtra: 0, horasExtra: -0.15, tercerizado: 0.09, probability: 0.08 },
+	{ key: 'apuro', causa: 'Se corrió en turno de noche para llegar a la fecha comprometida.', papelExtra: 0.015, precioExtra: 0, horasExtra: 0.22, tercerizado: 0, probability: 0.06 },
+	{ key: 'salio_mejor', causa: 'El tiraje corrió sin parar: menos alistamiento del previsto.', papelExtra: -0.02, precioExtra: 0, horasExtra: -0.12, tercerizado: 0, probability: 0.05 },
 ];
 
 export function drawDeviation(r: () => number): Deviation {
@@ -606,7 +617,7 @@ export function buildJob(args: BuildArgs): PlannedJob {
 			? (calcs.calc_substrate_kg / calcs.calc_sheets) * (plant.rates.substrate_per_kg ?? 1500)
 			: 0;
 	const materialActual = Math.round(
-		sheetsEntered * substratePerSheet +
+		sheetsEntered * substratePerSheet * (1 + deviation.precioExtra) +
 			(estimateLines.find((l) => l.description === 'Tintas')?.total ?? 0) * (1 + deviation.papelExtra) +
 			(estimateLines.find((l) => l.description === 'Placas CTP')?.total ?? 0),
 	);

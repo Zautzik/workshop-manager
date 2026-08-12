@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth, isAuthError } from '@/lib/api-middleware';
 import { supabaseAdmin } from '@/integrations/supabase/server';
+import { fetchAll, truncationNote } from '@/lib/fetch-all';
 import { rollupCosts, aggregateRollup, rollupByClient, hasClientConflict, type CostLine, type OTRevenue } from '@/lib/cost-rollup';
 
 export const dynamic = 'force-dynamic';
@@ -44,14 +45,19 @@ export async function GET(req: NextRequest) {
   if (otsError) return NextResponse.json({ error: otsError.message }, { status: 500 });
 
   const otIds = (ots ?? []).map((o) => o.id);
-  const { data: lines, error: linesError } = otIds.length
-    ? await supabaseAdmin
-        .from('ot_cost_lines')
-        .select('ot_id, kind, category, total, source')
-        .in('ot_id', otIds)
-    : { data: [], error: null };
-
-  if (linesError) return NextResponse.json({ error: linesError.message }, { status: 500 });
+  // Paginado. Sin esto PostgREST devolvía 1.000 de 4.256 líneas SIN AVISAR, y
+  // esta pantalla mostraba 82% de margen en vez de 22% — el costo se perdía y
+  // el margen subía, que es la dirección en la que un error no genera preguntas.
+  const paginado = otIds.length
+    ? await fetchAll<CostLine>((desde, hasta) =>
+        supabaseAdmin
+          .from('ot_cost_lines')
+          .select('ot_id, kind, category, total, source')
+          .in('ot_id', otIds)
+          .range(desde, hasta) as any,
+      )
+    : { rows: [] as CostLine[], truncated: false, pages: 0 };
+  const lines = paginado.rows;
 
   const revenues: OTRevenue[] = (ots ?? []).map((o) => ({
     ot_id: o.id,
@@ -62,7 +68,7 @@ export async function GET(req: NextRequest) {
     revenue: o.total_price,
   }));
 
-  const rows = rollupCosts((lines ?? []) as CostLine[], revenues, { includeSeed });
+  const rows = rollupCosts(lines, revenues, { includeSeed });
   rows.sort((a, b) => String(b.ot_number ?? '').localeCompare(String(a.ot_number ?? '')));
 
   return NextResponse.json({
@@ -87,6 +93,9 @@ export async function GET(req: NextRequest) {
     // La pregunta por la que existe este módulo: ¿qué cliente deja plata?
     by_client: rollupByClient(rows, revenues),
     client_conflicts: revenues.filter(hasClientConflict).length,
+    // `null` cuando llegó todo. Cuando no, la pantalla tiene que decir que los
+    // totales están calculados sobre una parte.
+    truncated: truncationNote(paginado, 'líneas de costo'),
   });
 }
 
