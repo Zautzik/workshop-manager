@@ -946,12 +946,29 @@ async function main() {
 		const conCosto = resumen.filter((r: any) => Number(r.actual_cost) > 0);
 		const venta = conCosto.reduce((s: number, r: any) => s + Number(r.revenue), 0);
 		const margen = conCosto.reduce((s: number, r: any) => s + Number(r.gross_margin), 0);
-		const meses = MONTHS.length - 1 + DIA_DEL_MES_EN_CURSO / 31;
+		// El promedio se calcula sobre los meses CERRADOS, no sobre el calendario.
+		//
+		// Dividir el margen acumulado por 3,29 meses mezclaba tres meses completos
+		// con nueve días de agosto en los que sólo 7 de 20 trabajos alcanzaron a
+		// cerrarse, y daba $283 millones contra un objetivo de $300 — como si el
+		// plan no hubiera llegado. Los meses cerrados promedian $302. Una cifra que
+		// se equivoca sobre su propio resultado enseña a desconfiar del panel.
+		const mesesCerrados = MONTHS.length - 1;
+		const margenCerrados = planes.slice(0, mesesCerrados).reduce((s, p) => s + p.grossMargin, 0);
+		const enCurso = planes[planes.length - 1];
+		const cerradasEnCurso = enCurso.jobs.filter((j) => j.closed).length;
 
 		console.log(`  OT con costo real cargado    ${pad(conCosto.length, 6)} de ${resumen.length}`);
 		console.log(`  Venta acumulada              ${pad(clp(venta), 18)}`);
 		console.log(`  Margen bruto acumulado       ${pad(clp(margen), 18)}`);
-		console.log(`  Margen por mes               ${pad(clp(margen / meses), 18)}  \x1b[2m(objetivo ${clp(MONTHLY_MARGIN_TARGET_CLP)})\x1b[0m`);
+		console.log(
+			`  Margen por mes cerrado       ${pad(clp(margenCerrados / mesesCerrados), 18)}  ` +
+			`\x1b[2m(objetivo ${clp(MONTHLY_MARGIN_TARGET_CLP)})\x1b[0m`,
+		);
+		console.log(
+			`  ${enCurso.month} en curso            ${pad(clp(enCurso.grossMargin), 18)}  ` +
+			`\x1b[2m(${cerradasEnCurso} de ${enCurso.jobs.length} OT cerradas al día ${DIA_DEL_MES_EN_CURSO})\x1b[0m`,
+		);
 
 		// ── La cadena, eslabón por eslabón ────────────────────────────────────
 		// No basta con que las filas hayan entrado: la tesis del sembrador es que
