@@ -9,6 +9,7 @@ import {
   type OTWorkflowStatus,
   validateTransition,
 } from '@/lib/ot-state-machine';
+import type { OTSpec } from '@/lib/ot-spec';
 
 const TransitionSchema = z.object({
   to_status: z.string().min(1),
@@ -56,7 +57,14 @@ export async function POST(
 
     const { data: ot, error: otError } = await supabaseAdmin
       .from('ots')
-      .select('id, ot_number, status')
+      // La ficha entera: las compuertas de completitud necesitan saber qué sabe
+      // la OT, no sólo dónde está.
+      .select(
+        'id, ot_number, status, client_id, product_name, product_type, quantity, ' +
+        'width_cm, height_cm, substrate_type, grammage_gsm, color_front, color_back, ' +
+        'ink_coverage, deadline, assigned_machine_id, substrate_brand, substrate_supplier, ' +
+        'sin_arte, total_price, vb_id',
+      )
       .eq('id', id)
       .single();
 
@@ -64,7 +72,10 @@ export async function POST(
       return NextResponse.json({ error: 'OT no encontrada' }, { status: 404 });
     }
 
-    const fromStatus = ot.status as OTWorkflowStatus;
+    // La cadena de `select` concatenada no la puede inferir el tipo generado, así
+    // que la fila se lee suelta. Los campos se usan de a uno más abajo.
+    const o = ot as Record<string, any>;
+    const fromStatus = o.status as OTWorkflowStatus;
 
     const [approvalResult, costsResult] = await Promise.all([
       supabaseAdmin
@@ -78,10 +89,47 @@ export async function POST(
         .eq('ot_id', id),
     ]);
 
+    // ── La ficha, para las compuertas ────────────────────────────────────
+    //
+    // `impositionConfirmed` y `operationsReviewed` no son columnas: se deducen de
+    // que exista lo que producen. Un montaje confirmado deja un bloque de
+    // programación; operaciones revisadas dejan líneas de operación. Preguntar
+    // por el rastro es más fiable que por una casilla que alguien puede marcar
+    // sin haber hecho el trabajo.
+    const [programa, operaciones, arte, cotizacion] = await Promise.all([
+      supabaseAdmin.from('ot_machine_schedule').select('id', { count: 'exact', head: true }).eq('ot_id', id),
+      supabaseAdmin.from('ot_operations').select('id', { count: 'exact', head: true }).eq('ot_id', id),
+      supabaseAdmin.from('ot_attachments').select('id', { count: 'exact', head: true }).eq('ot_id', id),
+      o.vb_id
+        ? supabaseAdmin.from('vistos_buenos').select('total_price').eq('id', o.vb_id).maybeSingle()
+        : Promise.resolve({ data: null }),
+    ]);
+
+    const spec: OTSpec = {
+      clientId: o.client_id, productName: o.product_name, productType: o.product_type,
+      quantity: o.quantity, widthCm: o.width_cm, heightCm: o.height_cm,
+      substrateType: o.substrate_type, grammageGsm: o.grammage_gsm,
+      colorFront: o.color_front, colorBack: o.color_back, inkCoverage: o.ink_coverage,
+      deadline: o.deadline, pressId: o.assigned_machine_id,
+      substrateBrand: o.substrate_brand, substrateSupplier: o.substrate_supplier,
+      machineId: o.assigned_machine_id,
+      impositionConfirmed: (programa.count ?? 0) > 0,
+      operationsReviewed: (operaciones.count ?? 0) > 0,
+      artAttached: (arte.count ?? 0) > 0,
+      sinArte: o.sin_arte,
+      finishes: {},
+    };
+
     const transitionCheck = validateTransition({
       fromStatus,
       toStatus,
       role: auth.role!,
+      spec,
+      // Lo cotizado vive en el visto bueno; lo firme es el precio de la OT hoy,
+      // ya recalculado con lo que Pre-Prensa completó.
+      quotedPrice: (cotizacion as any)?.data?.total_price ?? null,
+      firmPrice: o.total_price ?? null,
+      repriceApproved: Boolean(parsed.data.metadata?.reprice_approved),
       hasApprovedApproval: (approvalResult.count ?? 0) > 0,
       hasAnyRealCosts: (costsResult.count ?? 0) > 0,
       rollback: parsed.data.rollback ?? false,

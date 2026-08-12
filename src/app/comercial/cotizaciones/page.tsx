@@ -21,6 +21,7 @@ import { resolveCostOverrides } from '@/lib/costing-resolver';
 import { useCostCatalog, useMaterialCost } from '@/hooks/use-cost-catalog';
 import type { OTFormData } from '@/types/ot';
 import { EMPTY_FINISHES } from '@/types/ot';
+import { priceBand } from '@/lib/ot-spec';
 import { RepetirTrabajo } from '@/components/comercial/RepetirTrabajo';
 import type { CostCenterItem } from '@/types/work-category';
 
@@ -245,6 +246,21 @@ function CotizacionesInner() {
     const marginPct = total > 0 ? Math.round(((total - subtotal) / total) * 100) : 0;
     return { lines, subtotal, total, floor, unit, marginPct, belowFloor: total < floor, calcs, impo };
   }, [form, catalog, materialCost, prensaElegida]);
+
+  // Lo que la cotización sabe, en el vocabulario de `ot-spec`. Lo que Pre-Prensa
+  // agrega —marca del papel, montaje confirmado, arte— todavía no existe acá, y
+  // eso es exactamente lo que ensancha la banda.
+  const banda = useMemo(() => {
+    const spec = {
+      clientId: form.client_id, productType: form.product_type, quantity: form.quantity,
+      widthCm: form.width_cm, heightCm: form.height_cm,
+      substrateType: form.substrate_type, grammageGsm: form.grammage_gsm,
+      colorFront: String(form.colors_front), deadline: form.deadline,
+      pressId: prensaElegida?.id ?? null,
+      finishes: form.finishes,
+    };
+    return priceBand(spec, calc.total);
+  }, [form, prensaElegida, calc.total]);
 
   const save = async () => {
     const client = clients.find((c) => c.id === form.client_id);
@@ -544,6 +560,41 @@ function CotizacionesInner() {
                   <div className="flex justify-between text-xs text-muted-foreground"><span>Margen</span><span>{calc.marginPct}%</span></div>
                   <div className="flex justify-between text-xs"><span className="text-muted-foreground">Piso de costo</span><span className={calc.belowFloor ? 'text-red-500 font-semibold' : 'text-muted-foreground'}>{formatCLP(calc.floor)}</span></div>
                   {calc.belowFloor && <p className="text-xs text-red-500">⚠️ Precio bajo el piso — sube el markup.</p>}
+                </div>
+
+                {/* La banda. Un precio en dos tiempos sin ella es una trampa con
+                    pasos extra: el vendedor promete un número y Pre-Prensa
+                    descubre otro. Con la banda puede decir «entre esto y esto, y
+                    esto es lo que falta para cerrarlo» sin desdecirse después. */}
+                {!banda.firm && banda.note && (
+                  <div className="rounded-md border border-amber-500/40 bg-amber-500/5 p-3">
+                    <div className="flex items-baseline justify-between gap-2">
+                      <span className="text-xs font-semibold uppercase text-amber-700 dark:text-amber-400">
+                        Es una estimación
+                      </span>
+                      <span className="text-sm font-semibold tabular-nums text-foreground">
+                        {formatCLP(banda.low)} – {formatCLP(banda.high)}
+                      </span>
+                    </div>
+                    <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">{banda.note}</p>
+                    <ul className="mt-2 space-y-1">
+                      {banda.drivers.map((d) => (
+                        <li key={d.field} className="flex items-baseline gap-2 text-[11px] leading-snug text-muted-foreground">
+                          <span className="shrink-0 font-mono tabular-nums text-amber-700 dark:text-amber-400">
+                            +{Math.round(d.up * 100)}%
+                          </span>
+                          <span>{d.why}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {banda.firm && (
+                  <p className="rounded-md border border-emerald-600/30 bg-emerald-600/5 p-2 text-xs text-emerald-700 dark:text-emerald-400">
+                    Precio firme: no falta ningún dato que pueda moverlo.
+                  </p>
+                )}
+                <div>
                 </div>
                 <Button className="w-full" onClick={save} disabled={saving || calc.belowFloor}>{saving ? 'Guardando…' : 'Guardar cotización'}</Button>
               </div>
