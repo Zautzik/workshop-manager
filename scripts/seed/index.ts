@@ -33,12 +33,12 @@ import {
 	MONTHS,
 	CLIENT_BOOK,
 	SALESMEN,
-	planMonth,
-	type MonthKey,
+	planShop,
 	type MonthPlan,
 	type PersonRef,
 	type Plant,
 	type PlannedJob,
+	type ScheduleReport,
 } from './model';
 import { parseWhatsAppMessage } from '../../src/lib/whatsapp-parser';
 import { actualizar, borrar, contar, insertar, leer, uuid } from './db';
@@ -366,34 +366,23 @@ async function construirPlanta(): Promise<Plant> {
  */
 const CAPACIDAD_TERMINACIONES_MES = 6 * 2 * 22 * 8;
 
-function planificar(plant: Plant): MonthPlan[] {
-	const planes: MonthPlan[] = [];
-	let numero = PRIMERA_OT_SEMBRADA;
-	// El promedio de trabajos de los meses cerrados fija el ritmo del mes en
-	// curso: al día 9 el taller no lleva un mes de margen, lleva nueve días.
-	for (const mes of MONTHS) {
-		const enCurso = mes === MONTHS[MONTHS.length - 1];
-		const ritmo = planes.length > 0
-			? Math.round(planes.reduce((s, p) => s + p.jobs.length, 0) / planes.length)
-			: 75;
-		const plan = planMonth({
-			month: mes as MonthKey,
-			plant,
-			seed: Number(mes.replace('-', '')),
-			targetMargin: MONTHLY_MARGIN_TARGET_CLP,
-			targetJobs: enCurso ? Math.round((ritmo * DIA_DEL_MES_EN_CURSO) / 31) : undefined,
-			throughDay: enCurso ? DIA_DEL_MES_EN_CURSO : 31,
-			startingOtNumber: numero,
-			leaveWorkOpen: enCurso,
-			finishingCapacityHours: CAPACIDAD_TERMINACIONES_MES,
-		});
-		numero += plan.jobs.length;
-		planes.push(plan);
-	}
-	return planes;
+function planificar(plant: Plant): { planes: MonthPlan[]; turnero: ScheduleReport } {
+	// Los turnos se reparten UNA vez sobre los cuatro meses, no mes por mes. Ver
+	// `planShop`: una semana puede cruzar el borde de mes, y repartir por mes le
+	// carga diez turnos a la misma persona en la semana compartida — que es lo
+	// que hacía que Postgres rechazara las asignaciones.
+	const { plans, schedule } = planShop({
+		months: MONTHS,
+		plant,
+		targetMargin: MONTHLY_MARGIN_TARGET_CLP,
+		currentMonthThroughDay: DIA_DEL_MES_EN_CURSO,
+		startingOtNumber: PRIMERA_OT_SEMBRADA,
+		finishingCapacityHours: CAPACIDAD_TERMINACIONES_MES,
+	});
+	return { planes: plans, turnero: schedule };
 }
 
-function informeDelPlan(planes: MonthPlan[]): void {
+function informeDelPlan(planes: MonthPlan[], turnero: ScheduleReport): void {
 	titulo('El taller que describe el plan');
 	console.log('  mes      OT   cerradas          venta           costo          margen    %    pliegos  h-prensa  h-term(propias/fuera)');
 	for (const p of planes) {
@@ -417,19 +406,18 @@ function informeDelPlan(planes: MonthPlan[]): void {
 		console.log(`  ${k.padEnd(36)} n=${pad(v.n, 3)}  venta ${pad(clp(v.venta), 15)}  margen ${pad((100 * v.margen / v.venta).toFixed(1), 5)}%  ${pad(clp(v.margen / v.horas), 12)} por hora de prensa`);
 	}
 
-	titulo('Dotación');
-	for (const p of planes) {
-		const r = p.schedule;
-		const top = [...r.perPerson].sort((a, b) => b[1] - a[1])[0];
-		console.log(
-			`  ${p.month}  ${pad(r.shifts, 5)} turnos · ${pad(r.moved, 4)} corridos de día porque la banca estaba tomada · ` +
-			`${r.dropped > 0 ? `\x1b[31m${r.dropped} sin cubrir\x1b[0m` : '\x1b[32mtodos cubiertos\x1b[0m'}` +
-			(top ? ` · el más cargado: ${top[0]} con ${top[1]}` : ''),
-		);
+	titulo('Dotación — los cuatro meses de una vez');
+	const top = [...turnero.perPerson].sort((a, b) => b[1] - a[1]).slice(0, 3);
+	console.log(
+		`  ${turnero.shifts} turnos repartidos · ${turnero.moved} corridos de día porque la banca estaba tomada · ` +
+		`${turnero.dropped > 0 ? `[31m${turnero.dropped} sin cubrir[0m` : '[32mtodos cubiertos[0m'}`,
+	);
+	if (top.length > 0) {
+		console.log(`  Los más cargados: ${top.map(([n, v]) => `${n} (${v})`).join(' · ')}`);
 	}
-	if (planes.some((p) => p.schedule.dropped > 0)) {
-		console.log('  \x1b[33mUn turno sin cubrir es trabajo que nadie hizo: su mano de obra no se carga a la OT.\x1b[0m');
-		console.log('  \x1b[33mSi el número es alto, al taller le falta gente para el volumen del plan.\x1b[0m');
+	if (turnero.dropped > 0) {
+		console.log('  [33mUn turno sin cubrir es trabajo que nadie hizo: su mano de obra no se carga a la OT.[0m');
+		console.log('  [33mSi el número es alto, al taller le falta gente para el volumen del plan.[0m');
 	}
 
 	const fuera = cerrados.filter((j) => j.finishingOutsourced);
@@ -908,8 +896,8 @@ async function main() {
 		`terminaciones ${plant.crew.finish.length} · pre-prensa ${plant.crew.prepress.length}`,
 	);
 
-	const planes = planificar(plant);
-	informeDelPlan(planes);
+	const { planes, turnero } = planificar(plant);
+	informeDelPlan(planes, turnero);
 
 	const turnosDb = await leer<any>('shifts?select=id,name');
 	const turnos = {

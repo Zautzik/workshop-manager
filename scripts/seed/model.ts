@@ -805,8 +805,6 @@ export function buildCaptures(args: {
 export interface MonthPlan {
 	month: MonthKey;
 	jobs: PlannedJob[];
-	/** Qué tan apretada quedó la dotación. */
-	schedule: ScheduleReport;
 	revenue: number;
 	actualCost: number;
 	grossMargin: number;
@@ -931,15 +929,12 @@ export function planMonth(args: {
 		if (job.closed) margin += job.grossMargin;
 	}
 
-	// Recién ahora se sabe quién hizo cada turno: el turnero necesita el mes
-	// completo para respetar el turno único por persona y por día.
-	const schedule = scheduleCrew(jobs, plant, { seed: seed + 1 });
-
+	// Los turnos NO se reparten acá. Ver `planShop`: el turnero necesita ver
+	// todos los meses de una vez, porque las semanas no respetan el calendario.
 	const closed = jobs.filter((j) => j.closed);
 	return {
 		month,
 		jobs,
-		schedule,
 		revenue: closed.reduce((s, j) => s + j.revenue, 0),
 		actualCost: closed.reduce((s, j) => s + j.actualCost, 0),
 		grossMargin: closed.reduce((s, j) => s + j.grossMargin, 0),
@@ -1075,4 +1070,81 @@ export function scheduleCrew(
 	}
 
 	return { shifts, moved, dropped, perPerson };
+}
+
+/* ─── El taller entero, no mes por mes ───────────────────────── */
+
+/**
+ * Planifica todos los meses y recién entonces reparte los turnos.
+ *
+ * ── Por qué no se puede hacer mes por mes ───────────────────────────────────
+ *
+ * Porque las semanas no respetan el calendario. La semana del lunes 29 de junio
+ * termina el domingo 5 de julio: si junio reparte sus turnos y julio los suyos,
+ * cada uno cree tener esa semana entera y entre los dos le cargan diez turnos a
+ * la misma persona.
+ *
+ * Y hay un segundo camino al mismo choque: los turnos de pre-prensa empiezan un
+ * día ANTES de que la OT entre a máquina, así que un trabajo del día 1 pone un
+ * turno en el mes anterior — que ya estaba repartido y cerrado.
+ *
+ * Medido sobre los cuatro meses de la demo antes de arreglarlo: 97 casos de dos
+ * turnos el mismo día y 50 semanas sobre el tope, TODOS en los lunes que cruzan
+ * el borde de mes. No es una tendencia difusa, es una costura.
+ *
+ * La consecuencia no era un número feo en un informe:
+ * `validate_worker_assignment_compliance` cuenta las horas del turno y rechaza
+ * la fila, así que la siembra se detenía. Un turnero que planifica de a un mes
+ * describe a un taller que despide a todos el día 30 y contrata otros el día 1.
+ */
+export function planShop(args: {
+	months: readonly MonthKey[];
+	plant: Plant;
+	targetMargin: number;
+	/** Día hasta el que llega la historia en el mes en curso. */
+	currentMonthThroughDay: number;
+	startingOtNumber: number;
+	finishingCapacityHours: number;
+}): { plans: MonthPlan[]; schedule: ScheduleReport } {
+	const plans: MonthPlan[] = [];
+	let numero = args.startingOtNumber;
+
+	for (const mes of args.months) {
+		const enCurso = mes === args.months[args.months.length - 1];
+		// El ritmo del mes en curso sale del promedio de los cerrados: al día 9 el
+		// taller no lleva un mes de margen, lleva nueve días de trabajo.
+		const ritmo = plans.length > 0
+			? Math.round(plans.reduce((s, p) => s + p.jobs.length, 0) / plans.length)
+			: 75;
+
+		const plan = planMonth({
+			month: mes,
+			plant: args.plant,
+			seed: Number(mes.replace('-', '')),
+			targetMargin: args.targetMargin,
+			targetJobs: enCurso ? Math.round((ritmo * args.currentMonthThroughDay) / 31) : undefined,
+			throughDay: enCurso ? args.currentMonthThroughDay : 31,
+			startingOtNumber: numero,
+			leaveWorkOpen: enCurso,
+			finishingCapacityHours: args.finishingCapacityHours,
+		});
+
+		numero += plan.jobs.length;
+		plans.push(plan);
+	}
+
+	// Una sola pasada del turnero sobre TODOS los trabajos, ordenados por fecha.
+	const todos = plans.flatMap((p) => p.jobs);
+	const schedule = scheduleCrew(todos, args.plant, { seed: 4242 });
+
+	// Repartir cambia el costo de mano de obra —cada persona cobra lo suyo— así
+	// que los totales del mes se recalculan sobre lo que quedó.
+	for (const p of plans) {
+		const cerrados = p.jobs.filter((j) => j.closed);
+		p.revenue = cerrados.reduce((s, j) => s + j.revenue, 0);
+		p.actualCost = cerrados.reduce((s, j) => s + j.actualCost, 0);
+		p.grossMargin = cerrados.reduce((s, j) => s + j.grossMargin, 0);
+	}
+
+	return { plans, schedule };
 }

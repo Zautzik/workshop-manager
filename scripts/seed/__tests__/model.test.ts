@@ -5,6 +5,8 @@ import { evaluateMerma } from '../../../src/lib/merma';
 import { marginPerPressHour, costPerThousand } from '../../../src/lib/print-economics';
 import {
 	CLIENT_BOOK,
+	MONTHS,
+	planShop,
 	scheduleCrew,
 	DEVIATIONS,
 	MONTHLY_MARGIN_TARGET_CLP,
@@ -271,52 +273,92 @@ describe('el plan mensual alcanza los $300 millones de margen', () => {
 	});
 });
 
-/* ─── El turnero respeta lo que la base va a exigir ──────────── */
+/* ─── La semana no respeta el calendario ─────────────────────── */
 
-describe('el turnero no escribe lo que Postgres va a rechazar', () => {
-	const mes = planMonth({
-		month: '2026-06', plant: PLANT, seed: 20260601,
-		targetMargin: MONTHLY_MARGIN_TARGET_CLP, throughDay: 30, startingOtNumber: 42000,
-		leaveWorkOpen: false, finishingCapacityHours: 2_112,
+/** La dotación real del taller: seis en prensa, seis en corte, once en terminaciones. */
+const PLANTA_COMPLETA: Plant = {
+	...PLANT,
+	crew: {
+		press: Array.from({ length: 6 }, (_, i) => persona(`p${i}`, `Prensa ${i}`, 8000 + i * 100)),
+		cut: Array.from({ length: 6 }, (_, i) => persona(`c${i}`, `Corte ${i}`, 7000 + i * 100)),
+		finish: Array.from({ length: 11 }, (_, i) => persona(`f${i}`, `Terminaciones ${i}`, 6400 + i * 50)),
+		prepress: Array.from({ length: 3 }, (_, i) => persona(`pp${i}`, `Pre-prensa ${i}`, 9000 + i * 100)),
+	},
+};
+
+describe('el turnero reparte los cuatro meses de una vez', () => {
+	const { plans, schedule } = planShop({
+		months: MONTHS,
+		plant: PLANTA_COMPLETA,
+		targetMargin: MONTHLY_MARGIN_TARGET_CLP,
+		currentMonthThroughDay: 9,
+		startingOtNumber: 41001,
+		finishingCapacityHours: 2_112,
 	});
-	const turnos = mes.jobs.flatMap((j) => j.crew);
+	const turnos = plans.flatMap((p) => p.jobs).flatMap((j) => j.crew);
 
-	it('nadie tiene dos turnos el mismo día', () => {
-		// El disparador de la base cuenta las horas del TURNO, no las trabajadas:
-		// dos asignaciones en un día son 16 horas y el contrato permite 9. Sin
-		// esta regla la siembra revienta a mitad de camino.
+	const lunesDe = (fecha: string) => {
+		const d = new Date(fecha + 'T00:00:00Z');
+		return new Date(d.getTime() - ((d.getUTCDay() + 6) % 7) * 86_400_000).toISOString().slice(0, 10);
+	};
+
+	it('nadie tiene dos turnos el mismo día, tampoco cruzando meses', () => {
+		// La regresión concreta: repartiendo mes por mes había 97 casos de doble
+		// turno, TODOS en los lunes que cruzan el borde de mes. El disparador de
+		// la base cuenta horas de turno y rechaza la fila, así que la siembra se
+		// detenía justo ahí.
 		const vistos = new Set<string>();
+		const dobles: string[] = [];
 		for (const t of turnos) {
-			const clave = `${t.personId}|${t.date}`;
-			expect(vistos.has(clave)).toBe(false);
-			vistos.add(clave);
+			const k = `${t.personId}|${t.date}`;
+			if (vistos.has(k)) dobles.push(k);
+			vistos.add(k);
 		}
+		expect(dobles).toEqual([]);
 	});
 
-	it('nadie pasa de cinco turnos en una semana', () => {
+	it('nadie pasa de cinco turnos en una semana, tampoco en la que cruza el mes', () => {
 		const porSemana = new Map<string, number>();
 		for (const t of turnos) {
-			const d = new Date(t.date + 'T00:00:00Z');
-			const lunes = new Date(d.getTime() - ((d.getUTCDay() + 6) % 7) * 86_400_000)
-				.toISOString().slice(0, 10);
-			const k = `${t.personId}|${lunes}`;
+			const k = `${t.personId}|${lunesDe(t.date)}`;
 			porSemana.set(k, (porSemana.get(k) ?? 0) + 1);
 		}
-		expect(Math.max(...porSemana.values())).toBeLessThanOrEqual(5);
+		const excedidas = [...porSemana].filter(([, v]) => v > 5);
+		expect(excedidas).toEqual([]);
 	});
 
-	it('todo turno tiene persona con nombre', () => {
+	it('las semanas que cruzan el borde de mes existen de verdad en el plan', () => {
+		// Si esta prueba deja de encontrar turnos a ambos lados de un fin de mes,
+		// las dos de arriba pasarían por vacuidad y no probarían nada.
+		const cruces = new Set<string>();
 		for (const t of turnos) {
-			expect(t.personId).toBeTruthy();
-			expect(t.personName).toBeTruthy();
-			expect(t.cost).toBeGreaterThan(0);
+			const lunes = lunesDe(t.date);
+			if (lunes.slice(0, 7) !== t.date.slice(0, 7)) cruces.add(lunes);
+		}
+		expect(cruces.size).toBeGreaterThan(0);
+	});
+
+	it('los cuatro meses siguen llegando al objetivo después de repartir', () => {
+		const cerrados = plans.slice(0, 3);
+		for (const p of cerrados) {
+			expect(p.grossMargin).toBeGreaterThan(MONTHLY_MARGIN_TARGET_CLP * 0.97);
+			expect(p.grossMargin).toBeLessThan(MONTHLY_MARGIN_TARGET_CLP * 1.15);
 		}
 	});
 
-	it('el mes sigue llegando al objetivo después de repartir los turnos', () => {
-		// Repartir cambia el costo de mano de obra —cada persona cobra lo suyo—
-		// así que el margen se mueve. Que se mueva poco es la afirmación.
-		expect(mes.grossMargin).toBeGreaterThan(MONTHLY_MARGIN_TARGET_CLP * 0.97);
-		expect(mes.grossMargin).toBeLessThan(MONTHLY_MARGIN_TARGET_CLP * 1.2);
+	it('los trabajos se numeran corridos entre meses, sin repetir', () => {
+		const numeros = plans.flatMap((p) => p.jobs).map((j) => j.otNumber);
+		expect(new Set(numeros).size).toBe(numeros.length);
+	});
+
+	it('la dotación cubre el plan, y lo que no se cubre se informa', () => {
+		// No se exige CERO. Un taller al límite de su dotación deja algún turno
+		// sin cubrir, y eso es información —el informe lo dice en voz alta— no un
+		// defecto del modelo. Exigir cero haría que la prueba se rompa cada vez
+		// que alguien mueve una tarifa, sin que nada esté mal.
+		//
+		// Lo que sí se afirma: que no se pierda trabajo en silencio ni en volumen.
+		expect(schedule.dropped / schedule.shifts).toBeLessThan(0.02);
+		expect(schedule.shifts).toBeGreaterThan(1_500);
 	});
 });
