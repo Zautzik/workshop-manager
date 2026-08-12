@@ -662,7 +662,6 @@ async function escribirTrabajos(
 	console.log(`  ${marcas.length} marcas de asistencia del mes en curso`);
 
 	// ── Los partes del taller ────────────────────────────────────────────────
-	const capturas: any[] = [];
 	const logs: any[] = [];
 	for (const j of trabajos) {
 		const otId = otPorNumero.get(j.otNumber)!;
@@ -670,18 +669,6 @@ async function escribirTrabajos(
 			// El texto pasa por el analizador de la app. `parsed_data` es una
 			// lectura de verdad, no un JSON escrito a mano que casualmente calza.
 			const leido = parseWhatsAppMessage(c.text);
-			capturas.push({
-				domain: 'production', channel: 'whatsapp',
-				event_type: leido.message_type === 'start' ? 'inicio_trabajo' : 'fin_trabajo',
-				ot_id: otId, ot_number: j.otNumber,
-				operator_employee_id: c.operatorId, operator_name: c.operatorName,
-				operator_phone: `+569${6120000 + (c.operatorName.length * 7)}`,
-				raw_message: c.text, parsed_data: leido.production_data,
-				message_timestamp: c.at,
-				status: 'auto_approved', applied: true,
-				quantity: leido.production_data?.pliegos_produced ?? leido.production_data?.buenos ?? null,
-				unit: 'pliego',
-			});
 			logs.push({
 				ot_id: otId, ot_number: j.otNumber,
 				operator_employee_id: c.operatorId, operator_name: c.operatorName,
@@ -692,11 +679,17 @@ async function escribirTrabajos(
 			});
 		}
 	}
-	if (ESCRIBIR) {
-		await insertar('capture_events', capturas);
-		await insertar('whatsapp_production_logs', logs);
-	}
-	console.log(`  ${capturas.length} partes de WhatsApp, leídos por el analizador de la app`);
+	// Se escribe SÓLO el parte. Un disparador —`mirror_legacy_capture`— copia
+	// cada uno a `capture_events` con todo lo que la bandeja unificada necesita.
+	//
+	// Insertar las dos cosas, como se hacía, metía CADA CAPTURA DOS VECES: 687
+	// partes producían 1.374 capturas, y la merma de Analítica habría salido al
+	// doble sin que nada avisara. El conteo del informe lo tenía a la vista desde
+	// la primera corrida y nadie lo miró — un número exactamente duplicado se lee
+	// como un número grande.
+	if (ESCRIBIR) await insertar('whatsapp_production_logs', logs);
+	console.log(`  ${logs.length} partes de WhatsApp, leídos por el analizador de la app`);
+	console.log(`  ${logs.length} capturas creadas por el espejo de la base, una por parte`);
 
 	// ── Guías y facturas ─────────────────────────────────────────────────────
 	const cerrados = trabajos.filter((j) => j.closed);
@@ -800,7 +793,14 @@ async function compras(planes: MonthPlan[], otPorNumero: Map<string, string>): P
 				id: loteId, item_id: item.id, purchase_id: ocId,
 				lot_number: `L-${j.month.replace('-', '')}-${String(n).padStart(4, '0')}`,
 				quantity_received: cantidad,
-				quantity_available: j.closed ? 0 : cantidad,
+				// El lote se recibe ENTERO. El saldo lo baja el movimiento de
+				// consumo, que es para lo que existe un libro mayor de bodega: el
+				// disparador `sync_inventory_lot_quantities` descuenta y se niega a
+				// bajar de cero. Escribir el saldo acá Y el movimiento después es
+				// contar el mismo hecho dos veces, y las dos versiones se
+				// contradecían — el lote llegaba en cero y el consumo no tenía de
+				// dónde restar.
+				quantity_available: cantidad,
 				unit_cost: costoUnit, received_date: j.startedOn, supplier_name: prov.nombre,
 				certification_code: `FSSC-${String(20_000 + n)}`,
 				certification_expires_on: '2027-12-31',
