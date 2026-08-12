@@ -284,6 +284,41 @@ Similarly, retiring `workstations` nearly missed a foreign key on
 skipped it. The `DROP` caught it, which is an argument for letting the database enforce
 rather than trusting a grep.
 
+**And it does not break functions either — for months.** Retiring `workers` dropped
+`worker_assignments.worker_id`. Three functions kept referencing it, and nothing
+complained: `DROP COLUMN` does not validate plpgsql bodies, because Postgres checks a
+function's SQL when it *runs*, not when it is created. The references sat there as inert
+text through every deploy, every test run, and every type check.
+
+They surfaced nine days later, one at a time, as the seed tried to write:
+
+```
+ERROR 42703: record "new" has no field "worker_id"
+```
+
+Which meant something worse than a broken seed: **the application could not assign a
+worker to a machine for nine days.** The Planta board posts to
+`/api/worker-assignments`, the row reaches the database, and the trigger kills it.
+Nobody noticed because nobody was using it yet.
+
+Fixing the trigger the error named was not enough — there were two triggers on that
+table, and the second one had the same defect waiting. The right move was to stop
+guessing and ask the database:
+
+```sql
+SELECT p.proname FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+ WHERE n.nspname = 'public'
+   AND pg_get_functiondef(p.oid) ILIKE '%retired_column%';
+```
+
+That found three: the second trigger, an RLS helper, and `calculate_monthly_payroll` —
+which is the nastier one, because nobody runs payroll daily. It would have failed on
+pay day, with no apparent connection to a migration nine days earlier.
+
+The query is now written into the migration that fixed them, because **the search is
+worth more than the fix**. Retiring a column means grepping the code *and* asking
+`pg_proc`. The second half is the one a TypeScript grep cannot see.
+
 ---
 
 ## 8 · Numbers that were wrong in the flattering direction
