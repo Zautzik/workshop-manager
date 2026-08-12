@@ -388,6 +388,22 @@ export interface CostLine {
 
 export type CrewPool = 'press' | 'cut' | 'finish' | 'prepress';
 
+/**
+ * Los dos turnos del taller, con las horas que tienen en la tabla `shifts`.
+ *
+ * Están acá porque el descanso entre turnos depende de ellas, y el descanso es
+ * una regla del taller —de la ley, en realidad— no un detalle del escritor.
+ */
+export const TURNOS = {
+	manana: { inicio: 7, fin: 15 },
+	tarde: { inicio: 15, fin: 23 },
+} as const;
+
+export type TurnoKey = keyof typeof TURNOS;
+
+/** Descanso mínimo entre el fin de un turno y el comienzo del siguiente. */
+export const DESCANSO_MINIMO_HORAS = 12;
+
 export interface CrewShift {
 	personId: string;
 	personName: string;
@@ -395,6 +411,8 @@ export interface CrewShift {
 	role: string;
 	/** De qué banca sale la persona. Lo usa el planificador de turnos. */
 	pool: CrewPool;
+	/** Mañana o tarde. Lo decide el turnero, por persona y por semana. */
+	turno: TurnoKey;
 	date: string;
 	hours: number;
 	cost: number;
@@ -711,6 +729,8 @@ function buildCrew(args: {
 			const hours = round2(Math.min(8, left));
 			out.push({
 				personId: '', personName: '', pool,
+				// El turnero lo decide; acá sólo hay que poner algo.
+				turno: 'manana',
 				machineId, role,
 				date: iso(addDays(startedOn, day)),
 				hours,
@@ -989,6 +1009,26 @@ export function scheduleCrew(
 	let dropped = 0;
 	let shifts = 0;
 
+	/**
+	 * El turno de una persona es propiedad de la SEMANA, no del día.
+	 *
+	 * Un taller rota los turnos por semana: uno hace mañanas esta semana y tardes
+	 * la otra. Nadie sale a las 23:00 y vuelve a las 07:00 del día siguiente —eso
+	 * son ocho horas de descanso y la ley pide doce— y sin embargo era justo lo
+	 * que producía elegir el turno según las horas del trabajo, que es lo que
+	 * hacía el escritor.
+	 *
+	 * Con el turno fijo por semana, dos días consecutivos dan siempre 16 horas de
+	 * descanso, y el salto entre semanas cae en domingo, que el turnero no usa.
+	 *
+	 * La elección es determinista y reparte: mitad del taller entra temprano.
+	 */
+	const turnoDe = (personId: string, semana: string): TurnoKey => {
+		let h = 0;
+		for (const c of personId + semana) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+		return h % 2 === 0 ? 'manana' : 'tarde';
+	};
+
 	const weekOf = (d: string) => {
 		const t = new Date(d + 'T00:00:00Z');
 		const day = (t.getUTCDay() + 6) % 7; // lunes = 0
@@ -1030,6 +1070,7 @@ export function scheduleCrew(
 
 			shift.personId = elegido.id;
 			shift.personName = elegido.name;
+			shift.turno = turnoDe(elegido.id, semana);
 			shift.cost = Math.round(shift.hours * elegido.hourlyRate);
 			if (fecha !== shift.date) moved += 1;
 			shift.date = fecha;

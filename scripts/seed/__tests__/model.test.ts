@@ -5,7 +5,9 @@ import { evaluateMerma } from '../../../src/lib/merma';
 import { marginPerPressHour, costPerThousand } from '../../../src/lib/print-economics';
 import {
 	CLIENT_BOOK,
+	DESCANSO_MINIMO_HORAS,
 	MONTHS,
+	TURNOS,
 	planShop,
 	scheduleCrew,
 	DEVIATIONS,
@@ -360,5 +362,78 @@ describe('el turnero reparte los cuatro meses de una vez', () => {
 		// Lo que sí se afirma: que no se pierda trabajo en silencio ni en volumen.
 		expect(schedule.dropped / schedule.shifts).toBeLessThan(0.02);
 		expect(schedule.shifts).toBeGreaterThan(1_500);
+	});
+});
+
+/* ─── El descanso entre turnos ───────────────────────────────── */
+
+describe('nadie sale a las 23:00 y vuelve a las 07:00', () => {
+	const { plans } = planShop({
+		months: MONTHS,
+		plant: PLANTA_COMPLETA,
+		targetMargin: MONTHLY_MARGIN_TARGET_CLP,
+		currentMonthThroughDay: 9,
+		startingOtNumber: 41001,
+		finishingCapacityHours: 2_112,
+	});
+	const turnos = plans.flatMap((p) => p.jobs).flatMap((j) => j.crew);
+
+	/** Fin e inicio de un turno como instantes, igual que los calcula el disparador. */
+	const rango = (t: { date: string; turno: 'manana' | 'tarde' }) => {
+		const base = new Date(t.date + 'T00:00:00Z').getTime();
+		const { inicio, fin } = TURNOS[t.turno];
+		return { inicio: base + inicio * 3_600_000, fin: base + fin * 3_600_000 };
+	};
+
+	it('el contrato pide 12 horas de descanso y el plan las respeta', () => {
+		// La regla que faltaba modelar. El escritor elegía el turno según las
+		// horas del trabajo, así que alguien podía salir de un turno de tarde a
+		// las 23:00 y entrar al de mañana a las 07:00: ocho horas. La base lo
+		// rechaza —bien— y la siembra se detenía.
+		const porPersona = new Map<string, typeof turnos>();
+		for (const t of turnos) {
+			const lista = porPersona.get(t.personId) ?? [];
+			lista.push(t);
+			porPersona.set(t.personId, lista);
+		}
+
+		const violaciones: string[] = [];
+		for (const [persona, lista] of porPersona) {
+			const orden = [...lista].sort((a, b) => a.date.localeCompare(b.date));
+			for (let i = 1; i < orden.length; i++) {
+				const previo = rango(orden[i - 1]);
+				const actual = rango(orden[i]);
+				const descanso = (actual.inicio - previo.fin) / 3_600_000;
+				if (descanso < DESCANSO_MINIMO_HORAS) {
+					violaciones.push(`${persona}: ${orden[i - 1].date} ${orden[i - 1].turno} → ${orden[i].date} ${orden[i].turno} = ${descanso}h`);
+				}
+			}
+		}
+		expect(violaciones.slice(0, 5)).toEqual([]);
+	});
+
+	it('el turno es propiedad de la semana, no del día', () => {
+		// Un taller rota por semana. Si el turno cambiara día a día, el descanso
+		// se violaría sin que ninguna regla del turnero lo notara.
+		const porPersonaSemana = new Map<string, Set<string>>();
+		for (const t of turnos) {
+			const d = new Date(t.date + 'T00:00:00Z');
+			const lunes = new Date(d.getTime() - ((d.getUTCDay() + 6) % 7) * 86_400_000).toISOString().slice(0, 10);
+			const k = `${t.personId}|${lunes}`;
+			const set = porPersonaSemana.get(k) ?? new Set<string>();
+			set.add(t.turno);
+			porPersonaSemana.set(k, set);
+		}
+		const mezcladas = [...porPersonaSemana].filter(([, v]) => v.size > 1);
+		expect(mezcladas).toEqual([]);
+	});
+
+	it('el taller usa los dos turnos, no sólo el de la mañana', () => {
+		// Si el turnero mandara a todos a la mañana el descanso también se
+		// cumpliría, y la prueba de arriba pasaría sin describir un taller de dos
+		// turnos. Esto verifica que la solución no sea esconder el problema.
+		const usados = new Set(turnos.map((t) => t.turno));
+		expect(usados.has('manana')).toBe(true);
+		expect(usados.has('tarde')).toBe(true);
 	});
 });

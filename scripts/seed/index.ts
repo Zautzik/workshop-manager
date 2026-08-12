@@ -615,7 +615,11 @@ async function escribirTrabajos(
 			employee_id: c.personId,
 			machine_id: c.machineId,
 			ot_id: otPorNumero.get(j.otNumber)!,
-			shift_id: c.role === 'Pre-prensa' ? turnos.manana : c.hours > 6 ? turnos.manana : turnos.tarde,
+			// El turno lo decidió el turnero, por persona y por semana. Elegirlo
+			// acá según las horas del trabajo —como se hacía— podía mandar a
+			// alguien a salir 23:00 y volver 07:00: ocho horas de descanso donde
+			// el contrato pide doce, y la base lo rechaza.
+			shift_id: c.turno === 'tarde' ? turnos.tarde : turnos.manana,
 			role: c.role,
 			date: c.date,
 			hours_worked: c.hours,
