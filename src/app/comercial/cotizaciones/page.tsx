@@ -275,6 +275,9 @@ function CotizacionesInner() {
         product_type: form.product_type, quantity: form.quantity,
         deadline: form.deadline || null,
         priority_level: form.priority_level,
+        // La prensa viaja: es lo que decide el pliego, y la OT la necesita para
+        // que Pre-Prensa no tenga que volver a elegirla.
+        press_id: prensaElegida?.id ?? null,
         finishes: form.finishes,
         width_cm: form.width_cm, height_cm: form.height_cm, grammage_gsm: form.grammage_gsm,
         // El sustrato viajaba sin enviarse: la OT convertida heredaba el default

@@ -13,7 +13,7 @@
 import type { AppRole } from '@/types/app-role';
 import {
   Home, Factory, Users, Wrench, TrendingUp, ShieldCheck, Target,
-  ClipboardList, GanttChart, FileSpreadsheet, Archive,
+  ClipboardList, GanttChart, FileSpreadsheet, Archive, FileStack,
   Clock, Calendar, CalendarRange,
   Package, ShoppingCart, MessageSquare,
   UserCheck, Wallet, Network, GraduationCap, HardHat,
@@ -118,6 +118,9 @@ export const MODULES: NavModule[] = [
         color: 'from-sky-500/10 to-cyan-500/5', border: 'border-sky-500/20', heading: 'text-sky-400',
         items: [
           { label: 'Tablero',     href: '/operaciones/kanban',             description: 'Pipeline y estado en tiempo real de todas las OTs', icon: ClipboardList,   color: 'bg-cyan-500/10 text-cyan-400' },
+          // Pre-Prensa es una FASE del taller, no un informe: alguien trabaja
+          // ahí completando fichas antes de que se pueda mandar la prueba.
+          { label: 'Pre-Prensa',  href: '/operaciones/pre-prensa',         description: 'Completar la ficha antes de mandar la prueba al cliente', icon: FileStack,      color: 'bg-amber-500/10 text-amber-400' },
           { label: 'En Proceso',  href: '/operaciones/ordenes-en-proceso', description: 'Tabla de planificación diaria: banderas ORD/PRO/VBP/PLN/PAP y proceso actual', icon: ClipboardCheck, color: 'bg-sky-500/10 text-sky-400' },
           { label: 'Hoja de Prod.',href: '/operaciones/hoja-produccion',   description: 'Hoja de trabajo de producción',                     icon: FileSpreadsheet, color: 'bg-fuchsia-500/10 text-fuchsia-400' },
         ],
