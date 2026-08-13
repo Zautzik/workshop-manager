@@ -22,6 +22,7 @@ import { useCostCatalog, useMaterialCost } from '@/hooks/use-cost-catalog';
 import type { OTFormData } from '@/types/ot';
 import { EMPTY_FINISHES } from '@/types/ot';
 import { priceBand } from '@/lib/ot-spec';
+import { SERIES } from '@/components/financial/charts/viz-tokens';
 import { statusBadgeClass, vbStatusLabel } from '@/lib/status-labels';
 import { RepetirTrabajo } from '@/components/comercial/RepetirTrabajo';
 import type { CostCenterItem } from '@/types/work-category';
@@ -244,6 +245,35 @@ function CotizacionesInner() {
   // Lo que la cotización sabe, en el vocabulario de `ot-spec`. Lo que Pre-Prensa
   // agrega —marca del papel, montaje confirmado, arte— todavía no existe acá, y
   // eso es exactamente lo que ensancha la banda.
+  /**
+   * El costo agrupado, para la barra.
+   *
+   * El color sigue a la PARTIDA y en orden fijo: quien aprendió que el papel es
+   * azul no debe encontrárselo naranja al cambiar de trabajo. Sale de la paleta
+   * validada de los gráficos, no de colores elegidos a ojo.
+   */
+  const grupos = useMemo(() => {
+    const PARTIDAS = [
+      { key: 'materiales',    label: 'Materiales' },
+      { key: 'impresion',     label: 'Máquina' },
+      { key: 'terminaciones', label: 'Terminaciones' },
+      { key: 'otros',         label: 'Generales' },
+    ] as const;
+
+    const total = calc.subtotal || 1;
+    return PARTIDAS.map((p, i) => {
+      const monto = calc.lines
+        .filter((l) => l.category === p.key)
+        .reduce((s, l) => s + l.quantity * l.unit_cost, 0);
+      return {
+        ...p,
+        monto,
+        pct: Math.round((monto / total) * 1000) / 10,
+        color: SERIES.light[i],
+      };
+    }).filter((g) => g.monto > 0);
+  }, [calc.lines, calc.subtotal]);
+
   const banda = useMemo(() => {
     const spec = {
       clientId: form.client_id, productType: form.product_type, quantity: form.quantity,
@@ -499,104 +529,135 @@ function CotizacionesInner() {
                   cuando cambia. Es la razón por la que este diálogo recalcula en
                   vivo: que se vea moverse. */}
               <div className="space-y-3 md:sticky md:top-0 md:self-start">
-                {/* El papel es la línea más cara de casi todo trabajo: el vendedor
-                    tiene que ver QUÉ y CUÁNTO antes de comprometer un precio. */}
-                <div className="rounded-md border border-primary/30 bg-primary/5 p-3">
-                  <p className="mb-2 text-xs font-semibold uppercase text-primary">Papel que requiere</p>
-                  <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-sm">
-                    <span className="text-muted-foreground">Pliegos a comprar</span>
-                    <span className="text-right font-semibold tabular-nums text-foreground">
+                {/* ── El papel, en dos renglones ─────────────────────────
+                    Eran seis filas de etiqueta y valor. El vendedor no lee una
+                    tabla mientras habla por teléfono: mira si el número le
+                    cuadra. Los mismos datos, en la forma en que se leen. */}
+                <div className="rounded-md border border-primary/30 bg-primary/5 px-3 py-2">
+                  <p className="text-sm">
+                    <span className="text-lg font-bold tabular-nums text-primary">
                       {calc.calcs.calc_sheets.toLocaleString('es-CL')}
-                    </span>
-                    <span className="text-muted-foreground">Formato</span>
-                    <span className="text-right tabular-nums text-foreground">
-                      {calc.impo.format_label ?? '—'}
-                      {calc.impo.cut_from && (
-                        <span className="block text-[11px] font-normal text-muted-foreground">
-                          cortado de {calc.impo.cut_from} ×{calc.impo.cuts_per_parent}
-                        </span>
-                      )}
-                    </span>
-                    <span className="text-muted-foreground">Poses por pliego</span>
-                    <span className="text-right tabular-nums text-foreground">
-                      {calc.impo.poses_per_sheet}
-                    </span>
-                    <span className="text-muted-foreground">Kilos de sustrato</span>
-                    <span className="text-right tabular-nums text-foreground">
-                      {calc.calcs.calc_substrate_kg.toFixed(1)} kg
-                    </span>
-                    <span className="text-muted-foreground">Planchas · horas prensa</span>
-                    <span className="text-right tabular-nums text-foreground">
-                      {calc.calcs.calc_plates} · {calc.calcs.calc_print_hours.toFixed(1)} h
-                    </span>
-                  </div>
-                  <p className="mt-2 text-[11px] text-muted-foreground">
-                    Incluye merma y alistamiento. Mismo motor que usa producción, así que lo
-                    cotizado es lo que el taller va a consumir.
+                    </span>{' '}
+                    <span className="text-muted-foreground">pliegos de</span>{' '}
+                    <span className="font-semibold text-foreground">{calc.impo.format_label ?? '—'}</span>
+                    {calc.impo.cut_from && (
+                      <span className="text-muted-foreground"> (cortados de {calc.impo.cut_from})</span>
+                    )}
+                  </p>
+                  <p className="mt-0.5 text-xs tabular-nums text-muted-foreground">
+                    {calc.impo.poses_per_sheet} poses · {calc.calcs.calc_substrate_kg.toFixed(1)} kg ·{' '}
+                    {calc.calcs.calc_plates} planchas · {calc.calcs.calc_print_hours.toFixed(1)} h de prensa
+                  </p>
+                  <p className="mt-1 text-[11px] leading-snug text-muted-foreground">
+                    Con merma y alistamiento. Mismo motor que producción: esto es lo que el
+                    taller va a consumir.
                   </p>
                 </div>
 
+                {/* ── El costo, como forma antes que como lista ─────────────
+                    Diez renglones de cifras obligan a sumarlos con la vista para
+                    saber lo único que importa a esta altura: en qué se va la
+                    plata. Una barra de parte-sobre-el-todo lo dice de un vistazo
+                    y ocupa un octavo del alto. El detalle sigue estando, un clic
+                    más abajo, para cuando el cliente pregunta. */}
                 <div className="rounded-md border border-border p-3">
-                  <p className="text-xs font-semibold text-muted-foreground uppercase mb-2">Costo estimado</p>
-                  <div className="space-y-1 text-sm">
-                    {calc.lines.map((l, i) => (
-                      <div key={i} className="flex justify-between gap-2">
-                        <span className="truncate text-muted-foreground">{l.description}</span>
-                        <span className="tabular-nums">{formatCLP(l.quantity * l.unit_cost)}</span>
-                      </div>
-                    ))}
-                    <div className="flex justify-between border-t border-border pt-1 font-semibold">
-                      <span>Subtotal costo</span><span>{formatCLP(calc.subtotal)}</span>
-                    </div>
+                  <div className="flex items-baseline justify-between">
+                    <span className="text-xs font-semibold uppercase text-muted-foreground">Costo</span>
+                    <span className="text-sm font-semibold tabular-nums text-foreground">{formatCLP(calc.subtotal)}</span>
                   </div>
-                </div>
-                <div>
-                  <Label className="text-xs">Markup: {form.markup}%</Label>
-                  <input type="range" min={5} max={120} value={form.markup}
-                    onChange={(e) => setForm({ ...form, markup: num(e.target.value) })} className="w-full" />
-                </div>
-                <div className="rounded-md border border-primary/30 bg-primary/5 p-3 space-y-1">
-                  <div className="flex justify-between text-sm"><span className="text-muted-foreground">Precio total</span><span className="text-xl font-bold text-primary">{formatCLP(calc.total)}</span></div>
-                  <div className="flex justify-between text-xs text-muted-foreground"><span>Unitario</span><span>{formatCLP(calc.unit)}</span></div>
-                  <div className="flex justify-between text-xs text-muted-foreground"><span>Margen</span><span>{calc.marginPct}%</span></div>
-                  <div className="flex justify-between text-xs"><span className="text-muted-foreground">Piso de costo</span><span className={calc.belowFloor ? 'text-red-500 font-semibold' : 'text-muted-foreground'}>{formatCLP(calc.floor)}</span></div>
-                  {calc.belowFloor && <p className="text-xs text-red-500">⚠️ Precio bajo el piso — sube el markup.</p>}
+
+                  <div className="mt-2 flex h-3 w-full gap-[2px] overflow-hidden rounded-full">
+                    {grupos.map((g) => (
+                      <div
+                        key={g.key}
+                        title={`${g.label}: ${formatCLP(g.monto)} (${g.pct}%)`}
+                        style={{ width: `${g.pct}%`, background: g.color }}
+                        className="h-full transition-all first:rounded-l-full last:rounded-r-full"
+                      />
+                    ))}
+                  </div>
+
+                  <ul className="mt-2 flex flex-wrap gap-x-3 gap-y-1">
+                    {grupos.map((g) => (
+                      <li key={g.key} className="flex items-center gap-1.5 text-[11px]">
+                        <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: g.color }} />
+                        <span className="text-muted-foreground">{g.label}</span>
+                        <span className="font-semibold tabular-nums text-foreground">{g.pct}%</span>
+                      </li>
+                    ))}
+                  </ul>
+
+                  <details className="mt-2">
+                    <summary className="cursor-pointer text-[11px] text-muted-foreground">
+                      Ver las {calc.lines.length} líneas
+                    </summary>
+                    <div className="mt-1.5 space-y-0.5">
+                      {calc.lines.map((l, i) => (
+                        <div key={i} className="flex justify-between gap-2 text-xs">
+                          <span className="truncate text-muted-foreground">{l.description}</span>
+                          <span className="tabular-nums">{formatCLP(l.quantity * l.unit_cost)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </details>
                 </div>
 
-                {/* La banda. Un precio en dos tiempos sin ella es una trampa con
-                    pasos extra: el vendedor promete un número y Pre-Prensa
-                    descubre otro. Con la banda puede decir «entre esto y esto, y
-                    esto es lo que falta para cerrarlo» sin desdecirse después. */}
-                {!banda.firm && banda.note && (
-                  <div className="rounded-md border border-amber-500/40 bg-amber-500/5 p-3">
-                    <div className="flex items-baseline justify-between gap-2">
-                      <span className="text-xs font-semibold uppercase text-amber-700 dark:text-amber-400">
-                        Es una estimación
-                      </span>
-                      <span className="text-sm font-semibold tabular-nums text-foreground">
-                        {formatCLP(banda.low)} – {formatCLP(banda.high)}
-                      </span>
-                    </div>
-                    <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">{banda.note}</p>
-                    <ul className="mt-2 space-y-1">
-                      {banda.drivers.map((d) => (
-                        <li key={d.field} className="flex items-baseline gap-2 text-[11px] leading-snug text-muted-foreground">
-                          <span className="shrink-0 font-mono tabular-nums text-amber-700 dark:text-amber-400">
-                            +{Math.round(d.up * 100)}%
-                          </span>
-                          <span>{d.why}</span>
-                        </li>
-                      ))}
-                    </ul>
+                {/* ── El precio, el markup y la banda, juntos ───────────────
+                    Es el bloque con el que se negocia: mover el markup, ver el
+                    precio, mirar el piso. Separados obligaban a recorrer con la
+                    vista para completar un solo pensamiento. */}
+                <div className="rounded-md border border-primary/30 bg-primary/5 p-3">
+                  <div className="flex items-baseline justify-between gap-2">
+                    <span className="text-xs uppercase text-muted-foreground">Precio</span>
+                    <span className="text-2xl font-bold tabular-nums text-primary">{formatCLP(calc.total)}</span>
                   </div>
-                )}
-                {banda.firm && (
-                  <p className="rounded-md border border-emerald-600/30 bg-emerald-600/5 p-2 text-xs text-emerald-700 dark:text-emerald-400">
-                    Precio firme: no falta ningún dato que pueda moverlo.
-                  </p>
-                )}
-                <div>
+
+                  <input
+                    type="range" min={5} max={120} value={form.markup}
+                    aria-label={`Markup ${form.markup}%`}
+                    onChange={(e) => setForm({ ...form, markup: num(e.target.value) })}
+                    className="mt-2 w-full accent-primary"
+                  />
+                  <div className="flex flex-wrap justify-between gap-x-3 text-[11px] tabular-nums text-muted-foreground">
+                    <span>markup {form.markup}%</span>
+                    <span>{formatCLP(calc.unit)} c/u</span>
+                    <span>margen {calc.marginPct}%</span>
+                    <span className={calc.belowFloor ? 'font-semibold text-red-500' : ''}>
+                      piso {formatCLP(calc.floor)}
+                    </span>
+                  </div>
+
+                  {calc.belowFloor && (
+                    <p className="mt-1.5 text-xs font-medium text-red-500">
+                      Bajo el piso de costo — subí el markup.
+                    </p>
+                  )}
+
+                  {!banda.firm && banda.note && (
+                    <details className="mt-2 border-t border-primary/20 pt-2">
+                      <summary className="cursor-pointer text-xs text-amber-700 dark:text-amber-400">
+                        Es una estimación: {formatCLP(banda.low)} – {formatCLP(banda.high)}
+                      </summary>
+                      <p className="mt-1.5 text-[11px] leading-relaxed text-muted-foreground">{banda.note}</p>
+                      <ul className="mt-1.5 space-y-1">
+                        {banda.drivers.map((d) => (
+                          <li key={d.field} className="flex items-baseline gap-2 text-[11px] leading-snug text-muted-foreground">
+                            <span className="shrink-0 font-mono tabular-nums text-amber-700 dark:text-amber-400">
+                              +{Math.round(d.up * 100)}%
+                            </span>
+                            <span>{d.why}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </details>
+                  )}
+                  {banda.firm && (
+                    <p className="mt-2 border-t border-primary/20 pt-2 text-xs text-emerald-700 dark:text-emerald-400">
+                      Precio firme: no falta ningún dato que pueda moverlo.
+                    </p>
+                  )}
                 </div>
+
                 <Button className="w-full" onClick={save} disabled={saving || calc.belowFloor}>{saving ? 'Guardando…' : 'Guardar cotización'}</Button>
               </div>
             </div>
