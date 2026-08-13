@@ -25,6 +25,7 @@ import { priceBand } from '@/lib/ot-spec';
 import { SERIES } from '@/components/financial/charts/viz-tokens';
 import { statusBadgeClass, vbStatusLabel } from '@/lib/status-labels';
 import { RepetirTrabajo } from '@/components/comercial/RepetirTrabajo';
+import { ClientAutocomplete } from '@/components/workflow/ot-wizard/ClientAutocomplete';
 import type { CostCenterItem } from '@/types/work-category';
 
 const INK_COVERAGE = { light: 0.5, medium: 1, heavy: 2 } as const;
@@ -215,7 +216,7 @@ function CotizacionesInner() {
   const { data: materialCost = [] } = useMaterialCost();
 
   const [form, setForm] = useState({
-    client_id: '', product_name: '', product_type: 'etiqueta', quantity: 100000,
+    client_id: '', client_name: '', product_name: '', product_type: 'etiqueta', quantity: 100000,
     width_cm: 9, height_cm: 12, grammage_gsm: 115,
     colors_front: 4, colors_back: 0, coverage: 'medium' as Coverage,
     finishes: { ...EMPTY_FINISHES } as Record<string, boolean>,
@@ -287,8 +288,11 @@ function CotizacionesInner() {
   }, [form, prensaElegida, calc.total]);
 
   const save = async () => {
-    const client = clients.find((c) => c.id === form.client_id);
-    if (!client) { toast.error('Seleccione un cliente'); return; }
+    if (!form.client_id || !form.client_name) {
+      toast.error('Elegí un cliente de la lista, o creá uno nuevo.');
+      return;
+    }
+    const client = { id: form.client_id, name: form.client_name };
     if (calc.belowFloor) { toast.error('El precio está bajo el piso de costo'); return; }
     setSaving(true);
     const res = await fetch('/api/vistos-buenos', {
@@ -385,7 +389,11 @@ function CotizacionesInner() {
           <DialogTrigger asChild>
             <Button><Plus className="mr-2 h-4 w-4" /> Nueva Cotización</Button>
           </DialogTrigger>
-          <DialogContent className="max-w-3xl">
+          {/* `p-5 gap-3` y no el relleno por defecto: este diálogo es denso a
+              propósito —una cotización se arma mirando todo junto— y veinticuatro
+              píxeles de margen por lado son la diferencia entre entrar en una
+              pantalla de 768 y no entrar. */}
+          <DialogContent className="max-w-3xl gap-3 p-5">
             <DialogHeader><DialogTitle>Nueva Cotización</DialogTitle></DialogHeader>
 
             {/* La primera pregunta de una imprenta, no la última: la mayoría de
@@ -398,6 +406,7 @@ function CotizacionesInner() {
               onAplicar={(spec) => setForm((f) => ({
                 ...f,
                 client_id: spec.client_id || f.client_id,
+                client_name: spec.client_name || f.client_name,
                 product_name: spec.product_name,
                 product_type: spec.product_type,
                 quantity: spec.quantity,
@@ -411,16 +420,22 @@ function CotizacionesInner() {
               }))}
             />
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               {/* Spec */}
-              <div className="space-y-3">
+              <div className="space-y-2.5">
+                {/* Escribir y sugerir, no un desplegable. Con veinticuatro
+                    cuentas —y creciendo— buscar en una lista desplegada es más
+                    lento que teclear tres letras. El mismo componente que usa el
+                    asistente de producción, que además sabe crear un cliente
+                    nuevo sin salir de acá: es el caso normal de una cotización. */}
                 <div>
-                  <Label>Cliente</Label>
-                  <select className="w-full mt-1 rounded-md border border-input bg-background px-3 py-2"
-                    value={form.client_id} onChange={(e) => setForm({ ...form, client_id: e.target.value })}>
-                    <option value="">Seleccione…</option>
-                    {clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-                  </select>
+                  <Label className="text-xs">Cliente</Label>
+                  <ClientAutocomplete
+                    clientName={form.client_name}
+                    clientId={form.client_id}
+                    onSelect={(c) => setForm((f) => ({ ...f, client_id: c.id, client_name: c.name }))}
+                    onNameChange={(name) => setForm((f) => ({ ...f, client_name: name, client_id: '' }))}
+                  />
                 </div>
                 <div className="grid grid-cols-[1fr_auto] gap-2">
                   <div><Label>Producto</Label><Input value={form.product_name} onChange={(e) => setForm({ ...form, product_name: e.target.value })} placeholder="Ej: Etiqueta frasco 250ml" /></div>
@@ -454,8 +469,16 @@ function CotizacionesInner() {
                       <option value="otro">Otro</option>
                     </select>
                   </div>
-                  <div><Label className="text-xs">Colores frente</Label><Input type="number" value={form.colors_front} onChange={(e) => setForm({ ...form, colors_front: num(e.target.value) })} /></div>
-                  <div><Label className="text-xs">Colores dorso</Label><Input type="number" value={form.colors_back} onChange={(e) => setForm({ ...form, colors_back: num(e.target.value) })} /></div>
+                  {/* Frente y dorso juntos: son un solo dato del oficio —«4/0»,
+                      «4/4»— y separarlos en dos filas costaba una fila entera. */}
+                  <div>
+                    <Label className="whitespace-nowrap text-xs">Colores f/d</Label>
+                    <div className="flex items-center gap-1">
+                      <Input type="number" value={form.colors_front} onChange={(e) => setForm({ ...form, colors_front: num(e.target.value) })} />
+                      <span className="text-muted-foreground">/</span>
+                      <Input type="number" value={form.colors_back} onChange={(e) => setForm({ ...form, colors_back: num(e.target.value) })} />
+                    </div>
+                  </div>
                 </div>
                 <div className="grid grid-cols-2 gap-2 items-end">
                   <div>
@@ -528,7 +551,7 @@ function CotizacionesInner() {
                   que el vendedor está mirando se le va de la pantalla justo
                   cuando cambia. Es la razón por la que este diálogo recalcula en
                   vivo: que se vea moverse. */}
-              <div className="space-y-3 md:sticky md:top-0 md:self-start">
+              <div className="space-y-2.5 md:sticky md:top-0 md:self-start">
                 {/* ── El papel, en dos renglones ─────────────────────────
                     Eran seis filas de etiqueta y valor. El vendedor no lee una
                     tabla mientras habla por teléfono: mira si el número le
@@ -548,9 +571,8 @@ function CotizacionesInner() {
                     {calc.impo.poses_per_sheet} poses · {calc.calcs.calc_substrate_kg.toFixed(1)} kg ·{' '}
                     {calc.calcs.calc_plates} planchas · {calc.calcs.calc_print_hours.toFixed(1)} h de prensa
                   </p>
-                  <p className="mt-1 text-[11px] leading-snug text-muted-foreground">
-                    Con merma y alistamiento. Mismo motor que producción: esto es lo que el
-                    taller va a consumir.
+                  <p className="mt-0.5 text-[11px] text-muted-foreground">
+                    Con merma y alistamiento, del mismo motor que usa producción.
                   </p>
                 </div>
 

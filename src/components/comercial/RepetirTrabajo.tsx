@@ -20,7 +20,7 @@
 
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { RotateCcw, Search, TrendingDown, TrendingUp } from 'lucide-react';
+import { RotateCcw, TrendingDown, TrendingUp } from 'lucide-react';
 
 import { Input } from '@/components/ui/input';
 import { formatCLP } from '@/lib/format';
@@ -73,26 +73,20 @@ export function RepetirTrabajo({ onAplicar, precioActual, cantidadActual }: Prop
 	};
 
 	return (
-		<div className="mb-4 rounded-lg border border-primary/25 bg-primary/[0.04] p-3">
-			<div className="flex items-center gap-2">
-				<RotateCcw className="h-4 w-4 shrink-0 text-primary" />
-				<div className="min-w-0">
-					<p className="text-sm font-semibold leading-tight">¿Es una repetición?</p>
-					<p className="text-xs leading-snug text-muted-foreground">
-						Busca el trabajo anterior y arranca con sus especificaciones. El precio se
-						recalcula con las tarifas de hoy.
-					</p>
-				</div>
-			</div>
-
-			<div className="relative mt-2.5">
-				<Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+		<div className="mb-3 rounded-lg border border-primary/25 bg-primary/[0.04] p-2">
+			{/* Una sola línea. El párrafo que explicaba qué hace ocupaba sesenta
+			    píxeles en el borde superior del formulario, y lo que explicaba se
+			    entiende con el título y el marcador de posición del campo. Lo que
+			    hay que decir de verdad —que el precio se recalcula— aparece cuando
+			    hace falta: al aplicar un precedente. */}
+			<div className="relative">
+				<RotateCcw className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-primary" />
 				<Input
 					value={term}
 					onChange={(e) => setTerm(e.target.value)}
-					placeholder="Cliente, producto o número de OT…"
+					placeholder="¿Es una repetición? Cliente, producto o número de OT…"
 					className="h-9 pl-8 text-sm"
-					aria-label="Buscar un trabajo anterior"
+					aria-label="Buscar un trabajo anterior para heredar sus especificaciones"
 				/>
 			</div>
 
@@ -127,7 +121,8 @@ export function RepetirTrabajo({ onAplicar, precioActual, cantidadActual }: Prop
 			{aplicado && (
 				<div className="mt-2.5 border-t border-primary/20 pt-2.5">
 					<p className="text-xs text-muted-foreground">
-						Heredado de la{' '}
+						Se heredaron las especificaciones; el precio se recalcula con las tarifas de
+						hoy. Viene de la{' '}
 						<span className="font-mono font-semibold text-foreground">{aplicado.ot_number}</span>
 						{aplicado.total_price ? (
 							<> — entonces se cobró {formatCLP(aplicado.total_price)} por {Number(aplicado.quantity).toLocaleString('es-CL')} unidades.</>
