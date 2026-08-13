@@ -22,10 +22,13 @@
  * meses cerrando.
  */
 
-import { AlertTriangle, ArrowRight, CheckCircle2 } from 'lucide-react';
+import { useState } from 'react';
+import { AlertTriangle, ArrowRight, Box, CheckCircle2 } from 'lucide-react';
 import Link from 'next/link';
 
+import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { MaquetasDialog } from './MaquetasDialog';
 import { formatCLP } from '@/lib/format';
 import { missingFor, priceBand, quoteDrift, type OTSpec } from '@/lib/ot-spec';
 
@@ -37,6 +40,7 @@ interface Props {
 	quotedPrice?: number | null;
 	/** Lo que da el motor ahora, con lo que Pre-Prensa completó. */
 	firmPrice?: number | null;
+	onChanged?: () => void;
 }
 
 /** Dónde se completa cada cosa. Sin esto la lista dice qué falta y no dónde ir. */
@@ -50,7 +54,8 @@ const DONDE: Partial<Record<keyof OTSpec, { texto: string; href: (otId: string) 
 	pressId: { texto: 'Elegir prensa', href: (id) => `/operaciones/ot/${id}` },
 };
 
-export function FichaPrePrensa({ otId, otNumber, spec, quotedPrice, firmPrice }: Props) {
+export function FichaPrePrensa({ otId, otNumber, spec, quotedPrice, firmPrice, onChanged }: Props) {
+	const [maquetas, setMaquetas] = useState(false);
 	const faltan = missingFor(2, spec);
 	const banda = priceBand(spec, firmPrice ?? quotedPrice ?? 0);
 	const deriva = quoteDrift({
@@ -107,6 +112,25 @@ export function FichaPrePrensa({ otId, otNumber, spec, quotedPrice, firmPrice }:
 						})}
 					</ul>
 				)}
+
+				{/* La maqueta se arma acá, y su costo se paga aunque el cliente no
+				    apruebe. Si no hay dónde anotarla, desaparece en gastos generales. */}
+				<div className="flex items-center gap-2 border-t border-border pt-3">
+					<Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => setMaquetas(true)}>
+						<Box className="mr-1.5 h-3.5 w-3.5" /> Registrar maquetas
+					</Button>
+					<span className="text-xs text-muted-foreground">
+						Lo que cuesta convencer al cliente antes de imprimir nada.
+					</span>
+				</div>
+
+				<MaquetasDialog
+					otId={otId}
+					otNumber={otNumber}
+					open={maquetas}
+					onOpenChange={setMaquetas}
+					onSaved={onChanged}
+				/>
 
 				{/* El precio, y cuánto se movió desde lo que el cliente aceptó. */}
 				{(quotedPrice ?? 0) > 0 && (

@@ -32,7 +32,7 @@ interface Trabajo {
 }
 
 function PrePrensaInner() {
-	const { data, isLoading } = useQuery<{ trabajos: Trabajo[]; diagnostics: { total: number; listas: number } }>({
+	const { data, isLoading, refetch } = useQuery<{ trabajos: Trabajo[]; diagnostics: { total: number; listas: number } }>({
 		queryKey: ['ots', 'pre-press'],
 		queryFn: async () => {
 			const res = await fetch('/api/ots/pre-press', { credentials: 'include' });
@@ -102,6 +102,7 @@ function PrePrensaInner() {
 						spec={t.spec}
 						quotedPrice={t.quoted_price}
 						firmPrice={t.firm_price}
+						onChanged={() => refetch()}
 					/>
 				</div>
 			))}
