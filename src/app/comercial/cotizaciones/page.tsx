@@ -22,6 +22,7 @@ import { useCostCatalog, useMaterialCost } from '@/hooks/use-cost-catalog';
 import type { OTFormData } from '@/types/ot';
 import { EMPTY_FINISHES } from '@/types/ot';
 import { priceBand } from '@/lib/ot-spec';
+import { statusBadgeClass, vbStatusLabel } from '@/lib/status-labels';
 import { RepetirTrabajo } from '@/components/comercial/RepetirTrabajo';
 import type { CostCenterItem } from '@/types/work-category';
 
@@ -155,13 +156,6 @@ function buildEstimate(
   return { lines, subtotal, calcs, impo };
 }
 
-const STATUS_BADGE: Record<string, string> = {
-  draft: 'bg-slate-500/15 text-slate-500',
-  sent: 'bg-sky-500/15 text-sky-500',
-  signed: 'bg-amber-500/15 text-amber-600',
-  converted: 'bg-green-500/15 text-green-600',
-  rejected: 'bg-red-500/15 text-red-500',
-};
 
 function CotizacionesInner() {
   const qc = useQueryClient();
@@ -499,8 +493,12 @@ function CotizacionesInner() {
                 </div>
               </div>
 
-              {/* Estimate + pricing */}
-              <div className="space-y-3">
+              {/* El precio se queda quieto mientras se edita la ficha.
+                  El diálogo scrollea —la ficha es larga— y sin esto el número
+                  que el vendedor está mirando se le va de la pantalla justo
+                  cuando cambia. Es la razón por la que este diálogo recalcula en
+                  vivo: que se vea moverse. */}
+              <div className="space-y-3 md:sticky md:top-0 md:self-start">
                 {/* El papel es la línea más cara de casi todo trabajo: el vendedor
                     tiene que ver QUÉ y CUÁNTO antes de comprometer un precio. */}
                 <div className="rounded-md border border-primary/30 bg-primary/5 p-3">
@@ -629,7 +627,13 @@ function CotizacionesInner() {
                     <td className="py-2 px-3">{vb.client_name}</td>
                     <td className="py-2 px-3 text-muted-foreground truncate max-w-[200px]">{vb.product_name}</td>
                     <td className="py-2 px-3 text-right font-semibold">{formatCLP(vb.total_price)}</td>
-                    <td className="py-2 px-3 text-center"><Badge className={STATUS_BADGE[vb.status] ?? ''}>{vb.status}</Badge></td>
+                    {/* El estado en español y con el mismo semáforo que el resto
+                        de la app. El mapa local que había acá era la octava puerta
+                        para el mismo trabajo, y además le faltaba `expired`: una
+                        cotización vencida se mostraba sin color y en inglés. */}
+                    <td className="py-2 px-3 text-center">
+                      <Badge className={statusBadgeClass(vb.status)}>{vbStatusLabel(vb.status)}</Badge>
+                    </td>
                     <td className="py-2 px-3 text-right whitespace-nowrap">
                       {(vb.status === 'draft' || vb.status === 'sent') && signFlow !== vb.id && (
                         <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setStatus(vb.id, 'signed')}>
