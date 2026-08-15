@@ -41,3 +41,6 @@ supabase/.temp
 
 nul
 .reparse-build/
+
+# Capturas de verificación en navegador: son scratch, no fuente.
+vivo/
