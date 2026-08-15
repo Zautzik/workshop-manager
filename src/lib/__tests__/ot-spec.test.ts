@@ -26,7 +26,51 @@ const PRODUCIBLE: OTSpec = {
 	substrateBrand: 'Cartulina Ártica', substrateSupplier: 'Papeles Bío Bío',
 	impositionConfirmed: true, machineId: 'ryobi-1',
 	artAttached: true, operationsReviewed: true,
+	// Es un trabajo troquelado: sin decir con qué troquel se corta, no es
+	// producible. Antes esto no se pedía y el trabajo llegaba a la prueba sin
+	// que nadie confirmara que la herramienta existe.
+	dieSource: 'existente', dieCode: 'TR-104',
 };
+
+describe('el herramental se pide sólo cuando hace falta', () => {
+	it('un trabajo troquelado no es producible sin troquel', () => {
+		const sinTroquel = { ...PRODUCIBLE, dieSource: null, dieCode: null };
+		expect(missingFor(2, sinTroquel).map((g) => g.field)).toContain('dieSource');
+	});
+
+	it('un trabajo sin troquelado no tiene ese pendiente: «no lleva» es una respuesta', () => {
+		const sinTerminaciones = { ...PRODUCIBLE, finishes: {}, dieSource: null, dieCode: null };
+		expect(missingFor(2, sinTerminaciones)).toEqual([]);
+	});
+
+	// Un troquel nuevo todavía no tiene número: pedírselo sería pedir un dato
+	// que no existe.
+	it('el número sólo se pide si el troquel es existente', () => {
+		const nuevo = { ...PRODUCIBLE, dieSource: 'nuevo', dieCode: null };
+		expect(missingFor(2, nuevo)).toEqual([]);
+		const existente = { ...PRODUCIBLE, dieSource: 'existente', dieCode: null };
+		expect(missingFor(2, existente).map((g) => g.field)).toContain('dieCode');
+	});
+
+	it('reconoce la bandera con y sin prefijo `finish_`', () => {
+		const conPrefijo = { ...PRODUCIBLE, finishes: { finish_troquelado: true }, dieSource: null };
+		const sinPrefijo = { ...PRODUCIBLE, finishes: { troquelado: true }, dieSource: null };
+		expect(missingFor(2, conPrefijo).map((g) => g.field)).toContain('dieSource');
+		expect(missingFor(2, sinPrefijo).map((g) => g.field)).toContain('dieSource');
+	});
+
+	it('cada terminación pide lo suyo y nada más', () => {
+		const conHot = { ...PRODUCIBLE, finishes: { hot_stamping: true } };
+		const campos = missingFor(2, conHot).map((g) => g.field);
+		expect(campos).toContain('clicheCode');
+		expect(campos).not.toContain('relieveMatrixCode');
+	});
+
+	it('el laminado sin tipo no es producible: mate y brillante no cuestan igual', () => {
+		const conLaminado = { ...PRODUCIBLE, finishes: { laminado: true } };
+		expect(missingFor(2, conLaminado).map((g) => g.field)).toContain('laminationType');
+	});
+});
 
 describe('completa PARA ALGO, no completa a secas', () => {
 	it('la ficha del vendedor alcanza el nivel 1 y no el 2', () => {

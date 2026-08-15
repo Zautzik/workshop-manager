@@ -28,7 +28,15 @@ export async function GET(_req: NextRequest) {
 			'id, ot_number, client_name, client_id, product_name, product_type, quantity, ' +
 			'width_cm, height_cm, substrate_type, grammage_gsm, color_front, color_back, ' +
 			'ink_coverage, deadline, assigned_machine_id, substrate_brand, substrate_supplier, ' +
-			'sin_arte, total_price, vb_id, created_at',
+			'sin_arte, total_price, vb_id, created_at, ' +
+			// Las diez banderas de terminación. Sin ellas la ficha se armaba con
+			// `finishes: {}` y NINGÚN pendiente de terminación podía aparecer: un
+			// trabajo troquelado llegaba a la prueba sin que nadie confirmara que
+			// el troquel existe.
+			'finish_troquelado, finish_plegado, finish_pegado, finish_laminado, finish_barniz, ' +
+			'finish_relieve, finish_perforado, finish_hot_stamping, finish_uv_localizado, finish_numeracion, ' +
+			// El herramental que esas terminaciones necesitan.
+			'die_source, die_code, die_id, cliche_code, relieve_matrix_code, lamination_type',
 		)
 		.eq('status', 'pre_press')
 		.order('deadline', { ascending: true, nullsFirst: false });
@@ -86,7 +94,28 @@ export async function GET(_req: NextRequest) {
 			operationsReviewed: conOperaciones.has(o.id),
 			artAttached: conArte.has(o.id),
 			sinArte: o.sin_arte,
-			finishes: {},
+			// Las terminaciones REALES del trabajo. Antes iba `{}` fijo, así que
+			// `missingFor` no podía preguntar por el troquel de un trabajo
+			// troquelado: la condición nunca se cumplía.
+			finishes: {
+				troquelado: !!o.finish_troquelado,
+				plegado: !!o.finish_plegado,
+				pegado: !!o.finish_pegado,
+				laminado: !!o.finish_laminado,
+				barniz: !!o.finish_barniz,
+				relieve: !!o.finish_relieve,
+				perforado: !!o.finish_perforado,
+				hot_stamping: !!o.finish_hot_stamping,
+				uv_localizado: !!o.finish_uv_localizado,
+				numeracion: !!o.finish_numeracion,
+			},
+			// Un troquel elegido del estante (`die_id`) responde las dos preguntas:
+			// de dónde sale y cuál es.
+			dieSource: o.die_id ? 'existente' : o.die_source,
+			dieCode: o.die_id ? o.die_id : o.die_code,
+			clicheCode: o.cliche_code,
+			relieveMatrixCode: o.relieve_matrix_code,
+			laminationType: o.lamination_type,
 		};
 
 		return {

@@ -7,7 +7,7 @@
  *
  * Una OT convertida desde una cotización nace con la mitad de la ficha: el
  * vendedor juntó lo que se junta al teléfono, y falta lo que sólo se sabe en
- * Pre-Prensa —la marca del papel, el montaje real, el arte, las operaciones
+ * Pre-Prensa —la marca del papel, el montaje real, el diseño, las operaciones
  * revisadas.
  *
  * Esa brecha existía igual antes de esta pantalla. La diferencia es que era
@@ -23,10 +23,14 @@
  */
 
 import { useState } from 'react';
-import { AlertTriangle, ArrowRight, Box, CheckCircle2, Clock } from 'lucide-react';
+import { AlertTriangle, ArrowRight, Box, CheckCircle2, Clock, Loader2, Send } from 'lucide-react';
 import Link from 'next/link';
 
+import { toast } from 'sonner';
+
 import { Button } from '@/components/ui/button';
+import { DisenoDeLaOT } from '@/components/workflow/DisenoDeLaOT';
+import { TroquelDelEstante } from '@/components/workflow/TroquelDelEstante';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { MaquetasDialog } from './MaquetasDialog';
 import { formatCLP } from '@/lib/format';
@@ -55,13 +59,22 @@ function diasEsperando(desde?: string | null): number | null {
 
 /** Dónde se completa cada cosa. Sin esto la lista dice qué falta y no dónde ir. */
 const DONDE: Partial<Record<keyof OTSpec, { texto: string; href: (otId: string) => string }>> = {
-	substrateBrand: { texto: 'Editar la ficha', href: (id) => `/operaciones/ot/${id}` },
-	substrateSupplier: { texto: 'Editar la ficha', href: (id) => `/operaciones/ot/${id}` },
+	// `/operaciones/ot/[id]` NO EXISTE — nunca existió. Todos estos enlaces eran
+	// 404, y el peor caía justo en el paso donde la orden se destraba. Lo que sí
+	// existe es el asistente, que es donde se completan los datos de una OT.
+	substrateBrand: { texto: 'Completar en el asistente', href: () => '/operaciones/kanban?asistente=1' },
+	substrateSupplier: { texto: 'Completar en el asistente', href: () => '/operaciones/kanban?asistente=1' },
 	impositionConfirmed: { texto: 'Programar en máquina', href: () => '/planta' },
 	machineId: { texto: 'Programar en máquina', href: () => '/planta' },
-	operationsReviewed: { texto: 'Revisar operaciones', href: (id) => `/operaciones/ot/${id}` },
-	artAttached: { texto: 'Adjuntar el arte', href: (id) => `/operaciones/ot/${id}` },
-	pressId: { texto: 'Elegir prensa', href: (id) => `/operaciones/ot/${id}` },
+	operationsReviewed: { texto: 'Revisar operaciones', href: () => '/planta' },
+	// `artAttached` no está: se resuelve acá mismo, subiendo el archivo.
+	pressId: { texto: 'Elegir prensa', href: () => '/operaciones/kanban?asistente=1' },
+	// `dieSource` no está acá a propósito: se resuelve dentro de la ficha con el
+	// estante a la vista, no mandando a nadie a otra pantalla.
+	dieCode: { texto: 'Elegir del estante', href: () => '/operaciones/kanban?asistente=1' },
+	laminationType: { texto: 'Completar en el asistente', href: () => '/operaciones/kanban?asistente=1' },
+	clicheCode: { texto: 'Completar en el asistente', href: () => '/operaciones/kanban?asistente=1' },
+	relieveMatrixCode: { texto: 'Completar en el asistente', href: () => '/operaciones/kanban?asistente=1' },
 };
 
 export function FichaPrePrensa({ otId, otNumber, spec, quotedPrice, firmPrice, desde, onChanged }: Props) {
@@ -82,6 +95,31 @@ export function FichaPrePrensa({ otId, otNumber, spec, quotedPrice, firmPrice, d
 	const nuestros = faltan.filter((g) => g.owner === 'interno');
 	const delCliente = faltan.filter((g) => g.owner === 'cliente');
 	const dias = diasEsperando(desde);
+	const [mandando, setMandando] = useState(false);
+
+	/**
+	 * Pre-Prensa → Visto Bueno.
+	 *
+	 * El servidor revalida la ficha con la misma regla que se muestra acá: si
+	 * entre que se pintó la pantalla y el clic alguien dejó un hueco, la
+	 * transición se rechaza nombrando qué falta.
+	 */
+	const mandarLaPrueba = async () => {
+		setMandando(true);
+		const res = await fetch(`/api/ots/${otId}/transition`, {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ to_status: 'visto_bueno', reason: 'pre_prensa_prueba_lista' }),
+		});
+		setMandando(false);
+		if (!res.ok) {
+			const b = await res.json().catch(() => null);
+			toast.error(b?.error ?? b?.message ?? 'No se pudo mandar la prueba');
+			return;
+		}
+		toast.success(`${otNumber} pasó a Visto Bueno. Ahora se registra la respuesta del cliente.`);
+		onChanged?.();
+	};
 
 	return (
 		<Card>
@@ -93,7 +131,7 @@ export function FichaPrePrensa({ otId, otNumber, spec, quotedPrice, firmPrice, d
 						<AlertTriangle className="h-4 w-4 text-amber-500" />
 					)}
 					{lista
-						? 'Lista para mandar la prueba'
+						? 'Lista para la prueba'
 						: faltan.length === 1
 							? 'Falta un dato para mandar la prueba'
 							: `Faltan ${faltan.length} datos para mandar la prueba`}
@@ -120,10 +158,25 @@ export function FichaPrePrensa({ otId, otNumber, spec, quotedPrice, firmPrice, d
 
 			<CardContent className="space-y-4">
 				{lista ? (
-					<p className="text-sm text-emerald-700 dark:text-emerald-400">
-						La <span className="font-mono font-semibold">{otNumber}</span> tiene todo lo que
-						hace falta para producirla. El precio de la prueba es firme.
-					</p>
+					<div className="space-y-2">
+						<p className="text-sm text-emerald-700 dark:text-emerald-400">
+							La <span className="font-mono font-semibold">{otNumber}</span> tiene todo lo que
+							hace falta para producirla. El precio de la prueba es firme.
+						</p>
+						{/* La pantalla decía «está lista» y no ofrecía hacer nada al
+						    respecto: la única forma de avanzar era ir al Kanban y
+						    arrastrar la tarjeta. Un estado que se anuncia y no se puede
+						    accionar obliga a saber por dónde sigue el flujo, y eso es
+						    justo lo que una pantalla de trabajo tiene que evitar. */}
+						<Button size="sm" className="h-8 text-xs" disabled={mandando} onClick={mandarLaPrueba}>
+							{mandando ? (
+								<Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+							) : (
+								<Send className="mr-1.5 h-3.5 w-3.5" />
+							)}
+							Mandar la prueba al cliente
+						</Button>
+					</div>
 				) : (
 				<div className="space-y-3">
 					{[
@@ -157,6 +210,25 @@ export function FichaPrePrensa({ otId, otNumber, spec, quotedPrice, firmPrice, d
 													)}
 												</div>
 												<p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">{g.why}</p>
+											{/* El troquel no se resuelve en otra pantalla: se resuelve
+											    acá, mostrando el estante. Mandar a quien está en
+											    Pre-Prensa a buscar en otro lado es lo que hacía que
+											    nadie mirara y se comprara de nuevo. */}
+											{g.field === 'artAttached' && (
+												<DisenoDeLaOT otId={otId} onChanged={onChanged} />
+											)}
+											{g.field === 'dieSource' && (
+												<div className="mt-2 border-t border-border pt-2">
+													<TroquelDelEstante
+														otId={otId}
+														widthCm={spec.widthCm}
+														heightCm={spec.heightCm}
+														productType={spec.productType}
+														clientId={spec.clientId}
+														onChanged={onChanged}
+													/>
+												</div>
+											)}
 											</li>
 										);
 									})}

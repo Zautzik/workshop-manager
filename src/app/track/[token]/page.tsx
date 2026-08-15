@@ -28,7 +28,7 @@ const PHASE_OF: Record<string, number> = {
 };
 
 const PHASES = [
-  { label: 'Preparación',   detail: 'Diseño y aprobación de arte' },
+  { label: 'Preparación',   detail: 'Diseño y aprobación de la prueba' },
   { label: 'Materiales',    detail: 'Papel certificado en bodega' },
   { label: 'Impresión',     detail: 'Tu pedido está en prensa' },
   { label: 'Terminaciones', detail: 'Troquelado, plegado y acabados' },

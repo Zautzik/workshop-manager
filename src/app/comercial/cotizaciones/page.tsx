@@ -10,7 +10,9 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import { Plus, PenLine, ArrowRight, FileSpreadsheet } from 'lucide-react';
+
+import { VistoBuenoDialog } from '@/components/workflow/VistoBuenoDialog';
+import { Plus, PenLine, ArrowRight, FileSpreadsheet, ShieldCheck } from 'lucide-react';
 import { useVistosBuenos } from '@/hooks/use-commercial-queries';
 import { useOTs } from '@/hooks/use-operations-queries';
 import { useQuery } from '@tanstack/react-query';
@@ -239,6 +241,7 @@ function CotizacionesInner() {
   const [saving, setSaving] = useState(false);
   // VB en proceso de firma: pide la imagen aprobada como parte del acto.
   const [signFlow, setSignFlow] = useState<string | null>(null);
+  const [decidiendo, setDecidiendo] = useState<{ id: string; numero: string; cliente: string } | null>(null);
   const [signing, setSigning] = useState(false);
   // Mismas tarifas que producción: catálogo compartido + costo de material
   // ponderado por compras. Si el vendedor cotiza con otros números, el taller
@@ -390,7 +393,9 @@ function CotizacionesInner() {
   const setStatus = async (id: string, status: string) => {
     const res = await fetch(`/api/vistos-buenos/${id}`, {
       method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status, signed_by_name: status === 'signed' ? 'Cliente' : undefined }),
+      // Ya no se manda `signed_by_name`. Quien firma sale de `ot_approvals` y lo
+      // copia acá un disparador: firmar sin dejar evidencia dejó de ser posible.
+      body: JSON.stringify({ status }),
     });
     if (!res.ok) {
       const b = await res.json().catch(() => null);
@@ -908,15 +913,39 @@ function CotizacionesInner() {
                       <Badge className={otStatusBadgeClass(ot.status)}>{otStatusLabel(ot.status)}</Badge>
                     </td>
                     <td className="py-2 px-3 text-right">
-                      {/* Pre-Prensa es donde se completa la ficha; ahí está lo que
-                          falta para poder mandar la prueba. */}
+                      {/* La acción depende de dónde está parada la OT: en Pre-Prensa
+                          falta completar la ficha; en Visto Bueno lo que falta es una
+                          persona que decida, y eso hay que registrarlo con nombre. */}
+                      {/* El documento para el cliente, en los dos momentos: antes
+                          del visto bueno sale con banda, después con precio firme.
+                          Se abre en pestaña nueva porque se comparte por enlace. */}
                       <Link
-                        href="/operaciones/pre-prensa"
-                        className="inline-flex items-center gap-1 text-xs font-medium text-primary underline-offset-4 hover:underline"
+                        href={`/documentos/cotizacion/${ot.id}`}
+                        target="_blank"
+                        className="mr-2 inline-flex items-center gap-1 text-xs font-medium text-muted-foreground underline-offset-4 hover:text-primary hover:underline"
                       >
-                        {ot.status === 'pre_press' ? 'Completar ficha' : 'Ver la prueba'}
-                        <ArrowRight className="h-3 w-3" />
+                        <FileSpreadsheet className="h-3 w-3" />
+                        {ot.status === 'pre_press' ? 'Cotización' : 'Cotización final'}
                       </Link>
+                      {ot.status === 'visto_bueno' ? (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-7 text-xs"
+                          onClick={() => setDecidiendo({ id: ot.id, numero: ot.ot_number, cliente: ot.client_name })}
+                        >
+                          <ShieldCheck className="mr-1 h-3 w-3" />
+                          Registrar visto bueno
+                        </Button>
+                      ) : (
+                        <Link
+                          href="/operaciones/pre-prensa"
+                          className="inline-flex items-center gap-1 text-xs font-medium text-primary underline-offset-4 hover:underline"
+                        >
+                          Completar ficha
+                          <ArrowRight className="h-3 w-3" />
+                        </Link>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -925,6 +954,21 @@ function CotizacionesInner() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Quién decidió, contra qué, y —si dijo que no— por qué. Al guardar, un
+          disparador copia el firmante al visto bueno, así que la lista se
+          actualiza sola y no hay una segunda escritura que pueda discrepar. */}
+      <VistoBuenoDialog
+        otId={decidiendo?.id ?? null}
+        otNumber={decidiendo?.numero}
+        clientName={decidiendo?.cliente}
+        open={decidiendo !== null}
+        onOpenChange={(v) => { if (!v) setDecidiendo(null); }}
+        onDone={() => {
+          qc.invalidateQueries({ queryKey: ['vistosBuenos'] });
+          qc.invalidateQueries({ queryKey: ['ots'] });
+        }}
+      />
     </div>
   );
 }

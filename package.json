@@ -13,7 +13,8 @@
 		"test": "vitest run",
 		"test:smoke": "node scripts/smoke.mjs",
 		"test:watch": "vitest",
-		"seed:demo": "tsx scripts/seed/index.ts"
+		"seed:demo": "tsx scripts/seed/index.ts",
+		"seed:dies": "tsx scripts/seed/dies.ts"
 	},
 	"dependencies": {
 		"@dnd-kit/core": "^6.3.1",

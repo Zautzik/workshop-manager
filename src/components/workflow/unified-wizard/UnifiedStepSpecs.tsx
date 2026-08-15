@@ -412,7 +412,7 @@ export function UnifiedStepSpecs({ form, updateForm }: Props) {
 
       {/* ── Artwork Attachments ────────────────────────────────── */}
       <Card className="p-4 border-border space-y-4">
-        <h3 className="font-semibold text-sm text-foreground">Archivos de Arte</h3>
+        <h3 className="font-semibold text-sm text-foreground">Archivos de diseño</h3>
         <p className="text-xs text-muted-foreground">
           Adjunta PDF, AI, EPS o imágenes para que producción trabaje con la versión correcta.
         </p>
@@ -434,7 +434,7 @@ export function UnifiedStepSpecs({ form, updateForm }: Props) {
               className="mt-0.5"
             />
             <span>
-              Todavía no hay arte. La OT se creará marcada <b>&ldquo;sin arte&rdquo;</b> y lo
+              Todavía no hay diseño. La OT se creará marcada <b>&ldquo;sin diseño&rdquo;</b> y lo
               mostrará hasta que alguien lo adjunte — prensa no imprime de memoria.
             </span>
           </label>

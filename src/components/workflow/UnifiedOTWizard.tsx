@@ -364,9 +364,9 @@ export function UnifiedOTWizard({ onClose, onSuccess }: Props) {
     // de que aún no existe, la OT no se crea — y el servidor lo re-verifica.
     if (form.attachments.length === 0 && !form.sin_arte) {
       toast({
-        title: 'Falta el arte',
+        title: 'Falta el diseño',
         description:
-          'Adjunta la imagen del trabajo, o marca "todavía no hay arte" para crearla declaradamente incompleta.',
+          'Adjunta la imagen del trabajo, o marca "todavía no hay diseño" para crearla declaradamente incompleta.',
         variant: 'destructive',
       });
       return;

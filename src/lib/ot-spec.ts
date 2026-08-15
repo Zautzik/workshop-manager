@@ -69,10 +69,23 @@ export interface OTSpec {
 	impositionConfirmed?: boolean | null;
 	machineId?: string | null;
 	pantoneColors?: readonly string[] | null;
-	/** Arte adjunto. */
+	/** Diseño adjunto. */
 	artAttached?: boolean | null;
-	/** O declarado explícitamente sin arte, que también es una respuesta. */
+	/** O declarado explícitamente sin diseño, que también es una respuesta. */
 	sinArte?: boolean | null;
+
+	/* ── Herramental ───────────────────────────────────────────
+	 *
+	 * Sólo se piden cuando la terminación que los necesita está marcada. Un
+	 * trabajo sin troquelado no tiene un hueco de troquel: tiene una respuesta,
+	 * que es «no lleva». */
+	/** `nuevo` | `existente`. La pregunta cara: nuevo son ~$320.000 y dos semanas. */
+	dieSource?: string | null;
+	/** Cuál troquel, físicamente. «El del año pasado» no lo encuentra nadie. */
+	dieCode?: string | null;
+	clicheCode?: string | null;
+	relieveMatrixCode?: string | null;
+	laminationType?: string | null;
 	operationsReviewed?: boolean | null;
 }
 
@@ -97,6 +110,18 @@ export interface Gap {
 	owner: GapOwner;
 }
 
+/**
+ * Un requisito es un hueco POTENCIAL más la condición que lo hace aplicar.
+ *
+ * Separado de `Gap` a propósito: la condición es cómo se decide si falta, y no
+ * significa nada para quien tiene que resolverlo. Lo que sale hacia la pantalla
+ * es un `Gap` sin condición.
+ */
+interface Requisito extends Gap {
+	/** Cuándo aplica. Ausente = siempre. */
+	when?: (spec: OTSpec) => boolean;
+}
+
 const vacio = (v: unknown): boolean =>
 	v === null ||
 	v === undefined ||
@@ -110,7 +135,7 @@ const vacio = (v: unknown): boolean =>
  * El orden importa: se muestran en este orden, y los primeros son los que más
  * mueven el precio.
  */
-const REQUISITOS: Gap[] = [
+const REQUISITOS: Requisito[] = [
 	// ── Nivel 1 ──
 	{ field: 'pressId', level: 1, owner: 'interno', label: 'Prensa objetivo',
 	  why: 'Decide qué pliego se puede montar, y el pliego decide los pliegos, los kilos y las horas. Es el dato que más mueve el precio.' },
@@ -148,11 +173,38 @@ const REQUISITOS: Gap[] = [
 	  why: 'La mejor imposición teórica rara vez es la que se monta. Hasta que Pre-Prensa la confirme, los pliegos son una estimación.' },
 	{ field: 'machineId', level: 2, owner: 'interno', label: 'Máquina asignada',
 	  why: 'Sin máquina asignada el trabajo no se puede programar ni cargarle horas.' },
-	{ field: 'artAttached', level: 2, owner: 'cliente', label: 'Arte',
-	  why: 'Sin arte no hay planchas, y sin planchas no hay tiraje. Si el trabajo va sin arte a propósito, hay que declararlo.' },
+	{ field: 'artAttached', level: 2, owner: 'cliente', label: 'Diseño',
+	  why: 'Sin diseño no hay planchas, y sin planchas no hay tiraje. Si el trabajo va sin diseño a propósito, hay que declararlo.' },
 	{ field: 'operationsReviewed', level: 2, owner: 'interno', label: 'Operaciones revisadas',
 	  why: 'El motor propone; el jefe de taller corrige. Lo que él revisó es lo que se va a cobrar.' },
+
+	/* ── Herramental: sólo cuando la terminación lo pide ───────────────────── */
+	{ field: 'dieSource', level: 2, owner: 'interno', label: 'Troquel: ¿nuevo o existente?',
+	  when: (s: OTSpec) => lleva(s, 'troquelado'),
+	  why: 'Un troquel nuevo son ~$320.000 y dos semanas de espera. Descubrirlo en Compra de Papel es tarde: la fecha ya se prometió.' },
+	{ field: 'dieCode', level: 2, owner: 'interno', label: 'Cuál troquel',
+	  // Sólo si es existente: uno nuevo todavía no tiene número.
+	  when: (s: OTSpec) => lleva(s, 'troquelado') && s.dieSource === 'existente',
+	  why: 'Hay que poder encontrarlo en la estantería. «El del año pasado» no es una identificación.' },
+	{ field: 'clicheCode', level: 2, owner: 'interno', label: 'Cliché de hot stamping',
+	  when: (s: OTSpec) => lleva(s, 'hot_stamping'),
+	  why: 'El cliché se manda a grabar aparte y llega cuando llega. Sin él la máquina espera con el trabajo montado.' },
+	{ field: 'relieveMatrixCode', level: 2, owner: 'interno', label: 'Matriz de relieve',
+	  when: (s: OTSpec) => lleva(s, 'relieve'),
+	  why: 'El relieve necesita matriz y contramatriz. Es herramienta física: o está o hay que hacerla.' },
+	{ field: 'laminationType', level: 2, owner: 'interno', label: 'Tipo de laminado',
+	  when: (s: OTSpec) => lleva(s, 'laminado'),
+	  why: 'Brillante, mate y soft touch tienen precio y proveedor distintos. Cotizar «laminado» a secas es cotizar el más barato y comprar el que pida el cliente.' },
 ];
+
+/** ¿El trabajo lleva esta terminación? Las banderas viajan con o sin prefijo
+ *  `finish_` según de qué formulario vengan, y esa diferencia ya costó una
+ *  pantalla que no preguntaba nada. */
+function lleva(spec: OTSpec, terminacion: string): boolean {
+	const f = spec.finishes;
+	if (!f) return false;
+	return f[terminacion] === true || f[`finish_${terminacion}`] === true;
+}
 
 /**
  * Qué falta para alcanzar un nivel.
@@ -161,8 +213,13 @@ const REQUISITOS: Gap[] = [
  * no puede ser producible sin ser cotizable.
  */
 export function missingFor(level: SpecLevel, spec: OTSpec): Gap[] {
-	return REQUISITOS.filter((r) => r.level <= level).filter((r) => {
-		// El arte tiene dos respuestas válidas: adjuntarlo, o decir que no lleva.
+	return REQUISITOS.filter((r) => r.level <= level)
+		// Un requisito puede aplicar sólo a algunos trabajos. Sin esto, pedir el
+		// troquel a todos sería ruido y no pedirlo a nadie —que es lo que pasaba—
+		// deja salir a producción trabajos sin herramienta.
+		.filter((r) => (r.when ? r.when(spec) : true))
+		.filter((r) => {
+		// El diseño tiene dos respuestas válidas: adjuntarlo, o decir que no lleva.
 		if (r.field === 'artAttached') return !spec.artAttached && !spec.sinArte;
 		// Las terminaciones vacías son una respuesta —«ninguna»— no un hueco.
 		if (r.field === 'finishes') return spec.finishes === null || spec.finishes === undefined;

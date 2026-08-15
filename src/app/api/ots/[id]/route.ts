@@ -104,6 +104,27 @@ const UpdateOTSchema = z.object({
 	flag_paper_arrived: z.boolean().optional(),
 });
 
+/**
+ * Una OT, entera.
+ *
+ * La ruta existía sólo con `PATCH`: se podía modificar una orden y no leerla.
+ * El documento que se le manda al cliente la necesita completa, y armarlo desde
+ * la lista significaría que el papel impreso y la pantalla salen de dos
+ * consultas distintas — que es como terminan diciendo cosas distintas.
+ */
+export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+	const auth = await requireAuth(['admin', 'manager', 'supervisor', 'vendedor']);
+	if (isAuthError(auth)) return auth;
+	const { id } = await params;
+
+	const { data, error } = await supabaseAdmin.from('ots').select('*').eq('id', id).maybeSingle();
+
+	if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+	if (!data) return NextResponse.json({ error: 'OT no encontrada' }, { status: 404 });
+
+	return NextResponse.json({ ot: data });
+}
+
 export async function PATCH(
 	req: NextRequest,
 	context: { params: Promise<{ id: string }> }
