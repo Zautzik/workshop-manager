@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { isAuthError, requireAuth } from '@/lib/api-middleware';
 import { supabaseAdmin } from '@/integrations/supabase/server';
+import { TOLERANCIA_RECEPCION } from '@/lib/purchasing';
 
 const OPS = ['admin', 'manager', 'supervisor'] as const;
 
@@ -12,6 +13,12 @@ const ReceiveSchema = z.object({
   lot_number: z.string().max(100).optional().nullable(),
   cert_code: z.string().max(100).optional().nullable(),
   cert_expires: z.string().optional().nullable(),
+  /** Por qué llegó distinto de lo pedido. Lo exige la ruta cuando la diferencia
+   *  supera la tolerancia: una merma sin explicación se repite. */
+  variance_reason: z.string().max(500).optional().nullable(),
+  /** Autorización nominal para recibir con certificado vencido. Sin esto la
+   *  función de la base rechaza, que es lo que convierte el campo en control. */
+  cert_override_reason: z.string().max(500).optional().nullable(),
 });
 
 // POST /api/purchases/[id]/receive — receive a material from an OC into a lot
@@ -31,6 +38,33 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   }
   const d = parsed.data;
 
+  // La diferencia contra lo pedido se verifica ACÁ y no en el formulario: es el
+  // punto donde se pierde plata en silencio, y un control que sólo vive en la
+  // pantalla se saltea con una llamada directa.
+  const { data: linea } = await supabaseAdmin
+    .from('purchase_items')
+    .select('quantity')
+    .eq('purchase_id', id)
+    .eq('item_id', d.item_id)
+    .maybeSingle();
+
+  const pedida = Number((linea as { quantity?: number } | null)?.quantity ?? 0);
+  if (pedida > 0) {
+    const desvio = Math.abs(pedida - d.quantity) / pedida;
+    if (desvio > TOLERANCIA_RECEPCION && !d.variance_reason?.trim()) {
+      return NextResponse.json(
+        {
+          error:
+            `Se pidieron ${pedida.toLocaleString('es-CL')} y estás recibiendo ` +
+            `${d.quantity.toLocaleString('es-CL')}. Anotá por qué antes de guardarlo.`,
+          code: 'VARIANZA_SIN_MOTIVO',
+          ordered: pedida,
+        },
+        { status: 422 }
+      );
+    }
+  }
+
   const { data, error } = await supabaseAdmin.rpc('receive_oc_into_lot' as any, {
     p_purchase_id: id,
     p_item_id: d.item_id,
@@ -42,6 +76,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     // Receipt against an OT-linked OC auto-records the material as a real
     // cost (workflow_step 'oc_receipt') — attribute it to the acting user.
     p_recorded_by: auth.id,
+    p_variance_reason: d.variance_reason ?? null,
+    p_cert_override_reason: d.cert_override_reason ?? null,
   });
 
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });

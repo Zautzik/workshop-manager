@@ -30,8 +30,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 	const parsed = Schema.safeParse(await req.json().catch(() => null));
 	if (!parsed.success) return NextResponse.json({ error: 'Cuerpo inválido' }, { status: 400 });
 
-	const db = supabaseAdmin as unknown as { from: (t: string) => any };
-	const { error } = await db
+	const { error } = await supabaseAdmin
 		.from('ots')
 		.update({
 			die_id: parsed.data.dieId,

@@ -38,6 +38,22 @@ const cabeceras = {
 	'Content-Type': 'application/json',
 };
 
+/**
+ * Llamar una función de la base.
+ *
+ * Vive acá y no en cada script por la misma razón que el resto: una sola puerta
+ * a la base. Un script que arma su propia URL termina leyendo otro `.env`.
+ */
+export async function llamar<T = unknown>(nombre: string, args: Record<string, unknown>): Promise<T> {
+	const res = await fetch(`${URL_BASE}/rest/v1/rpc/${nombre}`, {
+		method: 'POST',
+		headers: cabeceras,
+		body: JSON.stringify(args),
+	});
+	if (!res.ok) throw new Error(`${nombre}: ${await res.text()}`);
+	return res.json().catch(() => null as T);
+}
+
 /** Cuántas filas por request. PostgREST aguanta más, pero así los errores se ubican. */
 const LOTE = 400;
 

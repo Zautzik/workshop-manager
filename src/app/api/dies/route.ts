@@ -16,13 +16,6 @@ export const dynamic = 'force-dynamic';
  * evita mandar a hacer uno que ya está.
  */
 
-// `dies` es nueva y los tipos generados todavía no la conocen. El escape es
-// acotado y con fecha de vencimiento: se va con el próximo `supabase gen types`
-// después de aplicar 20260815170000.
-const db = supabaseAdmin as unknown as {
-	from: (t: string) => any;
-};
-
 const COLUMNAS =
 	'id, code, name, product_type, width_cm, height_cm, cavities, shelf_location, ' +
 	'client_id, exclusive, acquisition_cost, acquired_on, status, times_used, last_used_at, notes';
@@ -51,7 +44,7 @@ export async function GET(req: NextRequest) {
 	const auth = await requireAuth(['admin', 'manager', 'supervisor', 'vendedor']);
 	if (isAuthError(auth)) return auth;
 
-	const { data, error } = await db
+	const { data, error } = await supabaseAdmin
 		.from('dies')
 		.select(COLUMNAS)
 		.order('times_used', { ascending: false });
@@ -105,7 +98,7 @@ export async function POST(req: NextRequest) {
 	}
 	const d = parsed.data;
 
-	const { data, error } = await db
+	const { data, error } = await supabaseAdmin
 		.from('dies')
 		.insert({
 			code: d.code.trim(), name: d.name.trim(), product_type: d.productType ?? null,

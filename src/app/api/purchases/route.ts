@@ -8,15 +8,27 @@ export const dynamic = 'force-dynamic';
 
 const OPS = ['admin', 'manager', 'supervisor'] as const;
 
-// GET /api/purchases — list OCs with billing roll-up (oc_billing view).
-export async function GET(_req: NextRequest) {
+/**
+ * GET /api/purchases — las OC con su conciliación.
+ *
+ * Sirve `oc_conciliacion` y no `oc_billing`: la vista vieja compara lo pedido
+ * contra lo facturado y se salta lo que efectivamente llegó, que es justo
+ * donde se pierde plata —recibir 480 y que te facturen 500—. La nueva trae las
+ * dos brechas separadas, porque una la resuelve bodega y la otra cuentas por
+ * pagar, y sumarlas puede dar cero teniendo los dos problemas.
+ *
+ * `?ot_id=` filtra las de una orden: es como llega desde el Kanban.
+ */
+export async function GET(req: NextRequest) {
   const auth = await requireAuth([...OPS]);
   if (isAuthError(auth)) return auth;
 
-  const { data, error } = await supabaseAdmin
-    .from('oc_billing' as any)
-    .select('*')
-    .order('created_at', { ascending: false });
+  let q = supabaseAdmin.from('oc_conciliacion' as any).select('*');
+
+  const otId = req.nextUrl.searchParams.get('ot_id');
+  if (otId) q = q.eq('ot_id', otId);
+
+  const { data, error } = await q.order('issued_at', { ascending: false, nullsFirst: false });
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ data: data ?? [] });

@@ -14,7 +14,8 @@
 		"test:smoke": "node scripts/smoke.mjs",
 		"test:watch": "vitest",
 		"seed:demo": "tsx scripts/seed/index.ts",
-		"seed:dies": "tsx scripts/seed/dies.ts"
+		"seed:dies": "tsx scripts/seed/dies.ts",
+		"seed:compras": "tsx scripts/seed/compras.ts"
 	},
 	"dependencies": {
 		"@dnd-kit/core": "^6.3.1",

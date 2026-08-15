@@ -15,6 +15,7 @@ import { UnifiedOTWizard } from "./UnifiedOTWizard";
 import { useRouter, useSearchParams } from "next/navigation";
 import { EditBudgetWizard } from "./EditBudgetWizard";
 import { EditOTDialog } from "./EditOTDialog";
+import { CompraDePapelDialog } from "./CompraDePapelDialog";
 import { RealCostEntryDialog } from "./RealCostEntryDialog";
 import { OTHoverCard } from "./OTHoverCard";
 import { SplitOTDialog } from "./SplitOTDialog";
@@ -115,6 +116,7 @@ export function OTManagement({ onOTSelect }: OTManagementProps) {
   const [showEditDialog,  setShowEditDialog]  = useState(false);
   const [editingOT,       setEditingOT]       = useState<any>(null);
   const [budgetEditOT,    setBudgetEditOT]    = useState<any>(null);
+  const [compraOT,        setCompraOT]        = useState<any>(null);
   const [costEntryOT,     setCostEntryOT]     = useState<any>(null);
   const [costEntryTarget, setCostEntryTarget] = useState<{ key: string; label: string } | null>(null);
   const [splitOT,         setSplitOT]         = useState<any>(null);
@@ -223,6 +225,19 @@ export function OTManagement({ onOTSelect }: OTManagementProps) {
       router.push('/operaciones/pre-prensa');
       return;
     }
+
+    // Salir de Compra de Papel TAMPOCO es registrar costos.
+    //
+    // Lo que ocurre en ese paso son dos documentos —se emite una OC y se recibe
+    // el material contra ella— y los dos tienen valor legal y de certificación.
+    // El diálogo de costos preguntaba «cuánto gastaste», que además de ser la
+    // pregunta equivocada dejaba sin formarse la cadena que una auditoría FSSC
+    // pide reconstruir: pliego → lote → OC → proveedor → certificado.
+    if (ot.status === 'paper_purchase') {
+      setCompraOT(ot);
+      return;
+    }
+
     setCostEntryOT(ot); setCostEntryTarget({ key, label });
   };
   const confirmAdvance = async (movedQuantity: number) => {
@@ -638,6 +653,13 @@ export function OTManagement({ onOTSelect }: OTManagementProps) {
       {editingOT && (
         <EditOTDialog ot={editingOT} open={showEditDialog} onOpenChange={setShowEditDialog} onSuccess={refetchOTs} />
       )}
+      <CompraDePapelDialog
+        ot={compraOT}
+        open={!!compraOT}
+        onOpenChange={(v) => { if (!v) setCompraOT(null); }}
+        onDone={() => { setCompraOT(null); refetchOTs(); }}
+      />
+
       {costEntryOT && costEntryTarget && (
         <RealCostEntryDialog
           open={!!costEntryOT}

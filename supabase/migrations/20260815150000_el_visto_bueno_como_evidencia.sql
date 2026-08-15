@@ -44,12 +44,12 @@ ALTER TABLE ot_approvals
 DO $$ BEGIN
   ALTER TABLE ot_approvals ADD CONSTRAINT ot_approvals_decision_valida
     CHECK (decision IS NULL OR decision IN ('approved', 'rejected'));
-EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+EXCEPTION WHEN duplicate_object OR duplicate_table THEN NULL; END $$;
 
 DO $$ BEGIN
   ALTER TABLE ot_approvals ADD CONSTRAINT ot_approvals_motivo_valido
     CHECK (reject_reason IS NULL OR reject_reason IN ('texto', 'color', 'estructura', 'otro'));
-EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+EXCEPTION WHEN duplicate_object OR duplicate_table THEN NULL; END $$;
 
 -- Aprobar color en una pantalla no es aprobar color. Si lo que se mandó fue un
 -- PDF, lo aprobado no incluye el color — y eso es exactamente lo que se
@@ -57,14 +57,14 @@ EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 DO $$ BEGIN
   ALTER TABLE ot_approvals ADD CONSTRAINT ot_approvals_contra_que_valido
     CHECK (proofed_on IS NULL OR proofed_on IN ('pdf', 'prueba_fisica', 'maqueta'));
-EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+EXCEPTION WHEN duplicate_object OR duplicate_table THEN NULL; END $$;
 
 -- Por qué medio lo confirmó el cliente. Es lo que el vendedor sí sabe y lo que
 -- se puede ir a buscar después: un correo se recupera, un «me dijo que sí» no.
 DO $$ BEGIN
   ALTER TABLE ot_approvals ADD CONSTRAINT ot_approvals_medio_valido
     CHECK (confirmed_via IS NULL OR confirmed_via IN ('correo', 'whatsapp', 'telefono', 'presencial', 'portal'));
-EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+EXCEPTION WHEN duplicate_object OR duplicate_table THEN NULL; END $$;
 
 -- Una fila decidida sin responsable ni reloj es una afirmación, no un registro.
 -- El responsable es el VENDEDOR que la marcó, no el cliente: el cliente no
@@ -75,14 +75,14 @@ DO $$ BEGIN
       decision IS NULL
       OR (recorded_by IS NOT NULL AND decided_at IS NOT NULL AND confirmed_via IS NOT NULL)
     );
-EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+EXCEPTION WHEN duplicate_object OR duplicate_table THEN NULL; END $$;
 
 -- El rechazo tiene que decir por qué: es lo que decide a quién le rebota el
 -- trabajo — a diseño, a prensa o a troquelado. El sí es un sí y no necesita más.
 DO $$ BEGIN
   ALTER TABLE ot_approvals ADD CONSTRAINT ot_approvals_rechazo_dice_por_que
     CHECK (decision IS DISTINCT FROM 'rejected' OR reject_reason IS NOT NULL);
-EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+EXCEPTION WHEN duplicate_object OR duplicate_table THEN NULL; END $$;
 
 -- El nombre del contacto es opcional, pero si se escribe tiene que ser un
 -- nombre. La base rechaza el marcador que hizo inútil al registro anterior: si
@@ -93,14 +93,14 @@ DO $$ BEGIN
       approver_name IS NULL
       OR lower(btrim(approver_name)) NOT IN ('cliente', 'client', 'el cliente', 'n/a', '-')
     );
-EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+EXCEPTION WHEN duplicate_object OR duplicate_table THEN NULL; END $$;
 
 -- Una decisión por vuelta. Dos filas para la vuelta 2 significa que alguien
 -- aprobó dos veces la misma prueba, y entonces no se sabe cuál vale.
 DO $$ BEGIN
   ALTER TABLE ot_approvals ADD CONSTRAINT ot_approvals_una_por_vuelta
     UNIQUE (ot_id, round);
-EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+EXCEPTION WHEN duplicate_object OR duplicate_table THEN NULL; END $$;
 
 CREATE INDEX IF NOT EXISTS idx_ot_approvals_decision
   ON ot_approvals (ot_id, decision) WHERE decision IS NOT NULL;

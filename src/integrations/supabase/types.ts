@@ -352,6 +352,13 @@ export type Database = {
             foreignKeyName: "capture_events_purchase_id_fkey"
             columns: ["purchase_id"]
             isOneToOne: false
+            referencedRelation: "oc_conciliacion"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "capture_events_purchase_id_fkey"
+            columns: ["purchase_id"]
+            isOneToOne: false
             referencedRelation: "purchases"
             referencedColumns: ["id"]
           },
@@ -527,6 +534,77 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      dies: {
+        Row: {
+          acquired_on: string | null
+          acquisition_cost: number | null
+          cavities: number
+          client_id: string | null
+          code: string
+          created_at: string
+          exclusive: boolean
+          height_cm: number | null
+          id: string
+          last_used_at: string | null
+          name: string
+          notes: string | null
+          product_type: string | null
+          shelf_location: string | null
+          status: string
+          times_used: number
+          updated_at: string
+          width_cm: number | null
+        }
+        Insert: {
+          acquired_on?: string | null
+          acquisition_cost?: number | null
+          cavities?: number
+          client_id?: string | null
+          code: string
+          created_at?: string
+          exclusive?: boolean
+          height_cm?: number | null
+          id?: string
+          last_used_at?: string | null
+          name: string
+          notes?: string | null
+          product_type?: string | null
+          shelf_location?: string | null
+          status?: string
+          times_used?: number
+          updated_at?: string
+          width_cm?: number | null
+        }
+        Update: {
+          acquired_on?: string | null
+          acquisition_cost?: number | null
+          cavities?: number
+          client_id?: string | null
+          code?: string
+          created_at?: string
+          exclusive?: boolean
+          height_cm?: number | null
+          id?: string
+          last_used_at?: string | null
+          name?: string
+          notes?: string | null
+          product_type?: string | null
+          shelf_location?: string | null
+          status?: string
+          times_used?: number
+          updated_at?: string
+          width_cm?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dies_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       dispatch_guides: {
         Row: {
@@ -1311,6 +1389,7 @@ export type Database = {
           category: Database["public"]["Enums"]["inventory_item_category"]
           created_at: string
           estimated_unit_cost: number
+          grammage_gsm: number | null
           id: string
           is_active: boolean
           is_certification_required: boolean
@@ -1318,6 +1397,9 @@ export type Database = {
           name: string
           notes: string | null
           qr_value: string | null
+          sheet_height_cm: number | null
+          sheet_width_cm: number | null
+          sheets_per_package: number | null
           sku: string
           unit: string
           updated_at: string
@@ -1327,6 +1409,7 @@ export type Database = {
           category: Database["public"]["Enums"]["inventory_item_category"]
           created_at?: string
           estimated_unit_cost?: number
+          grammage_gsm?: number | null
           id?: string
           is_active?: boolean
           is_certification_required?: boolean
@@ -1334,6 +1417,9 @@ export type Database = {
           name: string
           notes?: string | null
           qr_value?: string | null
+          sheet_height_cm?: number | null
+          sheet_width_cm?: number | null
+          sheets_per_package?: number | null
           sku: string
           unit?: string
           updated_at?: string
@@ -1343,6 +1429,7 @@ export type Database = {
           category?: Database["public"]["Enums"]["inventory_item_category"]
           created_at?: string
           estimated_unit_cost?: number
+          grammage_gsm?: number | null
           id?: string
           is_active?: boolean
           is_certification_required?: boolean
@@ -1350,6 +1437,9 @@ export type Database = {
           name?: string
           notes?: string | null
           qr_value?: string | null
+          sheet_height_cm?: number | null
+          sheet_width_cm?: number | null
+          sheets_per_package?: number | null
           sku?: string
           unit?: string
           updated_at?: string
@@ -1358,6 +1448,8 @@ export type Database = {
       }
       inventory_lots: {
         Row: {
+          cert_override_by: string | null
+          cert_override_reason: string | null
           certification_code: string | null
           certification_expires_on: string | null
           created_at: string
@@ -1367,11 +1459,15 @@ export type Database = {
           purchase_id: string | null
           quantity_available: number
           quantity_received: number
+          received_by: string | null
           received_date: string
           supplier_name: string | null
           unit_cost: number
+          variance_reason: string | null
         }
         Insert: {
+          cert_override_by?: string | null
+          cert_override_reason?: string | null
           certification_code?: string | null
           certification_expires_on?: string | null
           created_at?: string
@@ -1381,11 +1477,15 @@ export type Database = {
           purchase_id?: string | null
           quantity_available: number
           quantity_received: number
+          received_by?: string | null
           received_date?: string
           supplier_name?: string | null
           unit_cost?: number
+          variance_reason?: string | null
         }
         Update: {
+          cert_override_by?: string | null
+          cert_override_reason?: string | null
           certification_code?: string | null
           certification_expires_on?: string | null
           created_at?: string
@@ -1395,9 +1495,11 @@ export type Database = {
           purchase_id?: string | null
           quantity_available?: number
           quantity_received?: number
+          received_by?: string | null
           received_date?: string
           supplier_name?: string | null
           unit_cost?: number
+          variance_reason?: string | null
         }
         Relationships: [
           {
@@ -1440,6 +1542,13 @@ export type Database = {
             columns: ["purchase_id"]
             isOneToOne: false
             referencedRelation: "oc_billing"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_lots_purchase_id_fkey"
+            columns: ["purchase_id"]
+            isOneToOne: false
+            referencedRelation: "oc_conciliacion"
             referencedColumns: ["id"]
           },
           {
@@ -3291,34 +3400,73 @@ export type Database = {
       }
       ot_approvals: {
         Row: {
+          approver_email: string | null
           approver_id: string | null
+          approver_name: string | null
+          approver_role: string | null
           comments: string | null
+          confirmed_via: string | null
           created_at: string
+          decided_at: string | null
+          decision: string | null
+          file_sha256: string | null
           id: string
           ot_id: string
+          proofed_on: string | null
+          recorded_by: string | null
+          reject_reason: string | null
           requested_by: string | null
           resolved_at: string | null
+          round: number
+          source_ip: unknown
           status: Database["public"]["Enums"]["ot_approval_status"]
+          vb_id: string | null
         }
         Insert: {
+          approver_email?: string | null
           approver_id?: string | null
+          approver_name?: string | null
+          approver_role?: string | null
           comments?: string | null
+          confirmed_via?: string | null
           created_at?: string
+          decided_at?: string | null
+          decision?: string | null
+          file_sha256?: string | null
           id?: string
           ot_id: string
+          proofed_on?: string | null
+          recorded_by?: string | null
+          reject_reason?: string | null
           requested_by?: string | null
           resolved_at?: string | null
+          round?: number
+          source_ip?: unknown
           status?: Database["public"]["Enums"]["ot_approval_status"]
+          vb_id?: string | null
         }
         Update: {
+          approver_email?: string | null
           approver_id?: string | null
+          approver_name?: string | null
+          approver_role?: string | null
           comments?: string | null
+          confirmed_via?: string | null
           created_at?: string
+          decided_at?: string | null
+          decision?: string | null
+          file_sha256?: string | null
           id?: string
           ot_id?: string
+          proofed_on?: string | null
+          recorded_by?: string | null
+          reject_reason?: string | null
           requested_by?: string | null
           resolved_at?: string | null
+          round?: number
+          source_ip?: unknown
           status?: Database["public"]["Enums"]["ot_approval_status"]
+          vb_id?: string | null
         }
         Relationships: [
           {
@@ -3340,6 +3488,13 @@ export type Database = {
             columns: ["ot_id"]
             isOneToOne: false
             referencedRelation: "ots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ot_approvals_vb_id_fkey"
+            columns: ["vb_id"]
+            isOneToOne: false
+            referencedRelation: "vistos_buenos"
             referencedColumns: ["id"]
           },
         ]
@@ -4050,6 +4205,7 @@ export type Database = {
           calc_print_hours: number | null
           calc_sheets: number | null
           calc_substrate_kg: number | null
+          cliche_code: string | null
           client_id: string | null
           client_name: string
           color_back: Database["public"]["Enums"]["ot_color_mode"] | null
@@ -4061,6 +4217,9 @@ export type Database = {
           created_by: string | null
           deadline: string | null
           description: string | null
+          die_code: string | null
+          die_id: string | null
+          die_source: string | null
           finish_barniz: boolean
           finish_hot_stamping: boolean
           finish_laminado: boolean
@@ -4083,6 +4242,7 @@ export type Database = {
           increment_pct: number | null
           ink_coverage: string | null
           is_partial: boolean
+          lamination_type: string | null
           margin_amount: number | null
           margin_pct: number | null
           notes: string | null
@@ -4096,6 +4256,7 @@ export type Database = {
           product_type: Database["public"]["Enums"]["ot_product_type"] | null
           production_detail: Json | null
           quantity: number
+          relieve_matrix_code: string | null
           salesman_id: string | null
           share_token: string
           sin_arte: boolean
@@ -4123,6 +4284,7 @@ export type Database = {
           calc_print_hours?: number | null
           calc_sheets?: number | null
           calc_substrate_kg?: number | null
+          cliche_code?: string | null
           client_id?: string | null
           client_name: string
           color_back?: Database["public"]["Enums"]["ot_color_mode"] | null
@@ -4134,6 +4296,9 @@ export type Database = {
           created_by?: string | null
           deadline?: string | null
           description?: string | null
+          die_code?: string | null
+          die_id?: string | null
+          die_source?: string | null
           finish_barniz?: boolean
           finish_hot_stamping?: boolean
           finish_laminado?: boolean
@@ -4156,6 +4321,7 @@ export type Database = {
           increment_pct?: number | null
           ink_coverage?: string | null
           is_partial?: boolean
+          lamination_type?: string | null
           margin_amount?: number | null
           margin_pct?: number | null
           notes?: string | null
@@ -4169,6 +4335,7 @@ export type Database = {
           product_type?: Database["public"]["Enums"]["ot_product_type"] | null
           production_detail?: Json | null
           quantity?: number
+          relieve_matrix_code?: string | null
           salesman_id?: string | null
           share_token?: string
           sin_arte?: boolean
@@ -4196,6 +4363,7 @@ export type Database = {
           calc_print_hours?: number | null
           calc_sheets?: number | null
           calc_substrate_kg?: number | null
+          cliche_code?: string | null
           client_id?: string | null
           client_name?: string
           color_back?: Database["public"]["Enums"]["ot_color_mode"] | null
@@ -4207,6 +4375,9 @@ export type Database = {
           created_by?: string | null
           deadline?: string | null
           description?: string | null
+          die_code?: string | null
+          die_id?: string | null
+          die_source?: string | null
           finish_barniz?: boolean
           finish_hot_stamping?: boolean
           finish_laminado?: boolean
@@ -4229,6 +4400,7 @@ export type Database = {
           increment_pct?: number | null
           ink_coverage?: string | null
           is_partial?: boolean
+          lamination_type?: string | null
           margin_amount?: number | null
           margin_pct?: number | null
           notes?: string | null
@@ -4242,6 +4414,7 @@ export type Database = {
           product_type?: Database["public"]["Enums"]["ot_product_type"] | null
           production_detail?: Json | null
           quantity?: number
+          relieve_matrix_code?: string | null
           salesman_id?: string | null
           share_token?: string
           sin_arte?: boolean
@@ -4288,6 +4461,13 @@ export type Database = {
             columns: ["client_id"]
             isOneToOne: false
             referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ots_die_id_fkey"
+            columns: ["die_id"]
+            isOneToOne: false
+            referencedRelation: "dies"
             referencedColumns: ["id"]
           },
           {
@@ -4490,11 +4670,17 @@ export type Database = {
           id: string
           invoice_date: string
           invoice_number: string
+          issuer_rut: string | null
+          match_notes: string | null
+          match_status: string | null
           matched_at: string | null
+          net: number | null
           notes: string | null
           purchase_id: string
+          recorded_by: string | null
           status: Database["public"]["Enums"]["factura_compra_status"]
           updated_at: string
+          vat: number | null
         }
         Insert: {
           amount?: number
@@ -4502,11 +4688,17 @@ export type Database = {
           id?: string
           invoice_date?: string
           invoice_number: string
+          issuer_rut?: string | null
+          match_notes?: string | null
+          match_status?: string | null
           matched_at?: string | null
+          net?: number | null
           notes?: string | null
           purchase_id: string
+          recorded_by?: string | null
           status?: Database["public"]["Enums"]["factura_compra_status"]
           updated_at?: string
+          vat?: number | null
         }
         Update: {
           amount?: number
@@ -4514,11 +4706,17 @@ export type Database = {
           id?: string
           invoice_date?: string
           invoice_number?: string
+          issuer_rut?: string | null
+          match_notes?: string | null
+          match_status?: string | null
           matched_at?: string | null
+          net?: number | null
           notes?: string | null
           purchase_id?: string
+          recorded_by?: string | null
           status?: Database["public"]["Enums"]["factura_compra_status"]
           updated_at?: string
+          vat?: number | null
         }
         Relationships: [
           {
@@ -4533,6 +4731,13 @@ export type Database = {
             columns: ["purchase_id"]
             isOneToOne: false
             referencedRelation: "oc_billing"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_invoices_purchase_id_fkey"
+            columns: ["purchase_id"]
+            isOneToOne: false
+            referencedRelation: "oc_conciliacion"
             referencedColumns: ["id"]
           },
           {
@@ -4646,6 +4851,13 @@ export type Database = {
             foreignKeyName: "purchase_items_purchase_id_fkey"
             columns: ["purchase_id"]
             isOneToOne: false
+            referencedRelation: "oc_conciliacion"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_items_purchase_id_fkey"
+            columns: ["purchase_id"]
+            isOneToOne: false
             referencedRelation: "purchases"
             referencedColumns: ["id"]
           },
@@ -4657,6 +4869,8 @@ export type Database = {
           created_at: string | null
           expected_date: string | null
           id: string
+          issued_at: string | null
+          issued_by: string | null
           notes: string | null
           oc_number: string | null
           ot_id: string | null
@@ -4667,12 +4881,17 @@ export type Database = {
           supplier_rut: string | null
           total_cost: number
           updated_at: string | null
+          voided_at: string | null
+          voided_by: string | null
+          voided_reason: string | null
         }
         Insert: {
           certification_details?: string | null
           created_at?: string | null
           expected_date?: string | null
           id?: string
+          issued_at?: string | null
+          issued_by?: string | null
           notes?: string | null
           oc_number?: string | null
           ot_id?: string | null
@@ -4683,12 +4902,17 @@ export type Database = {
           supplier_rut?: string | null
           total_cost?: number
           updated_at?: string | null
+          voided_at?: string | null
+          voided_by?: string | null
+          voided_reason?: string | null
         }
         Update: {
           certification_details?: string | null
           created_at?: string | null
           expected_date?: string | null
           id?: string
+          issued_at?: string | null
+          issued_by?: string | null
           notes?: string | null
           oc_number?: string | null
           ot_id?: string | null
@@ -4699,6 +4923,9 @@ export type Database = {
           supplier_rut?: string | null
           total_cost?: number
           updated_at?: string | null
+          voided_at?: string | null
+          voided_by?: string | null
+          voided_reason?: string | null
         }
         Relationships: [
           {
@@ -5442,6 +5669,7 @@ export type Database = {
           color_back: string | null
           color_front: string | null
           created_at: string
+          deadline: string | null
           estimate_lines: Json | null
           finishes: Json | null
           floor_price: number
@@ -5455,6 +5683,8 @@ export type Database = {
           ot_id: string | null
           pantone_colors: string[] | null
           pdf_url: string | null
+          press_id: string | null
+          priority_level: string | null
           product_name: string | null
           product_type: string | null
           quantity: number | null
@@ -5470,7 +5700,6 @@ export type Database = {
           unit_price: number
           updated_at: string
           valid_until: string | null
-          vb_number: string
           width_cm: number | null
         }
         Insert: {
@@ -5479,6 +5708,7 @@ export type Database = {
           color_back?: string | null
           color_front?: string | null
           created_at?: string
+          deadline?: string | null
           estimate_lines?: Json | null
           finishes?: Json | null
           floor_price?: number
@@ -5492,6 +5722,8 @@ export type Database = {
           ot_id?: string | null
           pantone_colors?: string[] | null
           pdf_url?: string | null
+          press_id?: string | null
+          priority_level?: string | null
           product_name?: string | null
           product_type?: string | null
           quantity?: number | null
@@ -5507,7 +5739,6 @@ export type Database = {
           unit_price?: number
           updated_at?: string
           valid_until?: string | null
-          vb_number?: string
           width_cm?: number | null
         }
         Update: {
@@ -5516,6 +5747,7 @@ export type Database = {
           color_back?: string | null
           color_front?: string | null
           created_at?: string
+          deadline?: string | null
           estimate_lines?: Json | null
           finishes?: Json | null
           floor_price?: number
@@ -5529,6 +5761,8 @@ export type Database = {
           ot_id?: string | null
           pantone_colors?: string[] | null
           pdf_url?: string | null
+          press_id?: string | null
+          priority_level?: string | null
           product_name?: string | null
           product_type?: string | null
           quantity?: number | null
@@ -5544,7 +5778,6 @@ export type Database = {
           unit_price?: number
           updated_at?: string
           valid_until?: string | null
-          vb_number?: string
           width_cm?: number | null
         }
         Relationships: [
@@ -5575,6 +5808,27 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "ots"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vistos_buenos_press_id_fkey"
+            columns: ["press_id"]
+            isOneToOne: false
+            referencedRelation: "machines"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vistos_buenos_press_id_fkey"
+            columns: ["press_id"]
+            isOneToOne: false
+            referencedRelation: "planta_live"
+            referencedColumns: ["machine_id"]
+          },
+          {
+            foreignKeyName: "vistos_buenos_press_id_fkey"
+            columns: ["press_id"]
+            isOneToOne: false
+            referencedRelation: "planta_live"
+            referencedColumns: ["workstation_id"]
           },
           {
             foreignKeyName: "vistos_buenos_salesman_id_fkey"
@@ -6566,11 +6820,15 @@ export type Database = {
         Row: {
           category: string | null
           estimated_unit_cost: number | null
+          grammage_gsm: number | null
           item_id: string | null
           latest_cost: number | null
           latest_received: string | null
           lot_count: number | null
           name: string | null
+          sheet_height_cm: number | null
+          sheet_width_cm: number | null
+          sheets_per_package: number | null
           sku: string | null
           total_received: number | null
           unit: string | null
@@ -6591,6 +6849,57 @@ export type Database = {
           ot_id: string | null
           ot_number: string | null
           purchase_date: string | null
+          status: Database["public"]["Enums"]["oc_status"] | null
+          supplier: string | null
+          supplier_rut: string | null
+          total_cost: number | null
+          variance: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "purchases_ot_id_fkey"
+            columns: ["ot_id"]
+            isOneToOne: false
+            referencedRelation: "ot_cost_summary"
+            referencedColumns: ["ot_id"]
+          },
+          {
+            foreignKeyName: "purchases_ot_id_fkey"
+            columns: ["ot_id"]
+            isOneToOne: false
+            referencedRelation: "ot_fulfillment"
+            referencedColumns: ["ot_id"]
+          },
+          {
+            foreignKeyName: "purchases_ot_id_fkey"
+            columns: ["ot_id"]
+            isOneToOne: false
+            referencedRelation: "ots"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      oc_conciliacion: {
+        Row: {
+          brecha_facturacion: number | null
+          brecha_recepcion: number | null
+          certificados_vencidos: number | null
+          created_at: string | null
+          expected_date: string | null
+          facturado: number | null
+          id: string | null
+          invoice_count: number | null
+          invoiced_total: number | null
+          issued_at: string | null
+          lotes: number | null
+          matched_count: number | null
+          notes: string | null
+          oc_number: string | null
+          ot_id: string | null
+          ot_number: string | null
+          pedido: number | null
+          purchase_date: string | null
+          recibido: number | null
           status: Database["public"]["Enums"]["oc_status"] | null
           supplier: string | null
           supplier_rut: string | null
@@ -7058,6 +7367,36 @@ export type Database = {
         Returns: boolean
       }
       convert_vb_to_ot: { Args: { p_vb_id: string }; Returns: string }
+      emitir_oc: {
+        Args: { p_issued_by: string; p_purchase_id: string }
+        Returns: {
+          certification_details: string | null
+          created_at: string | null
+          expected_date: string | null
+          id: string
+          issued_at: string | null
+          issued_by: string | null
+          notes: string | null
+          oc_number: string | null
+          ot_id: string | null
+          purchase_date: string
+          status: Database["public"]["Enums"]["oc_status"]
+          supplier: string
+          supplier_giro: string | null
+          supplier_rut: string | null
+          total_cost: number
+          updated_at: string | null
+          voided_at: string | null
+          voided_by: string | null
+          voided_reason: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "purchases"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       enforce_hr_data_retention: {
         Args: { p_dry_run?: boolean; p_reference_time?: string }
         Returns: {
@@ -7239,7 +7578,6 @@ export type Database = {
         Args: { p_role_name: string; p_user_id: string }
         Returns: boolean
       }
-      is_own_worker_record: { Args: { _worker_id: string }; Returns: boolean }
       log_hr_compliance_access: {
         Args: {
           p_access_type?: string
@@ -7268,12 +7606,14 @@ export type Database = {
         Args: {
           p_cert_code?: string
           p_cert_expires?: string
+          p_cert_override_reason?: string
           p_item_id: string
           p_lot_number?: string
           p_purchase_id: string
           p_quantity: number
           p_recorded_by?: string
           p_unit_cost?: number
+          p_variance_reason?: string
         }
         Returns: string
       }

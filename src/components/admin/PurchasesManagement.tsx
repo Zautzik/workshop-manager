@@ -17,8 +17,9 @@ import {
 } from '@/components/ui/table';
 import { toast } from 'sonner';
 import { QRCodeSVG } from 'qrcode.react';
-import { Plus, Receipt, FileText, Link2, AlertTriangle, CheckCircle2, PackageCheck } from 'lucide-react';
+import { Plus, Receipt, FileText, Link2, AlertTriangle, CheckCircle2, PackageCheck, FileSignature, Ban, ShieldAlert } from 'lucide-react';
 import { formatCLP } from '@/lib/format';
+import { ocActions, threeWayMatch, type OCStatus } from '@/lib/purchasing';
 import { usePurchases } from '@/hooks/use-admin-queries';
 import { useOTs } from '@/hooks/use-operations-queries';
 import {
@@ -43,13 +44,52 @@ const FACTURA_STATUS: Record<string, { label: string; cls: string }> = {
 };
 
 const PurchasesManagement = () => {
-  const { data: ocs = [] } = usePurchases() as { data: OCRow[] };
+  const { data: ocs = [], refetch } = usePurchases() as { data: OCRow[]; refetch: () => void };
   const { data: ots = [] } = useOTs();
   const createOC = useCreateOC();
 
   const [showNew, setShowNew] = useState(false);
   const [facturasFor, setFacturasFor] = useState<OCRow | null>(null);
   const [receiveFor, setReceiveFor] = useState<OCRow | null>(null);
+
+  /**
+   * Emitir: el acto que convierte un borrador en documento.
+   *
+   * El número lo asigna la base dentro de la transacción y no esta pantalla. Si
+   * lo calculara acá —leer el último y sumar uno— dos pestañas abiertas
+   * emitirían el mismo, y una numeración con duplicados es tan indefendible
+   * frente a una auditoría como una con huecos.
+   */
+  const emitirOC = async (oc: OCRow) => {
+    const res = await fetch(`/api/purchases/${oc.id}/issue`, { method: 'POST' });
+    const b = await res.json().catch(() => null);
+    if (!res.ok) { toast.error(b?.error ?? 'No se pudo emitir'); return; }
+    toast.success(b.mensaje);
+    refetch();
+  };
+
+  /**
+   * Anular conserva el número. No hay borrado.
+   *
+   * Una OC emitida existió y comprometió plata con un proveedor; hacerla
+   * desaparecer deja un hueco en el correlativo, que es lo primero que mira una
+   * auditoría y lo más difícil de explicar. Por eso se exige motivo.
+   */
+  const anularOC = async (oc: OCRow) => {
+    const motivo = window.prompt(
+      `Anular ${oc.oc_number}. El número se conserva.\n\n¿Por qué se anula? (mínimo 10 caracteres)`
+    );
+    if (!motivo) return;
+    const res = await fetch(`/api/purchases/${oc.id}/void`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ reason: motivo }),
+    });
+    const b = await res.json().catch(() => null);
+    if (!res.ok) { toast.error(b?.error ?? 'No se pudo anular'); return; }
+    toast.success(b.mensaje);
+    refetch();
+  };
   const [form, setForm] = useState({
     supplier: '', supplier_rut: '', ot_id: '', total_cost: 0,
     expected_date: '', certification_details: '', notes: '',
@@ -64,9 +104,26 @@ const PurchasesManagement = () => {
     const committed = ocs
       .filter((o) => ['sent', 'received', 'invoiced'].includes(o.status) && o.matched_count === 0 && o.ot_id)
       .reduce((a, o) => a + Number(o.total_cost || 0), 0);
-    const invoiced = ocs.reduce((a, o) => a + Number(o.invoiced_total || 0), 0);
-    const discrepancies = ocs.filter((o) => o.invoice_count > 0 && Math.abs(Number(o.variance || 0)) > 0).length;
-    return { committed, invoiced, discrepancies };
+    const invoiced = ocs.reduce((a, o) => a + Number(o.facturado ?? o.invoiced_total ?? 0), 0);
+
+    // El contador de discrepancias miraba `variance` —pedido menos facturado— y
+    // por eso NO veía el caso peor: pedir 500, recibir 480 y que te facturen
+    // 500 da variación cero. El titular de la pantalla decía «todo en orden»
+    // justo cuando el proveedor cobra papel que no entregó.
+    const conDiferencia = ocs.filter(
+      (o) =>
+        threeWayMatch({
+          ordered: Number(o.pedido ?? o.total_cost ?? 0),
+          received: Number(o.recibido ?? 0),
+          invoiced: Number(o.facturado ?? 0),
+        }).status === 'con_diferencia',
+    ).length;
+
+    // El certificado vencido no es plata y por eso se cuenta aparte: una OC
+    // puede calzar al peso y traer material que no debería estar en planta.
+    const certVencidos = ocs.filter((o) => Number(o.certificados_vencidos ?? 0) > 0).length;
+
+    return { committed, invoiced, discrepancies: conDiferencia, certVencidos };
   }, [ocs]);
 
   const resetForm = () => {
@@ -109,7 +166,7 @@ const PurchasesManagement = () => {
       </CardHeader>
       <CardContent className="space-y-5">
         {/* KPIs */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <div className="rounded-lg border bg-card/60 p-3">
             <p className="text-xs uppercase tracking-wider text-muted-foreground">Comprometido (en OT)</p>
             <p className="text-xl font-bold text-sky-600">{formatCLP(kpis.committed)}</p>
@@ -119,8 +176,14 @@ const PurchasesManagement = () => {
             <p className="text-xl font-bold text-emerald-600">{formatCLP(kpis.invoiced)}</p>
           </div>
           <div className="rounded-lg border bg-card/60 p-3">
-            <p className="text-xs uppercase tracking-wider text-muted-foreground">Con discrepancia</p>
+            <p className="text-xs uppercase tracking-wider text-muted-foreground">Cobran de más</p>
             <p className="text-xl font-bold text-amber-600">{kpis.discrepancies}</p>
+          </div>
+          <div className="rounded-lg border bg-card/60 p-3">
+            <p className="text-xs uppercase tracking-wider text-muted-foreground">Certificado vencido</p>
+            <p className={`text-xl font-bold ${kpis.certVencidos > 0 ? 'text-red-600' : 'text-muted-foreground'}`}>
+              {kpis.certVencidos}
+            </p>
           </div>
         </div>
 
@@ -131,9 +194,13 @@ const PurchasesManagement = () => {
               <TableHead>OT</TableHead>
               <TableHead>Proveedor</TableHead>
               <TableHead>Estado</TableHead>
-              <TableHead className="text-right">Total OC</TableHead>
+              {/* El calce a tres bandas, en tres columnas contiguas. Ver
+                  «pedido» y «facturado» sin «recibido» en el medio es lo que
+                  deja pasar el caso caro: llegan 480 y facturan 500. */}
+              <TableHead className="text-right">Pedido</TableHead>
+              <TableHead className="text-right">Recibido</TableHead>
               <TableHead className="text-right">Facturado</TableHead>
-              <TableHead className="text-right">Variación</TableHead>
+              <TableHead className="text-right">Brechas</TableHead>
               <TableHead></TableHead>
             </TableRow>
           </TableHeader>
@@ -143,10 +210,38 @@ const PurchasesManagement = () => {
             )}
             {ocs.map((oc) => {
               const st = OC_STATUS[oc.status] ?? { label: oc.status, cls: '' };
-              const hasVar = oc.invoice_count > 0 && Math.abs(Number(oc.variance || 0)) > 0;
+              // Las dos brechas se evalúan por separado a propósito: una la
+              // resuelve bodega y la otra cuentas por pagar, y su suma puede dar
+              // cero teniendo los dos problemas.
+              const calce = threeWayMatch({
+                ordered: Number(oc.pedido ?? oc.total_cost ?? 0),
+                received: Number(oc.recibido ?? 0),
+                invoiced: Number(oc.facturado ?? 0),
+              });
+              const acciones = ocActions(oc.status as OCStatus);
               return (
                 <TableRow key={oc.id}>
-                  <TableCell className="font-mono text-xs">{oc.oc_number}</TableCell>
+                  <TableCell className="font-mono text-xs">
+                    <div className="flex items-center gap-1.5">
+                      {/* Un borrador todavía no tiene número: no gastó correlativo
+                          porque todavía no es un documento. */}
+                      {oc.oc_number ?? <span className="italic text-muted-foreground">borrador</span>}
+                      {/* El certificado vencido no es un problema de plata y por
+                          eso no puede vivir en la columna de brechas: una OC
+                          puede calzar al peso y traer material que no debería
+                          haber entrado. Va al lado del número, que es donde
+                          empieza a mirar una auditoría. */}
+                      {Number(oc.certificados_vencidos ?? 0) > 0 && (
+                        <span
+                          title="Tiene lotes recibidos con el certificado vencido"
+                          className="inline-flex items-center gap-0.5 rounded-full bg-red-500/15 px-1.5 py-0.5 text-[10px] font-medium text-red-600 dark:text-red-400"
+                        >
+                          <ShieldAlert className="h-3 w-3" />
+                          cert
+                        </span>
+                      )}
+                    </div>
+                  </TableCell>
                   <TableCell>
                     {oc.ot_number
                       ? <span className="inline-flex items-center gap-1 text-xs"><Link2 className="h-3 w-3 text-muted-foreground" />{oc.ot_number}</span>
@@ -154,16 +249,63 @@ const PurchasesManagement = () => {
                   </TableCell>
                   <TableCell className="max-w-[180px] truncate">{oc.supplier}</TableCell>
                   <TableCell><Badge className={st.cls}>{st.label}</Badge></TableCell>
-                  <TableCell className="text-right tabular-nums">{formatCLP(oc.total_cost)}</TableCell>
-                  <TableCell className="text-right tabular-nums">{oc.invoice_count > 0 ? formatCLP(oc.invoiced_total) : '—'}</TableCell>
-                  <TableCell className={`text-right tabular-nums ${hasVar ? (Number(oc.variance) < 0 ? 'text-red-600' : 'text-amber-600') : 'text-muted-foreground'}`}>
-                    {oc.invoice_count > 0 ? formatCLP(oc.variance) : '—'}
+                  <TableCell className="text-right tabular-nums">{formatCLP(Number(oc.pedido ?? oc.total_cost ?? 0))}</TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    {Number(oc.recibido ?? 0) > 0 ? formatCLP(Number(oc.recibido)) : <span className="text-muted-foreground">—</span>}
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    {Number(oc.facturado ?? 0) > 0 ? formatCLP(Number(oc.facturado)) : <span className="text-muted-foreground">—</span>}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    {calce.status === 'ok' ? (
+                      <span className="text-xs text-muted-foreground">calza</span>
+                    ) : (
+                      // El hallazgo entero al pasar el mouse: «no cuadra» no es
+                      // accionable, «cobran $20.000 más de lo que llegó» sí.
+                      <span
+                        title={calce.findings.join(' · ')}
+                        className={`inline-flex items-center gap-1 text-xs font-medium ${
+                          calce.status === 'con_diferencia'
+                            ? 'text-red-600 dark:text-red-400'
+                            : 'text-amber-600 dark:text-amber-400'
+                        }`}
+                      >
+                        <AlertTriangle className="h-3 w-3" />
+                        {calce.billingGap < 0
+                          ? `cobran ${formatCLP(-calce.billingGap)} de más`
+                          : calce.receiptGap !== 0
+                            ? `faltan ${formatCLP(Math.abs(calce.receiptGap))} por recibir`
+                            : `falta facturar ${formatCLP(calce.billingGap)}`}
+                      </span>
+                    )}
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-1.5">
-                      {['draft', 'sent'].includes(oc.status) && (
+                      {/* Emitir es lo que convierte el borrador en documento:
+                          toma el correlativo y se cierra a edición. */}
+                      {acciones.emitir && (
+                        <Button size="sm" className="gap-1" onClick={() => emitirOC(oc)}>
+                          <FileSignature className="h-3.5 w-3.5" /> Emitir
+                        </Button>
+                      )}
+                      {acciones.recibir && (
                         <Button variant="outline" size="sm" className="gap-1" onClick={() => setReceiveFor(oc)}>
                           <PackageCheck className="h-3.5 w-3.5" /> Recibir
+                        </Button>
+                      )}
+                      {/* Anular es legítimo pero no es la acción del día: como
+                          botón con texto en cada fila, doscientas copias tapan
+                          lo que sí hay que hacer. Queda como icono. */}
+                      {acciones.anular && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 w-8 p-0 text-muted-foreground hover:text-red-600"
+                          title="Anular la OC (conserva el número)"
+                          aria-label={`Anular ${oc.oc_number ?? 'la orden'}`}
+                          onClick={() => anularOC(oc)}
+                        >
+                          <Ban className="h-3.5 w-3.5" />
                         </Button>
                       )}
                       <Button variant="outline" size="sm" className="gap-1" onClick={() => setFacturasFor(oc)}>

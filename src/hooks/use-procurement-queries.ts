@@ -15,6 +15,23 @@ export interface OCRow {
   expected_date: string | null;
   total_cost: number;
   notes: string | null;
+  /* ── El calce a tres bandas (`oc_conciliacion`) ─────────────────────────
+   *
+   * `variance` comparaba lo pedido contra lo facturado y se saltaba lo que
+   * efectivamente llegó, que es donde se pierde plata: recibir 480 y que te
+   * facturen 500 daba variación cero. Estas tres cifras y sus dos brechas
+   * son la versión completa. */
+  pedido: number;
+  recibido: number;
+  facturado: number;
+  brecha_recepcion: number;
+  brecha_facturacion: number;
+  lotes: number;
+  /** Lotes recibidos con el certificado ya vencido. FSSC lo mira primero. */
+  certificados_vencidos: number;
+  issued_at: string | null;
+
+  /* Contrato anterior, sostenido mientras las pantallas migran. */
   invoiced_total: number;
   invoice_count: number;
   matched_count: number;

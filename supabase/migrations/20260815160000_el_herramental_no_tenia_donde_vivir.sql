@@ -32,12 +32,12 @@ ALTER TABLE ots
 DO $$ BEGIN
   ALTER TABLE ots ADD CONSTRAINT ots_die_source_valido
     CHECK (die_source IS NULL OR die_source IN ('nuevo', 'existente'));
-EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+EXCEPTION WHEN duplicate_object OR duplicate_table THEN NULL; END $$;
 
 DO $$ BEGIN
   ALTER TABLE ots ADD CONSTRAINT ots_lamination_type_valido
     CHECK (lamination_type IS NULL OR lamination_type IN ('brillante', 'mate', 'soft_touch'));
-EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+EXCEPTION WHEN duplicate_object OR duplicate_table THEN NULL; END $$;
 
 COMMENT ON COLUMN ots.die_source IS
   'Troquel nuevo o existente. Nuevo = ~$320.000 y dos semanas: hay que saberlo en Pre-Prensa, no en Compra de Papel.';

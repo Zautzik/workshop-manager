@@ -47,7 +47,7 @@ CREATE TABLE IF NOT EXISTS dies (
 DO $$ BEGIN
   ALTER TABLE dies ADD CONSTRAINT dies_status_valido
     CHECK (status IN ('activo', 'desgastado', 'dado_de_baja'));
-EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+EXCEPTION WHEN duplicate_object OR duplicate_table THEN NULL; END $$;
 
 CREATE INDEX IF NOT EXISTS idx_dies_medida ON dies (width_cm, height_cm) WHERE status = 'activo';
 CREATE INDEX IF NOT EXISTS idx_dies_cliente ON dies (client_id);
