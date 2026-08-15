@@ -30,8 +30,13 @@ function usePastJobs() {
 	return useQuery<PastJob[]>({
 		queryKey: ['precedentes'],
 		queryFn: async () => {
-			const res = await fetch('/api/ots?limit=300', { credentials: 'include' });
-			if (!res.ok) return [];
+			// 200 es el tope que acepta la API. Pedía 300 y devolvía 400, y como el
+			// error se tragaba con un `return []`, el buscador de repeticiones
+			// NUNCA encontró nada desde que se escribió: se veía como un taller sin
+			// trabajos anteriores. Un fallo que devuelve una lista vacía es
+			// indistinguible de un resultado vacío, así que ahora se lanza.
+			const res = await fetch('/api/ots?limit=200', { credentials: 'include' });
+			if (!res.ok) throw new Error(`No se pudieron cargar los trabajos anteriores (${res.status})`);
 			const payload = await res.json();
 			return (Array.isArray(payload) ? payload : payload?.data ?? []) as PastJob[];
 		},

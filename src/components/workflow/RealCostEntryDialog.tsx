@@ -1,4 +1,5 @@
 'use client';
+import { otStatusLabel } from '@/lib/status-labels';
 
 import { useState, useEffect, useCallback } from 'react';
 import {
@@ -294,7 +295,9 @@ export function RealCostEntryDialog({
             <span>{ot.client_name}</span>
             {ot.product_name && <span>• {ot.product_name}</span>}
             <Badge variant="outline" className="ml-2">
-              Paso actual: {ot.status}
+              {/* El enum crudo —`pre_press`— llegaba a la pantalla del
+                  supervisor. `otStatusLabel` existe desde hace semanas. */}
+              Paso actual: {otStatusLabel(ot.status)}
             </Badge>
             <ArrowRight className="h-4 w-4" />
             <Badge className="bg-primary text-primary-foreground">{targetStatusLabel}</Badge>

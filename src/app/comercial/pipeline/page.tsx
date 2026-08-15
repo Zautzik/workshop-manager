@@ -101,7 +101,12 @@ function PipelineInner() {
                 {recent.length === 0 && <tr><td colSpan={5} className="py-8 text-center text-muted-foreground">Sin cotizaciones aún.</td></tr>}
                 {recent.map((v) => (
                   <tr key={v.id} className="border-b hover:bg-muted/40">
-                    <td className="py-2 px-3 font-mono text-xs">{v.vb_number}</td>
+                    {/* El número de la OT, no uno propio de la cotización. Un
+                        trabajo tenía dos identidades —VB-00008 y 41232— para la
+                        misma cosa, y había que cruzarlas a mano para seguirlo. */}
+                    <td className="py-2 px-3 font-mono text-xs">
+                      {v.ot_number ?? <span className="text-muted-foreground">sin OT</span>}
+                    </td>
                     <td className="py-2 px-3">{v.client_name}</td>
                     <td className="py-2 px-3 text-muted-foreground truncate max-w-[220px]">{v.product_name}</td>
                     <td className="py-2 px-3 text-right font-semibold">{formatCLP(v.total_price)}</td>

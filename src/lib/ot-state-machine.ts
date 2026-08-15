@@ -145,7 +145,7 @@ export function validateTransition(input: TransitionValidationInput): Transition
         ok: false,
         code: 'SPEC_INCOMPLETE',
         message:
-          `Faltan ${gaps.length} ${gaps.length === 1 ? 'dato' : 'datos'} para poder mandar la prueba: ` +
+          `${gaps.length === 1 ? 'Falta un dato' : `Faltan ${gaps.length} datos`} para poder mandar la prueba: ` +
           gaps.map((g) => g.label.toLowerCase()).join(', ') + '.',
         gaps,
       };

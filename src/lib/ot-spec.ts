@@ -76,6 +76,16 @@ export interface OTSpec {
 	operationsReviewed?: boolean | null;
 }
 
+/**
+ * De quién depende destrabar el pendiente.
+ *
+ * Es la distinción que convierte la pantalla en dos listas de trabajo distintas:
+ * lo `interno` se resuelve caminando diez metros, lo `del cliente` con un
+ * llamado. Mezclarlos hace que las dos cosas se vean igual de urgentes y ninguna
+ * se haga.
+ */
+export type GapOwner = 'interno' | 'cliente';
+
 /** Lo que falta, dicho como lo diría el jefe de taller. */
 export interface Gap {
 	field: keyof OTSpec;
@@ -84,6 +94,7 @@ export interface Gap {
 	/** Por qué importa. Sin esto, pedir el dato parece burocracia. */
 	why: string;
 	level: SpecLevel;
+	owner: GapOwner;
 }
 
 const vacio = (v: unknown): boolean =>
@@ -101,38 +112,45 @@ const vacio = (v: unknown): boolean =>
  */
 const REQUISITOS: Gap[] = [
 	// ── Nivel 1 ──
-	{ field: 'pressId', level: 1, label: 'Prensa objetivo',
+	{ field: 'pressId', level: 1, owner: 'interno', label: 'Prensa objetivo',
 	  why: 'Decide qué pliego se puede montar, y el pliego decide los pliegos, los kilos y las horas. Es el dato que más mueve el precio.' },
-	{ field: 'clientId', level: 1, label: 'Cliente',
+	{ field: 'clientId', level: 1, owner: 'cliente', label: 'Cliente',
 	  why: 'Sin cliente la orden no se puede facturar ni atribuir.' },
-	{ field: 'quantity', level: 1, label: 'Cantidad',
+	{ field: 'quantity', level: 1, owner: 'cliente', label: 'Cantidad',
 	  why: 'El tiraje reparte el alistamiento: mil unidades y cien mil no cuestan diez veces distinto, cuestan otra cosa.' },
-	{ field: 'widthCm', level: 1, label: 'Ancho de la pieza',
+	{ field: 'widthCm', level: 1, owner: 'interno', label: 'Ancho de la pieza',
 	  why: 'Sin medidas no hay imposición, y sin imposición no hay pliegos que contar.' },
-	{ field: 'heightCm', level: 1, label: 'Alto de la pieza', why: 'Ídem: sin medidas no hay imposición.' },
-	{ field: 'substrateType', level: 1, label: 'Sustrato',
+	{ field: 'heightCm', level: 1, owner: 'interno', label: 'Alto de la pieza', why: 'Ídem: sin medidas no hay imposición.' },
+	{ field: 'substrateType', level: 1, owner: 'interno', label: 'Sustrato',
 	  why: 'El papel es la línea más cara de casi todo trabajo.' },
-	{ field: 'grammageGsm', level: 1, label: 'Gramaje',
+	{ field: 'grammageGsm', level: 1, owner: 'interno', label: 'Gramaje',
 	  why: 'El peso del pliego es su superficie por el gramaje: sin él no se sabe cuántos kilos se compran.' },
-	{ field: 'colorFront', level: 1, label: 'Colores del frente',
+	{ field: 'colorFront', level: 1, owner: 'interno', label: 'Colores del frente',
 	  why: 'Cada color es una plancha, y las pasadas por prensa salen de acá.' },
-	{ field: 'deadline', level: 1, label: 'Fecha de entrega',
+	{ field: 'deadline', level: 1, owner: 'cliente', label: 'Fecha de entrega',
 	  why: 'Es la segunda pregunta del cliente, siempre. Y decide si el trabajo entra en la máquina o hay que pagar turno de noche.' },
-	{ field: 'productType', level: 1, label: 'Tipo de producto',
+	{ field: 'productType', level: 1, owner: 'cliente', label: 'Tipo de producto',
 	  why: 'Precarga las terminaciones y los valores por defecto del oficio.' },
 
 	// ── Nivel 2 ──
-	{ field: 'substrateBrand', level: 2, label: 'Marca del sustrato',
-	  why: 'El precio real del papel sale del lote que se compra, no del catálogo.' },
-	{ field: 'substrateSupplier', level: 2, label: 'Proveedor del papel',
-	  why: 'Decide el plazo de entrega, que es lo que hace o rompe la fecha comprometida.' },
-	{ field: 'impositionConfirmed', level: 2, label: 'Montaje confirmado',
+	// La marca y el proveedor NO son requisito para mandar la prueba.
+	//
+	// Se deciden al comprar, en la etapa siguiente, y con razón: dependen de qué
+	// hay en plaza esa semana y a qué precio. No están en la cabeza del vendedor
+	// ni en la de Pre-Prensa, y pedirlos acá frenaba la prueba por un dato que
+	// nadie tenía todavía.
+	//
+	// El precio no queda al aire: el motor cotiza con el costo PONDERADO de las
+	// compras reales del taller (`material_cost_v`), que es el promedio histórico
+	// de lo que efectivamente se pagó por ese papel. Mejor estimación que una
+	// marca elegida a las apuradas para poder avanzar.
+	{ field: 'impositionConfirmed', level: 2, owner: 'interno', label: 'Montaje confirmado',
 	  why: 'La mejor imposición teórica rara vez es la que se monta. Hasta que Pre-Prensa la confirme, los pliegos son una estimación.' },
-	{ field: 'machineId', level: 2, label: 'Máquina asignada',
+	{ field: 'machineId', level: 2, owner: 'interno', label: 'Máquina asignada',
 	  why: 'Sin máquina asignada el trabajo no se puede programar ni cargarle horas.' },
-	{ field: 'artAttached', level: 2, label: 'Arte',
+	{ field: 'artAttached', level: 2, owner: 'cliente', label: 'Arte',
 	  why: 'Sin arte no hay planchas, y sin planchas no hay tiraje. Si el trabajo va sin arte a propósito, hay que declararlo.' },
-	{ field: 'operationsReviewed', level: 2, label: 'Operaciones revisadas',
+	{ field: 'operationsReviewed', level: 2, owner: 'interno', label: 'Operaciones revisadas',
 	  why: 'El motor propone; el jefe de taller corrige. Lo que él revisó es lo que se va a cobrar.' },
 ];
 
@@ -190,8 +208,8 @@ export const BAND_DRIVERS: readonly BandDriver[] = [
 	  why: 'Sin prensa el motor elige el pliego que mejor aprovecha el papel, que suele ser más grande que el que la máquina acepta. Medido: 46% de diferencia.' },
 	{ field: 'impositionConfirmed', label: 'el montaje real', up: 0.20, down: 0.05,
 	  why: 'La imposición automática es la mejor posible; la que se monta pierde algo.' },
-	{ field: 'substrateBrand', label: 'la marca del papel', up: 0.15, down: 0.15,
-	  why: 'El precio real sale del lote comprado y puede caer a cualquier lado del catálogo.' },
+	{ field: 'substrateBrand', label: 'a cuánto se compre el papel', up: 0.10, down: 0.10,
+	  why: 'Se cotiza con el promedio de lo que el taller viene pagando por ese papel. El precio firme sale en Compra de Papel, cuando se sabe a quién se le compró.' },
 	{ field: 'operationsReviewed', label: 'las terminaciones exactas', up: 0.25, down: 0,
 	  why: 'Una terminación que no se listó sólo puede sumar. Nunca aparece una de menos.' },
 ];

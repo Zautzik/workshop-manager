@@ -23,14 +23,14 @@
  */
 
 import { useState } from 'react';
-import { AlertTriangle, ArrowRight, Box, CheckCircle2 } from 'lucide-react';
+import { AlertTriangle, ArrowRight, Box, CheckCircle2, Clock } from 'lucide-react';
 import Link from 'next/link';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { MaquetasDialog } from './MaquetasDialog';
 import { formatCLP } from '@/lib/format';
-import { missingFor, priceBand, quoteDrift, type OTSpec } from '@/lib/ot-spec';
+import { missingFor, priceBand, quoteDrift, type Gap, type OTSpec } from '@/lib/ot-spec';
 
 interface Props {
 	otId: string;
@@ -40,7 +40,17 @@ interface Props {
 	quotedPrice?: number | null;
 	/** Lo que da el motor ahora, con lo que Pre-Prensa completó. */
 	firmPrice?: number | null;
+	/** Cuándo entró a Pre-Prensa, para poder decir hace cuánto espera. */
+	desde?: string | null;
 	onChanged?: () => void;
+}
+
+/** Días enteros esperando. Sale de la fecha, no de un contador guardado. */
+function diasEsperando(desde?: string | null): number | null {
+	if (!desde) return null;
+	const t = new Date(desde).getTime();
+	if (!Number.isFinite(t)) return null;
+	return Math.floor((Date.now() - t) / 86_400_000);
 }
 
 /** Dónde se completa cada cosa. Sin esto la lista dice qué falta y no dónde ir. */
@@ -54,7 +64,7 @@ const DONDE: Partial<Record<keyof OTSpec, { texto: string; href: (otId: string) 
 	pressId: { texto: 'Elegir prensa', href: (id) => `/operaciones/ot/${id}` },
 };
 
-export function FichaPrePrensa({ otId, otNumber, spec, quotedPrice, firmPrice, onChanged }: Props) {
+export function FichaPrePrensa({ otId, otNumber, spec, quotedPrice, firmPrice, desde, onChanged }: Props) {
 	const [maquetas, setMaquetas] = useState(false);
 	const faltan = missingFor(2, spec);
 	const banda = priceBand(spec, firmPrice ?? quotedPrice ?? 0);
@@ -66,6 +76,13 @@ export function FichaPrePrensa({ otId, otNumber, spec, quotedPrice, firmPrice, o
 
 	const lista = faltan.length === 0;
 
+	// Dos listas de trabajo distintas: lo interno se resuelve caminando diez
+	// metros, lo del cliente con un llamado. Juntos se ven igual de urgentes y no
+	// se hace ninguno.
+	const nuestros = faltan.filter((g) => g.owner === 'interno');
+	const delCliente = faltan.filter((g) => g.owner === 'cliente');
+	const dias = diasEsperando(desde);
+
 	return (
 		<Card>
 			<CardHeader className="pb-3">
@@ -75,7 +92,25 @@ export function FichaPrePrensa({ otId, otNumber, spec, quotedPrice, firmPrice, o
 					) : (
 						<AlertTriangle className="h-4 w-4 text-amber-500" />
 					)}
-					{lista ? 'Lista para mandar la prueba' : `Faltan ${faltan.length} datos para mandar la prueba`}
+					{lista
+						? 'Lista para mandar la prueba'
+						: faltan.length === 1
+							? 'Falta un dato para mandar la prueba'
+							: `Faltan ${faltan.length} datos para mandar la prueba`}
+					{/* La antigüedad es lo que hunde una fecha de entrega, y no se
+					    veía. Tres días es donde deja de ser normal. */}
+					{dias !== null && dias > 0 && (
+						<span
+							className={`ml-auto inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium tabular-nums ${
+								dias >= 3
+									? 'bg-red-500/15 text-red-600 dark:text-red-400'
+									: 'bg-muted text-muted-foreground'
+							}`}
+						>
+							<Clock className="h-3 w-3" />
+							{dias === 1 ? 'hace 1 día' : `hace ${dias} días`}
+						</span>
+					)}
 				</CardTitle>
 				<p className="text-xs leading-relaxed text-muted-foreground">
 					Firmar la prueba es el punto de no retorno: después se compra papel y se graban
@@ -90,27 +125,45 @@ export function FichaPrePrensa({ otId, otNumber, spec, quotedPrice, firmPrice, o
 						hace falta para producirla. El precio de la prueba es firme.
 					</p>
 				) : (
-					<ul className="space-y-2">
-						{faltan.map((g) => {
-							const donde = DONDE[g.field];
-							return (
-								<li key={g.field} className="rounded-md border border-border bg-card px-3 py-2">
-									<div className="flex flex-wrap items-baseline gap-x-2">
-										<span className="text-sm font-medium text-foreground">{g.label}</span>
-										{donde && (
-											<Link
-												href={donde.href(otId)}
-												className="ml-auto inline-flex items-center gap-1 text-xs font-medium text-primary underline-offset-4 hover:underline"
-											>
-												{donde.texto} <ArrowRight className="h-3 w-3" />
-											</Link>
-										)}
-									</div>
-									<p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">{g.why}</p>
-								</li>
-							);
-						})}
-					</ul>
+				<div className="space-y-3">
+					{[
+						{ clave: 'interno' as const, titulo: 'Lo resolvemos nosotros', huecos: nuestros },
+						{ clave: 'cliente' as const, titulo: 'Lo tiene que traer el cliente', huecos: delCliente },
+					]
+						.filter((grupo) => grupo.huecos.length > 0)
+						.map((grupo) => (
+							<div key={grupo.clave}>
+								<p
+									className={`mb-1.5 text-[11px] font-semibold uppercase tracking-wide ${
+										grupo.clave === 'cliente' ? 'text-amber-700 dark:text-amber-400' : 'text-muted-foreground'
+									}`}
+								>
+									{grupo.titulo}
+								</p>
+								<ul className="space-y-2">
+									{grupo.huecos.map((g: Gap) => {
+										const donde = DONDE[g.field];
+										return (
+											<li key={g.field} className="rounded-md border border-border bg-card px-3 py-2">
+												<div className="flex flex-wrap items-baseline gap-x-2">
+													<span className="text-sm font-medium text-foreground">{g.label}</span>
+													{donde && (
+														<Link
+															href={donde.href(otId)}
+															className="ml-auto inline-flex items-center gap-1 text-xs font-medium text-primary underline-offset-4 hover:underline"
+														>
+															{donde.texto} <ArrowRight className="h-3 w-3" />
+														</Link>
+													)}
+												</div>
+												<p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">{g.why}</p>
+											</li>
+										);
+									})}
+								</ul>
+							</div>
+						))}
+				</div>
 				)}
 
 				{/* La maqueta se arma acá, y su costo se paga aunque el cliente no

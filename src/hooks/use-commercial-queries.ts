@@ -3,7 +3,8 @@ import { useQuery } from '@tanstack/react-query';
 
 export interface VistoBueno {
   id: string;
-  vb_number: string;
+  /** El número de la OT que originó, resuelto por la consulta. Ya no hay número propio. */
+  ot_number?: string | null;
   client_id: string | null;
   client_name: string | null;
   salesman_id: string | null;

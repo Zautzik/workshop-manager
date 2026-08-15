@@ -22,8 +22,10 @@ import { useCostCatalog, useMaterialCost } from '@/hooks/use-cost-catalog';
 import type { OTFormData } from '@/types/ot';
 import { EMPTY_FINISHES } from '@/types/ot';
 import { priceBand } from '@/lib/ot-spec';
+import { stashHandoff } from '@/lib/ot-handoff';
 import { SERIES } from '@/components/financial/charts/viz-tokens';
-import { statusBadgeClass, vbStatusLabel } from '@/lib/status-labels';
+import { otStatusBadgeClass, otStatusLabel } from '@/lib/status-labels';
+import Link from 'next/link';
 import { RepetirTrabajo } from '@/components/comercial/RepetirTrabajo';
 import { ClientAutocomplete } from '@/components/workflow/ot-wizard/ClientAutocomplete';
 import type { CostCenterItem } from '@/types/work-category';
@@ -83,6 +85,8 @@ const COLOR_MODE_BY_COUNT: Record<number, string> = {
 export interface PressRef {
   id: string;
   name: string;
+  /** `offset_printer` u `digital_printer`: cambian de economía, no sólo de nombre. */
+  type: string;
   bodies: number;
   speedSheetsHr: number;
   maxWidthCm: number;
@@ -94,6 +98,8 @@ function buildEstimate(
     quantity: number; width_cm: number; height_cm: number; grammage_gsm: number;
     colors_front: number; colors_back: number; substrate_type: string;
     finishes: Record<string, boolean>;
+    variable_data: boolean;
+    die_new: boolean;
     coverage: Coverage;
   },
   catalog: CostCenterItem[],
@@ -109,6 +115,8 @@ function buildEstimate(
     color_front: COLOR_MODE_BY_COUNT[s.colors_front] ?? 'cmyk',
     color_back: COLOR_MODE_BY_COUNT[s.colors_back] ?? 'sin_impresion',
     finishes: s.finishes,
+    variable_data: s.variable_data,
+    die_new: s.die_new,
   } as unknown as OTFormData;
 
   // La cobertura del arte multiplica el consumo de tinta: un fondo sólido a
@@ -130,6 +138,8 @@ function buildEstimate(
   (calcInput as any).imposition = impo;
   const calcs = computeOTCalculations(calcInput, {
     inkCoverage: s.coverage,
+    variableData: s.variable_data,
+    digitalSpeedSheetsHr: press?.type === 'digital_printer' ? press.speedSheetsHr : undefined,
     pressLimit: limit,
     machineSpeedSheetsHr: press?.speedSheetsHr,
     pressBodies: press?.bodies,
@@ -163,7 +173,24 @@ function CotizacionesInner() {
   const qc = useQueryClient();
   const router = useRouter();
   const { data: vbs = [] } = useVistosBuenos();
+
+
   const { data: ots = [] } = useOTs();
+
+  /**
+   * Las que todavía no tienen la prueba firmada.
+   *
+   * `pre_press` y `visto_bueno` son los dos estados antes del punto de no
+   * retorno. En cuanto una orden pasa a compra de papel deja de ser asunto del
+   * vendedor: ya está comprometida y vive en el tablero de producción.
+   */
+  const esperando = useMemo(
+    () =>
+      (ots as any[])
+        .filter((o) => o.status === 'pre_press' || o.status === 'visto_bueno')
+        .sort((a, b) => String(a.deadline ?? '9999').localeCompare(String(b.deadline ?? '9999'))),
+    [ots],
+  );
 
   // La cartera completa, no sólo quien ya tiene una OT.
   //
@@ -187,10 +214,14 @@ function CotizacionesInner() {
   const { data: maquinas = [] } = useMachines();
   const prensas: PressRef[] = useMemo(
     () => (maquinas as any[])
-      .filter((m) => m.type === 'offset_printer' && m.is_active !== false)
+      // La digital también imprime. Estaba fuera del desplegable, así que un
+      // tiraje corto —donde la digital gana por no tener alistamiento— no se
+      // podía ni cotizar en la máquina que le corresponde.
+      .filter((m) => ['offset_printer', 'digital_printer'].includes(m.type) && m.is_active !== false)
       .map((m) => ({
         id: m.id,
         name: m.name,
+        type: m.type,
         bodies: m.colors ?? 4,
         speedSheetsHr: m.optimal_speed_sheets_hr ?? m.nominal_speed_sheets_hr ?? 3000,
         // La ficha guarda milímetros; la imposición razona en centímetros.
@@ -220,6 +251,8 @@ function CotizacionesInner() {
     width_cm: 9, height_cm: 12, grammage_gsm: 115,
     colors_front: 4, colors_back: 0, coverage: 'medium' as Coverage,
     finishes: { ...EMPTY_FINISHES } as Record<string, boolean>,
+    variable_data: false,
+    die_new: false,
     substrate_type: 'couche',
     press_id: '',
     deadline: '',
@@ -319,11 +352,39 @@ function CotizacionesInner() {
         status: 'draft',
       }),
     });
+    if (!res.ok) {
+      setSaving(false);
+      const b = await res.json().catch(() => null);
+      toast.error(b?.error ?? 'Error al guardar');
+      return;
+    }
+
+    // Cotizar CREA LA ORDEN. Guardar y quedarse en `draft` dejaba la cotización
+    // sin salida: el botón de generar OT sólo aparecía con la firma, y firmar
+    // pedía el arte aprobado, que se produce en Pre-Prensa. Se pedía firmar un
+    // papel en blanco para poder empezar a llenarlo.
+    //
+    // El visto bueno se firma después, sobre la prueba. Acá nace la OT y entra a
+    // Pre-Prensa, que es donde alguien la completa.
+    const creada = await res.json().catch(() => null);
+    const vbId = creada?.id ?? creada?.data?.id;
+    if (vbId) {
+      const conv = await fetch(`/api/vistos-buenos/${vbId}/convert`, { method: 'POST', credentials: 'include' });
+      if (!conv.ok) {
+        setSaving(false);
+        const b = await conv.json().catch(() => null);
+        toast.error(b?.error ?? 'Se guardó la cotización pero no se pudo crear la OT');
+        qc.invalidateQueries({ queryKey: ['vistosBuenos'] });
+        return;
+      }
+    }
+
     setSaving(false);
-    if (!res.ok) { const b = await res.json().catch(() => null); toast.error(b?.error ?? 'Error al guardar'); return; }
-    toast.success('Cotización (Visto Bueno) creada');
+    toast.success('OT creada y encolada en Pre-Prensa');
     setOpen(false);
     qc.invalidateQueries({ queryKey: ['vistosBuenos'] });
+    qc.invalidateQueries({ queryKey: ['ots'] });
+    router.push('/operaciones/pre-prensa');
   };
 
   const setStatus = async (id: string, status: string) => {
@@ -379,12 +440,52 @@ function CotizacionesInner() {
     router.push('/operaciones/kanban');
   };
 
+  /**
+   * Llevar lo escrito al asistente completo.
+   *
+   * No guarda la cotización: quien pide la ficha entera está diciendo que esto
+   * no era una estimación sino una orden, y dejar además una cotización a medias
+   * en la lista sería un registro que nadie pidió.
+   */
+  const completarTodo = () => {
+    stashHandoff({
+      client_id: form.client_id,
+      client_name: form.client_name,
+      product_name: form.product_name,
+      product_type: form.product_type,
+      quantity: form.quantity,
+      width_cm: form.width_cm,
+      height_cm: form.height_cm,
+      grammage_gsm: form.grammage_gsm,
+      substrate_type: form.substrate_type,
+      colors_front: form.colors_front,
+      colors_back: form.colors_back,
+      coverage: form.coverage,
+      finishes: form.finishes,
+      deadline: form.deadline,
+      priority_level: form.priority_level,
+      press_id: prensaElegida?.id ?? '',
+      markup: form.markup,
+      precio_estimado: calc.total,
+    });
+    setOpen(false);
+    router.push('/operaciones/kanban?asistente=1');
+  };
+
   const num = (v: string) => parseFloat(v) || 0;
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <p className="text-sm text-muted-foreground">{vbs.length} cotizaciones</p>
+        {/* Cuenta LO QUE LA TABLA MUESTRA. Contaba filas de `vistos_buenos`
+            —234— mientras la lista mostraba dos órdenes esperando visto bueno:
+            un encabezado que describe otro conjunto que el de abajo enseña a
+            desconfiar de los dos. */}
+        <p className="text-sm text-muted-foreground">
+          {esperando.length === 0
+            ? 'Nada esperando visto bueno'
+            : `${esperando.length} ${esperando.length === 1 ? 'orden espera' : 'órdenes esperan'} visto bueno`}
+        </p>
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
             <Button><Plus className="mr-2 h-4 w-4" /> Nueva Cotización</Button>
@@ -521,6 +622,47 @@ function CotizacionesInner() {
                 {/* Terminaciones de verdad. Eran una casilla que activaba sólo
                     plegado, y son entre el 15 y el 20% del costo — donde vive
                     el margen de un estuche. */}
+                {/* Sólo si se troquela. Preguntar por un troquel en un trabajo
+                    que no lleva troquelado es ruido, y el ruido enseña a saltear
+                    campos. */}
+                {form.finishes.finish_troquelado && (
+                  <label className="flex items-start gap-2 rounded-md border border-amber-500/40 bg-amber-500/5 px-2.5 py-2 text-sm">
+                    <input
+                      type="checkbox"
+                      className="mt-0.5"
+                      checked={form.die_new}
+                      onChange={(e) => setForm({ ...form, die_new: e.target.checked })}
+                    />
+                    <span>
+                      <span className="font-medium">Hay que mandar a hacer el troquel</span>
+                      <span className="block text-[11px] leading-snug text-muted-foreground">
+                        Costo de una vez, no por pliego. Si el cliente repite un trabajo que
+                        ya tiene matriz, dejalo sin marcar.
+                      </span>
+                    </span>
+                  </label>
+                )}
+
+                {/* No es una terminación: es una SEGUNDA PASADA de impresión.
+                    Va acá por cercanía visual, pero la etiqueta lo distingue —
+                    confundirlo con un acabado haría que se costee como si fuera
+                    trabajo de taller y no tiempo de máquina. */}
+                <label className="flex items-start gap-2 rounded-md border border-border px-2.5 py-2 text-sm">
+                  <input
+                    type="checkbox"
+                    className="mt-0.5"
+                    checked={form.variable_data}
+                    onChange={(e) => setForm({ ...form, variable_data: e.target.checked })}
+                  />
+                  <span>
+                    <span className="font-medium">Dato variable</span>
+                    <span className="block text-[11px] leading-snug text-muted-foreground">
+                      Se tira en offset y se personaliza en digital: nombres, números,
+                      códigos. Suma una pasada por la digital, que se cobra por clic.
+                    </span>
+                  </span>
+                </label>
+
                 <div>
                   <Label className="text-xs">Terminaciones</Label>
                   <div className="mt-1.5 flex flex-wrap gap-1.5">
@@ -680,74 +822,101 @@ function CotizacionesInner() {
                   )}
                 </div>
 
-                <Button className="w-full" onClick={save} disabled={saving || calc.belowFloor}>{saving ? 'Guardando…' : 'Guardar cotización'}</Button>
+                <Button className="w-full" onClick={save} disabled={saving || calc.belowFloor}>{saving ? 'Creando la OT…' : 'Crear OT'}</Button>
+
+                {/* La salida para cuando la cotización no alcanza.
+                    A veces el cliente ya decidió y lo que hace falta no es un
+                    precio sino la orden entera: montaje, máquina, detalle de
+                    producción. Sin esta puerta había que cerrar, abrir el
+                    asistente y volver a escribir los quince campos recién
+                    llenados — y el que teclea dos veces, la segunda pone otra
+                    cosa. */}
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  onClick={completarTodo}
+                  disabled={!form.client_id}
+                  title={!form.client_id ? 'Elegí un cliente primero' : undefined}
+                >
+                  <ArrowRight className="mr-1.5 h-4 w-4" />
+                  Completar todos los datos
+                </Button>
+                <p className="-mt-1 text-[11px] leading-snug text-muted-foreground">
+                  Abre el asistente con lo que ya escribiste y pide lo que falta para
+                  tener la OT: montaje, máquina, detalle de producción y arte.
+                </p>
               </div>
             </div>
           </DialogContent>
         </Dialog>
       </div>
 
+      {/* ── Lo que se vendió y todavía no se confirmó ──────────────────────
+
+          Antes esta tabla listaba filas de `vistos_buenos`, que dejó de ser una
+          cosa propia: cotizar CREA la orden. Un listado de cotizaciones al lado
+          de un listado de órdenes son dos verdades sobre el mismo trabajo, y el
+          vendedor tenía que cruzarlas con la vista para saber en qué anda algo.
+
+          Ahora muestra ÓRDENES que todavía no tienen su visto bueno de prueba —
+          `pre_press` y `visto_bueno`. Es la pregunta del vendedor: qué vendí que
+          todavía no está confirmado con el cliente. Lo que ya pasó a compra de
+          papel salió de su cancha y vive en el tablero. */}
       <Card>
-        <CardHeader><CardTitle className="text-base">Cotizaciones</CardTitle></CardHeader>
+        <CardHeader>
+          <CardTitle className="text-base">Esperando el visto bueno del cliente</CardTitle>
+          <p className="text-xs leading-relaxed text-muted-foreground">
+            Órdenes creadas que todavía no tienen la prueba firmada. Una vez firmada se
+            compra el papel y se graban las planchas: hasta ahí se puede cambiar.
+          </p>
+        </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b text-muted-foreground">
-                  <th className="text-left py-2 px-3 font-medium">N°</th>
+                  <th className="text-left py-2 px-3 font-medium">OT</th>
                   <th className="text-left py-2 px-3 font-medium">Cliente</th>
                   <th className="text-left py-2 px-3 font-medium">Producto</th>
                   <th className="text-right py-2 px-3 font-medium">Total</th>
+                  <th className="text-center py-2 px-3 font-medium">Entrega</th>
                   <th className="text-center py-2 px-3 font-medium">Estado</th>
-                  <th className="text-right py-2 px-3 font-medium">Acciones</th>
+                  <th className="text-right py-2 px-3 font-medium"> </th>
                 </tr>
               </thead>
               <tbody>
-                {vbs.length === 0 && <tr><td colSpan={6} className="py-10 text-center text-muted-foreground">Sin cotizaciones — crea la primera.</td></tr>}
-                {vbs.map((vb) => (
-                  <tr key={vb.id} className="border-b hover:bg-muted/40">
-                    <td className="py-2 px-3 font-mono text-xs">{vb.vb_number}</td>
-                    <td className="py-2 px-3">{vb.client_name}</td>
-                    <td className="py-2 px-3 text-muted-foreground truncate max-w-[200px]">{vb.product_name}</td>
-                    <td className="py-2 px-3 text-right font-semibold">{formatCLP(vb.total_price)}</td>
-                    {/* El estado en español y con el mismo semáforo que el resto
-                        de la app. El mapa local que había acá era la octava puerta
-                        para el mismo trabajo, y además le faltaba `expired`: una
-                        cotización vencida se mostraba sin color y en inglés. */}
-                    <td className="py-2 px-3 text-center">
-                      <Badge className={statusBadgeClass(vb.status)}>{vbStatusLabel(vb.status)}</Badge>
+                {esperando.length === 0 && (
+                  <tr>
+                    <td colSpan={7} className="py-10 text-center text-muted-foreground">
+                      Nada esperando visto bueno. Creá una OT con el botón de arriba.
                     </td>
-                    <td className="py-2 px-3 text-right whitespace-nowrap">
-                      {(vb.status === 'draft' || vb.status === 'sent') && signFlow !== vb.id && (
-                        <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setStatus(vb.id, 'signed')}>
-                          <PenLine className="h-3 w-3 mr-1" /> Marcar firmada
-                        </Button>
-                      )}
-                      {signFlow === vb.id && (
-                        <span className="inline-flex items-center gap-2">
-                          <label className={`inline-flex h-7 cursor-pointer items-center rounded-md border border-amber-500/50 bg-amber-500/10 px-2 text-xs font-medium text-amber-700 dark:text-amber-400 ${signing ? 'opacity-50 pointer-events-none' : ''}`}>
-                            {signing ? 'Subiendo…' : '¿Qué aprueba el cliente? Subir imagen'}
-                            <input
-                              type="file"
-                              accept="image/png,image/jpeg,image/svg+xml,image/tiff,application/pdf"
-                              className="hidden"
-                              onChange={(e) => {
-                                const f = e.target.files?.[0];
-                                if (f) signWithImage(vb.id, f);
-                              }}
-                            />
-                          </label>
-                          <button className="text-xs text-muted-foreground hover:underline" onClick={() => setSignFlow(null)}>
-                            Cancelar
-                          </button>
-                        </span>
-                      )}
-                      {vb.status === 'signed' && (
-                        <Button size="sm" className="h-7 text-xs bg-green-600 hover:bg-green-700" onClick={() => convert(vb.id)}>
-                          Generar OT <ArrowRight className="h-3 w-3 ml-1" />
-                        </Button>
-                      )}
-                      {vb.status === 'converted' && <span className="text-xs text-green-600">OT generada ✓</span>}
+                  </tr>
+                )}
+                {esperando.map((ot: any) => (
+                  <tr key={ot.id} className="border-b hover:bg-muted/40">
+                    <td className="py-2 px-3 font-mono font-semibold">{ot.ot_number}</td>
+                    <td className="py-2 px-3">{ot.client_name}</td>
+                    <td className="py-2 px-3 text-muted-foreground">{ot.product_name}</td>
+                    <td className="py-2 px-3 text-right tabular-nums">{formatCLP(ot.total_price ?? 0)}</td>
+                    <td className="py-2 px-3 text-center text-xs text-muted-foreground tabular-nums">
+                      {ot.deadline
+                        ? new Date(ot.deadline.length <= 10 ? `${ot.deadline}T00:00:00` : ot.deadline)
+                            .toLocaleDateString('es-CL', { day: '2-digit', month: 'short' })
+                        : '—'}
+                    </td>
+                    <td className="py-2 px-3 text-center">
+                      <Badge className={otStatusBadgeClass(ot.status)}>{otStatusLabel(ot.status)}</Badge>
+                    </td>
+                    <td className="py-2 px-3 text-right">
+                      {/* Pre-Prensa es donde se completa la ficha; ahí está lo que
+                          falta para poder mandar la prueba. */}
+                      <Link
+                        href="/operaciones/pre-prensa"
+                        className="inline-flex items-center gap-1 text-xs font-medium text-primary underline-offset-4 hover:underline"
+                      >
+                        {ot.status === 'pre_press' ? 'Completar ficha' : 'Ver la prueba'}
+                        <ArrowRight className="h-3 w-3" />
+                      </Link>
                     </td>
                   </tr>
                 ))}
@@ -768,7 +937,7 @@ export default function CotizacionesPage() {
           <span className="rounded-xl bg-cyan-500/10 p-3"><FileSpreadsheet className="w-6 h-6 text-cyan-500" /></span>
           <div>
             <h1 className="text-2xl font-bold text-foreground">Cotizaciones</h1>
-            <p className="text-sm text-muted-foreground mt-0.5">Construye un Visto Bueno con estimación de costos y, al firmarse, genéralo como OT.</p>
+            <p className="text-sm text-muted-foreground mt-0.5">Cotizá y creá la orden. El visto bueno se firma después, sobre la prueba que sale de Pre-Prensa.</p>
           </div>
         </div>
         <CotizacionesInner />

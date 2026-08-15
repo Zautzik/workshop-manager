@@ -10,7 +10,7 @@ import {
   CommandItem,
   CommandList,
 } from '@/components/ui/command';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover';
 import {
   Dialog,
   DialogContent,
@@ -99,8 +99,18 @@ export function ClientAutocomplete({ clientName, clientId, onSelect, onNameChang
   return (
     <>
       <Popover open={open} onOpenChange={setOpen}>
-        <PopoverTrigger asChild>
-          <div className="relative cursor-pointer">
+        {/* ANCHOR, no TRIGGER.
+        
+            `PopoverTrigger` ALTERNA al hacer clic. Con el campo adentro, un solo
+            clic hacía dos cosas: el `onFocus` abría el desplegable y el clic del
+            disparador lo cerraba en el mismo gesto. Se veía como que las
+            sugerencias aparecen y desaparecen solas.
+            
+            `PopoverAnchor` sólo posiciona; quién abre y quién cierra lo decide el
+            campo, que es lo que corresponde cuando el que manda es el foco y no
+            un botón. */}
+        <PopoverAnchor asChild>
+          <div className="relative">
             <Input
               value={clientName}
               onChange={(e) => {
@@ -113,8 +123,27 @@ export function ClientAutocomplete({ clientName, clientId, onSelect, onNameChang
             />
             <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           </div>
-        </PopoverTrigger>
-        <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
+        </PopoverAnchor>
+        {/* Este componente también vive DENTRO del diálogo de Cotización, y ahí
+            hacen falta las dos clases.
+            
+            `pointer-events-auto` es la que importa: Radix Dialog en modo modal
+            pone `pointer-events: none` en el <body>, y el popover se portea
+            justo ahí, así que lo hereda. Medido: el desplegable quedaba con
+            z-index 60 sobre un diálogo de 50 —o sea, arriba y perfectamente
+            visible— y `elementFromPoint` devolvía la etiqueta que estaba DEBAJO.
+            Se ve bien y no se puede clicar: el peor defecto posible, porque no
+            parece un defecto sino que el usuario apuntó mal.
+            
+            `z-[60]` porque los dos se portean al body y, a igual z-index, gana
+            el que va después en el DOM — que es el diálogo. */}
+        <PopoverContent
+          className="pointer-events-auto z-[60] w-[var(--radix-popover-trigger-width)] p-0"
+          align="start"
+          /* Sin esto el desplegable se lleva el foco al abrirse y la siguiente
+             tecla no llega al campo: se escribe una letra y se corta. */
+          onOpenAutoFocus={(e) => e.preventDefault()}
+        >
           <Command shouldFilter={false}>
             <CommandList>
               {loading && (

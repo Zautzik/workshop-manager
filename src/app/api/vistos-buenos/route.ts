@@ -16,7 +16,10 @@ export async function GET(_req: NextRequest) {
 
   let query = supabaseAdmin
     .from('vistos_buenos' as any)
-    .select('*')
+    // La cotización ya no tiene número propio: se trae el de la OT que originó,
+    // que es la identidad del trabajo. `ots!vistos_buenos_ot_id_fkey` no existe —
+    // el vínculo va al revés (`ots.vb_id`), así que se resuelve por esa FK.
+    .select('*, ots!ots_vb_id_fkey ( ot_number )')
     .order('created_at', { ascending: false });
 
   if (!scope.all) {
@@ -26,7 +29,15 @@ export async function GET(_req: NextRequest) {
   const { data, error } = await query;
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ data: data ?? [] });
+
+  // Se aplana: la pantalla pide `ot_number`, no un arreglo anidado con una fila.
+  return NextResponse.json({
+    data: (data ?? []).map((v: any) => ({
+      ...v,
+      ot_number: Array.isArray(v.ots) ? v.ots[0]?.ot_number ?? null : v.ots?.ot_number ?? null,
+      ots: undefined,
+    })),
+  });
 }
 
 // POST /api/vistos-buenos — create a quote (draft).
@@ -72,6 +83,13 @@ export async function POST(req: NextRequest) {
     floor_price: b.floor_price ?? 0,
     status: b.status ?? 'draft',
     notes: b.notes ?? null,
+    // La ruta enumera los campos, así que lo que no esté acá se descarta en
+    // silencio. Estos tres llegaban desde el diálogo y se perdían: la OT nacía
+    // sin fecha comprometida, en prioridad normal, y sin la prensa que decide
+    // qué pliego se puede montar — el dato que más mueve el precio.
+    deadline: b.deadline ?? null,
+    priority_level: b.priority_level ?? 'normal',
+    press_id: b.press_id ?? null,
   };
 
   const { data, error } = await supabaseAdmin

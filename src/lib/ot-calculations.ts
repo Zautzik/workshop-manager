@@ -78,6 +78,8 @@ export const CALIBRATION = {
   DEFAULT_PRESS_BODIES: 4,
   /** Fallback running speed when the machine has no nominal speed. */
   DEFAULT_SHEETS_PER_HOUR: 3000,
+  /** Velocidad de la digital cuando no se eligió una máquina concreta. */
+  DEFAULT_DIGITAL_SHEETS_PER_HOUR: 1400,
   /** Per-finish time model: fixed setup + sheets/hour throughput. */
   FINISH_RATES: {
     corte: { setupH: 0.3, sheetsPerHour: 3000 },
@@ -114,7 +116,28 @@ export const CALIBRATION = {
 const INK_KG_PER_SHEET_70x100 = 0.00085;
 const REF_SHEET_AREA_M2 = 0.7; // 70×100 cm
 
+/**
+ * La cobertura es una propiedad de LA PLANCHA, no del trabajo.
+ *
+ * Una etiqueta de vino se imprime con un pantone de fondo a solidez plena y un
+ * negro que es sólo el texto legal: la misma OT lleva una plancha cargadísima y
+ * otra con una pizca. Aplicarle «alta» a las dos multiplica el negro por 1,8
+ * —tinta que nadie va a comprar— y aplicarle «media» a las dos subestima el
+ * fondo, que es donde está el gasto de verdad.
+ *
+ * `trace` es esa pizca: una plancha de sólo texto o filetes anda en 3% a 5% de
+ * área cubierta. No es «liviana», es un orden de magnitud menos.
+ *
+ * Los factores son relativos a la cobertura media, que es la referencia con la
+ * que está calibrado `INK_KG_PER_SHEET_70x100`:
+ *
+ *     trace   ~4% de área    0,12
+ *     light   ~18%           0,5
+ *     medium  ~38%           1,0   ← referencia
+ *     heavy   ~75%, sólidos  1,8
+ */
 const INK_COVERAGE_FACTOR: Record<InkCoverage, number> = {
+  trace: 0.12,
   light: 0.5,
   medium: 1.0,
   heavy: 1.8,
@@ -133,12 +156,40 @@ const SUBSTRATE_INK_FACTOR: Record<string, number> = {
 /** Fixed make-ready ink laid down per colour, independent of run length. */
 const INK_MAKEREADY_KG_PER_COLOR = 0.1;
 
-export type InkCoverage = 'light' | 'medium' | 'heavy';
+export type InkCoverage = 'trace' | 'light' | 'medium' | 'heavy';
 
 /** Optional real-world inputs that sharpen the estimate. */
 export interface OTCalcOptions {
-  /** Ink coverage class of the artwork; defaults to 'medium'. */
+  /** Cobertura del trabajo entero. Se usa para las planchas que no se detallen. */
   inkCoverage?: InkCoverage;
+  /**
+   * Dato variable: el trabajo pasa DOS VECES, por dos máquinas distintas.
+   *
+   * Es un trabajo común y el motor no lo sabía modelar. La parte igual para
+   * todos —el fondo, la marca, el troquel— se tira en offset, que es barato por
+   * volumen y caro de alistar. Lo que cambia en cada pieza —un nombre, un
+   * número, un código— no puede ir en una plancha: se imprime después en
+   * digital, que no tiene alistamiento y cobra por clic.
+   *
+   * La economía de las dos es opuesta, y por eso el híbrido existe: nadie tira
+   * 120.000 etiquetas en digital, y nadie hace 120.000 planchas distintas.
+   */
+  variableData?: boolean;
+  /** Velocidad de la digital, en pliegos por hora. */
+  digitalSpeedSheetsHr?: number;
+  /**
+   * Cobertura plancha por plancha, en orden: primero las del frente, después
+   * las del dorso.
+   *
+   * Es lo que un jefe de taller sabe mirando el arte, y lo único que permite
+   * costear bien un trabajo donde una tinta va a full y otra apenas marca. Las
+   * planchas que no estén en la lista usan `inkCoverage`, así que se puede
+   * detallar sólo la que se sale de lo normal:
+   *
+   *     inkCoverage: 'medium', plateCoverage: ['heavy', 'trace']
+   *     → fondo a solidez plena, negro de texto, y los demás en media
+   */
+  plateCoverage?: readonly InkCoverage[];
   /** Selected machine's real speed (nominal_speed_sheets_hr). */
   machineSpeedSheetsHr?: number;
   /** Área máxima imprimible de la prensa elegida — filtra los pliegos posibles. */
@@ -316,12 +367,24 @@ export function computeOTCalculations(form: OTFormData, opts: OTCalcOptions = {}
   const sheetAreaM2 = (sheetW / 100) * (sheetH / 100);
   const substrateKg = round2((totalSheets * sheetAreaM2 * grammage_gsm) / 1000);
 
-  // Ink — colour passes × coverage × absorbency, scaled by sheet area.
+  // Tinta — se suma PLANCHA POR PLANCHA, no colores × una cobertura.
+  //
+  // Sumar los factores de cada plancha en vez de multiplicar la cantidad por uno
+  // solo es lo que permite que un pantone a full y un negro de texto convivan en
+  // la misma OT sin que ninguno de los dos quede mal costeado. Cuando todas las
+  // planchas comparten clase, la suma da idéntico a la fórmula anterior.
   const totalColorPasses = frontColors + backColors;
-  const coverageFactor = INK_COVERAGE_FACTOR[opts.inkCoverage ?? 'medium'];
+  const porDefecto = INK_COVERAGE_FACTOR[opts.inkCoverage ?? 'medium'];
+  const coberturas = opts.plateCoverage ?? [];
+  const sumaDeCoberturas = Array.from({ length: totalColorPasses }, (_, i) =>
+    coberturas[i] ? INK_COVERAGE_FACTOR[coberturas[i]] : porDefecto,
+  ).reduce((a, b) => a + b, 0);
+
   const substrateFactor = substrateInkFactor(substrate_type || 'otro');
   const inkPerSheet = INK_KG_PER_SHEET_70x100 * (sheetAreaM2 / REF_SHEET_AREA_M2);
-  const inkVariable = totalSheets * inkPerSheet * totalColorPasses * coverageFactor * substrateFactor;
+  const inkVariable = totalSheets * inkPerSheet * sumaDeCoberturas * substrateFactor;
+  // El alistamiento NO depende de la cobertura: para entrar en registro hay que
+  // cargar el tintero igual, aunque la plancha después apenas marque.
   const inkMakeReady = totalColorPasses * INK_MAKEREADY_KG_PER_COLOR;
   const inkKg = totalColorPasses > 0 ? Math.round((inkVariable + inkMakeReady) * 1000) / 1000 : 0;
 
@@ -333,9 +396,20 @@ export function computeOTCalculations(form: OTFormData, opts: OTCalcOptions = {}
   const speed = opts.machineSpeedSheetsHr && opts.machineSpeedSheetsHr > 0
     ? opts.machineSpeedSheetsHr
     : C.DEFAULT_SHEETS_PER_HOUR;
-  const printHours = passes > 0
-    ? round2(passes * C.MAKEREADY_HOURS_PER_PASS + (passes * totalSheets) / speed)
+  const offsetHours = passes > 0
+    ? passes * C.MAKEREADY_HOURS_PER_PASS + (passes * totalSheets) / speed
     : 0;
+
+  // La segunda pasada. La digital NO tiene alistamiento —no hay planchas que
+  // montar ni registro que cuadrar, que es justo por lo que se usa para el dato
+  // variable— así que son horas puras de corrida.
+  const digitalHours = opts.variableData
+    ? totalSheets / (opts.digitalSpeedSheetsHr && opts.digitalSpeedSheetsHr > 0
+        ? opts.digitalSpeedSheetsHr
+        : C.DEFAULT_DIGITAL_SHEETS_PER_HOUR)
+    : 0;
+
+  const printHours = round2(offsetHours + digitalHours);
 
   // Finishing: per-finish formulas (die-cutting ≠ varnish — audit OF-19).
   const activeFinishKeys = Object.entries(finishes)
@@ -365,6 +439,22 @@ export const DEFAULT_COSTS = {
   offset_print_per_hour: 25000,
   cut_per_hour: 2500,
   troquelado_per_hour: 5000,
+  /**
+   * El TROQUEL, que no es lo mismo que troquelar.
+   *
+   * `troquelado_per_hour` paga la máquina corriendo. Esto paga la herramienta:
+   * una matriz de acero cortada a medida para esa pieza. Es un costo de UNA VEZ
+   * y no se reparte por pliego — en un tiraje de 5.000 pesa diez veces más por
+   * unidad que en uno de 50.000, que es justo por lo que un cliente que repite
+   * paga menos sin que nadie le haga un descuento.
+   *
+   * La cotización sólo preguntaba SI se troquela. Un trabajo nuevo y una
+   * repetición salían idénticos, cuando entre los dos hay tres o cuatro cientos
+   * de miles de pesos de diferencia que alguien terminaba absorbiendo.
+   *
+   * PENDIENTE DE CALIBRAR con el troquelero del taller.
+   */
+  die_tooling: 320_000,
   plegado_per_hour: 3000,
   pegado_per_hour: 4000,
   laminado_per_hour: 3500,
@@ -377,6 +467,29 @@ export const DEFAULT_COSTS = {
   // Labor + overhead (audit OF-20: quotes omitted both; the catalog carries
   // real rates — Operador de Prensa, Operador de Terminaciones, Gastos
   // Generales % — which the resolver maps onto these keys).
+  /**
+   * La digital cobra POR CLIC, no por hora.
+   *
+   * Un clic es un pliego que pasa. No hay alistamiento que repartir, así que el
+   * costo por unidad no baja con el tiraje — que es exactamente al revés del
+   * offset, y la razón por la que conviene combinarlas en vez de elegir una.
+   *
+   * Éste es el clic a TODO COLOR: un trabajo entero impreso en digital.
+   */
+  digital_click: 595,
+  /**
+   * El clic del dato variable, que NO es el mismo.
+   *
+   * Una pasada de dato variable deposita un nombre, un número o un código: negro,
+   * un patch chico del pliego. Cobrarla al clic de cuatricromía multiplica por
+   * cinco un costo que el taller no paga — medido sobre 120.000 etiquetas, la
+   * diferencia entre $6,1 millones y $1,2.
+   *
+   * PENDIENTE DE CALIBRAR: es un valor por defecto razonable para negro en A3,
+   * no la tarifa de este taller. Cuando el catálogo tenga su propia línea de
+   * «clic variable», el resolvedor la va a preferir.
+   */
+  digital_variable_click: 120,
   press_labor_per_hour: 8500,
   finish_labor_per_hour: 6500,
   overhead_pct: 8,
@@ -412,6 +525,23 @@ export function generateDefaultOperations(
   if (totalColorPasses > 0 && calcs.calc_print_hours > 0) {
     push('impresion', 'Impresión Offset', 'hrs', calcs.calc_print_hours, RATES.offset_print_per_hour);
     push('impresion', 'Operador de Prensa', 'hrs', calcs.calc_print_hours, RATES.press_labor_per_hour);
+  }
+
+  // ── El troquel, cuando hay que mandarlo a hacer ──
+  // Va ANTES del troquelado en la lista porque ocurre antes en el tiempo: sin
+  // matriz no hay golpe. Y va como línea propia porque es lo único del trabajo
+  // que no se reparte por pliego: el jefe de taller tiene que poder verlo suelto
+  // para decidir si conviene el tiraje.
+  if (form.finishes.finish_troquelado && form.die_new) {
+    push('terminaciones', 'Troquel nuevo (herramental, una vez)', 'global', 1, RATES.die_tooling);
+  }
+
+  // ── Dato variable: la segunda pasada, por la digital ──
+  // Va como operación aparte y no sumada a la de offset porque son dos máquinas
+  // con dos economías distintas: el jefe de taller tiene que poder ver cuánto le
+  // cuesta personalizar, que es la decisión que está tomando.
+  if (form.variable_data && calcs.calc_sheets > 0) {
+    push('impresion', 'Impresión Digital (dato variable)', 'clic', calcs.calc_sheets, RATES.digital_variable_click);
   }
 
   // ── Finishing: cut always, then each active finish with its OWN hours ──

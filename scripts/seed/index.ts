@@ -451,7 +451,7 @@ async function escribirTrabajos(
 		const id = uuid();
 		vbPorOt.set(j.otNumber, id);
 		return {
-			id, vb_number: j.vbNumber,
+			id,
 			client_id: clientesPorNombre.get(j.client.name) ?? null,
 			client_name: j.client.name,
 			salesman_id: vendedores.get(SALESMEN[j.client.salesman].name) ?? null,

@@ -294,6 +294,16 @@ export interface OTFormData {
   color_back: OTColorMode;
   pantone_colors: string[];
   finishes: OTFinishes;
+  /**
+   * El trabajo lleva dato variable: se tira en offset y se personaliza en
+   * digital. Ver `OTCalcOptions.variableData`.
+   */
+  variable_data?: boolean;
+  /**
+   * Hay que mandar a hacer el troquel. Sólo aplica si el trabajo se troquela.
+   * Un costo de una vez, no por pliego — ver `DEFAULT_COSTS.die_tooling`.
+   */
+  die_new?: boolean;
   attachments: File[];          // artwork files to upload
   // Step 3: Calculations (computed)
   calculations: OTCalculations;

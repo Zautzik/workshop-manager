@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { UnifiedOTWizard } from "./UnifiedOTWizard";
+import { useRouter, useSearchParams } from "next/navigation";
 import { EditBudgetWizard } from "./EditBudgetWizard";
 import { EditOTDialog } from "./EditOTDialog";
 import { RealCostEntryDialog } from "./RealCostEntryDialog";
@@ -97,7 +98,20 @@ export function OTManagement({ onOTSelect }: OTManagementProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const [createFlow,      setCreateFlow]      = useState<'none' | 'wizard'>('none');
+  // Llegar con `?asistente=1` abre el asistente derecho. Lo usa el botón
+  // «Completar todos los datos» de la cotización: sin esto el vendedor caía en
+  // el tablero y tenía que buscar «Nueva OT», que es un paso donde se pierde a
+  // la mitad de la gente.
+  //
+  // Va como estado INICIAL y no como efecto. Un efecto que llama a `setState`
+  // provoca un render en cascada —y lo marca el linter— pero sobre todo tendría
+  // otro defecto: volvería a abrir el asistente cada vez que el parámetro
+  // cambiara, incluso después de que el usuario lo cerró.
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const [createFlow,      setCreateFlow]      = useState<'none' | 'wizard'>(
+    () => (searchParams?.get('asistente') === '1' ? 'wizard' : 'none'),
+  );
   const [showEditDialog,  setShowEditDialog]  = useState(false);
   const [editingOT,       setEditingOT]       = useState<any>(null);
   const [budgetEditOT,    setBudgetEditOT]    = useState<any>(null);
@@ -195,6 +209,20 @@ export function OTManagement({ onOTSelect }: OTManagementProps) {
   };
 
   const requestAdvance = (ot: any, key: string, label: string) => {
+    // Salir de Pre-Prensa NO es registrar costos.
+    //
+    // El diálogo de costos reales pregunta qué se gastó en la etapa que termina.
+    // En Pre-Prensa todavía no se gastó nada: no se compró papel ni se grabó una
+    // plancha — para eso justamente falta el visto bueno. Lo que decide si la OT
+    // puede avanzar es si la FICHA está completa, porque lo que sigue es mandarle
+    // una prueba al cliente y no se puede probar lo que no se sabe.
+    //
+    // Se manda a Pre-Prensa, que enumera lo que falta con su motivo y el enlace
+    // a donde se completa.
+    if (ot.status === 'pre_press') {
+      router.push('/operaciones/pre-prensa');
+      return;
+    }
     setCostEntryOT(ot); setCostEntryTarget({ key, label });
   };
   const confirmAdvance = async (movedQuantity: number) => {

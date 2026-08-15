@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { EMPTY_UNIFIED_FORM, UNIFIED_STEPS, type UnifiedOTForm } from '@/types/ot-unified';
+import { handoffSummary, takeHandoff, toWizardForm } from '@/lib/ot-handoff';
 import { validateStep, validateAllSteps, canJumpToStep } from '@/lib/ot-wizard-validation';
 import { CATEGORY_DEFAULTS, type WorkCategoryKey } from '@/types/work-category';
 import {
@@ -59,12 +60,26 @@ export function UnifiedOTWizard({ onClose, onSuccess }: Props) {
   // week with no explanation (2026-07 audit). Surface it as a dismissible
   // banner with a "start fresh" escape hatch.
   const [draftRestored, setDraftRestored] = useState(false);
+  /** Cuántos campos llegaron desde la cotización, para poder decirlo. */
+  const [desdeCotizacion, setDesdeCotizacion] = useState<{ campos: number; terminaciones: number } | null>(null);
   // Real rates for the estimate: shared DB catalog + purchase-weighted material cost.
   const { data: catalog = [] } = useCostCatalog();
   const { data: materialCost = [] } = useMaterialCost();
   // Machines: the selected press feeds real speed + colour bodies into the
   // engine (P6.1 — a 4/0 job on a 4-body press is ONE pass, not four).
-  const { data: wizardMachines = [] } = useQuery<any[]>({
+  //
+  // El `?? []` va en un `useMemo` y NO como valor por defecto de la
+  // desestructuración. Un `= []` mintea un arreglo NUEVO en cada render mientras
+  // la consulta carga, y este arreglo es dependencia del efecto que recalcula y
+  // llama a `setForm`: render → dependencia nueva → efecto → setForm → render.
+  // Bucle infinito.
+  //
+  // Estaba latente desde siempre y no se veía porque el efecto tiene una guarda
+  // —`width_cm > 0 && height_cm > 0 && quantity > 0`— que un formulario vacío no
+  // pasa. Se destapó al prellenar el asistente desde una cotización, que es
+  // justo lo que hace que la guarda se cumpla desde el primer render. También lo
+  // habría destapado restaurar un borrador con medidas.
+  const { data: maquinasCargadas } = useQuery<any[]>({
     queryKey: ['machines', 'wizard-calc'],
     queryFn: async () => {
       const res = await fetch('/api/machines?limit=100', { credentials: 'include' });
@@ -74,7 +89,23 @@ export function UnifiedOTWizard({ onClose, onSuccess }: Props) {
     },
     staleTime: 5 * 60_000,
   });
+  const wizardMachines = useMemo(() => maquinasCargadas ?? [], [maquinasCargadas]);
   const { toast } = useToast();
+
+  /* ── Traspaso desde la cotización ───────────────────────────── */
+  //
+  // Se lee ANTES que el borrador y lo gana: quien apretó «Completar todos los
+  // datos» lo pidió hace dos segundos, y un borrador de la semana pasada no
+  // puede pisarle lo que acaba de escribir.
+  useEffect(() => {
+    const traspaso = takeHandoff();
+    if (!traspaso) return;
+    setForm((prev) => ({ ...prev, ...toWizardForm(traspaso) }));
+    // Arranca en el paso 1: la categoría ya viene resuelta del tipo de producto,
+    // y hacerlo elegirla de nuevo sería pedirle lo que ya contestó.
+    setStep(toWizardForm(traspaso).work_category ? 1 : 0);
+    setDesdeCotizacion(handoffSummary(traspaso));
+  }, []);
 
   /* ── Draft persistence ──────────────────────────────────────── */
   useEffect(() => {
@@ -84,8 +115,11 @@ export function UnifiedOTWizard({ onClose, onSuccess }: Props) {
         const parsed = JSON.parse(raw);
         // Only treat it as a real draft if the user had entered something.
         if (parsed.form && (parsed.form.client_name || parsed.form.work_category || (parsed.step ?? 0) > 0)) {
-          setForm((prev) => ({ ...prev, ...parsed.form }));
-          setStep(parsed.step ?? 0);
+          // Un traspaso desde la cotización gana: se pidió hace dos segundos y
+          // el borrador puede ser de la semana pasada. `setForm` funcional para
+          // poder mirar lo que ya hay en vez de suponerlo.
+          setForm((prev) => (prev.client_id || prev.product_name ? prev : { ...prev, ...parsed.form }));
+          setStep((prevStep) => (prevStep > 0 ? prevStep : parsed.step ?? 0));
           setDraftRestored(true);
         }
       }
@@ -606,7 +640,24 @@ export function UnifiedOTWizard({ onClose, onSuccess }: Props) {
           lee como que la pantalla está rota. */}
       <main className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
         <div className="max-w-5xl mx-auto p-4 pb-24 md:p-6 md:pb-28">
-          {draftRestored && (
+          {/* De dónde viene. «Se recuperó un borrador» sería mentira: el
+              vendedor no dejó nada a medias, vino a propósito desde la
+              cotización. Y decir CUÁNTO se trajo evita que revise campo por
+              campo para averiguar si llegó todo. */}
+          {desdeCotizacion && (
+            <div className="mb-4 flex items-start gap-2 rounded-lg border border-primary/40 bg-primary/5 px-4 py-2.5 text-sm">
+              <ArrowRight className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+              <span className="text-foreground">
+                Vienes de una cotización: se trajeron {desdeCotizacion.campos} datos
+                {desdeCotizacion.terminaciones > 0
+                  ? ` y ${desdeCotizacion.terminaciones} ${desdeCotizacion.terminaciones === 1 ? 'terminación' : 'terminaciones'}`
+                  : ''}
+                . Falta el montaje, la máquina y el detalle de producción — el precio se
+                recalcula al final con todo eso.
+              </span>
+            </div>
+          )}
+          {draftRestored && !desdeCotizacion && (
             <div className="mb-4 flex items-center justify-between gap-3 rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-2.5 text-sm">
               <span className="text-amber-700 dark:text-amber-300">
                 Recuperamos un borrador sin terminar. Puedes continuarlo o empezar de cero.

@@ -190,8 +190,17 @@ describe('no se sale de Pre-Prensa con la ficha a medias', () => {
 	it('el mensaje NOMBRA lo que falta', () => {
 		// «Ficha incompleta» obliga a adivinar. Esto se puede accionar.
 		const v = validateTransition({ ...base, spec: COTIZABLE });
-		expect(v.message).toContain('marca del sustrato');
+		expect(v.message).toContain('montaje confirmado');
 		expect(v.gaps!.length).toBeGreaterThan(0);
+	});
+
+	it('NO pide la marca del papel: eso se decide al comprarlo', () => {
+		// Depende de qué hay en plaza esa semana y a qué precio. Pedirla en
+		// Pre-Prensa frenaba la prueba por un dato que nadie tenía todavía; el
+		// motor cotiza con el promedio de lo que el taller viene pagando.
+		const v = validateTransition({ ...base, spec: COTIZABLE });
+		expect(v.message).not.toContain('sustrato');
+		expect(v.gaps!.map((g) => g.field)).not.toContain('substrateBrand');
 	});
 
 	it('con la ficha completa pasa', () => {

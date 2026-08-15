@@ -40,8 +40,8 @@ export async function GET(_req: NextRequest) {
 		return NextResponse.json({ trabajos: [], diagnostics: { total: 0, listas: 0 } });
 	}
 
-	// Los rastros, en tres consultas en vez de tres por OT.
-	const [programa, operaciones, adjuntos, cotizaciones] = await Promise.all([
+	// Los rastros, en cuatro consultas en vez de cuatro por OT.
+	const [programa, operaciones, adjuntos, cotizaciones, historia] = await Promise.all([
 		supabaseAdmin.from('ot_machine_schedule').select('ot_id').in('ot_id', ids),
 		supabaseAdmin.from('ot_operations').select('ot_id').in('ot_id', ids),
 		supabaseAdmin.from('ot_attachments').select('ot_id').in('ot_id', ids),
@@ -49,12 +49,26 @@ export async function GET(_req: NextRequest) {
 			.from('vistos_buenos')
 			.select('id, total_price')
 			.in('id', (ots ?? []).map((o: any) => o.vb_id).filter(Boolean)),
+		// Cuándo entró a Pre-Prensa. `ot_status_history` ya lo escribe, así que la
+		// antigüedad no necesita columna nueva — sólo que alguien la mire.
+		supabaseAdmin
+			.from('ot_status_history')
+			.select('ot_id, created_at')
+			.in('ot_id', ids)
+			.eq('to_status', 'pre_press')
+			.order('created_at', { ascending: false }),
 	]);
 
 	const conjunto = (filas: any) => new Set(((filas?.data ?? []) as any[]).map((r) => r.ot_id));
 	const conPrograma = conjunto(programa);
 	const conOperaciones = conjunto(operaciones);
 	const conArte = conjunto(adjuntos);
+	// La más reciente de cada OT: si volvió a Pre-Prensa, cuenta desde que volvió.
+	const entroEl = new Map<string, string>();
+	for (const h of ((historia?.data ?? []) as any[])) {
+		if (!entroEl.has(h.ot_id)) entroEl.set(h.ot_id, h.created_at);
+	}
+
 	const precioCotizado = new Map(
 		((cotizaciones?.data ?? []) as any[]).map((v) => [v.id, Number(v.total_price) || null]),
 	);
@@ -82,6 +96,13 @@ export async function GET(_req: NextRequest) {
 			deadline: o.deadline,
 			spec,
 			faltan: missingFor(2, spec).length,
+			// Se manda la fecha, no los días: el cliente calcula contra SU reloj y
+			// así una pestaña abierta desde ayer no miente.
+			en_pre_prensa_desde: entroEl.get(o.id) ?? o.created_at,
+			// Si TODO lo que falta lo debe el cliente, el taller no puede hacer nada
+			// más que llamar. Es una lista de trabajo distinta.
+			espera_al_cliente:
+				missingFor(2, spec).length > 0 && missingFor(2, spec).every((g) => g.owner === 'cliente'),
 			quoted_price: o.vb_id ? precioCotizado.get(o.vb_id) ?? null : null,
 			firm_price: Number(o.total_price) || null,
 		};
@@ -89,10 +110,19 @@ export async function GET(_req: NextRequest) {
 
 	return NextResponse.json({
 		// Las que menos les falta van primero: son las que se pueden cerrar hoy.
-		trabajos: trabajos.sort((a, b) => a.faltan - b.faltan || String(a.deadline ?? '').localeCompare(String(b.deadline ?? ''))),
+		// Ordena por ANTIGÜEDAD, no por lo que falta.
+		//
+		// Antes iban primero las que menos les faltaba —las fáciles de cerrar— y
+		// eso es exactamente al revés de cómo se gobierna una cola: lo que hunde
+		// una fecha de entrega es el trabajo que lleva seis días esperando, no el
+		// que entró hoy con un hueco.
+		trabajos: trabajos.sort((a, b) =>
+			String(a.en_pre_prensa_desde).localeCompare(String(b.en_pre_prensa_desde)),
+		),
 		diagnostics: {
 			total: trabajos.length,
 			listas: trabajos.filter((t) => t.faltan === 0).length,
+			esperando_al_cliente: trabajos.filter((t) => t.espera_al_cliente).length,
 		},
 	});
 }

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { computeOTCalculations, computeMultiQuantityQuotes, computeImposition, generateDefaultOperations } from '@/lib/ot-calculations';
+import { computeOTCalculations, computeMultiQuantityQuotes, computeImposition, generateDefaultOperations, DEFAULT_COSTS } from '@/lib/ot-calculations';
 import { INITIAL_OT_FORM, EMPTY_FINISHES } from '@/types/ot';
 
 // Concrete form with known dimensions so we can derive expected values under
@@ -316,5 +316,205 @@ describe('CALIBRATION — el troquelado corre a la velocidad de la troqueladora'
 		// setup 1,5 h + pliegos/3.500
 		expect(c.calc_finish_hours).toBeCloseTo(1.5 + c.calc_sheets / 3500, 1);
 		expect(c.calc_finish_hours).toBeLessThan(40);
+	});
+});
+
+/* ─── La cobertura es de la plancha, no del trabajo ─────────── */
+
+describe('cada plancha carga la tinta que le toca', () => {
+	// Una etiqueta de vino real: fondo pantone a solidez plena, y el negro es
+	// sólo el texto legal de la contraetiqueta.
+	const ETIQUETA = {
+		...INITIAL_OT_FORM,
+		quantity: 120_000,
+		width_cm: 10, height_cm: 12,
+		grammage_gsm: 150,
+		substrate_type: 'couche' as const,
+		color_front: 'cmyk' as const,
+	};
+
+	it('un fondo a full con un negro de texto NO cuesta lo mismo que cuatro fondos', () => {
+		// Era el defecto: una sola clase de cobertura para todo el trabajo.
+		// «Alta» multiplicaba también el negro por 1,8 —tinta que nadie compra— y
+		// «media» subestimaba el fondo, que es donde está el gasto.
+		const todoAFull = computeOTCalculations(ETIQUETA, { inkCoverage: 'heavy' });
+		const realista = computeOTCalculations(ETIQUETA, {
+			inkCoverage: 'medium',
+			plateCoverage: ['heavy', 'medium', 'medium', 'trace'],
+		});
+		expect(realista.calc_ink_kg).toBeLessThan(todoAFull.calc_ink_kg);
+	});
+
+	it('una pizca es un orden de magnitud menos que «liviana», no un poco menos', () => {
+		const pizca = computeOTCalculations(ETIQUETA, { plateCoverage: ['trace'], inkCoverage: 'trace' });
+		const liviana = computeOTCalculations(ETIQUETA, { inkCoverage: 'light' });
+		// El alistamiento es igual en los dos, así que se compara lo variable.
+		const fijo = 4 * 0.1;
+		expect((liviana.calc_ink_kg - fijo) / (pizca.calc_ink_kg - fijo)).toBeGreaterThan(3.5);
+	});
+
+	it('detallar sólo la plancha rara: el resto usa la clase del trabajo', () => {
+		// Se puede decir «todo medio salvo el negro, que es una pizca» sin tener
+		// que enumerar las cuatro.
+		const soloElNegro = computeOTCalculations(ETIQUETA, {
+			inkCoverage: 'medium',
+			plateCoverage: ['medium', 'medium', 'medium', 'trace'],
+		});
+		const abreviado = computeOTCalculations(ETIQUETA, {
+			inkCoverage: 'medium',
+			plateCoverage: [undefined as never, undefined as never, undefined as never, 'trace'],
+		});
+		expect(abreviado.calc_ink_kg).toBeCloseTo(soloElNegro.calc_ink_kg, 3);
+	});
+
+	it('sin detalle por plancha da exactamente lo de antes', () => {
+		// La compatibilidad importa: todas las cotizaciones existentes pasan por
+		// acá sin `plateCoverage`.
+		const antes = computeOTCalculations(ETIQUETA, { inkCoverage: 'heavy' });
+		const ahora = computeOTCalculations(ETIQUETA, {
+			inkCoverage: 'heavy',
+			plateCoverage: ['heavy', 'heavy', 'heavy', 'heavy'],
+		});
+		expect(ahora.calc_ink_kg).toBe(antes.calc_ink_kg);
+	});
+
+	it('sobran clases si se listan más planchas que colores', () => {
+		const cuatro = computeOTCalculations(ETIQUETA, {
+			plateCoverage: ['heavy', 'trace', 'trace', 'trace', 'heavy', 'heavy'],
+			inkCoverage: 'medium',
+		});
+		const justas = computeOTCalculations(ETIQUETA, {
+			plateCoverage: ['heavy', 'trace', 'trace', 'trace'],
+			inkCoverage: 'medium',
+		});
+		expect(cuatro.calc_ink_kg).toBe(justas.calc_ink_kg);
+	});
+
+	it('el alistamiento NO baja con la cobertura', () => {
+		// Para entrar en registro hay que cargar el tintero igual, aunque la
+		// plancha después apenas marque. Es costo fijo por color.
+		const pizcas = computeOTCalculations({ ...ETIQUETA, quantity: 1 }, {
+			plateCoverage: ['trace', 'trace', 'trace', 'trace'],
+		});
+		expect(pizcas.calc_ink_kg).toBeGreaterThan(4 * 0.1);
+	});
+});
+
+/* ─── Dato variable: offset para el grueso, digital para el detalle ── */
+
+describe('el trabajo que pasa por dos máquinas', () => {
+	// 120.000 etiquetas con un fondo común y un código distinto en cada una.
+	const CON_NOMBRE = {
+		...INITIAL_OT_FORM,
+		quantity: 120_000,
+		width_cm: 10, height_cm: 12,
+		grammage_gsm: 150,
+		substrate_type: 'couche' as const,
+		color_front: 'cmyk' as const,
+	};
+	const RATES = { substrate_per_kg: 1900, ink_per_kg: 31915, digital_variable_click: 120, offset_print_per_hour: 85000 };
+
+	it('la digital agrega horas de máquina, no reemplaza las de offset', () => {
+		const soloOffset = computeOTCalculations(CON_NOMBRE);
+		const hibrido = computeOTCalculations(CON_NOMBRE, { variableData: true });
+		expect(hibrido.calc_print_hours).toBeGreaterThan(soloOffset.calc_print_hours);
+		// Los pliegos son los mismos: es el mismo papel pasando dos veces.
+		expect(hibrido.calc_sheets).toBe(soloOffset.calc_sheets);
+	});
+
+	it('la digital no tiene alistamiento, y por eso se usa para esto', () => {
+		// No hay planchas que montar ni registro que cuadrar. Sus horas son
+		// pliegos ÷ velocidad, sin el medio hora por pasada del offset.
+		const c = computeOTCalculations(CON_NOMBRE, { variableData: true, digitalSpeedSheetsHr: 1400 });
+		const base = computeOTCalculations(CON_NOMBRE);
+		expect(c.calc_print_hours - base.calc_print_hours).toBeCloseTo(c.calc_sheets / 1400, 1);
+	});
+
+	it('se cobra por clic: el costo por unidad NO baja con el tiraje', () => {
+		// Es lo contrario del offset, y la razón por la que conviene combinarlas
+		// en vez de elegir una. Un clic es un pliego que pasa.
+		const chico = { ...CON_NOMBRE, quantity: 10_000 };
+		const grande = { ...CON_NOMBRE, quantity: 200_000 };
+
+		const clicPorPliego = (form: typeof CON_NOMBRE) => {
+			const c = computeOTCalculations({ ...form, variable_data: true }, { variableData: true });
+			const ops = generateDefaultOperations({ ...form, variable_data: true }, c, RATES);
+			const digital = ops.find((o) => o.name.includes('dato variable'))!;
+			return digital.total_cost / c.calc_sheets;
+		};
+		expect(clicPorPliego(chico)).toBeCloseTo(clicPorPliego(grande), 5);
+	});
+
+	it('va como operación aparte, no sumada a la de offset', () => {
+		// El jefe de taller tiene que poder ver cuánto le cuesta personalizar:
+		// es la decisión que está tomando.
+		const c = computeOTCalculations({ ...CON_NOMBRE, variable_data: true }, { variableData: true });
+		const ops = generateDefaultOperations({ ...CON_NOMBRE, variable_data: true }, c, RATES);
+		const offset = ops.find((o) => o.name === 'Impresión Offset');
+		const digital = ops.find((o) => o.name.includes('dato variable'));
+		expect(offset).toBeDefined();
+		expect(digital).toBeDefined();
+		expect(digital!.unit).toBe('clic');
+	});
+
+	it('sin dato variable no aparece ninguna línea de digital', () => {
+		const c = computeOTCalculations(CON_NOMBRE);
+		const ops = generateDefaultOperations(CON_NOMBRE, c, RATES);
+		expect(ops.some((o) => o.name.includes('dato variable'))).toBe(false);
+	});
+});
+
+describe('el clic del dato variable no es el clic a todo color', () => {
+	it('cobra el patch de negro, no una cuatricromía entera', () => {
+		// Cobrarlo al clic de color multiplicaba por cinco un costo que el taller
+		// no paga: sobre 120.000 etiquetas, $6,1 millones contra $1,2.
+		expect(DEFAULT_COSTS.digital_variable_click).toBeLessThan(DEFAULT_COSTS.digital_click / 3);
+	});
+});
+
+/* ─── El troquel no es lo mismo que troquelar ──────────────── */
+
+describe('el herramental del troquel', () => {
+	const CON_TROQUEL = {
+		...INITIAL_OT_FORM,
+		quantity: 50_000, width_cm: 20, height_cm: 30, grammage_gsm: 300,
+		substrate_type: 'cartulina' as const, color_front: 'cmyk' as const,
+		finishes: { ...EMPTY_FINISHES, finish_troquelado: true },
+	};
+	const RATES = { substrate_per_kg: 2800, troquelado_per_hour: 25000, die_tooling: 320_000 };
+
+	it('un trabajo nuevo paga la matriz; una repetición no', () => {
+		// La cotización sólo preguntaba SI se troquela, así que los dos salían
+		// idénticos — con cientos de miles de pesos de diferencia real.
+		const nuevo = { ...CON_TROQUEL, die_new: true };
+		const repite = { ...CON_TROQUEL, die_new: false };
+		const c = computeOTCalculations(CON_TROQUEL);
+		const conMatriz = generateDefaultOperations(nuevo, c, RATES).reduce((s, o) => s + o.total_cost, 0);
+		const sinMatriz = generateDefaultOperations(repite, c, RATES).reduce((s, o) => s + o.total_cost, 0);
+		expect(conMatriz - sinMatriz).toBeGreaterThan(300_000);
+	});
+
+	it('es un costo de UNA VEZ: no se reparte por pliego', () => {
+		// Y por eso pesa diez veces más por unidad en un tiraje corto, que es la
+		// razón por la que un cliente que repite paga menos sin pedir descuento.
+		const chico = computeOTCalculations({ ...CON_TROQUEL, quantity: 5_000 });
+		const grande = computeOTCalculations({ ...CON_TROQUEL, quantity: 50_000 });
+		const matriz = (calcs: typeof chico, form: typeof CON_TROQUEL) =>
+			generateDefaultOperations({ ...form, die_new: true }, calcs, RATES)
+				.find((o) => o.name.includes('Troquel nuevo'))!.total_cost;
+		expect(matriz(chico, { ...CON_TROQUEL, quantity: 5_000 })).toBe(matriz(grande, CON_TROQUEL));
+	});
+
+	it('sin troquelado no hay troquel, aunque se marque', () => {
+		const sinTroquelar = { ...CON_TROQUEL, finishes: { ...EMPTY_FINISHES }, die_new: true };
+		const c = computeOTCalculations(sinTroquelar);
+		expect(generateDefaultOperations(sinTroquelar, c, RATES).some((o) => o.name.includes('Troquel nuevo'))).toBe(false);
+	});
+
+	it('va como línea propia, separada de la hora de máquina', () => {
+		const c = computeOTCalculations(CON_TROQUEL);
+		const ops = generateDefaultOperations({ ...CON_TROQUEL, die_new: true }, c, RATES);
+		expect(ops.find((o) => o.name === 'Troquelado')).toBeDefined();
+		expect(ops.find((o) => o.name.includes('Troquel nuevo'))!.unit).toBe('global');
 	});
 });
