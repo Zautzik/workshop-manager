@@ -44,12 +44,15 @@ export async function GET(req: NextRequest) {
   const q = req.nextUrl.searchParams;
   const limite = Math.min(Number(q.get('limit')) || 200, 500);
 
+  // `inventory_lots_disponibilidad` en vez de la tabla: trae `libre`, que es
+  // el saldo con lo reservado descontado. Prometer sobre `quantity_available`
+  // es prometer papel que ya está comprometido con otra orden.
   let consulta = supabaseAdmin
-    .from('inventory_lots')
+    .from('inventory_lots_disponibilidad')
     .select(
       'id, lot_number, quantity_received, quantity_available, unit_cost, received_date, ' +
       'supplier_name, certification_code, certification_expires_on, blocked_reason, ' +
-      'qr_printed_at, purchase_id, ' +
+      'purchase_id, reservado, libre, reservas_activas, ' +
       'inventory_items ( id, name, sku, unit, category, is_certification_required ), ' +
       'purchases ( oc_number )'
     )
@@ -57,7 +60,8 @@ export async function GET(req: NextRequest) {
     .limit(limite);
 
   // Sin saldo no hay nada que etiquetar ni que consumir; se piden aparte.
-  if (q.get('con_saldo') === '1') consulta = consulta.gt('quantity_available', 0);
+  // «Con saldo» pasa a significar «se puede tomar», no «existe físicamente».
+  if (q.get('con_saldo') === '1') consulta = consulta.gt('libre', 0);
 
   const { data, error } = await consulta;
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });

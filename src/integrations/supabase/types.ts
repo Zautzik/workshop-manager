@@ -314,6 +314,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "capture_events_lot_id_fkey"
+            columns: ["lot_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_lots_disponibilidad"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "capture_events_ot_id_fkey"
             columns: ["ot_id"]
             isOneToOne: false
@@ -1630,6 +1637,95 @@ export type Database = {
           },
         ]
       }
+      inventory_reservations: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          expires_at: string
+          id: string
+          lot_id: string
+          ot_id: string
+          quantity: number
+          released_at: string | null
+          released_reason: string | null
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          expires_at: string
+          id?: string
+          lot_id: string
+          ot_id: string
+          quantity: number
+          released_at?: string | null
+          released_reason?: string | null
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          expires_at?: string
+          id?: string
+          lot_id?: string
+          ot_id?: string
+          quantity?: number
+          released_at?: string | null
+          released_reason?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inventory_reservations_lot_id_fkey"
+            columns: ["lot_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_lots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_reservations_lot_id_fkey"
+            columns: ["lot_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_lots_disponibilidad"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_reservations_ot_id_fkey"
+            columns: ["ot_id"]
+            isOneToOne: false
+            referencedRelation: "ot_certificacion"
+            referencedColumns: ["ot_id"]
+          },
+          {
+            foreignKeyName: "inventory_reservations_ot_id_fkey"
+            columns: ["ot_id"]
+            isOneToOne: false
+            referencedRelation: "ot_compras_estado"
+            referencedColumns: ["ot_id"]
+          },
+          {
+            foreignKeyName: "inventory_reservations_ot_id_fkey"
+            columns: ["ot_id"]
+            isOneToOne: false
+            referencedRelation: "ot_cost_summary"
+            referencedColumns: ["ot_id"]
+          },
+          {
+            foreignKeyName: "inventory_reservations_ot_id_fkey"
+            columns: ["ot_id"]
+            isOneToOne: false
+            referencedRelation: "ot_fulfillment"
+            referencedColumns: ["ot_id"]
+          },
+          {
+            foreignKeyName: "inventory_reservations_ot_id_fkey"
+            columns: ["ot_id"]
+            isOneToOne: false
+            referencedRelation: "ots"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       inventory_stock_transactions: {
         Row: {
           authorized_deviation: boolean
@@ -1710,6 +1806,13 @@ export type Database = {
             columns: ["lot_id"]
             isOneToOne: false
             referencedRelation: "inventory_lots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_stock_transactions_lot_id_fkey"
+            columns: ["lot_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_lots_disponibilidad"
             referencedColumns: ["id"]
           },
           {
@@ -4302,6 +4405,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "ot_requirements_lot_id_fkey"
+            columns: ["lot_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_lots_disponibilidad"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "ot_requirements_ot_id_fkey"
             columns: ["ot_id"]
             isOneToOne: false
@@ -5203,6 +5313,13 @@ export type Database = {
             columns: ["lot_id"]
             isOneToOne: false
             referencedRelation: "inventory_lots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_items_lot_id_fkey"
+            columns: ["lot_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_lots_disponibilidad"
             referencedColumns: ["id"]
           },
           {
@@ -6753,6 +6870,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "whatsapp_warehouse_logs_lot_id_fkey"
+            columns: ["lot_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_lots_disponibilidad"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "whatsapp_warehouse_logs_operator_employee_id_fkey"
             columns: ["operator_employee_id"]
             isOneToOne: false
@@ -7075,6 +7199,83 @@ export type Database = {
         }
         Relationships: []
       }
+      inventory_lots_disponibilidad: {
+        Row: {
+          blocked_reason: string | null
+          certification_code: string | null
+          certification_expires_on: string | null
+          id: string | null
+          item_id: string | null
+          libre: number | null
+          lot_number: string | null
+          purchase_id: string | null
+          quantity_available: number | null
+          quantity_received: number | null
+          received_date: string | null
+          reservado: number | null
+          reservas_activas: number | null
+          supplier_name: string | null
+          unit_cost: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inventory_lots_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_lots_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_items_stock_v"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_lots_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_low_stock_alerts_v"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_lots_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "material_cost_v"
+            referencedColumns: ["item_id"]
+          },
+          {
+            foreignKeyName: "inventory_lots_purchase_id_fkey"
+            columns: ["purchase_id"]
+            isOneToOne: false
+            referencedRelation: "machine_parts_on_order_v"
+            referencedColumns: ["purchase_id"]
+          },
+          {
+            foreignKeyName: "inventory_lots_purchase_id_fkey"
+            columns: ["purchase_id"]
+            isOneToOne: false
+            referencedRelation: "oc_billing"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_lots_purchase_id_fkey"
+            columns: ["purchase_id"]
+            isOneToOne: false
+            referencedRelation: "oc_conciliacion"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_lots_purchase_id_fkey"
+            columns: ["purchase_id"]
+            isOneToOne: false
+            referencedRelation: "purchases"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       inventory_low_stock_alerts_v: {
         Row: {
           category:
@@ -7152,6 +7353,13 @@ export type Database = {
             columns: ["lot_id"]
             isOneToOne: false
             referencedRelation: "inventory_lots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_stock_transactions_lot_id_fkey"
+            columns: ["lot_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_lots_disponibilidad"
             referencedColumns: ["id"]
           },
           {
@@ -7867,6 +8075,13 @@ export type Database = {
             referencedRelation: "inventory_lots"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "whatsapp_warehouse_logs_lot_id_fkey"
+            columns: ["lot_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_lots_disponibilidad"
+            referencedColumns: ["id"]
+          },
         ]
       }
       whatsapp_warehouse_today_v: {
@@ -8186,6 +8401,10 @@ export type Database = {
         Args: { p_role_name: string; p_user_id: string }
         Returns: boolean
       }
+      liberar_reserva: {
+        Args: { p_lot_id: string; p_motivo: string; p_ot_id: string }
+        Returns: number
+      }
       log_hr_compliance_access: {
         Args: {
           p_access_type?: string
@@ -8231,6 +8450,15 @@ export type Database = {
           p_filas: Json
           p_ot_id: string
           p_visto_en?: string
+        }
+        Returns: Json
+      }
+      reservar_lote: {
+        Args: {
+          p_by?: string
+          p_lot_id: string
+          p_ot_id: string
+          p_quantity: number
         }
         Returns: Json
       }

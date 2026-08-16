@@ -46,6 +46,9 @@ interface Lote {
 	id: string;
 	lot_number: string;
 	quantity_available: number;
+	/** Lo que se puede tomar: el saldo con lo reservado descontado. */
+	libre: number;
+	reservado: number;
 	certification_expires_on: string | null;
 	inventory_items?: { name?: string | null } | null;
 }
@@ -155,7 +158,44 @@ export function ComprasDialog({ ot, open, onOpenChange, onDone }: Props) {
 			toast.error(b?.error ?? 'No se pudo guardar');
 			return;
 		}
+		// ── Comprometer el papel elegido ──────────────────────────────────────
+		//
+		// Guardar «sale del lote X» sin reservarlo deja el pallet disponible para
+		// que otra OT se lo lleve. La reserva se hace DESPUÉS de guardar, porque
+		// si el guardado falla no hay que comprometer nada.
+		//
+		// Es mejor esfuerzo a propósito: el requisito ya quedó registrado, y si
+		// una reserva no entra —porque alguien tomó el papel primero— eso se
+		// avisa sin deshacer lo que sí se guardó.
+		const deBodega = reqs.filter((r) => r.source === 'bodega' && r.lotId);
+		const noReservados: string[] = [];
+		for (const r of deBodega) {
+			const res = await fetch('/api/lots/reserve', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					lot_id: r.lotId,
+					ot_id: ot.id,
+					quantity: r.quantity && r.quantity > 0 ? r.quantity : 1,
+				}),
+			});
+			if (!res.ok) {
+				const eb = await res.json().catch(() => null);
+				noReservados.push(eb?.error ?? r.description);
+			}
+		}
+
 		toast.success(b.resumen);
+		if (noReservados.length > 0) {
+			toast.warning(`No se pudo comprometer el papel: ${noReservados.join(' · ')}`, {
+				duration: 9000,
+			});
+		} else if (deBodega.length > 0) {
+			toast.success(
+				`${deBodega.length === 1 ? 'Un lote queda comprometido' : `${deBodega.length} lotes quedan comprometidos`} con esta OT.`,
+			);
+		}
+
 		setEsPropuesta(false);
 		onDone?.();
 	};
@@ -259,10 +299,17 @@ export function ComprasDialog({ ot, open, onOpenChange, onDone }: Props) {
 												<option value="">¿De qué lote sale?</option>
 												{lotes.map((l) => {
 													const cert = certStatus(l.certification_expires_on);
+													// Lo LIBRE, no lo físico: ofrecer papel comprometido con
+													// otra orden es prometer algo que no está.
+													const libre = Number(l.libre ?? l.quantity_available);
+													const comprometido = Number(l.reservado ?? 0);
 													return (
 														<option key={l.id} value={l.id}>
 															{l.lot_number} · {l.inventory_items?.name ?? ''} ·{' '}
-															{Number(l.quantity_available).toLocaleString('es-CL')} disp.
+															{libre.toLocaleString('es-CL')} libres
+															{comprometido > 0
+																? ` (${comprometido.toLocaleString('es-CL')} comprometidos)`
+																: ''}
 															{cert === 'vencido' ? ' ⚠ cert vencido' : ''}
 														</option>
 													);
