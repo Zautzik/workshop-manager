@@ -63,7 +63,12 @@ export async function POST(
         'id, ot_number, status, client_id, product_name, product_type, quantity, ' +
         'width_cm, height_cm, substrate_type, grammage_gsm, color_front, color_back, ' +
         'ink_coverage, deadline, assigned_machine_id, substrate_brand, substrate_supplier, ' +
-        'sin_arte, total_price, vb_id',
+        'sin_arte, total_price, vb_id, ' +
+        // Las banderas y el herramental: sin traerlos, la ficha llega con las
+        // terminaciones vacías y ninguna compuerta condicional se dispara.
+        'finish_troquelado, finish_plegado, finish_pegado, finish_laminado, finish_barniz, ' +
+        'finish_relieve, finish_perforado, finish_hot_stamping, finish_uv_localizado, finish_numeracion, ' +
+        'die_source, die_code, die_id, cliche_code, relieve_matrix_code, lamination_type',
       )
       .eq('id', id)
       .single();
@@ -96,13 +101,18 @@ export async function POST(
     // programación; operaciones revisadas dejan líneas de operación. Preguntar
     // por el rastro es más fiable que por una casilla que alguien puede marcar
     // sin haber hecho el trabajo.
-    const [programa, operaciones, arte, cotizacion] = await Promise.all([
+    const [programa, operaciones, arte, cotizacion, requisitos] = await Promise.all([
       supabaseAdmin.from('ot_machine_schedule').select('id', { count: 'exact', head: true }).eq('ot_id', id),
       supabaseAdmin.from('ot_operations').select('id', { count: 'exact', head: true }).eq('ot_id', id),
       supabaseAdmin.from('ot_attachments').select('id', { count: 'exact', head: true }).eq('ot_id', id),
       o.vb_id
         ? supabaseAdmin.from('vistos_buenos').select('total_price').eq('id', o.vb_id).maybeSingle()
         : Promise.resolve({ data: null }),
+      // Lo que la OT necesita, para la compuerta de salida de Compras.
+      supabaseAdmin
+        .from('ot_requirements')
+        .select('description, status')
+        .eq('ot_id', id),
     ]);
 
     const spec: OTSpec = {
@@ -117,7 +127,27 @@ export async function POST(
       operationsReviewed: (operaciones.count ?? 0) > 0,
       artAttached: (arte.count ?? 0) > 0,
       sinArte: o.sin_arte,
-      finishes: {},
+      // Las terminaciones REALES. Estaban en `{}` fijo —el mismo defecto que
+      // tenía la ruta de Pre-Prensa— así que ninguna compuerta de herramental
+      // podía dispararse: una OT troquelada pasaba a Visto Bueno sin que nadie
+      // hubiera confirmado que el troquel existe.
+      finishes: {
+        troquelado: !!o.finish_troquelado,
+        plegado: !!o.finish_plegado,
+        pegado: !!o.finish_pegado,
+        laminado: !!o.finish_laminado,
+        barniz: !!o.finish_barniz,
+        relieve: !!o.finish_relieve,
+        perforado: !!o.finish_perforado,
+        hot_stamping: !!o.finish_hot_stamping,
+        uv_localizado: !!o.finish_uv_localizado,
+        numeracion: !!o.finish_numeracion,
+      },
+      dieSource: o.die_id ? 'existente' : o.die_source,
+      dieCode: o.die_id ? o.die_id : o.die_code,
+      clicheCode: o.cliche_code,
+      relieveMatrixCode: o.relieve_matrix_code,
+      laminationType: o.lamination_type,
     };
 
     const transitionCheck = validateTransition({
@@ -133,6 +163,9 @@ export async function POST(
       hasApprovedApproval: (approvalResult.count ?? 0) > 0,
       hasAnyRealCosts: (costsResult.count ?? 0) > 0,
       rollback: parsed.data.rollback ?? false,
+      // `?? undefined` y no `?? []`: una lista vacía significaría «no falta
+      // nada» y dejaría pasar cualquier OT. Sin dato, la compuerta no corre.
+      requirements: (requisitos.data as { description: string; status: string }[] | null) ?? undefined,
     });
 
     if (!transitionCheck.ok) {

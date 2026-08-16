@@ -207,7 +207,7 @@ const round2 = (n: number) => Math.round(n * 100) / 100;
 
 /* ─── Helpers ───────────────────────────────────────────────── */
 
-function colorCount(mode: OTColorMode): number {
+export function colorCount(mode: OTColorMode): number {
   switch (mode) {
     case 'cmyk': return 4;
     case 'cmyk_pantone': return 5;
@@ -219,7 +219,7 @@ function colorCount(mode: OTColorMode): number {
 }
 
 /** Press passes for a job: colours per side ÷ press bodies, per side. */
-function pressPasses(front: number, back: number, bodies: number): number {
+export function pressPasses(front: number, back: number, bodies: number): number {
   const b = Math.max(1, bodies);
   const fp = front > 0 ? Math.ceil(front / b) : 0;
   const bp = back > 0 ? Math.ceil(back / b) : 0;
@@ -340,6 +340,25 @@ export function computeImposition(
 
 /* ─── Main calculation ──────────────────────────────────────── */
 
+/**
+ * Los pliegos de puesta a punto de un trabajo.
+ *
+ * Se exporta porque hay una segunda pregunta que los necesita: cuando una OT
+ * avanza a medias, el arreglo NO se reparte — se gasta una vez y va entero con
+ * el primer fragmento. Recalcularlo por fuera sería tener dos definiciones del
+ * mismo número, y la de afuera se quedaría vieja el día que se calibre esta.
+ */
+export function makeReadySheets(
+  passes: number,
+  finishes: { finish_troquelado?: boolean; finish_hot_stamping?: boolean } = {},
+): number {
+  return (
+    passes * CALIBRATION.MAKEREADY_SHEETS_PER_PASS +
+    (finishes.finish_troquelado ? CALIBRATION.DIE_SETUP_SHEETS : 0) +
+    (finishes.finish_hot_stamping ? CALIBRATION.HOTSTAMP_SETUP_SHEETS : 0)
+  );
+}
+
 export function computeOTCalculations(form: OTFormData, opts: OTCalcOptions = {}): OTCalculations {
   const { quantity, width_cm, height_cm, grammage_gsm, color_front, color_back, finishes, substrate_type } = form;
   const C = CALIBRATION;
@@ -357,10 +376,7 @@ export function computeOTCalculations(form: OTFormData, opts: OTCalcOptions = {}
   const passes = pressPasses(frontColors, backColors, bodies);
 
   // Process-aware waste: base spoilage + make-ready per pass + finish setups.
-  const setupSheets =
-    passes * C.MAKEREADY_SHEETS_PER_PASS +
-    (finishes.finish_troquelado ? C.DIE_SETUP_SHEETS : 0) +
-    (finishes.finish_hot_stamping ? C.HOTSTAMP_SETUP_SHEETS : 0);
+  const setupSheets = makeReadySheets(passes, finishes);
   const totalSheets = Math.ceil(rawSheets * (1 + C.BASE_WASTE_PCT)) + setupSheets;
 
   // Substrate weight on the CHOSEN format (not a hardcoded 70×100).

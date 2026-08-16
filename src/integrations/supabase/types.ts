@@ -317,6 +317,20 @@ export type Database = {
             foreignKeyName: "capture_events_ot_id_fkey"
             columns: ["ot_id"]
             isOneToOne: false
+            referencedRelation: "ot_certificacion"
+            referencedColumns: ["ot_id"]
+          },
+          {
+            foreignKeyName: "capture_events_ot_id_fkey"
+            columns: ["ot_id"]
+            isOneToOne: false
+            referencedRelation: "ot_compras_estado"
+            referencedColumns: ["ot_id"]
+          },
+          {
+            foreignKeyName: "capture_events_ot_id_fkey"
+            columns: ["ot_id"]
+            isOneToOne: false
             referencedRelation: "ot_cost_summary"
             referencedColumns: ["ot_id"]
           },
@@ -363,6 +377,36 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      certification_requirements: {
+        Row: {
+          created_at: string
+          id: string
+          material_category: string | null
+          min_days_valid_at_use: number
+          notes: string | null
+          override_role: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          material_category?: string | null
+          min_days_valid_at_use?: number
+          notes?: string | null
+          override_role?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          material_category?: string | null
+          min_days_valid_at_use?: number
+          notes?: string | null
+          override_role?: string | null
+          updated_at?: string
+        }
+        Relationships: []
       }
       clients: {
         Row: {
@@ -672,6 +716,20 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "sales_invoices"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dispatch_guides_ot_id_fkey"
+            columns: ["ot_id"]
+            isOneToOne: false
+            referencedRelation: "ot_certificacion"
+            referencedColumns: ["ot_id"]
+          },
+          {
+            foreignKeyName: "dispatch_guides_ot_id_fkey"
+            columns: ["ot_id"]
+            isOneToOne: false
+            referencedRelation: "ot_compras_estado"
+            referencedColumns: ["ot_id"]
           },
           {
             foreignKeyName: "dispatch_guides_ot_id_fkey"
@@ -1448,6 +1506,9 @@ export type Database = {
       }
       inventory_lots: {
         Row: {
+          blocked_at: string | null
+          blocked_by: string | null
+          blocked_reason: string | null
           cert_override_by: string | null
           cert_override_reason: string | null
           certification_code: string | null
@@ -1457,6 +1518,7 @@ export type Database = {
           item_id: string
           lot_number: string
           purchase_id: string | null
+          qr_printed_at: string | null
           quantity_available: number
           quantity_received: number
           received_by: string | null
@@ -1466,6 +1528,9 @@ export type Database = {
           variance_reason: string | null
         }
         Insert: {
+          blocked_at?: string | null
+          blocked_by?: string | null
+          blocked_reason?: string | null
           cert_override_by?: string | null
           cert_override_reason?: string | null
           certification_code?: string | null
@@ -1475,6 +1540,7 @@ export type Database = {
           item_id: string
           lot_number: string
           purchase_id?: string | null
+          qr_printed_at?: string | null
           quantity_available: number
           quantity_received: number
           received_by?: string | null
@@ -1484,6 +1550,9 @@ export type Database = {
           variance_reason?: string | null
         }
         Update: {
+          blocked_at?: string | null
+          blocked_by?: string | null
+          blocked_reason?: string | null
           cert_override_by?: string | null
           cert_override_reason?: string | null
           certification_code?: string | null
@@ -1493,6 +1562,7 @@ export type Database = {
           item_id?: string
           lot_number?: string
           purchase_id?: string | null
+          qr_printed_at?: string | null
           quantity_available?: number
           quantity_received?: number
           received_by?: string | null
@@ -1562,8 +1632,10 @@ export type Database = {
       }
       inventory_stock_transactions: {
         Row: {
+          authorized_deviation: boolean
           created_at: string
           created_by: string | null
+          deviation_reason: string | null
           id: string
           item_id: string
           lot_id: string | null
@@ -1575,8 +1647,10 @@ export type Database = {
           work_order_id: string | null
         }
         Insert: {
+          authorized_deviation?: boolean
           created_at?: string
           created_by?: string | null
+          deviation_reason?: string | null
           id?: string
           item_id: string
           lot_id?: string | null
@@ -1588,8 +1662,10 @@ export type Database = {
           work_order_id?: string | null
         }
         Update: {
+          authorized_deviation?: boolean
           created_at?: string
           created_by?: string | null
+          deviation_reason?: string | null
           id?: string
           item_id?: string
           lot_id?: string | null
@@ -1635,6 +1711,20 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "inventory_lots"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_stock_transactions_work_order_id_fkey"
+            columns: ["work_order_id"]
+            isOneToOne: false
+            referencedRelation: "ot_certificacion"
+            referencedColumns: ["ot_id"]
+          },
+          {
+            foreignKeyName: "inventory_stock_transactions_work_order_id_fkey"
+            columns: ["work_order_id"]
+            isOneToOne: false
+            referencedRelation: "ot_compras_estado"
+            referencedColumns: ["ot_id"]
           },
           {
             foreignKeyName: "inventory_stock_transactions_work_order_id_fkey"
@@ -3316,6 +3406,20 @@ export type Database = {
             foreignKeyName: "maintenance_work_orders_ot_id_fkey"
             columns: ["ot_id"]
             isOneToOne: false
+            referencedRelation: "ot_certificacion"
+            referencedColumns: ["ot_id"]
+          },
+          {
+            foreignKeyName: "maintenance_work_orders_ot_id_fkey"
+            columns: ["ot_id"]
+            isOneToOne: false
+            referencedRelation: "ot_compras_estado"
+            referencedColumns: ["ot_id"]
+          },
+          {
+            foreignKeyName: "maintenance_work_orders_ot_id_fkey"
+            columns: ["ot_id"]
+            isOneToOne: false
             referencedRelation: "ot_cost_summary"
             referencedColumns: ["ot_id"]
           },
@@ -3473,6 +3577,20 @@ export type Database = {
             foreignKeyName: "ot_approvals_ot_id_fkey"
             columns: ["ot_id"]
             isOneToOne: false
+            referencedRelation: "ot_certificacion"
+            referencedColumns: ["ot_id"]
+          },
+          {
+            foreignKeyName: "ot_approvals_ot_id_fkey"
+            columns: ["ot_id"]
+            isOneToOne: false
+            referencedRelation: "ot_compras_estado"
+            referencedColumns: ["ot_id"]
+          },
+          {
+            foreignKeyName: "ot_approvals_ot_id_fkey"
+            columns: ["ot_id"]
+            isOneToOne: false
             referencedRelation: "ot_cost_summary"
             referencedColumns: ["ot_id"]
           },
@@ -3543,6 +3661,20 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "ot_drafts"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ot_attachments_ot_id_fkey"
+            columns: ["ot_id"]
+            isOneToOne: false
+            referencedRelation: "ot_certificacion"
+            referencedColumns: ["ot_id"]
+          },
+          {
+            foreignKeyName: "ot_attachments_ot_id_fkey"
+            columns: ["ot_id"]
+            isOneToOne: false
+            referencedRelation: "ot_compras_estado"
+            referencedColumns: ["ot_id"]
           },
           {
             foreignKeyName: "ot_attachments_ot_id_fkey"
@@ -3633,6 +3765,20 @@ export type Database = {
           unit_cost?: number
         }
         Relationships: [
+          {
+            foreignKeyName: "ot_cost_lines_ot_id_fkey"
+            columns: ["ot_id"]
+            isOneToOne: false
+            referencedRelation: "ot_certificacion"
+            referencedColumns: ["ot_id"]
+          },
+          {
+            foreignKeyName: "ot_cost_lines_ot_id_fkey"
+            columns: ["ot_id"]
+            isOneToOne: false
+            referencedRelation: "ot_compras_estado"
+            referencedColumns: ["ot_id"]
+          },
           {
             foreignKeyName: "ot_cost_lines_ot_id_fkey"
             columns: ["ot_id"]
@@ -3739,6 +3885,20 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "ot_financials_ot_id_fkey"
+            columns: ["ot_id"]
+            isOneToOne: false
+            referencedRelation: "ot_certificacion"
+            referencedColumns: ["ot_id"]
+          },
+          {
+            foreignKeyName: "ot_financials_ot_id_fkey"
+            columns: ["ot_id"]
+            isOneToOne: false
+            referencedRelation: "ot_compras_estado"
+            referencedColumns: ["ot_id"]
+          },
           {
             foreignKeyName: "ot_financials_ot_id_fkey"
             columns: ["ot_id"]
@@ -3852,6 +4012,20 @@ export type Database = {
             foreignKeyName: "ot_machine_schedule_ot_id_fkey"
             columns: ["ot_id"]
             isOneToOne: false
+            referencedRelation: "ot_certificacion"
+            referencedColumns: ["ot_id"]
+          },
+          {
+            foreignKeyName: "ot_machine_schedule_ot_id_fkey"
+            columns: ["ot_id"]
+            isOneToOne: false
+            referencedRelation: "ot_compras_estado"
+            referencedColumns: ["ot_id"]
+          },
+          {
+            foreignKeyName: "ot_machine_schedule_ot_id_fkey"
+            columns: ["ot_id"]
+            isOneToOne: false
             referencedRelation: "ot_cost_summary"
             referencedColumns: ["ot_id"]
           },
@@ -3912,6 +4086,20 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "ot_operations_ot_id_fkey"
+            columns: ["ot_id"]
+            isOneToOne: false
+            referencedRelation: "ot_certificacion"
+            referencedColumns: ["ot_id"]
+          },
+          {
+            foreignKeyName: "ot_operations_ot_id_fkey"
+            columns: ["ot_id"]
+            isOneToOne: false
+            referencedRelation: "ot_compras_estado"
+            referencedColumns: ["ot_id"]
+          },
           {
             foreignKeyName: "ot_operations_ot_id_fkey"
             columns: ["ot_id"]
@@ -3989,6 +4177,20 @@ export type Database = {
             foreignKeyName: "ot_real_costs_ot_id_fkey"
             columns: ["ot_id"]
             isOneToOne: false
+            referencedRelation: "ot_certificacion"
+            referencedColumns: ["ot_id"]
+          },
+          {
+            foreignKeyName: "ot_real_costs_ot_id_fkey"
+            columns: ["ot_id"]
+            isOneToOne: false
+            referencedRelation: "ot_compras_estado"
+            referencedColumns: ["ot_id"]
+          },
+          {
+            foreignKeyName: "ot_real_costs_ot_id_fkey"
+            columns: ["ot_id"]
+            isOneToOne: false
             referencedRelation: "ot_cost_summary"
             referencedColumns: ["ot_id"]
           },
@@ -4004,6 +4206,162 @@ export type Database = {
             columns: ["ot_id"]
             isOneToOne: false
             referencedRelation: "ots"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ot_requirements: {
+        Row: {
+          created_at: string
+          description: string
+          id: string
+          item_id: string | null
+          kind: string
+          lot_id: string | null
+          notes: string | null
+          ot_id: string
+          purchase_id: string | null
+          quantity: number | null
+          resolved_at: string | null
+          resolved_by: string | null
+          source: string
+          status: string
+          unit: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description: string
+          id?: string
+          item_id?: string | null
+          kind: string
+          lot_id?: string | null
+          notes?: string | null
+          ot_id: string
+          purchase_id?: string | null
+          quantity?: number | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          source?: string
+          status?: string
+          unit?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string
+          id?: string
+          item_id?: string | null
+          kind?: string
+          lot_id?: string | null
+          notes?: string | null
+          ot_id?: string
+          purchase_id?: string | null
+          quantity?: number | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          source?: string
+          status?: string
+          unit?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ot_requirements_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ot_requirements_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_items_stock_v"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ot_requirements_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_low_stock_alerts_v"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ot_requirements_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "material_cost_v"
+            referencedColumns: ["item_id"]
+          },
+          {
+            foreignKeyName: "ot_requirements_lot_id_fkey"
+            columns: ["lot_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_lots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ot_requirements_ot_id_fkey"
+            columns: ["ot_id"]
+            isOneToOne: false
+            referencedRelation: "ot_certificacion"
+            referencedColumns: ["ot_id"]
+          },
+          {
+            foreignKeyName: "ot_requirements_ot_id_fkey"
+            columns: ["ot_id"]
+            isOneToOne: false
+            referencedRelation: "ot_compras_estado"
+            referencedColumns: ["ot_id"]
+          },
+          {
+            foreignKeyName: "ot_requirements_ot_id_fkey"
+            columns: ["ot_id"]
+            isOneToOne: false
+            referencedRelation: "ot_cost_summary"
+            referencedColumns: ["ot_id"]
+          },
+          {
+            foreignKeyName: "ot_requirements_ot_id_fkey"
+            columns: ["ot_id"]
+            isOneToOne: false
+            referencedRelation: "ot_fulfillment"
+            referencedColumns: ["ot_id"]
+          },
+          {
+            foreignKeyName: "ot_requirements_ot_id_fkey"
+            columns: ["ot_id"]
+            isOneToOne: false
+            referencedRelation: "ots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ot_requirements_purchase_id_fkey"
+            columns: ["purchase_id"]
+            isOneToOne: false
+            referencedRelation: "machine_parts_on_order_v"
+            referencedColumns: ["purchase_id"]
+          },
+          {
+            foreignKeyName: "ot_requirements_purchase_id_fkey"
+            columns: ["purchase_id"]
+            isOneToOne: false
+            referencedRelation: "oc_billing"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ot_requirements_purchase_id_fkey"
+            columns: ["purchase_id"]
+            isOneToOne: false
+            referencedRelation: "oc_conciliacion"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ot_requirements_purchase_id_fkey"
+            columns: ["purchase_id"]
+            isOneToOne: false
+            referencedRelation: "purchases"
             referencedColumns: ["id"]
           },
         ]
@@ -4040,6 +4398,20 @@ export type Database = {
           to_status?: Database["public"]["Enums"]["ot_status"]
         }
         Relationships: [
+          {
+            foreignKeyName: "ot_state_transitions_ot_id_fkey"
+            columns: ["ot_id"]
+            isOneToOne: false
+            referencedRelation: "ot_certificacion"
+            referencedColumns: ["ot_id"]
+          },
+          {
+            foreignKeyName: "ot_state_transitions_ot_id_fkey"
+            columns: ["ot_id"]
+            isOneToOne: false
+            referencedRelation: "ot_compras_estado"
+            referencedColumns: ["ot_id"]
+          },
           {
             foreignKeyName: "ot_state_transitions_ot_id_fkey"
             columns: ["ot_id"]
@@ -4101,6 +4473,20 @@ export type Database = {
           to_status?: Database["public"]["Enums"]["ot_status"]
         }
         Relationships: [
+          {
+            foreignKeyName: "ot_status_history_ot_id_fkey"
+            columns: ["ot_id"]
+            isOneToOne: false
+            referencedRelation: "ot_certificacion"
+            referencedColumns: ["ot_id"]
+          },
+          {
+            foreignKeyName: "ot_status_history_ot_id_fkey"
+            columns: ["ot_id"]
+            isOneToOne: false
+            referencedRelation: "ot_compras_estado"
+            referencedColumns: ["ot_id"]
+          },
           {
             foreignKeyName: "ot_status_history_ot_id_fkey"
             columns: ["ot_id"]
@@ -4932,6 +5318,20 @@ export type Database = {
             foreignKeyName: "purchases_ot_id_fkey"
             columns: ["ot_id"]
             isOneToOne: false
+            referencedRelation: "ot_certificacion"
+            referencedColumns: ["ot_id"]
+          },
+          {
+            foreignKeyName: "purchases_ot_id_fkey"
+            columns: ["ot_id"]
+            isOneToOne: false
+            referencedRelation: "ot_compras_estado"
+            referencedColumns: ["ot_id"]
+          },
+          {
+            foreignKeyName: "purchases_ot_id_fkey"
+            columns: ["ot_id"]
+            isOneToOne: false
             referencedRelation: "ot_cost_summary"
             referencedColumns: ["ot_id"]
           },
@@ -5143,6 +5543,20 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "clients"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_invoices_ot_id_fkey"
+            columns: ["ot_id"]
+            isOneToOne: false
+            referencedRelation: "ot_certificacion"
+            referencedColumns: ["ot_id"]
+          },
+          {
+            foreignKeyName: "sales_invoices_ot_id_fkey"
+            columns: ["ot_id"]
+            isOneToOne: false
+            referencedRelation: "ot_compras_estado"
+            referencedColumns: ["ot_id"]
           },
           {
             foreignKeyName: "sales_invoices_ot_id_fkey"
@@ -5792,6 +6206,20 @@ export type Database = {
             foreignKeyName: "vistos_buenos_ot_id_fkey"
             columns: ["ot_id"]
             isOneToOne: false
+            referencedRelation: "ot_certificacion"
+            referencedColumns: ["ot_id"]
+          },
+          {
+            foreignKeyName: "vistos_buenos_ot_id_fkey"
+            columns: ["ot_id"]
+            isOneToOne: false
+            referencedRelation: "ot_compras_estado"
+            referencedColumns: ["ot_id"]
+          },
+          {
+            foreignKeyName: "vistos_buenos_ot_id_fkey"
+            columns: ["ot_id"]
+            isOneToOne: false
             referencedRelation: "ot_cost_summary"
             referencedColumns: ["ot_id"]
           },
@@ -5943,6 +6371,20 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "planta_live"
             referencedColumns: ["workstation_id"]
+          },
+          {
+            foreignKeyName: "week_plan_snapshot_lines_ot_id_fkey"
+            columns: ["ot_id"]
+            isOneToOne: false
+            referencedRelation: "ot_certificacion"
+            referencedColumns: ["ot_id"]
+          },
+          {
+            foreignKeyName: "week_plan_snapshot_lines_ot_id_fkey"
+            columns: ["ot_id"]
+            isOneToOne: false
+            referencedRelation: "ot_compras_estado"
+            referencedColumns: ["ot_id"]
           },
           {
             foreignKeyName: "week_plan_snapshot_lines_ot_id_fkey"
@@ -6107,6 +6549,20 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "worker_stats"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_production_logs_ot_id_fkey"
+            columns: ["ot_id"]
+            isOneToOne: false
+            referencedRelation: "ot_certificacion"
+            referencedColumns: ["ot_id"]
+          },
+          {
+            foreignKeyName: "whatsapp_production_logs_ot_id_fkey"
+            columns: ["ot_id"]
+            isOneToOne: false
+            referencedRelation: "ot_compras_estado"
+            referencedColumns: ["ot_id"]
           },
           {
             foreignKeyName: "whatsapp_production_logs_ot_id_fkey"
@@ -6314,6 +6770,20 @@ export type Database = {
             foreignKeyName: "whatsapp_warehouse_logs_ot_id_fkey"
             columns: ["ot_id"]
             isOneToOne: false
+            referencedRelation: "ot_certificacion"
+            referencedColumns: ["ot_id"]
+          },
+          {
+            foreignKeyName: "whatsapp_warehouse_logs_ot_id_fkey"
+            columns: ["ot_id"]
+            isOneToOne: false
+            referencedRelation: "ot_compras_estado"
+            referencedColumns: ["ot_id"]
+          },
+          {
+            foreignKeyName: "whatsapp_warehouse_logs_ot_id_fkey"
+            columns: ["ot_id"]
+            isOneToOne: false
             referencedRelation: "ot_cost_summary"
             referencedColumns: ["ot_id"]
           },
@@ -6405,6 +6875,20 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "planta_live"
             referencedColumns: ["workstation_id"]
+          },
+          {
+            foreignKeyName: "worker_assignments_ot_id_fkey"
+            columns: ["ot_id"]
+            isOneToOne: false
+            referencedRelation: "ot_certificacion"
+            referencedColumns: ["ot_id"]
+          },
+          {
+            foreignKeyName: "worker_assignments_ot_id_fkey"
+            columns: ["ot_id"]
+            isOneToOne: false
+            referencedRelation: "ot_compras_estado"
+            referencedColumns: ["ot_id"]
           },
           {
             foreignKeyName: "worker_assignments_ot_id_fkey"
@@ -6535,6 +7019,20 @@ export type Database = {
             foreignKeyName: "capture_events_ot_id_fkey"
             columns: ["ot_id"]
             isOneToOne: false
+            referencedRelation: "ot_certificacion"
+            referencedColumns: ["ot_id"]
+          },
+          {
+            foreignKeyName: "capture_events_ot_id_fkey"
+            columns: ["ot_id"]
+            isOneToOne: false
+            referencedRelation: "ot_compras_estado"
+            referencedColumns: ["ot_id"]
+          },
+          {
+            foreignKeyName: "capture_events_ot_id_fkey"
+            columns: ["ot_id"]
+            isOneToOne: false
             referencedRelation: "ot_cost_summary"
             referencedColumns: ["ot_id"]
           },
@@ -6655,6 +7153,20 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "inventory_lots"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_stock_transactions_work_order_id_fkey"
+            columns: ["work_order_id"]
+            isOneToOne: false
+            referencedRelation: "ot_certificacion"
+            referencedColumns: ["ot_id"]
+          },
+          {
+            foreignKeyName: "inventory_stock_transactions_work_order_id_fkey"
+            columns: ["work_order_id"]
+            isOneToOne: false
+            referencedRelation: "ot_compras_estado"
+            referencedColumns: ["ot_id"]
           },
           {
             foreignKeyName: "inventory_stock_transactions_work_order_id_fkey"
@@ -6860,6 +7372,20 @@ export type Database = {
             foreignKeyName: "purchases_ot_id_fkey"
             columns: ["ot_id"]
             isOneToOne: false
+            referencedRelation: "ot_certificacion"
+            referencedColumns: ["ot_id"]
+          },
+          {
+            foreignKeyName: "purchases_ot_id_fkey"
+            columns: ["ot_id"]
+            isOneToOne: false
+            referencedRelation: "ot_compras_estado"
+            referencedColumns: ["ot_id"]
+          },
+          {
+            foreignKeyName: "purchases_ot_id_fkey"
+            columns: ["ot_id"]
+            isOneToOne: false
             referencedRelation: "ot_cost_summary"
             referencedColumns: ["ot_id"]
           },
@@ -6911,6 +7437,20 @@ export type Database = {
             foreignKeyName: "purchases_ot_id_fkey"
             columns: ["ot_id"]
             isOneToOne: false
+            referencedRelation: "ot_certificacion"
+            referencedColumns: ["ot_id"]
+          },
+          {
+            foreignKeyName: "purchases_ot_id_fkey"
+            columns: ["ot_id"]
+            isOneToOne: false
+            referencedRelation: "ot_compras_estado"
+            referencedColumns: ["ot_id"]
+          },
+          {
+            foreignKeyName: "purchases_ot_id_fkey"
+            columns: ["ot_id"]
+            isOneToOne: false
             referencedRelation: "ot_cost_summary"
             referencedColumns: ["ot_id"]
           },
@@ -6929,6 +7469,34 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      ot_certificacion: {
+        Row: {
+          client_name: string | null
+          lotes_con_desviacion: number | null
+          lotes_consumidos: number | null
+          lotes_sin_certificado: number | null
+          lotes_vencidos_al_usar: number | null
+          ot_id: string | null
+          ot_number: string | null
+          veredicto: string | null
+        }
+        Relationships: []
+      }
+      ot_compras_estado: {
+        Row: {
+          estado: string | null
+          ot_id: string | null
+          ot_number: string | null
+          pendientes: number | null
+          por_comprar: number | null
+          por_sacar: number | null
+          por_tercerizar: number | null
+          requisitos: number | null
+          resueltos: number | null
+          status: Database["public"]["Enums"]["ot_status"] | null
+        }
+        Relationships: []
       }
       ot_cost_summary: {
         Row: {
@@ -7099,6 +7667,20 @@ export type Database = {
             foreignKeyName: "whatsapp_production_logs_ot_id_fkey"
             columns: ["ot_id"]
             isOneToOne: false
+            referencedRelation: "ot_certificacion"
+            referencedColumns: ["ot_id"]
+          },
+          {
+            foreignKeyName: "whatsapp_production_logs_ot_id_fkey"
+            columns: ["ot_id"]
+            isOneToOne: false
+            referencedRelation: "ot_compras_estado"
+            referencedColumns: ["ot_id"]
+          },
+          {
+            foreignKeyName: "whatsapp_production_logs_ot_id_fkey"
+            columns: ["ot_id"]
+            isOneToOne: false
             referencedRelation: "ot_cost_summary"
             referencedColumns: ["ot_id"]
           },
@@ -7156,6 +7738,20 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "worker_stats"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_production_logs_ot_id_fkey"
+            columns: ["ot_id"]
+            isOneToOne: false
+            referencedRelation: "ot_certificacion"
+            referencedColumns: ["ot_id"]
+          },
+          {
+            foreignKeyName: "whatsapp_production_logs_ot_id_fkey"
+            columns: ["ot_id"]
+            isOneToOne: false
+            referencedRelation: "ot_compras_estado"
+            referencedColumns: ["ot_id"]
           },
           {
             foreignKeyName: "whatsapp_production_logs_ot_id_fkey"
@@ -7366,6 +7962,17 @@ export type Database = {
         Args: { p_employee_id: string; p_user_id: string }
         Returns: boolean
       }
+      consumir_lote: {
+        Args: {
+          p_by?: string
+          p_lot_id: string
+          p_ot_id: string
+          p_override_reason?: string
+          p_quantity: number
+          p_stage?: string
+        }
+        Returns: Json
+      }
       convert_vb_to_ot: { Args: { p_vb_id: string }; Returns: string }
       emitir_oc: {
         Args: { p_issued_by: string; p_purchase_id: string }
@@ -7418,6 +8025,7 @@ export type Database = {
         Args: { log_id: string }
         Returns: undefined
       }
+      generar_numero_lote: { Args: never; Returns: string }
       generate_ot_number: { Args: never; Returns: string }
       get_compensation_at_date: {
         Args: { p_date?: string; p_employee_id: string }
@@ -7616,6 +8224,15 @@ export type Database = {
           p_variance_reason?: string
         }
         Returns: string
+      }
+      reemplazar_requisitos: {
+        Args: {
+          p_by?: string
+          p_filas: Json
+          p_ot_id: string
+          p_visto_en?: string
+        }
+        Returns: Json
       }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }

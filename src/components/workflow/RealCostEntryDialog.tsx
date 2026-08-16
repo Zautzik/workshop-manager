@@ -26,6 +26,9 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from '@/hooks/use-toast';
 import { Plus, Trash2, ArrowRight, DollarSign, AlertCircle, SkipForward, Upload, X, Image as ImageIcon } from 'lucide-react';
 import { OPERATION_CATEGORIES, type OTOperationCategory } from '@/types/ot';
+import { consumeMaterial } from '@/lib/partial-advance';
+import { colorCount, makeReadySheets, pressPasses } from '@/lib/ot-calculations';
+import { MaterialQueAvanza, type ConsumoElegido } from './MaterialQueAvanza';
 
 interface RealCostLine {
   operation_code: string;
@@ -88,6 +91,16 @@ export function RealCostEntryDialog({
   const totalQuantity = Math.max(1, Number(ot.quantity ?? 1));
   const [movedQuantity, setMovedQuantity] = useState<number>(totalQuantity);
   const isVistoGood = ot.status === 'visto_bueno';
+
+  // ── El papel se mueve con las unidades ────────────────────────────────────
+  //
+  // Este diálogo preguntaba sólo por las unidades y el material se quedaba
+  // quieto: se cortaban tres mil de seis mil y el inventario seguía mostrando
+  // los pliegos completos. El fragmento que salió no quedaba atado a ningún
+  // lote, así que su trazabilidad no existía.
+  const consume = consumeMaterial(ot.status, targetStatus);
+  const otAny = ot as unknown as Record<string, any>;
+  const [consumo, setConsumo] = useState<ConsumoElegido | null>(null);
 
   // Load budgeted operations as reference
   useEffect(() => {
@@ -264,6 +277,32 @@ export function RealCostEntryDialog({
         throw new Error(`La cantidad a mover debe estar entre 1 y ${totalQuantity}.`);
       }
       if (isVistoGood && imageFile) await uploadImage();
+
+      // El consumo va ANTES del avance: si el lote está retenido o el
+      // certificado venció, la OT no tiene que haberse movido. Al revés
+      // quedaría un fragmento en la guillotina sin papel descontado, que es
+      // justo el estado que esto viene a evitar.
+      if (consume) {
+        if (!consumo) {
+          throw new Error('Escaneá la etiqueta del pallet que estás sacando antes de avanzar.');
+        }
+        const res = await fetch('/api/lots/scan', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            qr: consumo.qr,
+            ot_id: ot.id,
+            quantity: consumo.sheets,
+            stage: targetStatus,
+            override_reason: consumo.overrideReason,
+          }),
+        });
+        if (!res.ok) {
+          const b = await res.json().catch(() => null);
+          throw new Error(b?.error ?? 'No se pudo registrar el papel que sale.');
+        }
+      }
+
       await onConfirm(movedQuantity);
       onOpenChange(false);
     } catch (err: any) {
@@ -337,6 +376,25 @@ export function RealCostEntryDialog({
             />
           </div>
         </div>
+
+        {/* Sólo cuando el salto saca papel de bodega. Las etapas posteriores
+            mueven producto semiterminado y volver a descontar contaría dos
+            veces el mismo pliego. */}
+        {consume && (
+          <MaterialQueAvanza
+            movedUnits={movedQuantity}
+            totalUnits={totalQuantity}
+            totalSheets={Number((ot as { calc_sheets?: number }).calc_sheets ?? 0) || totalQuantity}
+            // El arreglo NO sale de una columna —no existe— sino de la misma
+            // función que lo cobra. Leerlo de `ot.setup_sheets` daba siempre
+            // cero y la regla del primer fragmento no se disparaba nunca.
+            makeReadySheets={makeReadySheets(
+              pressPasses(colorCount(otAny.color_front), colorCount(otAny.color_back), otAny.press_bodies ?? 4),
+              { finish_troquelado: !!otAny.finish_troquelado, finish_hot_stamping: !!otAny.finish_hot_stamping },
+            )}
+            onChange={setConsumo}
+          />
+        )}
 
         <ScrollArea className="flex-1 max-h-[50vh] pr-2">
           <div className="space-y-3">

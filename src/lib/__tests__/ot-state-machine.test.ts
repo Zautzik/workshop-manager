@@ -254,3 +254,52 @@ describe('el precio firme no se aleja en silencio', () => {
 		expect(validateTransition({ ...base, quotedPrice: null, firmPrice: 1_426_613 }).ok).toBe(true);
 	});
 });
+
+describe('la compuerta de Compras', () => {
+	const base = {
+		fromStatus: 'paper_purchase' as const,
+		toStatus: 'in_storage' as const,
+		role: 'admin' as const,
+		hasApprovedApproval: true,
+		hasAnyRealCosts: true,
+	};
+
+	it('no se entra a producción con requisitos pendientes', () => {
+		const r = validateTransition({
+			...base,
+			requirements: [
+				{ description: 'Pantone 485 C', status: 'pendiente' },
+				{ description: 'Cajas para despacho', status: 'resuelto' },
+			],
+		});
+		expect(r.ok).toBe(false);
+		expect(r.code).toBe('REQUISITOS_PENDIENTES');
+		expect(r.message).toContain('Pantone 485 C');
+	});
+
+	it('todo resuelto deja pasar', () => {
+		const r = validateTransition({
+			...base,
+			requirements: [{ description: 'Papel', status: 'resuelto' }],
+		});
+		expect(r.ok).toBe(true);
+	});
+
+	it('«no aplica» no frena', () => {
+		const r = validateTransition({
+			...base,
+			requirements: [
+				{ description: 'Papel', status: 'resuelto' },
+				{ description: 'Polilaminado', status: 'no_aplica' },
+			],
+		});
+		expect(r.ok).toBe(true);
+	});
+
+	// Frenar por «no se sabe» enseñaría a cargar una lista vacía para poder
+	// avanzar, que es peor que no tener la compuerta.
+	it('sin requisitos cargados no bloquea', () => {
+		expect(validateTransition(base).ok).toBe(true);
+		expect(validateTransition({ ...base, requirements: [] }).ok).toBe(true);
+	});
+});

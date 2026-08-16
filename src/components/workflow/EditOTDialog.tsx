@@ -18,7 +18,7 @@ interface EditOTDialogProps {
 const STATUS_OPTIONS = [
   { value: 'pre_press', label: 'Pre-Press (Design)' },
   { value: 'visto_bueno', label: 'Visto Bueno (Approval)' },
-  { value: 'paper_purchase', label: 'Paper Purchase' },
+  { value: 'paper_purchase', label: 'Compras' },
   { value: 'in_storage', label: 'In Storage' },
   { value: 'guillotine_first_cut', label: 'First Cut' },
   { value: 'offset_printing', label: 'Offset Printing' },

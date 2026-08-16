@@ -69,6 +69,14 @@ export interface TransitionValidationInput {
   firmPrice?: number | null;
   /** El cliente reconfirmó el precio nuevo. */
   repriceApproved?: boolean;
+  /**
+   * Lo que la OT necesita, para la compuerta de salida de Compras.
+   *
+   * Opcional como el resto: sin esto la compuerta no corre, y una OT cuyos
+   * requisitos nadie cargó no queda trabada. Es deliberado — frenar por «no se
+   * sabe» enseña a cargar una lista vacía para poder avanzar.
+   */
+  requirements?: readonly { description: string; status: string }[];
 }
 
 export interface TransitionValidationResult {
@@ -79,10 +87,13 @@ export interface TransitionValidationResult {
     | 'APPROVAL_REQUIRED'
     | 'COSTS_REQUIRED'
     | 'SPEC_INCOMPLETE'
-    | 'REPRICE_REQUIRED';
+    | 'REPRICE_REQUIRED'
+    | 'REQUISITOS_PENDIENTES';
   message?: string;
   /** Lo que falta, cuando el motivo es una ficha incompleta. */
   gaps?: Gap[];
+  /** Lo que falta conseguir, cuando la compuerta de Compras frena. */
+  pending?: readonly { description: string; status: string }[];
 }
 
 export function isValidStatus(value: string): value is OTWorkflowStatus {
@@ -167,6 +178,31 @@ export function validateTransition(input: TransitionValidationInput): Transition
         message:
           `${drift.note} Comprar papel compromete el trabajo, así que hace falta ` +
           'reconfirmar el precio con el cliente antes de seguir.',
+      };
+    }
+  }
+
+  // ── Compuerta 3: no se entra a producción sin tener con qué ─────────────
+  //
+  // `ot_compras_estado` calculaba el veredicto `completo` y NADIE lo consultaba
+  // — el mismo defecto que tenía el visto bueno: la compuerta calculada y sin
+  // conectar. Una OT que pasa a bodega con el pantone sin pedir llega a la
+  // prensa y ahí se descubre, con el papel ya cortado.
+  //
+  // No bloquea por falta de carga: si nadie cargó los requisitos, no se puede
+  // afirmar que falte algo. Frenar por «no se sabe» enseñaría a cargar una
+  // lista vacía para poder avanzar, que es peor que no tener la compuerta.
+  if (toStatus === 'in_storage' && input.requirements) {
+    const faltan = input.requirements.filter((r) => r.status !== 'resuelto' && r.status !== 'no_aplica');
+    if (faltan.length > 0) {
+      return {
+        ok: false,
+        code: 'REQUISITOS_PENDIENTES',
+        message:
+          `Falta conseguir ${faltan.length === 1 ? 'una cosa' : `${faltan.length} cosas`}: ` +
+          faltan.map((r) => r.description).join(', ') +
+          '. Marcá lo que ya esté o declaralo «no aplica».',
+        pending: faltan,
       };
     }
   }

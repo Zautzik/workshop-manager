@@ -15,7 +15,7 @@ import { UnifiedOTWizard } from "./UnifiedOTWizard";
 import { useRouter, useSearchParams } from "next/navigation";
 import { EditBudgetWizard } from "./EditBudgetWizard";
 import { EditOTDialog } from "./EditOTDialog";
-import { CompraDePapelDialog } from "./CompraDePapelDialog";
+import { ComprasDialog } from "./ComprasDialog";
 import { RealCostEntryDialog } from "./RealCostEntryDialog";
 import { OTHoverCard } from "./OTHoverCard";
 import { SplitOTDialog } from "./SplitOTDialog";
@@ -28,7 +28,7 @@ interface OTManagementProps {
 const STATUS_FLOW = [
   { key: 'pre_press',           label: 'Pre-Press',      labelEs: 'Pre-Prensa',   color: 'bg-violet-500',  rgb: '139 92 246',  description: 'Diseño y modelado' },
   { key: 'visto_bueno',         label: 'Approval',       labelEs: 'Visto Bueno',  color: 'bg-amber-500',   rgb: '245 158 11',  description: 'Confirmación del cliente' },
-  { key: 'paper_purchase',      label: 'Paper Purchase', labelEs: 'Compra Papel', color: 'bg-slate-500',   rgb: '100 116 139', description: 'Pedido de materiales' },
+  { key: 'paper_purchase',      label: 'Procurement',    labelEs: 'Compras',      color: 'bg-slate-500',   rgb: '100 116 139', description: 'Todo lo que la OT necesita: comprar, sacar de bodega o tercerizar' },
   { key: 'in_storage',          label: 'In Storage',     labelEs: 'En Bodega',    color: 'bg-cyan-500',    rgb: '6 182 212',   description: 'Listo para producción' },
   { key: 'guillotine_first_cut',label: 'First Cut',       labelEs: 'Primer Corte',     color: 'bg-orange-500',  rgb: '249 115 22',  description: 'Corte inicial guillotina' },
   { key: 'offset_printing',     label: 'Offset Print',    labelEs: 'Offset', color: 'bg-purple-500',  rgb: '168 85 247',  description: 'Impresión offset' },
@@ -226,12 +226,13 @@ export function OTManagement({ onOTSelect }: OTManagementProps) {
       return;
     }
 
-    // Salir de Compra de Papel TAMPOCO es registrar costos.
+    // Salir de Compras TAMPOCO es registrar costos.
     //
-    // Lo que ocurre en ese paso son dos documentos —se emite una OC y se recibe
-    // el material contra ella— y los dos tienen valor legal y de certificación.
-    // El diálogo de costos preguntaba «cuánto gastaste», que además de ser la
-    // pregunta equivocada dejaba sin formarse la cadena que una auditoría FSSC
+    // Lo que ocurre en ese paso es CONSEGUIR lo que la OT necesita, y no todo
+    // se compra: un pantone especial se pide aparte, el polilaminado lo hace un
+    // tercero, y muy seguido el papel ya está en bodega de un trabajo anterior.
+    // El diálogo de costos preguntaba «cuánto gastaste» —la pregunta
+    // equivocada— y además dejaba sin formarse la cadena que una auditoría FSSC
     // pide reconstruir: pliego → lote → OC → proveedor → certificado.
     if (ot.status === 'paper_purchase') {
       setCompraOT(ot);
@@ -653,7 +654,7 @@ export function OTManagement({ onOTSelect }: OTManagementProps) {
       {editingOT && (
         <EditOTDialog ot={editingOT} open={showEditDialog} onOpenChange={setShowEditDialog} onSuccess={refetchOTs} />
       )}
-      <CompraDePapelDialog
+      <ComprasDialog
         ot={compraOT}
         open={!!compraOT}
         onOpenChange={(v) => { if (!v) setCompraOT(null); }}

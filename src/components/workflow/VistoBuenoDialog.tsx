@@ -118,7 +118,7 @@ export function VistoBuenoDialog({ otId, otNumber, clientName, open, onOpenChang
 				body: JSON.stringify({ to_status: 'paper_purchase', reason: 'visto_bueno_aprobado' }),
 			});
 			if (av.ok) {
-				toast.success('Pasa a Compra de Papel.');
+				toast.success('Pasa a Compras.');
 			} else {
 				// El caso real: el precio firme se alejó de lo cotizado y hace falta
 				// reconfirmarlo. No es un error del registro —la aprobación quedó

@@ -316,7 +316,7 @@ export function UnifiedStepSummary({ form }: Props) {
       {/* Status note */}
       <div className="text-center text-sm text-muted-foreground bg-amber-500/10 border border-amber-500/30 rounded-lg p-3">
         ⚠️ Al crear la OT, entrará en estado <strong>&quot;Visto Bueno&quot;</strong> (pendiente de aprobación).
-        Una vez aprobada, avanzará a &quot;Compra Papel&quot; en el flujo de trabajo.
+        Una vez aprobada, avanzará a &quot;Compras&quot; en el flujo de trabajo.
       </div>
     </div>
   );

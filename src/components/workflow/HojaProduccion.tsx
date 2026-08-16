@@ -62,7 +62,7 @@ const MACHINE_TYPE_LABEL: Record<string, string> = {
 };
 
 const STATUS_LABELS: Record<string, string> = {
-  pre_press: 'Pre-Prensa', visto_bueno: 'Visto Bueno', paper_purchase: 'Compra Papel',
+  pre_press: 'Pre-Prensa', visto_bueno: 'Visto Bueno', paper_purchase: 'Compras',
   in_storage: 'Bodega', guillotine_first_cut: '1er Corte', offset_printing: 'Impresión',
   die_cutting: 'Troquelado', guillotine_final_cut: 'Corte Final', workshop: 'Taller',
   outsourced: 'Tercerizado', workshop_revision: 'Revisión', ready_for_delivery: 'Listo',

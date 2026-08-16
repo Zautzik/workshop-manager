@@ -29,6 +29,7 @@ import { SERIES } from '@/components/financial/charts/viz-tokens';
 import { otStatusBadgeClass, otStatusLabel } from '@/lib/status-labels';
 import Link from 'next/link';
 import { RepetirTrabajo } from '@/components/comercial/RepetirTrabajo';
+import { PapelEnBodega } from '@/components/comercial/PapelEnBodega';
 import { ClientAutocomplete } from '@/components/workflow/ot-wizard/ClientAutocomplete';
 import type { CostCenterItem } from '@/types/work-category';
 
@@ -586,6 +587,26 @@ function CotizacionesInner() {
                     </div>
                   </div>
                 </div>
+                {/* Antes de mandar a comprar: qué hay parado en bodega que sirva.
+                    Aparece acá y no en otra pantalla porque es EL momento — un
+                    minuto después ya cotizó y el papel viejo sigue ahí. */}
+                <PapelEnBodega
+                  substrateType={form.substrate_type}
+                  grammageGsm={form.grammage_gsm}
+                  sheetsNeeded={calc.calcs?.calc_sheets ?? null}
+                  widthCm={form.width_cm}
+                  heightCm={form.height_cm}
+                  productType={form.product_type}
+                  onUsar={(sug) => {
+                    // Se ajusta el gramaje cotizado al del papel que existe. El
+                    // motor recalcula solo y el precio se mueve a la vista, que
+                    // es lo que el vendedor necesita ver antes de ofrecerlo.
+                    const g = sug.stock.grammageGsm;
+                    if (g) setForm((f) => ({ ...f, grammage_gsm: g }));
+                    toast.success(sug.pitch);
+                  }}
+                />
+
                 <div className="grid grid-cols-2 gap-2 items-end">
                   <div>
                     <Label className="text-xs">Cobertura de tinta</Label>

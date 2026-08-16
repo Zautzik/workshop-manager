@@ -27,6 +27,44 @@ const LotSchema = z.object({
   certification_expires_on: z.string().nullable().optional(),
 });
 
+/**
+ * GET /api/inventory/lots — los lotes con lo que va en su etiqueta.
+ *
+ * La ruta sólo tenía `POST`: se podían crear lotes y no listarlos. Es el mismo
+ * patrón que este proyecto viene cerrando — el dato existe y nadie lo consulta.
+ *
+ * Trae el material y la OC en el mismo viaje porque la etiqueta los necesita:
+ * una etiqueta que sólo dice un número obliga a consultar el sistema para saber
+ * qué hay en ese pallet, y en bodega eso no pasa.
+ */
+export async function GET(req: NextRequest) {
+  const auth = await requireAuth(['admin', 'manager', 'supervisor', 'technician']);
+  if (isAuthError(auth)) return auth;
+
+  const q = req.nextUrl.searchParams;
+  const limite = Math.min(Number(q.get('limit')) || 200, 500);
+
+  let consulta = supabaseAdmin
+    .from('inventory_lots')
+    .select(
+      'id, lot_number, quantity_received, quantity_available, unit_cost, received_date, ' +
+      'supplier_name, certification_code, certification_expires_on, blocked_reason, ' +
+      'qr_printed_at, purchase_id, ' +
+      'inventory_items ( id, name, sku, unit, category, is_certification_required ), ' +
+      'purchases ( oc_number )'
+    )
+    .order('received_date', { ascending: false, nullsFirst: false })
+    .limit(limite);
+
+  // Sin saldo no hay nada que etiquetar ni que consumir; se piden aparte.
+  if (q.get('con_saldo') === '1') consulta = consulta.gt('quantity_available', 0);
+
+  const { data, error } = await consulta;
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  return NextResponse.json({ data: data ?? [] });
+}
+
 export async function POST(req: NextRequest) {
   const auth = await requireAuth(['admin', 'supervisor', 'manager']);
   if (isAuthError(auth)) return auth;

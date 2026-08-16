@@ -7,7 +7,7 @@
 export const OT_STATUS_LABELS: Record<string, string> = {
   pre_press: 'Pre-Prensa',
   visto_bueno: 'Visto Bueno',
-  paper_purchase: 'Compra de Papel',
+  paper_purchase: 'Compras',
   in_storage: 'En Bodega',
   guillotine_first_cut: 'Primer Corte',
   offset_printing: 'Impresión Offset',

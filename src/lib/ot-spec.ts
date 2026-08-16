@@ -181,7 +181,7 @@ const REQUISITOS: Requisito[] = [
 	/* ── Herramental: sólo cuando la terminación lo pide ───────────────────── */
 	{ field: 'dieSource', level: 2, owner: 'interno', label: 'Troquel: ¿nuevo o existente?',
 	  when: (s: OTSpec) => lleva(s, 'troquelado'),
-	  why: 'Un troquel nuevo son ~$320.000 y dos semanas de espera. Descubrirlo en Compra de Papel es tarde: la fecha ya se prometió.' },
+	  why: 'Un troquel nuevo son ~$320.000 y dos semanas de espera. Descubrirlo en Compras es tarde: la fecha ya se prometió.' },
 	{ field: 'dieCode', level: 2, owner: 'interno', label: 'Cuál troquel',
 	  // Sólo si es existente: uno nuevo todavía no tiene número.
 	  when: (s: OTSpec) => lleva(s, 'troquelado') && s.dieSource === 'existente',
@@ -266,7 +266,7 @@ export const BAND_DRIVERS: readonly BandDriver[] = [
 	{ field: 'impositionConfirmed', label: 'el montaje real', up: 0.20, down: 0.05,
 	  why: 'La imposición automática es la mejor posible; la que se monta pierde algo.' },
 	{ field: 'substrateBrand', label: 'a cuánto se compre el papel', up: 0.10, down: 0.10,
-	  why: 'Se cotiza con el promedio de lo que el taller viene pagando por ese papel. El precio firme sale en Compra de Papel, cuando se sabe a quién se le compró.' },
+	  why: 'Se cotiza con el promedio de lo que el taller viene pagando por ese papel. El precio firme sale en Compras, cuando se sabe a quién se le compró.' },
 	{ field: 'operationsReviewed', label: 'las terminaciones exactas', up: 0.25, down: 0,
 	  why: 'Una terminación que no se listó sólo puede sumar. Nunca aparece una de menos.' },
 ];
