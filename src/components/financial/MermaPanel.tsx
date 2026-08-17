@@ -14,7 +14,7 @@
  * etiqueta: el color nunca carga el significado solo.
  */
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { AlertTriangle, Info, Layers } from 'lucide-react';
 
@@ -66,6 +66,9 @@ function useMerma() {
 	});
 }
 
+/** Cuántos se muestran antes de pedir «ver todos». */
+const VISIBLES = 8;
+
 export function MermaPanel() {
 	const { data, isLoading } = useMerma();
 
@@ -80,6 +83,10 @@ export function MermaPanel() {
 		() => Math.max(0.12, ...trabajos.map((t) => t.rate)),
 		[trabajos],
 	);
+	const [todos, setTodos] = useState(false);
+	// La API ya entrega `trabajos` ordenado por tasa descendente (peor primero);
+	// acá sólo se decide cuánto mostrar por defecto.
+	const mostrados = todos ? trabajos : trabajos.slice(0, VISIBLES);
 
 	if (isLoading) {
 		return (
@@ -141,7 +148,7 @@ export function MermaPanel() {
 						{/* Una fila por trabajo. La barra lleva su límite marcado encima:
 						    sin el límite, un porcentaje solo no se puede juzgar. */}
 						<ul className="space-y-3">
-							{trabajos.map((t) => {
+							{mostrados.map((t) => {
 								const nivel = NIVEL[t.level] ?? NIVEL.sin_datos;
 								return (
 									<li key={t.ot} className="space-y-1.5">
@@ -179,6 +186,16 @@ export function MermaPanel() {
 								);
 							})}
 						</ul>
+
+						{trabajos.length > VISIBLES && (
+							<button
+								type="button"
+								onClick={() => setTodos((v) => !v)}
+								className="text-xs font-medium text-primary underline-offset-4 hover:underline"
+							>
+								{todos ? `Mostrar sólo los primeros ${VISIBLES}` : `Ver los ${trabajos.length} trabajos`}
+							</button>
+						)}
 
 						{/* Vista de tabla: el valor de cada trabajo también se lee sin
 						    depender del color de su barra. */}

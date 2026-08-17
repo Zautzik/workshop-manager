@@ -6,13 +6,14 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
-import { TrendingUp, TrendingDown, Plus } from 'lucide-react';
+import { Plus, Search, ChevronLeft, ChevronRight, ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { useOtCostSummary } from '@/hooks/use-financial-queries';
-import { aggregateMarginConfidence, marginConfidence } from '@/lib/margin-confidence';
+import { useOtCostSummary, type OtCostSummaryRow } from '@/hooks/use-financial-queries';
+import { marginConfidence } from '@/lib/margin-confidence';
 import { RentabilidadPanorama } from '@/components/financial/RentabilidadPanorama';
 import { useOTs } from '@/hooks/use-operations-queries';
 import { formatCLP } from '@/lib/format';
+import { useAnalyticsFilters, inPeriod } from '@/contexts/AnalyticsFiltersContext';
 
 // Cost categories map 1:1 to the ledger's cost_line_category.
 const COST_FIELDS = [
@@ -26,10 +27,54 @@ const COST_FIELDS = [
 
 type CostKey = (typeof COST_FIELDS)[number]['key'];
 
+type SortKey = 'ot' | 'client' | 'material' | 'labor' | 'machine' | 'other' | 'estimated' | 'actual' | 'revenue' | 'margin' | 'pct';
+type Enriched = { row: OtCostSummaryRow; v: ReturnType<typeof marginConfidence> };
+
+function sortValue(item: Enriched, key: SortKey): number | string {
+  const { row: r, v } = item;
+  switch (key) {
+    case 'ot': return r.ot_number ?? '';
+    case 'client': return r.client_name ?? '';
+    case 'material': return r.material_actual;
+    case 'labor': return r.labor_actual;
+    case 'machine': return r.machine_actual;
+    case 'other': return r.other_actual;
+    case 'estimated': return r.estimated_cost;
+    case 'actual': return r.actual_cost;
+    case 'revenue': return r.revenue;
+    case 'margin': return v.confidence === 'medido' ? v.amount! : 0;
+    case 'pct': return v.pct ?? 0;
+    default: return '';
+  }
+}
+
+/** Encabezado clickeable: ordena por su columna, invierte si ya es la activa. */
+function SortTh({
+  label, sortKey, active, dir, onClick, align = 'right', className = '',
+}: {
+  label: string; sortKey: SortKey; active: boolean; dir: 'asc' | 'desc';
+  onClick: (k: SortKey) => void; align?: 'left' | 'right'; className?: string;
+}) {
+  const Icon = !active ? ArrowUpDown : dir === 'asc' ? ArrowUp : ArrowDown;
+  return (
+    <th className={`py-2 px-3 font-medium ${align === 'right' ? 'text-right' : 'text-left'} ${className}`}>
+      <button
+        type="button"
+        onClick={() => onClick(sortKey)}
+        className={`inline-flex items-center gap-1 hover:opacity-80 ${align === 'right' ? 'flex-row-reverse' : ''}`}
+      >
+        {label}
+        <Icon className={`h-3 w-3 ${active ? '' : 'opacity-30'}`} />
+      </button>
+    </th>
+  );
+}
+
 export const OTFinancialTracking = () => {
   const queryClient = useQueryClient();
   const { data: rows = [] } = useOtCostSummary();
   const { data: ots = [] } = useOTs();
+  const { range } = useAnalyticsFilters();
 
   const [selectedOtId, setSelectedOtId] = useState('');
   const [amounts, setAmounts] = useState<Record<CostKey, number>>({
@@ -38,16 +83,68 @@ export const OTFinancialTracking = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  const totals = useMemo(() => {
-    const revenue   = rows.reduce((s, r) => s + Number(r.revenue || 0), 0);
-    const estimated = rows.reduce((s, r) => s + Number(r.estimated_cost || 0), 0);
-    const actual    = rows.reduce((s, r) => s + Number(r.actual_cost || 0), 0);
-    const margin    = rows.reduce((s, r) => s + Number(r.gross_margin || 0), 0);
-    // El porcentaje ya no se calcula aquí: con costo real en cero, margen es
-    // igual a ingreso y esto informaba 100%.
-    const verdict   = aggregateMarginConfidence(rows);
-    return { revenue, estimated, actual, margin, verdict };
-  }, [rows]);
+  // Fecha de cada OT — el ledger de costos no trae fecha propia, así que el
+  // filtro de período se resuelve por ot_id contra la lista de OT. Una OT sin
+  // fecha resuelta (p.ej. fuera del límite de `useOTs`) no se descarta: se
+  // muestra siempre, antes que arriesgarse a esconder plata real.
+  const otDateById = useMemo(
+    () => new Map(ots.map((o: any) => [o.id, o.created_at as string | undefined])),
+    [ots],
+  );
+  const inPeriodRows = useMemo(
+    () => rows.filter((r) => { const d = otDateById.get(r.ot_id); return !d || inPeriod(d, range); }),
+    [rows, otDateById, range],
+  );
+
+  // Buscador único: filtra a la vez los gráficos de arriba (vía `visibleRows`,
+  // que baja como prop al panorama) y la tabla de abajo — no hace falta un
+  // buscador por panel.
+  const [query, setQuery] = useState('');
+  const [page, setPage] = useState(0);
+  const PAGE_SIZE = 20;
+
+  const visibleRows = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return inPeriodRows;
+    return inPeriodRows.filter(
+      (r) => r.ot_number?.toLowerCase().includes(q) || r.client_name?.toLowerCase().includes(q),
+    );
+  }, [inPeriodRows, query]);
+
+  const enriched: Enriched[] = useMemo(
+    () => visibleRows.map((r) => ({ row: r, v: marginConfidence(r) })),
+    [visibleRows],
+  );
+
+  // Peor margen primero por defecto — lo que necesita atención no debería
+  // requerir scroll para aparecer —, pero cualquier columna se ordena con un
+  // clic en su encabezado. Las OT sin margen medido van siempre al final, sea
+  // cual sea la columna: no hay valor que ordenar de una cifra que no existe.
+  const [sort, setSort] = useState<{ key: SortKey; dir: 'asc' | 'desc' }>({ key: 'margin', dir: 'asc' });
+  const toggleSort = (key: SortKey) => {
+    setSort((s) => (s.key === key ? { key, dir: s.dir === 'asc' ? 'desc' : 'asc' } : { key, dir: key === 'margin' ? 'asc' : 'desc' }));
+    setPage(0);
+  };
+
+  const sorted = useMemo(() => {
+    const arr = [...enriched];
+    arr.sort((a, b) => {
+      const aMed = a.v.confidence === 'medido';
+      const bMed = b.v.confidence === 'medido';
+      if (aMed !== bMed) return aMed ? -1 : 1;
+      const av = sortValue(a, sort.key);
+      const bv = sortValue(b, sort.key);
+      const cmp = typeof av === 'string' || typeof bv === 'string'
+        ? String(av).localeCompare(String(bv))
+        : (av as number) - (bv as number);
+      return sort.dir === 'asc' ? cmp : -cmp;
+    });
+    return arr;
+  }, [enriched, sort]);
+
+  const pageCount = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE));
+  const pageClamped = Math.min(page, pageCount - 1);
+  const paged = sorted.slice(pageClamped * PAGE_SIZE, (pageClamped + 1) * PAGE_SIZE);
 
   const resetForm = () => {
     setSelectedOtId('');
@@ -82,12 +179,9 @@ export const OTFinancialTracking = () => {
 
   return (
     <div className="space-y-6">
-      {/* Summary — straight from the unified cost ledger */}
-      {/* Panorama: fichas de titular y los dos gráficos. Reemplaza la fila de
-          cuatro tarjetas de texto — el margen sigue siendo el mismo veredicto,
-          ahora con la forma que le corresponde a cada dato. */}
-      <RentabilidadPanorama rows={rows as any} />
-
+      {/* Summary — straight from the unified cost ledger, ya recortado por
+          período y por el buscador de la tabla de abajo. */}
+      <RentabilidadPanorama rows={visibleRows as any} />
 
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
         <DialogTrigger asChild>
@@ -134,36 +228,56 @@ export const OTFinancialTracking = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Estimate vs Real per OT — one source of truth */}
-      <Card>
-        <CardHeader><CardTitle>Estimado vs Real por OT</CardTitle></CardHeader>
+      {/* Estimate vs Real per OT — el detalle completo de todo lo que arriba
+          se muestra recortado: buscador, orden por columna y paginación en
+          vez de volcar cientos de filas de una vez. */}
+      <Card id="detalle-completo" className="scroll-mt-6">
+        <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <CardTitle>Estimado vs Real por OT</CardTitle>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {sorted.length} de {rows.length} OT{query.trim() ? ` — coinciden con «${query.trim()}»` : ''}
+            </p>
+          </div>
+          <div className="relative w-full sm:w-64">
+            <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={query}
+              onChange={(e) => { setQuery(e.target.value); setPage(0); }}
+              placeholder="Buscar OT o cliente…"
+              className="h-8 pl-8 text-sm"
+            />
+          </div>
+        </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b">
-                  <th className="text-left py-2 px-3 font-medium">OT</th>
-                  <th className="text-left py-2 px-3 font-medium">Cliente</th>
+                  <SortTh label="OT" sortKey="ot" align="left" active={sort.key === 'ot'} dir={sort.dir} onClick={toggleSort} />
+                  <SortTh label="Cliente" sortKey="client" align="left" active={sort.key === 'client'} dir={sort.dir} onClick={toggleSort} />
                   {/* Vista de tabla del desglose: en claro, «Máquina» y «Otros»
                       quedan bajo 3:1 de contraste en el gráfico, y la regla de
                       relieve exige que su valor se pueda leer sin el tooltip. */}
-                  <th className="text-right py-2 px-3 font-medium">Materiales</th>
-                  <th className="text-right py-2 px-3 font-medium">Mano de obra</th>
-                  <th className="text-right py-2 px-3 font-medium">Máquina</th>
-                  <th className="text-right py-2 px-3 font-medium">Otros</th>
-                  <th className="text-right py-2 px-3 font-medium text-amber-600">Estimado</th>
-                  <th className="text-right py-2 px-3 font-medium text-destructive">Real</th>
-                  <th className="text-right py-2 px-3 font-medium text-primary">Ingresos</th>
-                  <th className="text-right py-2 px-3 font-medium">Margen</th>
-                  <th className="text-right py-2 px-3 font-medium">%</th>
+                  <SortTh label="Materiales" sortKey="material" active={sort.key === 'material'} dir={sort.dir} onClick={toggleSort} />
+                  <SortTh label="Mano de obra" sortKey="labor" active={sort.key === 'labor'} dir={sort.dir} onClick={toggleSort} />
+                  <SortTh label="Máquina" sortKey="machine" active={sort.key === 'machine'} dir={sort.dir} onClick={toggleSort} />
+                  <SortTh label="Otros" sortKey="other" active={sort.key === 'other'} dir={sort.dir} onClick={toggleSort} />
+                  <SortTh label="Estimado" sortKey="estimated" className="text-amber-600" active={sort.key === 'estimated'} dir={sort.dir} onClick={toggleSort} />
+                  <SortTh label="Real" sortKey="actual" className="text-destructive" active={sort.key === 'actual'} dir={sort.dir} onClick={toggleSort} />
+                  <SortTh label="Ingresos" sortKey="revenue" className="text-primary" active={sort.key === 'revenue'} dir={sort.dir} onClick={toggleSort} />
+                  <SortTh label="Margen" sortKey="margin" active={sort.key === 'margin'} dir={sort.dir} onClick={toggleSort} />
+                  <SortTh label="%" sortKey="pct" active={sort.key === 'pct'} dir={sort.dir} onClick={toggleSort} />
                 </tr>
               </thead>
               <tbody>
                 {rows.length === 0 && (
                   <tr><td colSpan={11} className="py-8 text-center text-muted-foreground">Sin datos en el ledger todavía.</td></tr>
                 )}
-                {rows.map((r) => {
-                  const v = marginConfidence(r);
+                {rows.length > 0 && paged.length === 0 && (
+                  <tr><td colSpan={11} className="py-8 text-center text-muted-foreground">Ninguna OT coincide con el filtro actual.</td></tr>
+                )}
+                {paged.map(({ row: r, v }) => {
                   return (
                     <tr key={r.ot_id} className="border-b hover:bg-muted/50">
                       <td className="py-2 px-3 font-medium">{r.ot_number}</td>
@@ -191,6 +305,35 @@ export const OTFinancialTracking = () => {
               </tbody>
             </table>
           </div>
+
+          {sorted.length > PAGE_SIZE && (
+            <div className="mt-3 flex items-center justify-between border-t pt-3 text-xs text-muted-foreground">
+              <span>
+                {pageClamped * PAGE_SIZE + 1}–{Math.min((pageClamped + 1) * PAGE_SIZE, sorted.length)} de {sorted.length}
+              </span>
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 px-2"
+                  onClick={() => setPage((p) => Math.max(0, p - 1))}
+                  disabled={pageClamped === 0}
+                >
+                  <ChevronLeft className="h-3.5 w-3.5" />
+                </Button>
+                <span className="tabular-nums">{pageClamped + 1} / {pageCount}</span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 px-2"
+                  onClick={() => setPage((p) => Math.min(pageCount - 1, p + 1))}
+                  disabled={pageClamped >= pageCount - 1}
+                >
+                  <ChevronRight className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

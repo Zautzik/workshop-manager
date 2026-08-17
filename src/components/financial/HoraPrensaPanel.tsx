@@ -14,7 +14,7 @@
  * que es el mensaje.
  */
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Clock, Info, TrendingUp } from 'lucide-react';
 
@@ -55,6 +55,9 @@ function usePressHour() {
 	});
 }
 
+/** Cuántos se muestran antes de pedir «ver la cola completa». */
+const VISIBLES = 8;
+
 export function HoraPrensaPanel() {
 	const { data, isLoading } = usePressHour();
 	const trabajos = useMemo(() => data?.trabajos ?? [], [data?.trabajos]);
@@ -65,6 +68,10 @@ export function HoraPrensaPanel() {
 		() => Math.max(1, ...conCifra.map((t) => Math.abs(t.margenHora!))),
 		[conCifra],
 	);
+	const [todos, setTodos] = useState(false);
+	// Ya viene rankeada por rankByPressHour (mejor margen/hora primero); acá
+	// sólo se decide cuánto de la cola mostrar por defecto.
+	const mostrados = todos ? conCifra : conCifra.slice(0, VISIBLES);
 
 	if (isLoading) {
 		return <Card><CardContent className="py-10 text-center text-sm text-muted-foreground">Cargando…</CardContent></Card>;
@@ -133,7 +140,7 @@ export function HoraPrensaPanel() {
 				) : (
 					<div className="space-y-3">
 						<ol className="space-y-3">
-							{conCifra.map((t, i) => {
+							{mostrados.map((t, i) => {
 								const pos = t.margenHora! >= 0;
 								// Énfasis en el primero: el orden es el mensaje, y resaltar
 								// uno comunica mejor que colorear los ocho.
@@ -167,6 +174,16 @@ export function HoraPrensaPanel() {
 								);
 							})}
 						</ol>
+
+						{conCifra.length > VISIBLES && (
+							<button
+								type="button"
+								onClick={() => setTodos((v) => !v)}
+								className="text-xs font-medium text-primary underline-offset-4 hover:underline"
+							>
+								{todos ? `Mostrar sólo los primeros ${VISIBLES}` : `Ver la cola completa (${conCifra.length})`}
+							</button>
+						)}
 
 						{conCifra.length > 1 && conCifra[0].margen !== null && (
 							<p className="flex items-start gap-1.5 border-t border-border pt-3 text-xs leading-relaxed text-muted-foreground">

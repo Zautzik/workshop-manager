@@ -8,6 +8,7 @@ import { PieChart, FileSpreadsheet, ClipboardList } from 'lucide-react';
 import { OrderLaborMarginAnalysis } from '@/components/financial/OrderLaborMarginAnalysis';
 import { OTCostAnalysisReport } from '@/components/financial/OTCostAnalysisReport';
 import { OTFinancialTracking } from '@/components/financial/OTFinancialTracking';
+import AnalyticsFilterBar from '@/components/analitica/AnalyticsFilterBar';
 
 // El orden importa: se aterriza en el margen del TRABAJO, no en una de sus
 // partidas. La mano de obra es un componente del costo, no la pregunta —
@@ -60,7 +61,8 @@ function RentabilidadTabs() {
 export default function AnaliticaRentabilidadPage() {
   return (
     <ProtectedRoute allowedRoles={['admin', 'manager']}>
-      <div className="p-6 space-y-6">
+      <div className="p-6 md:p-8 space-y-6">
+        <AnalyticsFilterBar />
         <div>
           <h1 className="text-2xl font-bold text-foreground">Rentabilidad por OT</h1>
           <p className="text-sm text-muted-foreground mt-1">

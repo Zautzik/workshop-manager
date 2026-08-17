@@ -186,7 +186,8 @@ export function RentabilidadPanorama({ rows }: { rows: OtCostRow[] }) {
 	 *  costo sería el mismo error de antes, con mejor tipografía. */
 	const conCosto = useMemo(() => rows.filter((r) => n(r.actual_cost) > 0), [rows]);
 
-	const margenData = useMemo(
+	/** Todas las OT con costo, peor margen primero. */
+	const margenTodo = useMemo(
 		() =>
 			conCosto
 				.map((r) => ({
@@ -199,16 +200,35 @@ export function RentabilidadPanorama({ rows }: { rows: OtCostRow[] }) {
 		[conCosto],
 	);
 
+	/** Un gráfico con una fila por OT deja de ser un gráfico pasadas unas pocas
+	 *  decenas: se vuelve una lista que hay que hacer scroll para leer, y con
+	 *  cientos de OT el card crece a miles de píxeles de alto. Se muestran los
+	 *  extremos, que es donde está la decisión — quién pierde plata y quién más
+	 *  deja —; el resto vive completo en la tabla de abajo. */
+	const TOP_N = 8;
+	const margenData = useMemo(() => {
+		if (margenTodo.length <= TOP_N * 2) return margenTodo;
+		return [...margenTodo.slice(0, TOP_N), ...margenTodo.slice(-TOP_N)];
+	}, [margenTodo]);
+
+	const truncado = margenTodo.length > margenData.length;
+
+	// La composición sigue el mismo recorte y el mismo orden que el margen: son
+	// las dos caras del mismo trabajo, y comparar barra a barra sólo funciona si
+	// las filas calzan una a una entre los dos gráficos.
 	const composicionData = useMemo(
 		() =>
-			conCosto.map((r) => ({
-				ot: r.ot_number,
-				material_actual: n(r.material_actual),
-				labor_actual: n(r.labor_actual),
-				machine_actual: n(r.machine_actual),
-				other_actual: n(r.other_actual),
-			})),
-		[conCosto],
+			margenData.map((d) => {
+				const r = conCosto.find((row) => row.ot_number === d.ot);
+				return {
+					ot: d.ot,
+					material_actual: n(r?.material_actual),
+					labor_actual: n(r?.labor_actual),
+					machine_actual: n(r?.machine_actual),
+					other_actual: n(r?.other_actual),
+				};
+			}),
+		[margenData, conCosto],
 	);
 
 	const v = totals.verdict;
@@ -247,6 +267,19 @@ export function RentabilidadPanorama({ rows }: { rows: OtCostRow[] }) {
 			{conCosto.length === 0 ? (
 				<SinCosto ots={rows.length} />
 			) : (
+				<>
+				{truncado && (
+					<p className="text-xs text-muted-foreground">
+						Mostrando las {TOP_N} OT con mejor margen y las {TOP_N} con peor, de{' '}
+						{margenTodo.length} con costo real cargado.{' '}
+						<a
+							href="#detalle-completo"
+							className="font-medium text-primary underline-offset-4 hover:underline"
+						>
+							Ver el detalle completo de todas
+						</a>
+					</p>
+				)}
 				<div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
 					{/* ── Margen por trabajo — polaridad, barra divergente ── */}
 					<Card>
@@ -388,6 +421,7 @@ export function RentabilidadPanorama({ rows }: { rows: OtCostRow[] }) {
 						</CardContent>
 					</Card>
 				</div>
+				</>
 			)}
 		</div>
 	);
