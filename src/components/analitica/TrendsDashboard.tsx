@@ -18,10 +18,10 @@ import { useQuery } from '@tanstack/react-query';
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import {
-	AreaChart, Area, Line, BarChart, Bar, Cell,
+	AreaChart, Area, Line, LineChart, BarChart, Bar, Cell,
 	XAxis, YAxis, CartesianGrid, Legend, ReferenceLine,
 } from 'recharts';
-import { TrendingUp, BarChart3, DollarSign, Clock3 } from 'lucide-react';
+import { TrendingUp, BarChart3, DollarSign, Clock3, Timer, Info } from 'lucide-react';
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -45,13 +45,26 @@ interface MonthlyPoint {
 	margin: number;
 	marginPct: number | null;
 	conCosto: number;
+	avgCycleDays: number | null;
 }
 
 interface TrendsResponse {
 	monthly: MonthlyPoint[];
-	statusCounts: Record<string, number>;
+	completedCount: number;
+	activeByStatus: Record<string, number>;
 	total: number;
+	warning: string | null;
 }
+
+// El mismo orden en que un trabajo recorre el taller — ver `ot_status` en
+// supabase/migrations/20260221143000_hr_domain_core_tables.sql. 'completed'
+// queda fuera: ésa es la pregunta que ya responde el titular de arriba.
+const PIPELINE_ORDER = [
+	'pre_press', 'visto_bueno', 'paper_purchase', 'in_storage',
+	'guillotine_first_cut', 'offset_printing', 'digital_printing', 'die_cutting',
+	'guillotine_final_cut', 'workshop', 'outsourced', 'workshop_revision',
+	'ready_for_delivery', 'in_delivery',
+];
 
 const MONTH_OPTIONS = [
 	{ value: '6', label: 'Últimos 6 meses' },
@@ -80,12 +93,16 @@ const moneyConfig: ChartConfig = {
 	cost: { label: 'Costo real', color: 'hsl(0 72% 51%)' },
 } satisfies ChartConfig;
 
-const statusConfig: ChartConfig = {
+const activeConfig: ChartConfig = {
 	value: { label: 'OTs', color: 'hsl(243 75% 59%)' },
 } satisfies ChartConfig;
 
+const cycleConfig: ChartConfig = {
+	avgCycleDays: { label: 'Días promedio', color: 'hsl(263 70% 58%)' },
+} satisfies ChartConfig;
+
 /** Los últimos dos meses con dato medible, para el "vamos mejor o peor". */
-function useDelta(chartData: (MonthlyPoint & { label: string })[], key: 'marginPct' | 'onTimeRate') {
+function useDelta(chartData: (MonthlyPoint & { label: string })[], key: 'marginPct' | 'onTimeRate' | 'avgCycleDays') {
 	return useMemo(() => {
 		const conDato = chartData.filter((m) => m[key] !== null);
 		if (conDato.length === 0) return null;
@@ -96,19 +113,22 @@ function useDelta(chartData: (MonthlyPoint & { label: string })[], key: 'marginP
 	}, [chartData, key]);
 }
 
-function DeltaTag({ delta }: { delta: number | null }) {
+/** `invert`: para el tiempo de ciclo, MENOS días es la mejora — la flecha
+ *  sigue mostrando el signo real del cambio, sólo cambia qué color es "bien". */
+function DeltaTag({ delta, invert = false }: { delta: number | null; invert?: boolean }) {
 	if (delta === null) return null;
 	if (Math.abs(delta) < 0.5) return <span className="text-muted-foreground">· estable vs mes anterior</span>;
 	const up = delta > 0;
+	const good = invert ? !up : up;
 	return (
-		<span className={up ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}>
-			· {up ? '▲' : '▼'} {Math.abs(delta)} pts vs mes anterior
+		<span className={good ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}>
+			· {up ? '▲' : '▼'} {Math.abs(delta)} {invert ? 'días' : 'pts'} vs mes anterior
 		</span>
 	);
 }
 
 export function TrendsDashboard() {
-	const [months, setMonths] = useState(12);
+	const [months, setMonths] = useState(6);
 	const { data, isLoading } = useTrends(months);
 
 	const chartData = useMemo(
@@ -120,22 +140,32 @@ export function TrendsDashboard() {
 		[data?.monthly],
 	);
 
-	const statusData = useMemo(() => {
-		const counts = data?.statusCounts ?? {};
-		return Object.entries(counts).map(([status, count]) => ({
-			name: otStatusLabel(status),
-			value: count,
-		}));
-	}, [data?.statusCounts]);
+	const activeData = useMemo(() => {
+		const counts = data?.activeByStatus ?? {};
+		return PIPELINE_ORDER
+			.filter((s) => (counts[s] ?? 0) > 0)
+			.map((s) => ({ name: otStatusLabel(s), value: counts[s] }));
+	}, [data?.activeByStatus]);
+	const activeTotal = activeData.reduce((s, d) => s + d.value, 0);
+	const completionPct = data && data.total > 0 ? Math.round((data.completedCount / data.total) * 1000) / 10 : null;
 
 	const marginDelta = useDelta(chartData, 'marginPct');
 	const onTimeDelta = useDelta(chartData, 'onTimeRate');
+	const cycleDelta = useDelta(chartData, 'avgCycleDays');
 
 	const sinCostoEnPeriodo = chartData.length > 0 && chartData.every((m) => m.conCosto === 0);
 	const sinPlazoEnPeriodo = chartData.length > 0 && chartData.every((m) => m.onTimeEligible === 0);
+	const sinCicloEnPeriodo = chartData.length > 0 && chartData.every((m) => m.avgCycleDays === null);
 
 	return (
 		<div className="space-y-6">
+			{data?.warning && (
+				<div className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-400">
+					<Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+					<p>{data.warning}</p>
+				</div>
+			)}
+
 			<div className="flex items-center justify-end">
 				<Select value={String(months)} onValueChange={(v) => setMonths(Number(v))}>
 					<SelectTrigger className="h-8 w-[170px]">
@@ -300,25 +330,86 @@ export function TrendsDashboard() {
 				</CardContent>
 			</Card>
 
-			{/* ── Distribución por estado (todas las OT, sin el límite de 200) ── */}
+			{/* ── Tiempo de ciclo ── */}
 			<Card>
 				<CardHeader>
 					<CardTitle className="text-base flex items-center gap-2">
-						<BarChart3 className="h-4 w-4" />Distribución por estado
+						<Timer className="h-4 w-4" />Tiempo de ciclo por mes
 					</CardTitle>
-					<p className="text-xs text-muted-foreground">{data?.total ?? 0} OT en total, sin límite de página.</p>
+					<p className="text-xs text-muted-foreground">
+						Días de calendario entre que la OT se crea y se completa, promediado por mes de cierre.
+						{cycleDelta && (
+							<> {cycleDelta.last.label}: <strong className="text-foreground">{cycleDelta.last.avgCycleDays} días</strong>{' '}
+							<DeltaTag delta={cycleDelta.delta} invert /></>
+						)}
+					</p>
 				</CardHeader>
 				<CardContent>
 					{isLoading ? (
-						<Skeleton className="h-[200px] w-full rounded-lg" />
+						<Skeleton className="h-[220px] w-full rounded-lg" />
+					) : sinCicloEnPeriodo ? (
+						<div className="flex h-[160px] flex-col items-center justify-center gap-1 text-center text-sm text-muted-foreground">
+							<p>Ninguna OT completada en este período tiene ambas fechas cargadas.</p>
+						</div>
 					) : (
-						<ChartContainer config={statusConfig} className="h-[200px] w-full">
-							<BarChart data={statusData} margin={{ top: 8, right: 16, left: 0, bottom: 0 }}>
+						<ChartContainer config={cycleConfig} className="h-[220px] w-full">
+							<LineChart data={chartData} margin={{ top: 8, right: 16, left: 0, bottom: 0 }}>
 								<CartesianGrid strokeDasharray="3 3" stroke="currentColor" strokeOpacity={0.08} vertical={false} />
-								<XAxis dataKey="name" tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
-								<YAxis tick={{ fontSize: 11 }} tickLine={false} axisLine={false} width={28} />
+								<XAxis dataKey="label" tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
+								<YAxis tick={{ fontSize: 11 }} tickLine={false} axisLine={false} width={32} tickFormatter={(v) => `${v}d`} />
+								<ChartTooltip
+									content={
+										<ChartTooltipContent
+											formatter={(value) => (
+												<div className="flex w-full items-center justify-between gap-4">
+													<span className="text-muted-foreground">Ciclo promedio</span>
+													<span className="font-medium tabular-nums text-foreground">
+														{value === null ? 'sin datos' : `${value} días`}
+													</span>
+												</div>
+											)}
+										/>
+									}
+								/>
+								<Line
+									type="monotone" dataKey="avgCycleDays" name="avgCycleDays"
+									stroke="var(--color-avgCycleDays)" strokeWidth={2}
+									dot={{ r: 3 }} connectNulls animationDuration={400} animationEasing="ease-out"
+								/>
+							</LineChart>
+						</ChartContainer>
+					)}
+				</CardContent>
+			</Card>
+
+			{/* ── Dónde está el trabajo en curso ── */}
+			<Card>
+				<CardHeader>
+					<CardTitle className="text-base flex items-center gap-2">
+						<BarChart3 className="h-4 w-4" />Dónde está el trabajo en curso
+					</CardTitle>
+					<p className="text-xs text-muted-foreground">
+						{data ? (
+							<>{data.completedCount} de {data.total} OT ya completadas ({completionPct}%). Las {activeTotal} restantes,
+							por etapa del proceso en el orden en que se recorren — no por mes: es una foto de ahora mismo.</>
+						) : 'Cargando…'}
+					</p>
+				</CardHeader>
+				<CardContent>
+					{isLoading ? (
+						<Skeleton className="h-[240px] w-full rounded-lg" />
+					) : activeData.length === 0 ? (
+						<div className="flex h-[160px] flex-col items-center justify-center gap-1 text-center text-sm text-muted-foreground">
+							<p>No hay OT activas fuera de &quot;completada&quot; en este momento.</p>
+						</div>
+					) : (
+						<ChartContainer config={activeConfig} className="w-full" style={{ height: Math.max(160, activeData.length * 32 + 40) }}>
+							<BarChart data={activeData} layout="vertical" margin={{ top: 4, right: 24, left: 8, bottom: 4 }}>
+								<CartesianGrid strokeDasharray="3 3" stroke="currentColor" strokeOpacity={0.08} horizontal={false} />
+								<XAxis type="number" allowDecimals={false} tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
+								<YAxis type="category" dataKey="name" width={150} tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
 								<ChartTooltip content={<ChartTooltipContent />} />
-								<Bar dataKey="value" name="value" fill="var(--color-value)" radius={[4, 4, 0, 0]} animationDuration={400} animationEasing="ease-out" />
+								<Bar dataKey="value" name="value" fill="var(--color-value)" radius={[0, 4, 4, 0]} barSize={18} animationDuration={400} animationEasing="ease-out" />
 							</BarChart>
 						</ChartContainer>
 					)}
