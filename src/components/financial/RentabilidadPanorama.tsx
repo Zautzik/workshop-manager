@@ -346,8 +346,11 @@ export function RentabilidadPanorama({ rows, comparisonRows = [], onSelect }: {
 			</div>
 
 			{/* Las dos caras de un trabajo: cuánto papel se perdió, y cuánto deja
-			    la hora de máquina que ocupó. */}
-			<div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+			    la hora de máquina que ocupó. Cada fila es una sola línea de ~450px
+			    desde que se compactó — esperar a xl (1280px) para partirlas en dos
+			    columnas era dejar toda esa fila vacía a la derecha del valor en
+			    cualquier pantalla más angosta que eso. */}
+			<div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
 				<HoraPrensaPanel onSelect={onSelect} />
 				<MermaPanel onSelect={onSelect} />
 			</div>
@@ -372,7 +375,7 @@ export function RentabilidadPanorama({ rows, comparisonRows = [], onSelect }: {
 						</a>
 					</p>
 				)}
-				<div id="margen-detalle" className="grid scroll-mt-6 grid-cols-1 gap-4 xl:grid-cols-2">
+				<div id="margen-detalle" className="grid scroll-mt-6 grid-cols-1 gap-4 lg:grid-cols-2">
 					{/* ── Margen por trabajo — polaridad, fila compacta ── */}
 					<Card>
 						<CardHeader className="pb-2">
