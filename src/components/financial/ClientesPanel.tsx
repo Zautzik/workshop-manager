@@ -62,7 +62,7 @@ function useClientes() {
 /** Cuántos se muestran antes de pedir «ver todos». */
 const VISIBLES = 5;
 
-export function ClientesPanel() {
+export function ClientesPanel({ onSelect }: { onSelect?: (q: string) => void }) {
 	const { data, isLoading, isError } = useClientes();
 	const [todos, setTodos] = useState(false);
 
@@ -165,7 +165,11 @@ export function ClientesPanel() {
 							</div>
 						</dl>
 
-						<ol className="space-y-3">
+						{/* Una línea por cliente; la barra queda con tope de 120px — la
+						    pista completa (venta) al ancho del card no aporta más lectura
+						    que una chica, sólo ocupa más pantalla. El detalle de costo va
+						    al title y un clic filtra la tabla de abajo por este cliente. */}
+						<ol className="space-y-0.5">
 							{mostradas.map((f) => {
 								const negativo = f.gross_margin < 0;
 								const anchoVenta = (f.revenue / maxVenta) * 100;
@@ -174,37 +178,34 @@ export function ClientesPanel() {
 								const relleno = negativo ? DIVERGING.light.negativo : DIVERGING.light.positivo;
 
 								return (
-									<li key={`${f.client_id ?? f.client_name}`} className="space-y-1.5">
-										<div className="flex flex-wrap items-baseline gap-x-2 text-sm">
-											<span className="truncate font-medium text-foreground">{f.client_name}</span>
-											<span className="text-xs text-muted-foreground">{f.ots} OT</span>
-											<span className={`ml-auto font-semibold tabular-nums ${negativo ? 'text-red-600 dark:text-red-400' : 'text-foreground'}`}>
-												{formatCLP(f.gross_margin)}
-												<span className="ml-1.5 text-xs font-normal text-muted-foreground">{f.margin_pct}%</span>
-											</span>
-										</div>
-
-										{/* Un solo eje: la escala es pesos para todos. La pista es la
-										    venta del cliente contra la mayor venta; lo lleno es su margen. */}
-										<div className="h-3 w-full rounded-full bg-muted/60" role="img"
-											aria-label={`${f.client_name}: factura ${formatCLP(f.revenue)}, deja ${formatCLP(f.gross_margin)}`}>
-											<div className="h-full rounded-full bg-muted-foreground/15" style={{ width: `${anchoVenta}%` }}>
-												<div
-													className="h-full rounded-full transition-all"
-													style={{ width: `${porcionMargen}%`, background: relleno }}
-												/>
+									<li key={`${f.client_id ?? f.client_name}`}>
+										<button
+											type="button"
+											onClick={() => onSelect?.(f.client_name)}
+											title={`Factura ${formatCLP(f.revenue)} · costo ${formatCLP(f.actual_cost)}${f.ots_sin_costo > 0 ? ` · ${f.ots_sin_costo} OT sin costo cargado, fuera del cálculo` : ''}`}
+											className="group flex w-full items-center gap-2 rounded-md px-1.5 py-1 text-left transition-colors hover:bg-muted/60"
+										>
+											<span className="w-32 shrink-0 truncate text-xs font-medium text-foreground group-hover:text-primary">{f.client_name}</span>
+											<span className="w-10 shrink-0 text-[11px] text-muted-foreground">{f.ots} OT</span>
+											{/* Un solo eje: la escala es pesos para todos. La pista es la
+											    venta del cliente contra la mayor venta; lo lleno es su margen. */}
+											<div
+												className="h-2 max-w-[120px] flex-1 rounded-full bg-muted/60"
+												role="img"
+												aria-label={`${f.client_name}: factura ${formatCLP(f.revenue)}, deja ${formatCLP(f.gross_margin)}`}
+											>
+												<div className="h-full rounded-full bg-muted-foreground/15" style={{ width: `${anchoVenta}%` }}>
+													<div
+														className="h-full rounded-full transition-all"
+														style={{ width: `${porcionMargen}%`, background: relleno }}
+													/>
+												</div>
 											</div>
-										</div>
-
-										<p className="flex flex-wrap gap-x-3 text-xs tabular-nums text-muted-foreground">
-											<span>factura {formatCLP(f.revenue)}</span>
-											<span>· costo {formatCLP(f.actual_cost)}</span>
-											{f.ots_sin_costo > 0 && (
-												<span className="text-amber-600 dark:text-amber-400">
-													· {f.ots_sin_costo} OT sin costo cargado, fuera del cálculo
-												</span>
-											)}
-										</p>
+											<span className={`ml-auto shrink-0 text-xs font-semibold tabular-nums ${negativo ? 'text-red-600 dark:text-red-400' : 'text-foreground'}`}>
+												{formatCLP(f.gross_margin)}
+												<span className="ml-1 font-normal text-muted-foreground">{f.margin_pct}%</span>
+											</span>
+										</button>
 									</li>
 								);
 							})}

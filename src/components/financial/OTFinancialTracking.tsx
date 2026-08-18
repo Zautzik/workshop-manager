@@ -183,7 +183,15 @@ export const OTFinancialTracking = () => {
     <div className="space-y-6">
       {/* Summary — straight from the unified cost ledger, ya recortado por
           período y por el buscador de la tabla de abajo. */}
-      <RentabilidadPanorama rows={visibleRows as any} comparisonRows={visibleComparisonRows as any} />
+      <RentabilidadPanorama
+        rows={visibleRows as any}
+        comparisonRows={visibleComparisonRows as any}
+        onSelect={(q) => {
+          setQuery(q);
+          setPage(0);
+          document.getElementById('detalle-completo')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }}
+      />
 
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
         <DialogTrigger asChild>

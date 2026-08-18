@@ -69,7 +69,7 @@ function useMerma() {
 /** Cuántos se muestran antes de pedir «ver todos». */
 const VISIBLES = 5;
 
-export function MermaPanel() {
+export function MermaPanel({ onSelect }: { onSelect?: (q: string) => void }) {
 	const { data, isLoading } = useMerma();
 
 	// El `?? []` acuña un arreglo nuevo en cada render, así que sin memo la
@@ -145,43 +145,43 @@ export function MermaPanel() {
 							</div>
 						)}
 
-						{/* Una fila por trabajo. La barra lleva su límite marcado encima:
-						    sin el límite, un porcentaje solo no se puede juzgar. */}
-						<ul className="space-y-3">
+						{/* Una línea por trabajo. La barra queda chica a propósito — tope
+						    de 120px — porque lo que hay que juzgar es el % contra el
+						    límite, no cuántos píxeles mide. El detalle largo va al title
+						    (hover) y un clic filtra la tabla de abajo por esta OT. */}
+						<ul className="space-y-0.5">
 							{mostrados.map((t) => {
 								const nivel = NIVEL[t.level] ?? NIVEL.sin_datos;
 								return (
-									<li key={t.ot} className="space-y-1.5">
-										<div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-sm">
-											<span className="font-mono font-semibold text-foreground">{t.ot}</span>
-											<span className={`text-xs font-semibold ${nivel.text}`}>
+									<li key={t.ot}>
+										<button
+											type="button"
+											onClick={() => onSelect?.(t.ot)}
+											title={t.note ?? `${t.merma.toLocaleString('es-CL')} de ${t.pliegos.toLocaleString('es-CL')} pliegos`}
+											className="group flex w-full items-center gap-2 rounded-md px-1.5 py-1 text-left transition-colors hover:bg-muted/60"
+										>
+											<span className="w-16 shrink-0 truncate font-mono text-xs font-semibold text-foreground group-hover:text-primary">{t.ot}</span>
+											<span
+												className="h-1.5 max-w-[120px] flex-1 overflow-hidden rounded-full bg-muted"
+												role="progressbar"
+												aria-valuenow={Math.round(t.rate * 100)}
+												aria-valuemin={0}
+												aria-valuemax={100}
+												aria-label={`Merma de la OT ${t.ot}: ${pct(t.rate)}, ${nivel.label}`}
+											>
+												<span
+													className="block h-full rounded-full transition-all"
+													style={{ width: `${Math.min(100, (t.rate / max) * 100)}%`, background: nivel.fill }}
+												/>
+											</span>
+											<span className={`w-24 shrink-0 text-xs font-semibold ${nivel.text}`}>
 												{pct(t.rate)} · {nivel.label}
 											</span>
-											<span className="ml-auto text-xs tabular-nums text-muted-foreground">
-												{t.merma.toLocaleString('es-CL')} de {t.pliegos.toLocaleString('es-CL')} pliegos
+											{t.note && <AlertTriangle className={`h-3 w-3 shrink-0 ${nivel.text}`} />}
+											<span className="ml-auto shrink-0 text-xs tabular-nums text-muted-foreground">
+												{t.merma.toLocaleString('es-CL')}/{t.pliegos.toLocaleString('es-CL')}
 											</span>
-										</div>
-
-										<div
-											className="relative h-2.5 w-full overflow-hidden rounded-full bg-muted"
-											role="progressbar"
-											aria-valuenow={Math.round(t.rate * 100)}
-											aria-valuemin={0}
-											aria-valuemax={100}
-											aria-label={`Merma de la OT ${t.ot}: ${pct(t.rate)}, ${nivel.label}`}
-										>
-											<div
-												className="h-full rounded-full transition-all"
-												style={{ width: `${Math.min(100, (t.rate / max) * 100)}%`, background: nivel.fill }}
-											/>
-										</div>
-
-										{t.note && (
-											<p className="flex items-start gap-1.5 text-xs leading-snug text-muted-foreground">
-												<AlertTriangle className={`mt-0.5 h-3 w-3 shrink-0 ${nivel.text}`} />
-												{t.note}
-											</p>
-										)}
+										</button>
 									</li>
 								);
 							})}

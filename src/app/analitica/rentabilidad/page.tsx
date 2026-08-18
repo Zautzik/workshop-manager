@@ -61,7 +61,7 @@ function RentabilidadTabs() {
 export default function AnaliticaRentabilidadPage() {
   return (
     <ProtectedRoute allowedRoles={['admin', 'manager']}>
-      <div className="p-6 md:p-8 space-y-6">
+      <div className="mx-auto max-w-[1400px] space-y-6 p-6 md:p-8">
         <AnalyticsFilterBar />
         <div>
           <h1 className="text-2xl font-bold text-foreground">Rentabilidad por OT</h1>

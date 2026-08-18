@@ -58,7 +58,7 @@ function usePressHour() {
 /** Cuántos se muestran antes de pedir «ver la cola completa». */
 const VISIBLES = 5;
 
-export function HoraPrensaPanel() {
+export function HoraPrensaPanel({ onSelect }: { onSelect?: (q: string) => void }) {
 	const { data, isLoading } = usePressHour();
 	const trabajos = useMemo(() => data?.trabajos ?? [], [data?.trabajos]);
 	const diag = data?.diagnostics;
@@ -138,38 +138,40 @@ export function HoraPrensaPanel() {
 						)}
 					</div>
 				) : (
-					<div className="space-y-3">
-						<ol className="space-y-3">
+					<div className="space-y-2">
+						{/* Una línea por trabajo, no tres: rango, OT, cliente, una barra
+						    chica (tope de 120px — una barra al ancho del card, en un
+						    card de 900px, no muestra magnitud, muestra un card ancho) y
+						    el valor. El detalle que antes iba en una tercera línea ahora
+						    vive en el title (hover) y un clic filtra la tabla de abajo. */}
+						<ol className="space-y-0.5">
 							{mostrados.map((t, i) => {
 								const pos = t.margenHora! >= 0;
 								// Énfasis en el primero: el orden es el mensaje, y resaltar
 								// uno comunica mejor que colorear los ocho.
 								const fill = i === 0 ? '#2a78d6' : pos ? '#86b6ef' : '#d03b3b';
 								return (
-									<li key={t.ot_id} className="space-y-1.5">
-										<div className="flex flex-wrap items-baseline gap-x-2 text-sm">
-											<span className="w-5 shrink-0 font-mono text-xs text-muted-foreground">{i + 1}.</span>
-											<span className="font-mono font-semibold text-foreground">{t.ot}</span>
-											<span className="truncate text-xs text-muted-foreground">{t.cliente}</span>
-											<span className={`ml-auto font-semibold tabular-nums ${pos ? 'text-foreground' : 'text-red-600 dark:text-red-400'}`}>
-												{formatCLP(Math.round(t.margenHora!))}
-												<span className="text-xs font-normal text-muted-foreground"> / hora</span>
+									<li key={t.ot_id}>
+										<button
+											type="button"
+											onClick={() => onSelect?.(t.ot)}
+											title={`Margen ${formatCLP(t.margen ?? 0)} · ${t.pressHours?.toFixed(1) ?? '—'} h de máquina${t.costoMillar !== null ? ` · costo ${formatCLP(Math.round(t.costoMillar))}/millar` : ''}`}
+											className="group flex w-full items-center gap-2 rounded-md px-1.5 py-1 text-left transition-colors hover:bg-muted/60"
+										>
+											<span className="w-4 shrink-0 font-mono text-[10px] text-muted-foreground">{i + 1}</span>
+											<span className="w-14 shrink-0 truncate font-mono text-xs font-semibold text-foreground group-hover:text-primary">{t.ot}</span>
+											<span className="w-20 shrink-0 truncate text-xs text-muted-foreground">{t.cliente}</span>
+											<span className="h-1.5 max-w-[120px] flex-1 overflow-hidden rounded-full bg-muted">
+												<span
+													className="block h-full rounded-full transition-all"
+													style={{ width: `${Math.min(100, (Math.abs(t.margenHora!) / max) * 100)}%`, background: fill }}
+												/>
 											</span>
-										</div>
-
-										<div className="h-2 w-full overflow-hidden rounded-full bg-muted">
-											<div
-												className="h-full rounded-full transition-all"
-												style={{ width: `${Math.min(100, (Math.abs(t.margenHora!) / max) * 100)}%`, background: fill }}
-											/>
-										</div>
-
-										{/* Las dos cifras juntas: el hallazgo es la discrepancia. */}
-										<p className="flex flex-wrap gap-x-3 text-xs tabular-nums text-muted-foreground">
-											<span>margen {formatCLP(t.margen ?? 0)}</span>
-											<span>· {t.pressHours?.toFixed(1)} h de máquina</span>
-											{t.costoMillar !== null && <span>· costo {formatCLP(Math.round(t.costoMillar))}/millar</span>}
-										</p>
+											<span className={`ml-auto shrink-0 text-xs font-semibold tabular-nums ${pos ? 'text-foreground' : 'text-red-600 dark:text-red-400'}`}>
+												{formatCLP(Math.round(t.margenHora!))}
+												<span className="font-normal text-muted-foreground"> /hora</span>
+											</span>
+										</button>
 									</li>
 								);
 							})}

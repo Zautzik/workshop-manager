@@ -165,67 +165,82 @@ function SinCosto({ ots }: { ots: number }) {
 }
 
 // ── Fila compacta: margen por trabajo (divergente, CSS) ────────────────────
+// Una línea, no dos — y la barra queda con tope de 120px: en un card de
+// 900px, una pista al 100% de ancho no muestra más magnitud, sólo estira el
+// card. Un clic filtra la tabla de abajo por esta OT.
 
-function MargenRow({ ot, cliente, margen, pct, max, positivo, negativo }: {
-	ot: string; cliente: string; margen: number; pct: number | null; max: number; positivo: string; negativo: string;
+function MargenRow({ ot, cliente, margen, pct, max, positivo, negativo, onSelect }: {
+	ot: string; cliente: string; margen: number; pct: number | null; max: number;
+	positivo: string; negativo: string; onSelect?: (q: string) => void;
 }) {
 	const esPositivo = margen >= 0;
 	const halfPct = Math.min(50, max > 0 ? (Math.abs(margen) / max) * 50 : 0);
 	return (
-		<li className="space-y-1">
-			<div className="flex flex-wrap items-baseline gap-x-2 text-xs">
-				<span className="font-mono font-semibold text-foreground">{ot}</span>
-				<span className="truncate text-muted-foreground">{cliente}</span>
-				<span className={`ml-auto font-semibold tabular-nums ${esPositivo ? 'text-foreground' : 'text-red-600 dark:text-red-400'}`}>
+		<li>
+			<button
+				type="button"
+				onClick={() => onSelect?.(ot)}
+				className="group flex w-full items-center gap-2 rounded-md px-1.5 py-1 text-left transition-colors hover:bg-muted/60"
+			>
+				<span className="w-16 shrink-0 truncate font-mono text-xs font-semibold text-foreground group-hover:text-primary">{ot}</span>
+				<span className="w-20 shrink-0 truncate text-xs text-muted-foreground">{cliente}</span>
+				<span className="relative h-2 max-w-[120px] flex-1 overflow-hidden rounded-full bg-muted">
+					<span className="absolute inset-y-0 left-1/2 w-px bg-border" />
+					<span
+						className={`absolute inset-y-0 rounded-full ${esPositivo ? 'left-1/2' : 'right-1/2'}`}
+						style={{ width: `${halfPct}%`, background: esPositivo ? positivo : negativo }}
+					/>
+				</span>
+				<span className={`ml-auto shrink-0 text-xs font-semibold tabular-nums ${esPositivo ? 'text-foreground' : 'text-red-600 dark:text-red-400'}`}>
 					{formatCLP(margen)}
 					{pct !== null && <span className="ml-1 font-normal text-muted-foreground">({pct}%)</span>}
 				</span>
-			</div>
-			<div className="relative h-2 w-full overflow-hidden rounded-full bg-muted">
-				<div className="absolute inset-y-0 left-1/2 w-px bg-border" />
-				<div
-					className={`absolute inset-y-0 rounded-full ${esPositivo ? 'left-1/2' : 'right-1/2'}`}
-					style={{ width: `${halfPct}%`, background: esPositivo ? positivo : negativo }}
-				/>
-			</div>
+			</button>
 		</li>
 	);
 }
 
 // ── Fila compacta: composición del costo (parte-todo, CSS apilado) ─────────
 
-function ComposicionRow({ ot, parts, max, dark }: {
+function ComposicionRow({ ot, parts, max, dark, onSelect }: {
 	ot: string;
 	parts: { key: CostPartKey; label: string; value: number }[];
 	max: number;
 	dark: boolean;
+	onSelect?: (q: string) => void;
 }) {
 	const total = parts.reduce((s, p) => s + p.value, 0);
 	const anchoTotal = max > 0 ? Math.min(100, (total / max) * 100) : 0;
 	return (
-		<li className="space-y-1">
-			<div className="flex items-baseline gap-x-2 text-xs">
-				<span className="font-mono font-semibold text-foreground">{ot}</span>
-				<span className="ml-auto tabular-nums text-muted-foreground">{formatCLP(total)}</span>
-			</div>
-			<div
-				className="flex h-2.5 overflow-hidden rounded-full bg-muted"
-				role="img"
-				aria-label={`OT ${ot}: ${parts.filter((p) => p.value > 0).map((p) => `${p.label} ${formatCLP(p.value)}`).join(', ')}`}
-				style={{ width: `${anchoTotal}%`, minWidth: total > 0 ? '2px' : 0 }}
+		<li>
+			<button
+				type="button"
+				onClick={() => onSelect?.(ot)}
+				className="group flex w-full items-center gap-2 rounded-md px-1.5 py-1 text-left transition-colors hover:bg-muted/60"
 			>
-				{parts.filter((p) => p.value > 0).map((p, i) => (
-					<div
-						key={p.key}
-						title={`${p.label}: ${formatCLP(p.value)}`}
-						style={{
-							width: `${(p.value / total) * 100}%`,
-							background: costPartColor(p.key, dark),
-							marginLeft: i === 0 ? 0 : 2,
-						}}
-					/>
-				))}
-			</div>
+				<span className="w-16 shrink-0 truncate font-mono text-xs font-semibold text-foreground group-hover:text-primary">{ot}</span>
+				<span className="max-w-[140px] flex-1 overflow-hidden rounded-full bg-muted">
+					<span
+						className="flex h-2.5 overflow-hidden rounded-full"
+						role="img"
+						aria-label={`OT ${ot}: ${parts.filter((p) => p.value > 0).map((p) => `${p.label} ${formatCLP(p.value)}`).join(', ')}`}
+						style={{ width: `${anchoTotal}%`, minWidth: total > 0 ? '2px' : 0 }}
+					>
+						{parts.filter((p) => p.value > 0).map((p, i) => (
+							<span
+								key={p.key}
+								title={`${p.label}: ${formatCLP(p.value)}`}
+								style={{
+									width: `${(p.value / total) * 100}%`,
+									background: costPartColor(p.key, dark),
+									marginLeft: i === 0 ? 0 : 2,
+								}}
+							/>
+						))}
+					</span>
+				</span>
+				<span className="ml-auto shrink-0 tabular-nums text-xs text-muted-foreground">{formatCLP(total)}</span>
+			</button>
 		</li>
 	);
 }
@@ -239,7 +254,9 @@ function sumTotals(rows: OtCostRow[]) {
 	return { revenue, actual, estimated, verdict: aggregateMarginConfidence(rows) };
 }
 
-export function RentabilidadPanorama({ rows, comparisonRows = [] }: { rows: OtCostRow[]; comparisonRows?: OtCostRow[] }) {
+export function RentabilidadPanorama({ rows, comparisonRows = [], onSelect }: {
+	rows: OtCostRow[]; comparisonRows?: OtCostRow[]; onSelect?: (q: string) => void;
+}) {
 	const { theme } = useTheme();
 	const dark = theme === 'dark';
 	const div = dark ? DIVERGING.dark : DIVERGING.light;
@@ -331,13 +348,13 @@ export function RentabilidadPanorama({ rows, comparisonRows = [] }: { rows: OtCo
 			{/* Las dos caras de un trabajo: cuánto papel se perdió, y cuánto deja
 			    la hora de máquina que ocupó. */}
 			<div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-				<HoraPrensaPanel />
-				<MermaPanel />
+				<HoraPrensaPanel onSelect={onSelect} />
+				<MermaPanel onSelect={onSelect} />
 			</div>
 
 			{/* Por cliente: la pregunta por la que existe el módulo. `rollupByClient`
 			    la respondía desde hace tiempo y ninguna pantalla la leía. */}
-			<ClientesPanel />
+			<ClientesPanel onSelect={onSelect} />
 
 			{conCosto.length === 0 ? (
 				<SinCosto ots={rows.length} />
@@ -365,9 +382,9 @@ export function RentabilidadPanorama({ rows, comparisonRows = [] }: { rows: OtCo
 							</p>
 						</CardHeader>
 						<CardContent>
-							<ol className="space-y-2.5">
+							<ol className="space-y-0.5">
 								{margenData.map((d) => (
-									<MargenRow key={d.ot} {...d} max={maxMargen} positivo={div.positivo} negativo={div.negativo} />
+									<MargenRow key={d.ot} {...d} max={maxMargen} positivo={div.positivo} negativo={div.negativo} onSelect={onSelect} />
 								))}
 							</ol>
 						</CardContent>
@@ -393,9 +410,9 @@ export function RentabilidadPanorama({ rows, comparisonRows = [] }: { rows: OtCo
 									</span>
 								))}
 							</div>
-							<ol className="space-y-2.5">
+							<ol className="space-y-0.5">
 								{composicionData.map((d) => (
-									<ComposicionRow key={d.ot} ot={d.ot} parts={d.parts} max={maxComposicion} dark={dark} />
+									<ComposicionRow key={d.ot} ot={d.ot} parts={d.parts} max={maxComposicion} dark={dark} onSelect={onSelect} />
 								))}
 							</ol>
 						</CardContent>
