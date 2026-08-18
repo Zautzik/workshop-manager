@@ -56,7 +56,7 @@ function usePressHour() {
 }
 
 /** Cuántos se muestran antes de pedir «ver la cola completa». */
-const VISIBLES = 8;
+const VISIBLES = 5;
 
 export function HoraPrensaPanel() {
 	const { data, isLoading } = usePressHour();

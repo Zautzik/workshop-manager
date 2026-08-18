@@ -13,7 +13,7 @@ import { marginConfidence } from '@/lib/margin-confidence';
 import { RentabilidadPanorama } from '@/components/financial/RentabilidadPanorama';
 import { useOTs } from '@/hooks/use-operations-queries';
 import { formatCLP } from '@/lib/format';
-import { useAnalyticsFilters, inPeriod } from '@/contexts/AnalyticsFiltersContext';
+import { useAnalyticsFilters } from '@/contexts/AnalyticsFiltersContext';
 
 // Cost categories map 1:1 to the ledger's cost_line_category.
 const COST_FIELDS = [
@@ -72,9 +72,17 @@ function SortTh({
 
 export const OTFinancialTracking = () => {
   const queryClient = useQueryClient();
-  const { data: rows = [] } = useOtCostSummary();
+  const { range, comparison } = useAnalyticsFilters();
+
+  // El período se filtra EN EL SERVIDOR (la ruta ya lo soporta) — no en el
+  // cliente contra useOTs(), que trae como mucho 200 filas y ya se quedó
+  // corta con 234 OT: una OT fuera de esas 200 pasaba el filtro de CUALQUIER
+  // período, porque "sin fecha resuelta" se trataba como "siempre visible".
+  // El segundo llamado (con el período de comparación) es lo que permite
+  // decir "el margen subió 4 puntos" en vez de mostrar un número suelto.
+  const { data: rows = [] } = useOtCostSummary({ from: range.from.toISOString(), to: range.to.toISOString() });
+  const { data: comparisonRows = [] } = useOtCostSummary({ from: comparison.from.toISOString(), to: comparison.to.toISOString() });
   const { data: ots = [] } = useOTs();
-  const { range } = useAnalyticsFilters();
 
   const [selectedOtId, setSelectedOtId] = useState('');
   const [amounts, setAmounts] = useState<Record<CostKey, number>>({
@@ -83,33 +91,27 @@ export const OTFinancialTracking = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  // Fecha de cada OT — el ledger de costos no trae fecha propia, así que el
-  // filtro de período se resuelve por ot_id contra la lista de OT. Una OT sin
-  // fecha resuelta (p.ej. fuera del límite de `useOTs`) no se descarta: se
-  // muestra siempre, antes que arriesgarse a esconder plata real.
-  const otDateById = useMemo(
-    () => new Map(ots.map((o: any) => [o.id, o.created_at as string | undefined])),
-    [ots],
-  );
-  const inPeriodRows = useMemo(
-    () => rows.filter((r) => { const d = otDateById.get(r.ot_id); return !d || inPeriod(d, range); }),
-    [rows, otDateById, range],
-  );
-
-  // Buscador único: filtra a la vez los gráficos de arriba (vía `visibleRows`,
-  // que baja como prop al panorama) y la tabla de abajo — no hace falta un
-  // buscador por panel.
+  // Buscador único: filtra a la vez los gráficos de arriba (vía `visibleRows`
+  // y `visibleComparisonRows`, que bajan como prop al panorama) y la tabla de
+  // abajo — no hace falta un buscador por panel. Se aplica al período de
+  // comparación también: si se busca un cliente, el delta compara peras con
+  // peras — sus cifras de este mes contra las mismas de él el mes pasado.
   const [query, setQuery] = useState('');
   const [page, setPage] = useState(0);
   const PAGE_SIZE = 20;
 
+  const matchesQuery = (r: OtCostSummaryRow, q: string) =>
+    r.ot_number?.toLowerCase().includes(q) || r.client_name?.toLowerCase().includes(q);
+
   const visibleRows = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return inPeriodRows;
-    return inPeriodRows.filter(
-      (r) => r.ot_number?.toLowerCase().includes(q) || r.client_name?.toLowerCase().includes(q),
-    );
-  }, [inPeriodRows, query]);
+    return q ? rows.filter((r) => matchesQuery(r, q)) : rows;
+  }, [rows, query]);
+
+  const visibleComparisonRows = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return q ? comparisonRows.filter((r) => matchesQuery(r, q)) : comparisonRows;
+  }, [comparisonRows, query]);
 
   const enriched: Enriched[] = useMemo(
     () => visibleRows.map((r) => ({ row: r, v: marginConfidence(r) })),
@@ -181,7 +183,7 @@ export const OTFinancialTracking = () => {
     <div className="space-y-6">
       {/* Summary — straight from the unified cost ledger, ya recortado por
           período y por el buscador de la tabla de abajo. */}
-      <RentabilidadPanorama rows={visibleRows as any} />
+      <RentabilidadPanorama rows={visibleRows as any} comparisonRows={visibleComparisonRows as any} />
 
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
         <DialogTrigger asChild>

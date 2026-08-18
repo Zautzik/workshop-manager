@@ -68,6 +68,10 @@ export async function GET(req: NextRequest) {
     revenue: o.total_price,
   }));
 
+  // `rollupCosts` no carga fecha (es puro costo/margen); se guarda aparte
+  // para no tener que tocar su firma sólo por esto.
+  const createdAtByOt = new Map((ots ?? []).map((o) => [o.id, o.created_at as string | null]));
+
   const rows = rollupCosts(lines, revenues, { includeSeed });
   rows.sort((a, b) => String(b.ot_number ?? '').localeCompare(String(a.ot_number ?? '')));
 
@@ -88,6 +92,7 @@ export async function GET(req: NextRequest) {
       margin_pct: r.margin_pct,
       provenance: r.provenance,
       unreliable: r.unreliable,
+      created_at: createdAtByOt.get(r.ot_id) ?? null,
     })),
     totals: aggregateRollup(rows),
     // La pregunta por la que existe este módulo: ¿qué cliente deja plata?

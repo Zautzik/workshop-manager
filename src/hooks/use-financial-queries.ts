@@ -88,6 +88,9 @@ export interface OtCostSummaryRow {
   provenance: CostProvenance;
   /** El margen existe pero no sirve para decidir precios. */
   unreliable: boolean;
+  /** Cuándo nació la OT — para filtrar por período sin depender de useOTs(),
+   *  que trae como mucho 200 filas. */
+  created_at: string | null;
 }
 
 export interface OtCostTotals {
@@ -102,13 +105,23 @@ export interface OtCostTotals {
   reason: string;
 }
 
-/** Puerta única del costo por OT: ledger unificado con procedencia. */
-export function useOtCostSummary(opts: { includeSeed?: boolean } = {}) {
-  const qs = opts.includeSeed ? '?include_seed=1' : '';
+/** Puerta única del costo por OT: ledger unificado con procedencia.
+ *
+ * `from`/`to` filtran por `created_at` EN EL SERVIDOR (la ruta ya los
+ * soporta) — no hay que traer todo y recortar en el cliente contra
+ * `useOTs()`, que corta en 200 filas y ya se quedó corta con 234 OT.
+ */
+export function useOtCostSummary(opts: { includeSeed?: boolean; from?: string; to?: string } = {}) {
+  const params = new URLSearchParams();
+  if (opts.includeSeed) params.set('include_seed', '1');
+  if (opts.from) params.set('from', opts.from);
+  if (opts.to) params.set('to', opts.to);
+  const qs = params.toString();
+
   return useQuery<OtCostSummaryRow[]>({
-    queryKey: ['otCostSummary', !!opts.includeSeed],
+    queryKey: ['otCostSummary', !!opts.includeSeed, opts.from ?? null, opts.to ?? null],
     queryFn: async () => {
-      const res = await fetch(`/api/ots/cost-summary${qs}`, { credentials: 'include' });
+      const res = await fetch(`/api/ots/cost-summary${qs ? `?${qs}` : ''}`, { credentials: 'include' });
       if (!res.ok) throw new Error(`Failed to fetch cost summary: ${res.status}`);
       const payload = await res.json();
       return (payload?.data ?? []) as OtCostSummaryRow[];

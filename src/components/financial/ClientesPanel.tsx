@@ -60,7 +60,7 @@ function useClientes() {
 }
 
 /** Cuántos se muestran antes de pedir «ver todos». */
-const VISIBLES = 8;
+const VISIBLES = 5;
 
 export function ClientesPanel() {
 	const { data, isLoading, isError } = useClientes();
@@ -216,7 +216,7 @@ export function ClientesPanel() {
 								onClick={() => setTodos((v) => !v)}
 								className="text-xs font-medium text-primary underline-offset-4 hover:underline"
 							>
-								{todos ? 'Mostrar sólo los primeros 8' : `Ver los ${conCifra.length} clientes`}
+								{todos ? `Mostrar sólo los primeros ${VISIBLES}` : `Ver los ${conCifra.length} clientes`}
 							</button>
 						)}
 

@@ -67,7 +67,7 @@ function useMerma() {
 }
 
 /** Cuántos se muestran antes de pedir «ver todos». */
-const VISIBLES = 8;
+const VISIBLES = 5;
 
 export function MermaPanel() {
 	const { data, isLoading } = useMerma();
