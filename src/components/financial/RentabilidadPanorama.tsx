@@ -355,27 +355,36 @@ export function RentabilidadPanorama({ rows, comparisonRows = [], onSelect }: {
 				<MermaPanel onSelect={onSelect} />
 			</div>
 
-			{/* Por cliente: la pregunta por la que existe el módulo. `rollupByClient`
-			    la respondía desde hace tiempo y ninguna pantalla la leía. */}
-			<ClientesPanel onSelect={onSelect} />
+			{truncado && (
+				<p className="text-xs text-muted-foreground">
+					Mostrando las {TOP_N} OT con mejor margen y las {TOP_N} con peor, de{' '}
+					{margenTodo.length} con costo real cargado.{' '}
+					<a
+						href="#detalle-completo"
+						className="font-medium text-primary underline-offset-4 hover:underline"
+					>
+						Ver el detalle completo de todas
+					</a>
+				</p>
+			)}
 
-			{conCosto.length === 0 ? (
-				<SinCosto ots={rows.length} />
-			) : (
-				<>
-				{truncado && (
-					<p className="text-xs text-muted-foreground">
-						Mostrando las {TOP_N} OT con mejor margen y las {TOP_N} con peor, de{' '}
-						{margenTodo.length} con costo real cargado.{' '}
-						<a
-							href="#detalle-completo"
-							className="font-medium text-primary underline-offset-4 hover:underline"
-						>
-							Ver el detalle completo de todas
-						</a>
-					</p>
-				)}
-				<div id="margen-detalle" className="grid scroll-mt-6 grid-cols-1 gap-4 lg:grid-cols-2">
+			{/* Por cliente, margen por trabajo y en qué se fue la plata: las tres
+			    comparten fila desde xl (1280px) — cada una ya es compacta (una
+			    línea por OT/cliente, barra con tope de 120-140px), así que tres
+			    columnas de ~430px les alcanza sin apretarlas. Antes de eso, dos
+			    columnas (md) y luego una sola (el móvil no tiene ancho que repartir). */}
+			<div id="margen-detalle" className="grid scroll-mt-6 grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+				{/* Por cliente: la pregunta por la que existe el módulo. `rollupByClient`
+				    la respondía desde hace tiempo y ninguna pantalla la leía. No depende
+				    de `conCosto` — trae su propio dato — así que sigue arriba siempre. */}
+				<ClientesPanel onSelect={onSelect} />
+
+				{conCosto.length === 0 ? (
+					<div className="md:col-span-2 xl:col-span-2">
+						<SinCosto ots={rows.length} />
+					</div>
+				) : (
+					<>
 					{/* ── Margen por trabajo — polaridad, fila compacta ── */}
 					<Card>
 						<CardHeader className="pb-2">
@@ -420,9 +429,9 @@ export function RentabilidadPanorama({ rows, comparisonRows = [], onSelect }: {
 							</ol>
 						</CardContent>
 					</Card>
-				</div>
-				</>
-			)}
+					</>
+				)}
+			</div>
 		</div>
 	);
 }
