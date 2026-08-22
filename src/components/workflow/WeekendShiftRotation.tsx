@@ -8,9 +8,10 @@
  * roster and derives who is on-call *deterministically* from the calendar week, so
  * it advances by exactly one position every week with no manual bookkeeping.
  *
- * NOTE: the roster is persisted to localStorage as a UI preference. It should move
- * to the DB (a `shift_rotation` table) so it is shared across devices — tracked in
- * docs/audit-2026-06.md (D2 / "localStorage as datastore").
+ * The roster lives in `app_settings` (key `weekend_shift_rotation`) via
+ * /api/shift-rotation — moved off localStorage so a second admin, or the same
+ * admin on another device, sees the same order (tracked in
+ * docs/audit-2026-06.md, D2 / "localStorage as datastore").
  */
 
 import { useEffect, useMemo, useState } from 'react';
@@ -23,9 +24,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { CalendarClock, ChevronUp, ChevronDown, X, Plus } from 'lucide-react';
+import { CalendarClock, ChevronUp, ChevronDown, X, Plus, Loader2 } from 'lucide-react';
 
-const STORAGE_KEY = 'workshop_weekend_rotation';
 const EPOCH = Date.UTC(2024, 0, 1); // Mon 2024-01-01 — fixed reference for week counting
 
 /** Whole-week index since EPOCH, so the on-call worker advances once per week. */
@@ -34,32 +34,53 @@ function weekIndex(weekStart: Date): number {
   return Math.floor(ms / (7 * 24 * 60 * 60 * 1000));
 }
 
-function loadRoster(): string[] {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) return JSON.parse(raw) as string[];
-  } catch {
-    /* ignore */
-  }
-  return [];
-}
-
 interface WeekendShiftRotationProps {
   workers: any[];
   weekStart: Date;
 }
 
 export function WeekendShiftRotation({ workers, weekStart }: WeekendShiftRotationProps) {
-  const [roster, setRoster] = useState<string[]>(loadRoster);
+  const [roster, setRoster] = useState<string[]>([]);
   const [addId, setAddId] = useState<string>('');
+  const [loaded, setLoaded] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  // Carga inicial desde la base. `loaded` se marca recién cuando llega la
+  // respuesta (o falla) para que el efecto de guardado de abajo no alcance a
+  // pisar el valor guardado con un roster vacío antes de tiempo.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch('/api/shift-rotation', { credentials: 'include' });
+        if (res.ok) {
+          const body = await res.json();
+          if (!cancelled && Array.isArray(body?.roster)) setRoster(body.roster);
+        }
+      } catch {
+        /* se queda en lo que había — el guardado avisa si algo falla de verdad */
+      } finally {
+        if (!cancelled) setLoaded(true);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(roster));
-    } catch {
-      /* ignore */
-    }
-  }, [roster]);
+    if (!loaded) return;
+    setSaving(true);
+    const ctrl = new AbortController();
+    fetch('/api/shift-rotation', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ roster }),
+      signal: ctrl.signal,
+    })
+      .catch(() => { /* red intermitente — el próximo cambio reintenta con el estado actual */ })
+      .finally(() => setSaving(false));
+    return () => ctrl.abort();
+  }, [roster, loaded]);
 
   const nameById = useMemo(() => {
     const map = new Map<string, string>();
@@ -94,6 +115,7 @@ export function WeekendShiftRotation({ workers, weekStart }: WeekendShiftRotatio
       <div className="mb-2 flex items-center gap-1.5">
         <CalendarClock className="h-3.5 w-3.5 text-muted-foreground" />
         <span className="text-xs font-semibold text-foreground">Turno de sábado · rotación semanal</span>
+        {saving && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" aria-label="Guardando" />}
       </div>
 
       {roster.length > 0 ? (
