@@ -92,6 +92,13 @@ const UpdateOTSchema = z.object({
 	// Operations (replace all)
 	operations: z.array(OTOperationSchema).optional(),
 	notes: z.string().max(5000).optional().nullable(),
+	// El bulto de producción (montaje/tapas/pliegos/máquina/terminaciones/admin)
+	// que el wizard de creación ya guarda acá — ver POST /api/ots. Faltaba en
+	// este PATCH, así que editar un presupuesto sólo lo escribía en localStorage
+	// del navegador que hizo la edición: invisible para cualquier otro usuario o
+	// dispositivo, y sin rastro en la base apenas se tocaba un presupuesto ya
+	// creado.
+	production_detail: z.any().optional().nullable(),
 	// Production floor tracking
 	proceso_actual: z.string().max(500).optional().nullable(),
 	assigned_machine_id: z.string().uuid().optional().nullable(),

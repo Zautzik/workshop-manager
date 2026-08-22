@@ -470,24 +470,6 @@ export function UnifiedOTWizard({ onClose, onSuccess }: Props) {
 
       const attachmentResult = await uploadAttachments(createdOT.id, form.attachments);
 
-      // Store production-specific data in localStorage for now
-      // (production detail, tapas, items, pliegos, montaje, machine, finishing, admin)
-      localStorage.setItem(
-        `ot-production-${createdOT.id}`,
-        JSON.stringify({
-          production_detail: form.production_detail,
-          tapas: form.tapas,
-          items: form.items,
-          pliegos: form.pliegos,
-          montaje: form.montaje,
-          montaje_shapes: form.montaje_shapes,
-          machine: form.machine,
-          finishing: form.finishing,
-          admin: form.admin,
-          work_category: form.work_category,
-        })
-      );
-
       // Clear draft
       localStorage.removeItem(DRAFT_KEY);
 

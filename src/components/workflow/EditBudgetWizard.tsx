@@ -65,14 +65,13 @@ interface Props {
   onSuccess: () => void;
 }
 
-/** Build a UnifiedOTForm from an existing DB OT record + localStorage production data */
+/** Build a UnifiedOTForm from an existing DB OT record. */
 function hydrateFromOT(ot: any): UnifiedOTForm {
-  // Load production-specific data from localStorage
-  let production: any = {};
-  try {
-    const raw = localStorage.getItem(`ot-production-${ot.id}`);
-    if (raw) production = JSON.parse(raw);
-  } catch { /* ignore */ }
+  // El wizard de creación guarda este bulto en `ots.production_detail`
+  // (ver POST /api/ots) — leerlo de acá y no de localStorage es lo que hace
+  // que editar un presupuesto funcione igual desde cualquier usuario o
+  // dispositivo, y no sólo desde el navegador donde se creó la OT.
+  const production: any = ot.production_detail || {};
 
   return {
     ...EMPTY_UNIFIED_FORM,
@@ -118,7 +117,7 @@ function hydrateFromOT(ot: any): UnifiedOTForm {
     },
     attachments: [],
 
-    /* ─ Production detail (from localStorage) ─ */
+    /* ─ Production detail (from ots.production_detail) ─ */
     production_detail: production.production_detail || EMPTY_UNIFIED_FORM.production_detail,
     tapas: production.tapas || [],
     items: production.items || [],
@@ -342,6 +341,21 @@ export function EditBudgetWizard({ ot, onClose, onSuccess }: Props) {
         ]
           .filter(Boolean)
           .join('\n') || null,
+        // El bulto entero de vuelta a la OT — antes sólo se guardaba en el
+        // localStorage del navegador que hizo la edición, invisible para
+        // cualquier otro usuario o dispositivo.
+        production_detail: {
+          production_detail: form.production_detail,
+          tapas: form.tapas,
+          items: form.items,
+          pliegos: form.pliegos,
+          montaje: form.montaje,
+          montaje_shapes: form.montaje_shapes,
+          machine: form.machine,
+          finishing: form.finishing,
+          admin: form.admin,
+          work_category: form.work_category,
+        },
       };
 
       const res = await fetch(`/api/ots/${ot.id}`, {
@@ -354,23 +368,6 @@ export function EditBudgetWizard({ ot, onClose, onSuccess }: Props) {
         const err = await res.json().catch(() => null);
         throw new Error(err?.error || 'Failed to update OT');
       }
-
-      // Update production-specific data in localStorage
-      localStorage.setItem(
-        `ot-production-${ot.id}`,
-        JSON.stringify({
-          production_detail: form.production_detail,
-          tapas: form.tapas,
-          items: form.items,
-          pliegos: form.pliegos,
-          montaje: form.montaje,
-          montaje_shapes: form.montaje_shapes,
-          machine: form.machine,
-          finishing: form.finishing,
-          admin: form.admin,
-          work_category: form.work_category,
-        })
-      );
 
       toast({
         title: '✅ Presupuesto Actualizado',
