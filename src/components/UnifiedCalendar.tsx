@@ -73,10 +73,13 @@ export function UnifiedCalendar() {
   const { data: maintenanceEvents = [] } = useMaintenanceEvents();
   const { data: leaveEvents = [] } = useLeaveEvents();
 
+  // `ots` no tiene `due_date` — el campo real es `deadline`. Con el nombre
+  // equivocado este filtro siempre daba vacío y ninguna OT aparecía nunca
+  // en el calendario, silenciosamente.
   const otEvents: CalEvent[] = (otsRaw as any[])
-    .filter(ot => ot.due_date)
+    .filter(ot => ot.status !== 'completed' && ot.deadline)
     .map(ot => ({
-      date: new Date(ot.due_date),
+      date: new Date(ot.deadline),
       label: `OT ${ot.ot_number ?? ot.id}`,
       type: 'ot' as const,
     }));

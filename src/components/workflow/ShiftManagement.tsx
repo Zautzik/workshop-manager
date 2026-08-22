@@ -1,202 +1,197 @@
 'use client';
-import { useEffect, useMemo } from "react";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Factory, Package, Clock, AlertCircle, Info } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { useMachines, useOTs } from "@/hooks/use-workflow-queries";
-import { machineStatusLabel, otStatusLabel } from "@/lib/status-labels";
-
-interface ShiftManagementProps {
-  onShiftChange: () => void;
-}
-
-interface MachineWithOT {
-  id: string;
-  name: string;
-  type: string;
-  status: string;
-  currentOT?: {
-    id: string;
-    ot_number: string;
-    client_name: string;
-    quantity: number;
-    status: string;
-    priority: number;
-  };
-}
 
 /**
- * ShiftManagement - Gantt-style view of machines and their OT assignments
+ * ShiftManagement — qué máquina tiene cada OT asignada, y cambiarlo.
+ *
+ * Antes "adivinaba" la máquina de cada OT cruzando `machine.type` contra
+ * `ot.status` (p.ej. "si la máquina es offset_printer y la OT está en
+ * offset_printing, es suya") — una heurística frágil que ignoraba el campo
+ * que existe justo para esto, `ots.assigned_machine_id`, y que además
+ * comparaba contra estados que no son los de esta app (pending/in_progress/
+ * review no existen en el enum ot_status real, así que la adivinanza no
+ * acertaba casi nunca). Sin eso, y sin un solo control en pantalla, la
+ * pestaña no hacía nada: mostraba una suposición y no dejaba tocar nada.
+ *
+ * Ahora lee la asignación real y deja cambiarla: cada OT activa tiene un
+ * selector de máquina que escribe con PATCH /api/ots/[id] — el mismo
+ * endpoint que ya usa el resto de la app para esto —, y las que no tienen
+ * máquina asignada aparecen aparte, para asignarlas desde acá en vez de
+ * tener que abrir la OT entera.
  */
-export function ShiftManagement({ onShiftChange }: ShiftManagementProps) {
-  const { toast } = useToast();
-  const { data: machines = [], isError: machinesError, isLoading: machinesLoading } = useMachines();
-  const { data: ots = [], isError: otsError, isLoading: otsLoading } = useOTs();
 
-  useEffect(() => {
-    if (machinesError || otsError) {
-      toast({
-        title: "Error al cargar la programación de máquinas",
-        description: "No se pudieron cargar las máquinas o las órdenes de trabajo",
-        variant: "destructive"
-      });
+import { useMemo } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
+import { Factory, Package, AlertCircle } from 'lucide-react';
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useOTs } from '@/hooks/use-operations-queries';
+import { useMachines, MACHINE_TYPE_LABELS, MACHINE_STATUS_LABELS, MACHINE_STATUS_COLOR } from '@/hooks/use-machines';
+import { useAuth } from '@/contexts/AuthContext';
+import { otStatusLabel, otStatusBadgeClass } from '@/lib/status-labels';
+import { cn } from '@/lib/utils';
+
+const SIN_ASIGNAR = '__sin_asignar__';
+
+function OTCard({ ot, canEdit, machines, onReassign }: {
+  ot: any;
+  canEdit: boolean;
+  machines: { id: string; name: string }[];
+  onReassign: (otId: string, machineId: string | null) => void;
+}) {
+  return (
+    <div className="rounded-lg border border-border bg-card p-3">
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <p className="truncate font-mono text-sm font-semibold text-foreground">{ot.ot_number}</p>
+          <p className="truncate text-xs text-muted-foreground">{ot.client_name}</p>
+        </div>
+        <Badge variant="outline" className={cn('shrink-0 text-[10px]', otStatusBadgeClass(ot.status))}>
+          {otStatusLabel(ot.status)}
+        </Badge>
+      </div>
+      <p className="mt-1 truncate text-xs text-muted-foreground">
+        {ot.product_name || ot.description || '—'} · {(ot.quantity ?? 0).toLocaleString('es-CL')} u
+      </p>
+      {canEdit && (
+        <Select
+          value={ot.assigned_machine_id ?? SIN_ASIGNAR}
+          onValueChange={(v) => onReassign(ot.id, v === SIN_ASIGNAR ? null : v)}
+        >
+          <SelectTrigger className="mt-2 h-7 text-xs"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value={SIN_ASIGNAR}>Sin asignar</SelectItem>
+            {machines.map((m) => (
+              <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      )}
+    </div>
+  );
+}
+
+export function ShiftManagement() {
+  const { data: machines = [], isLoading: machinesLoading } = useMachines(true);
+  const { data: otsRaw = [], isLoading: otsLoading } = useOTs();
+  const { role } = useAuth();
+  const queryClient = useQueryClient();
+  // Mismo criterio que PlanSemanal y el cronograma: sólo admin/supervisor
+  // reasignan — coincide con el rol que exige PATCH /api/ots/[id].
+  const canEdit = role === 'admin' || role === 'supervisor';
+
+  const activeOts = useMemo(
+    () => (otsRaw as any[]).filter((ot) => ot.status !== 'completed'),
+    [otsRaw],
+  );
+
+  const byMachine = useMemo(() => {
+    const map = new Map<string, any[]>();
+    for (const ot of activeOts) {
+      if (!ot.assigned_machine_id) continue;
+      const list = map.get(ot.assigned_machine_id) ?? [];
+      list.push(ot);
+      map.set(ot.assigned_machine_id, list);
     }
-  }, [machinesError, otsError, toast]);
+    return map;
+  }, [activeOts]);
 
-  const machinesWithOTs = useMemo<MachineWithOT[]>(() => {
-    const activeOts = ots.filter((ot: any) => ot.status !== "completed");
+  const sinAsignar = useMemo(
+    () => activeOts.filter((ot) => !ot.assigned_machine_id),
+    [activeOts],
+  );
 
-    return machines.map((machine: any) => {
-      const currentOT = activeOts.find((ot: any) => {
-        if (machine.type === "offset_printer" && ot.status === "offset_printing") return true;
-        if (machine.type === "die_cutter" && ot.status === "die_cutting") return true;
-        if (machine.type === "guillotine" && (ot.status === "guillotine_first_cut" || ot.status === "guillotine_final_cut")) return true;
-        if (machine.type === "manual_workshop" && ot.status === "workshop_revision") return true;
-        if (machine.type === "delivery" && ot.status === "in_delivery") return true;
-        return false;
-      });
-
-      return {
-        id: machine.id,
-        name: machine.name,
-        type: machine.type,
-        status: machine.status,
-        currentOT: currentOT ? {
-          id: currentOT.id,
-          ot_number: currentOT.ot_number,
-          client_name: currentOT.client_name,
-          quantity: currentOT.quantity,
-          status: currentOT.status,
-          priority: currentOT.priority,
-        } : undefined,
-      };
+  const reassign = async (otId: string, machineId: string | null) => {
+    const res = await fetch(`/api/ots/${otId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ assigned_machine_id: machineId }),
     });
-  }, [machines, ots]);
-
-  const getStatusColor = (status: string) => {
-    const colors: Record<string, string> = {
-      idle: "bg-gray-500",
-      running: "bg-green-500",
-      maintenance: "bg-yellow-500",
-      offline: "bg-red-500",
-    };
-    return colors[status] || "bg-gray-500";
-  };
-
-  const getPriorityColor = (priority: number) => {
-    if (priority >= 4) return "bg-red-500/20 border-red-500/40 text-red-300";
-    if (priority >= 2) return "bg-yellow-500/20 border-yellow-500/40 text-yellow-300";
-    return "bg-blue-500/20 border-blue-500/40 text-blue-300";
-  };
-
-  const getOTStatusColor = (status: string) => {
-    const colors: Record<string, string> = {
-      paper_purchase: "bg-purple-500",
-      printing: "bg-blue-500",
-      cutting: "bg-cyan-500",
-      folding: "bg-green-500",
-      packaging: "bg-orange-500",
-      quality_check: "bg-yellow-500",
-      completed: "bg-gray-500",
-    };
-    return colors[status] || "bg-gray-500";
+    if (!res.ok) {
+      const body = await res.json().catch(() => null);
+      toast.error(body?.error ?? 'No se pudo reasignar la OT');
+      return;
+    }
+    toast.success(machineId ? 'OT reasignada' : 'OT sin asignar');
+    queryClient.invalidateQueries({ queryKey: ['ots'] });
   };
 
   if (machinesLoading || otsLoading) {
     return (
-      <Card className="bg-white/10 border-white/20 backdrop-blur-sm">
-        <CardContent className="p-8 text-center text-white">
-          <Clock className="w-12 h-12 mx-auto mb-4 animate-spin" />
-          <p>Cargando programación de máquinas...</p>
-        </CardContent>
+      <Card>
+        <CardContent className="py-10 text-center text-sm text-muted-foreground">Cargando máquinas…</CardContent>
       </Card>
     );
   }
 
   return (
     <div className="space-y-4">
-      {/* Instructions */}
-      <Alert className="bg-blue-500/20 border-blue-500/40">
-        <Info className="h-4 w-4" />
-        <AlertDescription className="text-white">
-          <strong>Cómo usar:</strong> Esta vista Gantt muestra cada máquina y su orden de trabajo asignada actualmente. 
-          Las OTs se asignan automáticamente a las máquinas según su estado de flujo actual. La línea de tiempo muestra la utilización en tiempo real.
-        </AlertDescription>
-      </Alert>
+      {!canEdit && (
+        <p className="text-xs text-muted-foreground">
+          Vista de solo lectura: solo admin y supervisor pueden reasignar una OT a otra máquina desde acá.
+        </p>
+      )}
 
-      <Card className="bg-white/10 border-white/20 backdrop-blur-sm">
-        <CardHeader>
-          <CardTitle className="text-white flex items-center gap-2">
-            <Factory className="w-6 h-6" />
-            Programación de Máquinas - Vista Gantt
-          </CardTitle>
-          <p className="text-sm text-blue-200">Vista en tiempo real de las máquinas y sus órdenes asignadas</p>
-        </CardHeader>
-      <CardContent>
-        <ScrollArea className="h-[600px] pr-4">
-          <div className="space-y-4">
-            {machinesWithOTs.map((machine) => (
-              <div
-                key={machine.id}
-                className="bg-white/5 border border-white/10 rounded-lg p-4 hover:bg-white/10 transition-colors"
-              >
-                <div className="flex items-start justify-between mb-3">
-                  <div className="flex items-center gap-3">
-                    <Factory className="w-8 h-8 text-blue-300" />
-                    <div>
-                      <h3 className="text-lg font-bold text-white">{machine.name}</h3>
-                      <p className="text-sm text-blue-200 capitalize">{machine.type}</p>
-                    </div>
-                  </div>
-                  <Badge className={`${getStatusColor(machine.status)} text-white`}>
-                    {machineStatusLabel(machine.status)}
-                  </Badge>
-                </div>
+      {sinAsignar.length > 0 && (
+        <Card className="border-dashed">
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2 text-sm">
+              <AlertCircle className="h-4 w-4 text-amber-500" />
+              Sin máquina asignada ({sinAsignar.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              {sinAsignar.map((ot) => (
+                <OTCard key={ot.id} ot={ot} canEdit={canEdit} machines={machines} onReassign={reassign} />
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
-                {/* Gantt-style timeline bar */}
-                <div className="relative h-16 bg-slate-800/50 rounded-lg border border-white/10 overflow-hidden">
-                  {machine.currentOT ? (
-                    <div className="absolute inset-0 flex items-center px-4">
-                      <div className={`flex-1 h-12 rounded flex items-center justify-between px-4 ${getPriorityColor(machine.currentOT.priority)} border`}>
-                        <div className="flex items-center gap-3">
-                          <Package className="w-5 h-5" />
-                          <div>
-                            <p className="font-bold text-white">{machine.currentOT.ot_number}</p>
-                            <p className="text-xs text-white/70">{machine.currentOT.client_name}</p>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <Badge className={`${getOTStatusColor(machine.currentOT.status)} text-white text-xs`}>
-                            {otStatusLabel(machine.currentOT.status)}
-                          </Badge>
-                          <span className="text-sm text-white/90 font-medium">
-                            {machine.currentOT.quantity} unidades
-                          </span>
-                          <div className="flex items-center gap-1">
-                            <Clock className="w-4 h-4 text-white/70" />
-                            <span className="text-xs text-white/70">En curso</span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
+      {machines.length === 0 ? (
+        <Card>
+          <CardContent className="py-10 text-center text-sm text-muted-foreground">
+            No hay máquinas activas registradas.
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {machines.map((machine) => {
+            const asignadas = byMachine.get(machine.id) ?? [];
+            return (
+              <Card key={machine.id}>
+                <CardHeader className="pb-2">
+                  <CardTitle className="flex items-center justify-between gap-2 text-sm">
+                    <span className="flex min-w-0 items-center gap-2">
+                      <Factory className="h-4 w-4 shrink-0 text-muted-foreground" />
+                      <span className="truncate">{machine.name}</span>
+                    </span>
+                    <Badge className={cn('shrink-0 text-[10px] text-white', MACHINE_STATUS_COLOR[machine.status] ?? 'bg-gray-400')}>
+                      {MACHINE_STATUS_LABELS[machine.status] ?? machine.status}
+                    </Badge>
+                  </CardTitle>
+                  <p className="text-xs text-muted-foreground">{MACHINE_TYPE_LABELS[machine.type] ?? machine.type}</p>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  {asignadas.length === 0 ? (
+                    <p className="flex items-center gap-1.5 py-2 text-xs text-muted-foreground">
+                      <Package className="h-3.5 w-3.5" /> Sin OT activa asignada
+                    </p>
                   ) : (
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <div className="flex items-center gap-2 text-white/40">
-                        <AlertCircle className="w-5 h-5" />
-                        <span className="text-sm">No hay orden de trabajo activa</span>
-                      </div>
-                    </div>
+                    asignadas.map((ot) => (
+                      <OTCard key={ot.id} ot={ot} canEdit={canEdit} machines={machines} onReassign={reassign} />
+                    ))
                   )}
-                </div>
-              </div>
-            ))}
-          </div>
-          </ScrollArea>
-        </CardContent>
-      </Card>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
