@@ -1,7 +1,6 @@
 'use client';
 import { Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useQueryClient } from '@tanstack/react-query';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -17,7 +16,6 @@ type TabKey = (typeof VALID_TABS)[number];
 function PlanificacionTabs() {
   const router = useRouter();
   const params = useSearchParams();
-  const queryClient = useQueryClient();
   const requested = params.get('tab');
   const active: TabKey = (VALID_TABS as readonly string[]).includes(requested ?? '')
     ? (requested as TabKey)
@@ -50,7 +48,7 @@ function PlanificacionTabs() {
         <OTGanttBoard />
       </TabsContent>
       <TabsContent value="maquinas" className="mt-6">
-        <ShiftManagement onShiftChange={() => queryClient.invalidateQueries()} />
+        <ShiftManagement />
       </TabsContent>
       <TabsContent value="calendario" className="mt-6">
         <UnifiedCalendar />
