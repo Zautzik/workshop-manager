@@ -13,7 +13,7 @@ the biggest margin.
 Tailwind + Radix · Zod · Recharts · Vitest
 
 ```
-128 migrations   50 API routes   48 domain libraries   505 tests
+151 migrations   151 API routes   62 domain libraries   793 tests
 ```
 
 ---
@@ -130,7 +130,7 @@ target. See [`scripts/seed/model.ts`](scripts/seed/model.ts).
 
 ```bash
 npm run typecheck    # tsc --noEmit
-npm test             # 505 tests, 32 files
+npm test             # 793 tests, 47 files
 npm run lint
 npm run verify:csp   # asserts no CDN escapes the Content-Security-Policy
 ```

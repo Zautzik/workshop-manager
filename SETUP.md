@@ -1,3 +1,13 @@
+> **Obsolete — do not follow.** This describes an early direct-Postgres +
+> Prisma-style prototype (`Users`/`Machines`/`Jobs`/`Workers`/`TaskLogs`) that
+> predates the current architecture. The app talks to Postgres exclusively
+> through Supabase's PostgREST API — never a direct `pg` connection (see
+> `src/integrations/supabase/server.ts`) — and the real domain entities are
+> OTs/quotes/paper lots, not "Jobs"/"Workers". **Use [README.md](README.md)
+> instead**, which reflects what actually ships today. Kept here rather than
+> deleted only because a prior audit flagged it as misleading and a decision
+> to remove it outright belongs to whoever wrote it.
+
 # Quick Start Guide - PostgreSQL Setup
 
 This is a quick guide to get your GonsAdmin application running with PostgreSQL.
