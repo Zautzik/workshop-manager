@@ -6,6 +6,7 @@ import {
 	certPermiteRecibir,
 	certStatus,
 	invoiceArithmetic,
+	lineReceiptVariance,
 	ocActions,
 	threeWayMatch,
 } from '../purchasing';
@@ -123,6 +124,52 @@ describe('certStatus', () => {
 		expect(certPermiteRecibir(certStatus('2027-01-01', hoy))).toBe(true);
 		// Por vencer sí deja: todavía es válido y frenarlo pararía la planta.
 		expect(certPermiteRecibir(certStatus('2026-09-01', hoy))).toBe(true);
+	});
+});
+
+describe('lineReceiptVariance', () => {
+	it('primera entrega completa: sin variación', () => {
+		const r = lineReceiptVariance(500, 0, 500);
+		expect(r.remaining).toBe(500);
+		expect(r.fueraDeRango).toBe(false);
+	});
+
+	// El caso que esta función existe para arreglar: una línea de 500 que llega
+	// en dos entregas de 250 no puede disparar variación en la SEGUNDA sólo
+	// porque, comparada contra el total, parece la mitad. La primera entrega
+	// sigue pidiendo motivo — nada en los números distingue todavía "vienen más
+	// camiones" de "esto es todo lo que va a llegar" — pero la segunda, que deja
+	// la línea exactamente saldada, no debe volver a preguntar.
+	it('segunda entrega de una recepción partida no dispara variación falsa', () => {
+		const primera = lineReceiptVariance(500, 0, 250);
+		expect(primera.fueraDeRango).toBe(true);
+
+		const segunda = lineReceiptVariance(500, 250, 250);
+		expect(segunda.remaining).toBe(250);
+		expect(segunda.fueraDeRango).toBe(false);
+	});
+
+	it('recibir bien menos de lo que falta sí dispara variación', () => {
+		const r = lineReceiptVariance(500, 0, 400);
+		expect(r.fueraDeRango).toBe(true);
+	});
+
+	// La línea ya se recibió completa y llega algo más: no es ruido, es extra.
+	it('recibir algo cuando ya no falta nada se marca como fuera de rango', () => {
+		const r = lineReceiptVariance(500, 500, 50);
+		expect(r.remaining).toBe(0);
+		expect(r.fueraDeRango).toBe(true);
+	});
+
+	it('sin línea pedida (0) no hay contra qué medir', () => {
+		const r = lineReceiptVariance(0, 0, 100);
+		expect(r.desvio).toBe(0);
+		expect(r.fueraDeRango).toBe(false);
+	});
+
+	it('respeta una tolerancia distinta a la default', () => {
+		const r = lineReceiptVariance(1000, 0, 950, 0.1);
+		expect(r.fueraDeRango).toBe(false);
 	});
 });
 

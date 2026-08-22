@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { isAuthError, requireAuth } from '@/lib/api-middleware';
 import { supabaseAdmin } from '@/integrations/supabase/server';
-import { TOLERANCIA_RECEPCION } from '@/lib/purchasing';
+import { lineReceiptVariance } from '@/lib/purchasing';
 
 const OPS = ['admin', 'manager', 'supervisor'] as const;
 
@@ -41,24 +41,43 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   // La diferencia contra lo pedido se verifica ACÁ y no en el formulario: es el
   // punto donde se pierde plata en silencio, y un control que sólo vive en la
   // pantalla se saltea con una llamada directa.
-  const { data: linea } = await supabaseAdmin
-    .from('purchase_items')
-    .select('quantity')
-    .eq('purchase_id', id)
-    .eq('item_id', d.item_id)
-    .maybeSingle();
+  //
+  // Se compara contra lo que FALTA, no contra el total de la línea: una línea
+  // de 500 recibida en dos entregas de 250 no es una variación en la segunda
+  // entrega. `receive_oc_into_lot` no enlaza el lote a la línea, así que lo ya
+  // recibido se suma aparte desde `inventory_lots` (mismo cálculo que sirve
+  // GET /api/purchases/[id]).
+  const [{ data: linea }, { data: lotesPrevios }] = await Promise.all([
+    supabaseAdmin
+      .from('purchase_items')
+      .select('quantity')
+      .eq('purchase_id', id)
+      .eq('item_id', d.item_id)
+      .maybeSingle(),
+    supabaseAdmin
+      .from('inventory_lots')
+      .select('quantity_received')
+      .eq('purchase_id', id)
+      .eq('item_id', d.item_id),
+  ]);
 
   const pedida = Number((linea as { quantity?: number } | null)?.quantity ?? 0);
+  const yaRecibida = ((lotesPrevios ?? []) as { quantity_received: number }[]).reduce(
+    (sum, l) => sum + Number(l.quantity_received ?? 0),
+    0,
+  );
+
   if (pedida > 0) {
-    const desvio = Math.abs(pedida - d.quantity) / pedida;
-    if (desvio > TOLERANCIA_RECEPCION && !d.variance_reason?.trim()) {
+    const { remaining, fueraDeRango } = lineReceiptVariance(pedida, yaRecibida, d.quantity);
+    if (fueraDeRango && !d.variance_reason?.trim()) {
       return NextResponse.json(
         {
           error:
-            `Se pidieron ${pedida.toLocaleString('es-CL')} y estás recibiendo ` +
+            `Faltan ${remaining.toLocaleString('es-CL')} de esta línea y estás recibiendo ` +
             `${d.quantity.toLocaleString('es-CL')}. Anotá por qué antes de guardarlo.`,
           code: 'VARIANZA_SIN_MOTIVO',
           ordered: pedida,
+          remaining,
         },
         { status: 422 }
       );

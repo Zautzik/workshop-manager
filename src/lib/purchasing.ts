@@ -120,6 +120,39 @@ function formatoBreve(n: number): string {
 	return `$${Math.round(Math.abs(n)).toLocaleString('es-CL')}`;
 }
 
+export interface LineReceiptVariance {
+	/** Lo que todavía falta por recibir de esta línea, antes de esta entrega. */
+	remaining: number;
+	/** |remaining − recibiendo| ÷ pedido. 0 cuando no hay línea contra qué medir. */
+	desvio: number;
+	/** Si esta entrega necesita que alguien explique por qué. */
+	fueraDeRango: boolean;
+}
+
+/**
+ * Si esta entrega de una línea de OC se sale de tolerancia.
+ *
+ * Se compara contra lo que FALTA (pedido − ya recibido), no contra el total
+ * pedido. La primera entrega de una recepción partida (250 de una línea de
+ * 500) sigue pidiendo motivo — nada en los números distingue todavía "vienen
+ * más camiones" de "esto es todo lo que va a llegar", y esa ambigüedad es
+ * exactamente lo que el motivo resuelve. Lo que se corrige es la SEGUNDA
+ * entrega: comparada contra los 500 originales en vez de contra los 250 que
+ * faltaban, parecía la mitad de variación en cada recepción parcial legítima
+ * que efectivamente saldaba la línea.
+ */
+export function lineReceiptVariance(
+	ordered: number,
+	alreadyReceived: number,
+	receiving: number,
+	tolerancia = TOLERANCIA_RECEPCION,
+): LineReceiptVariance {
+	const remaining = Math.max(0, ordered - alreadyReceived);
+	if (ordered <= 0) return { remaining, desvio: 0, fueraDeRango: false };
+	const desvio = Math.abs(remaining - receiving) / ordered;
+	return { remaining, desvio, fueraDeRango: desvio > tolerancia };
+}
+
 /**
  * ¿La factura cuadra consigo misma?
  *

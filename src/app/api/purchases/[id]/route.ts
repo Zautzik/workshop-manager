@@ -5,6 +5,70 @@ import { supabaseAdmin } from '@/integrations/supabase/server';
 
 const OPS = ['admin', 'manager', 'supervisor'] as const;
 
+/**
+ * GET /api/purchases/[id] — la OC con sus líneas pedidas y lo ya recibido por
+ * línea.
+ *
+ * `receive_oc_into_lot` no toca `purchase_items` — el lote nace en
+ * `inventory_lots` enlazado sólo por `purchase_id` + `item_id` (ver
+ * 20260816130000). Lo recibido de cada línea es entonces una suma aparte, no
+ * una columna: se agrega acá para que el diálogo de recepción pueda mostrar
+ * pedido/recibido/pendiente por línea sin que cada pantalla la recalcule a su
+ * manera.
+ */
+export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const auth = await requireAuth([...OPS]);
+  if (isAuthError(auth)) return auth;
+
+  const { id } = await params;
+
+  const [purchaseResult, itemsResult, lotsResult] = await Promise.all([
+    supabaseAdmin.from('purchases' as any).select('*').eq('id', id).maybeSingle(),
+    supabaseAdmin
+      .from('purchase_items')
+      .select('id, item_id, quantity, unit_cost, description, inventory_items(name, sku, unit)')
+      .eq('purchase_id', id),
+    supabaseAdmin
+      .from('inventory_lots')
+      .select('item_id, quantity_received')
+      .eq('purchase_id', id),
+  ]);
+
+  if (purchaseResult.error) {
+    return NextResponse.json({ error: purchaseResult.error.message }, { status: 500 });
+  }
+  if (!purchaseResult.data) {
+    return NextResponse.json({ error: 'OC no encontrada' }, { status: 404 });
+  }
+  if (itemsResult.error) {
+    return NextResponse.json({ error: itemsResult.error.message }, { status: 500 });
+  }
+
+  const recibidoPorItem = new Map<string, number>();
+  for (const lot of (lotsResult.data ?? []) as { item_id: string; quantity_received: number }[]) {
+    recibidoPorItem.set(lot.item_id, (recibidoPorItem.get(lot.item_id) ?? 0) + Number(lot.quantity_received ?? 0));
+  }
+
+  const items = (itemsResult.data ?? []).map((line: any) => {
+    const ordered = Number(line.quantity ?? 0);
+    const received = recibidoPorItem.get(line.item_id) ?? 0;
+    return {
+      id: line.id,
+      item_id: line.item_id,
+      item_name: line.inventory_items?.name ?? null,
+      item_sku: line.inventory_items?.sku ?? null,
+      unit: line.inventory_items?.unit ?? null,
+      description: line.description,
+      quantity: ordered,
+      unit_cost: line.unit_cost,
+      received_quantity: received,
+      remaining: Math.max(0, ordered - received),
+    };
+  });
+
+  return NextResponse.json({ data: { ...(purchaseResult.data as object), items } });
+}
+
 const UpdateOCSchema = z.object({
   supplier: z.string().min(1).max(255).optional(),
   supplier_rut: z.string().max(50).optional().nullable(),

@@ -17,16 +17,23 @@ import {
 } from '@/components/ui/table';
 import { toast } from 'sonner';
 import { QRCodeSVG } from 'qrcode.react';
-import { Plus, Receipt, FileText, Link2, AlertTriangle, CheckCircle2, PackageCheck, FileSignature, Ban, ShieldAlert } from 'lucide-react';
+import { Plus, Trash2, Receipt, FileText, Link2, AlertTriangle, CheckCircle2, PackageCheck, FileSignature, Ban, ShieldAlert } from 'lucide-react';
 import { formatCLP } from '@/lib/format';
 import { ocActions, threeWayMatch, type OCStatus } from '@/lib/purchasing';
 import { usePurchases } from '@/hooks/use-admin-queries';
 import { useOTs } from '@/hooks/use-operations-queries';
 import {
   usePurchaseInvoices, useCreateOC, useCreateFactura, useUpdateFactura,
-  useStockItems, useReceiveOC,
-  type OCRow, type FacturaCompra,
+  useStockItems, useReceiveOC, usePurchaseOrder,
+  type OCRow, type FacturaCompra, type StockItem, type PurchaseOrderLine,
 } from '@/hooks/use-procurement-queries';
+
+interface DraftLine {
+  key: number;
+  item_id: string;
+  quantity: number;
+  unit_cost: number;
+}
 
 const OC_STATUS: Record<string, { label: string; cls: string }> = {
   draft:     { label: 'Borrador',  cls: 'bg-slate-500/15 text-slate-500' },
@@ -94,6 +101,22 @@ const PurchasesManagement = () => {
     supplier: '', supplier_rut: '', ot_id: '', total_cost: 0,
     expected_date: '', certification_details: '', notes: '',
   });
+  const [lines, setLines] = useState<DraftLine[]>([]);
+  const [lineSeq, setLineSeq] = useState(0);
+  const { data: stockItems = [] } = useStockItems();
+
+  const addLine = () => {
+    setLines((ls) => [...ls, { key: lineSeq, item_id: '', quantity: 0, unit_cost: 0 }]);
+    setLineSeq((n) => n + 1);
+  };
+  const updateLine = (key: number, patch: Partial<DraftLine>) =>
+    setLines((ls) => ls.map((l) => (l.key === key ? { ...l, ...patch } : l)));
+  const removeLine = (key: number) => setLines((ls) => ls.filter((l) => l.key !== key));
+
+  const linesTotal = useMemo(
+    () => lines.reduce((sum, l) => sum + l.quantity * l.unit_cost, 0),
+    [lines]
+  );
 
   const activeOTs = useMemo(
     () => (ots as any[]).filter((o) => o.status !== 'completed'),
@@ -128,11 +151,17 @@ const PurchasesManagement = () => {
 
   const resetForm = () => {
     setForm({ supplier: '', supplier_rut: '', ot_id: '', total_cost: 0, expected_date: '', certification_details: '', notes: '' });
+    setLines([]);
     setShowNew(false);
   };
 
   const submitOC = async () => {
     if (!form.supplier.trim()) { toast.error('Indica el proveedor'); return; }
+    const validLines = lines.filter((l) => l.item_id && l.quantity > 0);
+    if (lines.length > 0 && validLines.length !== lines.length) {
+      toast.error('Cada línea necesita material y cantidad');
+      return;
+    }
     try {
       await createOC.mutateAsync({
         supplier: form.supplier,
@@ -143,8 +172,15 @@ const PurchasesManagement = () => {
         expected_date: form.expected_date || null,
         certification_details: form.certification_details || null,
         notes: form.notes || null,
+        ...(validLines.length > 0
+          ? { items: validLines.map((l) => ({ item_id: l.item_id, quantity: l.quantity, unit_cost: l.unit_cost || null })) }
+          : {}),
       });
-      toast.success('OC creada — costo comprometido en la OT');
+      toast.success(
+        validLines.length > 0
+          ? `OC creada con ${validLines.length} línea${validLines.length === 1 ? '' : 's'} — costo comprometido en la OT`
+          : 'OC creada — costo comprometido en la OT'
+      );
       resetForm();
     } catch (e: any) {
       toast.error(e?.message ?? 'No se pudo crear la OC');
@@ -350,10 +386,58 @@ const PurchasesManagement = () => {
                 </SelectContent>
               </Select>
             </div>
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <Label>Líneas (opcional — qué se pidió, material por material)</Label>
+                <Button type="button" variant="outline" size="sm" className="h-7 gap-1 text-xs" onClick={addLine}>
+                  <Plus className="h-3 w-3" /> Agregar línea
+                </Button>
+              </div>
+              {lines.length > 0 && (
+                <div className="space-y-1.5 rounded-lg border p-2">
+                  {lines.map((l) => (
+                    <div key={l.key} className="flex items-center gap-1.5">
+                      <Select value={l.item_id} onValueChange={(v) => updateLine(l.key, { item_id: v })}>
+                        <SelectTrigger className="h-8 flex-1 text-xs"><SelectValue placeholder="Material…" /></SelectTrigger>
+                        <SelectContent>
+                          {stockItems.map((it: StockItem) => (
+                            <SelectItem key={it.id} value={it.id}>{it.name} ({it.sku})</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Input
+                        type="number" placeholder="Cant." className="h-8 w-20 text-xs"
+                        value={l.quantity || ''}
+                        onChange={(e) => updateLine(l.key, { quantity: parseFloat(e.target.value) || 0 })}
+                      />
+                      <Input
+                        type="number" placeholder="$/unid." className="h-8 w-24 text-xs"
+                        value={l.unit_cost || ''}
+                        onChange={(e) => updateLine(l.key, { unit_cost: parseFloat(e.target.value) || 0 })}
+                      />
+                      <span className="w-20 shrink-0 text-right text-xs tabular-nums text-muted-foreground">
+                        {formatCLP(l.quantity * l.unit_cost)}
+                      </span>
+                      <Button type="button" variant="ghost" size="sm" className="h-8 w-8 p-0 text-muted-foreground hover:text-red-600" onClick={() => removeLine(l.key)}>
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  ))}
+                  <div className="flex justify-end pt-1 text-xs font-medium">
+                    Total líneas: <span className="ml-1 tabular-nums">{formatCLP(linesTotal)}</span>
+                  </div>
+                </div>
+              )}
+            </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label>Total OC (CLP)</Label>
-                <Input type="number" value={form.total_cost} onChange={(e) => setForm({ ...form, total_cost: parseFloat(e.target.value) || 0 })} />
+                <Label>{lines.length > 0 ? 'Total OC (de las líneas)' : 'Total OC (CLP)'}</Label>
+                <Input
+                  type="number"
+                  value={lines.length > 0 ? linesTotal : form.total_cost}
+                  disabled={lines.length > 0}
+                  onChange={(e) => setForm({ ...form, total_cost: parseFloat(e.target.value) || 0 })}
+                />
               </div>
               <div className="space-y-1.5">
                 <Label>Fecha esperada</Label>
@@ -384,12 +468,21 @@ const PurchasesManagement = () => {
 // ── Goods receipt against an OC (creates a lot linked to the OC) ─────────────
 function ReceiveDialog({ oc, onClose }: { oc: OCRow | null; onClose: () => void }) {
   const { data: items = [] } = useStockItems();
+  const { data: detail } = usePurchaseOrder(oc?.id ?? null);
   const receive = useReceiveOC();
   const [itemId, setItemId] = useState('');
   const [qty, setQty] = useState(0);
   const [unitCost, setUnitCost] = useState(0);
   const [lotNumber, setLotNumber] = useState('');
   const [certCode, setCertCode] = useState('');
+
+  const openLines = (detail?.items ?? []).filter((l) => l.remaining > 0);
+
+  const recibirLinea = (l: PurchaseOrderLine) => {
+    setItemId(l.item_id);
+    setQty(l.remaining);
+    setUnitCost(l.unit_cost ?? 0);
+  };
 
   if (!oc) return null;
 
@@ -414,6 +507,25 @@ function ReceiveDialog({ oc, onClose }: { oc: OCRow | null; onClose: () => void 
           <DialogTitle className="flex items-center gap-2"><PackageCheck className="h-5 w-5" /> Recibir — {oc.oc_number}</DialogTitle>
           <DialogDescription>{oc.supplier}{oc.ot_number ? ` · ${oc.ot_number}` : ' · stock'} · crea un lote trazable (FSSC) vinculado a la OC.</DialogDescription>
         </DialogHeader>
+        {openLines.length > 0 && (
+          <div className="space-y-1.5 rounded-lg border bg-muted/30 p-2">
+            <p className="text-xs font-medium text-muted-foreground">Pendiente de recibir</p>
+            {openLines.map((l) => (
+              <button
+                key={l.id}
+                type="button"
+                onClick={() => recibirLinea(l)}
+                className="flex w-full items-center justify-between gap-2 rounded-md px-2 py-1 text-left text-xs hover:bg-accent"
+              >
+                <span className="truncate">{l.item_name ?? l.item_id} {l.item_sku ? `(${l.item_sku})` : ''}</span>
+                <span className="shrink-0 tabular-nums text-muted-foreground">
+                  {l.received_quantity > 0 && `${l.received_quantity.toLocaleString('es-CL')} de `}
+                  {l.quantity.toLocaleString('es-CL')} {l.unit ?? ''} · faltan {l.remaining.toLocaleString('es-CL')}
+                </span>
+              </button>
+            ))}
+          </div>
+        )}
         <div className="flex gap-4">
           <div className="flex-1 space-y-3">
             <div className="space-y-1.5">

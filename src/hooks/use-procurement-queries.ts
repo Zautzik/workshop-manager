@@ -90,6 +90,33 @@ export function useCreateOC() {
   });
 }
 
+export interface PurchaseOrderLine {
+  id: string;
+  item_id: string;
+  item_name: string | null;
+  item_sku: string | null;
+  unit: string | null;
+  description: string | null;
+  quantity: number;
+  unit_cost: number | null;
+  received_quantity: number;
+  remaining: number;
+}
+
+/** Una OC con sus líneas pedidas y lo ya recibido por línea. */
+export function usePurchaseOrder(purchaseId: string | null) {
+  return useQuery<{ items: PurchaseOrderLine[] } & Record<string, unknown>>({
+    queryKey: ['purchases', 'detail', purchaseId],
+    enabled: !!purchaseId,
+    queryFn: async () => {
+      const res = await fetch(`/api/purchases/${purchaseId}`);
+      if (!res.ok) throw new Error('Failed to fetch OC');
+      const json = await res.json();
+      return json.data;
+    },
+  });
+}
+
 export function useUpdateOC() {
   const invalidate = useInvalidateProcurement();
   return useMutation({
