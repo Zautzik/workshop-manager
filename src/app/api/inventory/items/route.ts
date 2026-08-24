@@ -24,6 +24,38 @@ const ItemSchema = z.object({
   notes: z.string().max(2000).nullable().optional(),
 });
 
+/**
+ * GET /api/inventory/items — el picker de material.
+ *
+ * La ruta existía sólo con POST/PATCH/DELETE — nunca tuvo un GET propio.
+ * `CompraDePapelDialog` y `ConsumiblesPanel` le pegaban igual (`?limit=200`,
+ * sin parámetros) y recibían un 405 en silencio: el desplegable de material
+ * en "Compra de papel" quedaba siempre vacío, sin error visible (2026-08
+ * audit).
+ */
+export async function GET(req: NextRequest) {
+  const auth = await requireAuth();
+  if (isAuthError(auth)) return auth;
+
+  const { searchParams } = new URL(req.url);
+  const q = searchParams.get('q')?.trim() || '';
+  const limit = Math.min(Number(searchParams.get('limit')) || 200, 500);
+
+  let query = supabaseAdmin
+    .from('inventory_items')
+    .select('id, sku, name, category, unit, min_stock, estimated_unit_cost, is_certification_required, is_active')
+    .eq('is_active', true)
+    .order('name')
+    .limit(limit);
+
+  if (q) query = query.or(`name.ilike.%${q}%,sku.ilike.%${q}%`);
+
+  const { data, error } = await query;
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  return NextResponse.json({ data: data ?? [] });
+}
+
 export async function POST(req: NextRequest) {
   const auth = await requireAuth(['admin', 'supervisor', 'manager']);
   if (isAuthError(auth)) return auth;
