@@ -128,7 +128,7 @@ function GanttRow({
 }
 
 export function OTGanttBoard() {
-  const { data: otsRaw = [] } = useOTs();
+  const { data: otsRaw = [], isError: otsError } = useOTs();
   const { role } = useAuth();
   // Mismo criterio que PlanSemanal: sólo admin/supervisor mueven fechas —
   // coincide con el rol que exige PATCH /api/ots/[id].
@@ -210,7 +210,16 @@ export function OTGanttBoard() {
             </div>
           </div>
 
-          {ots.length === 0 && (
+          {/* "No hay OT activas" es la misma frase para un 401, un 500 y un
+              taller genuinamente sin trabajo cargado — el auditor de
+              seguridad lo señaló como el ejemplo más literal de la
+              ambigüedad que este pase entero persigue. Rama aparte para el
+              error, no una condición más del mismo párrafo (auditoría 2026-08). */}
+          {otsError ? (
+            <p className="text-sm text-destructive py-4 text-center">
+              No se pudieron cargar las OTs. Puede ser un problema de permisos o de conexión — no significa que no haya trabajo cargado.
+            </p>
+          ) : ots.length === 0 && (
             <p className="text-sm text-muted-foreground py-4 text-center">
               No hay OT activas con plazo cargado.
             </p>
