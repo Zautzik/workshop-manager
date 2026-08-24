@@ -29,18 +29,24 @@ function useMachineSheetTotals() {
   return useQuery<MachineStat[]>({
     queryKey: ['predictive-maintenance-sheets'],
     queryFn: async () => {
-      // Sum quantity_sheets from completed OTs per machine via ot_machine_schedule
-      const { data } = await (supabase as any)
+      // `ots.quantity_sheets` no existe — el conteo real de pliegos es
+      // `calc_sheets` (lo que produce el motor de cálculo; `quantity` es la
+      // cantidad pedida en unidades, no en pliegos). La columna inventada
+      // hacía que esta consulta fallara siempre y `error` se descartaba, así
+      // que cada máquina reportaba 0 pliegos y el panel mostraba un falso
+      // "todos los equipos dentro del intervalo de servicio" — el defecto
+      // más puro de esta clase encontrado en la auditoría 2026-08.
+      const { data, error } = await supabase
         .from('ot_machine_schedule')
-        .select('machine_id, ots(quantity_sheets, status)')
+        .select('machine_id, ots(calc_sheets, status)')
         .eq('ots.status', 'completed');
-
+      if (error) throw error;
       if (!data) return [];
 
       const totals: Record<string, number> = {};
       (data as any[]).forEach(row => {
         if (!row.machine_id) return;
-        const sheets = row.ots?.quantity_sheets ?? 0;
+        const sheets = row.ots?.calc_sheets ?? 0;
         totals[row.machine_id] = (totals[row.machine_id] ?? 0) + sheets;
       });
 
