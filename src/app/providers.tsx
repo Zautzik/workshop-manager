@@ -20,12 +20,13 @@
 import { Toaster } from '@/components/ui/toaster';
 import { Toaster as Sonner } from '@/components/ui/sonner';
 import { TooltipProvider } from '@/components/ui/tooltip';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryCache, QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { SessionProvider } from 'next-auth/react';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { ThemeProvider } from '@/contexts/ThemeContext';
 import AppShell from '@/components/AppShell';
 import { ReactNode, useState } from 'react';
+import { toast } from 'sonner';
 
 /**
  * Global providers wrapper for the entire application
@@ -48,6 +49,26 @@ export function Providers({ children, nonce }: { children: ReactNode; nonce?: st
 						refetchOnWindowFocus: false,
 					},
 				},
+				// Before this, a thrown query error had nowhere to land unless the
+				// component that called useQuery happened to read `isError` itself
+				// — most (118 of 128 sampled) don't, and default `data` to `[]` at
+				// the destructuring site instead. A real failure and a genuinely
+				// empty result then render identically: the exact shape behind the
+				// `due_date` bug and several more (2026-08 audit). This doesn't
+				// replace a component's own error handling where it exists — it's
+				// the floor under the ones that have none.
+				queryCache: new QueryCache({
+					onError: (error, query) => {
+						// A background refetch failing while the screen still shows the
+						// last good data isn't worth interrupting anyone for — only
+						// surface it when there's nothing else on screen to fall back on.
+						if (query.state.data !== undefined) return;
+						toast.error('No se pudo cargar la información', {
+							id: query.queryHash,
+							description: error instanceof Error ? error.message : undefined,
+						});
+					},
+				}),
 			})
 	);
 

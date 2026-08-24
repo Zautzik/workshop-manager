@@ -71,4 +71,37 @@ export default [
 			],
 		},
 	},
+	{
+		/**
+		 * TRIPWIRE — the discarded `error`.
+		 *
+		 * `const { data } = await supabase.from(...)...` throws away the one
+		 * field that says the query failed. A bad column or table name (a
+		 * dropped `workstation_id`, a renamed `due_date`) makes PostgREST answer
+		 * with `{ data: null, error }` — no exception, no crash — and
+		 * `(data ?? [])` turns that into a silently empty result, indistinguishable
+		 * from a genuinely empty table. This exact shape produced the calendar's
+		 * blank maintenance layer and several more findings in one pass
+		 * (2026-08 audit).
+		 *
+		 * Staged at `warn`, same convention this config already used for the
+		 * write-tripwire's own rollout (B.4b, 2026-07): the rule found ~50
+		 * pre-existing sites in one run, mostly in already-shipped API routes
+		 * that would take individual verification to fix correctly, not a
+		 * blanket edit. Visible and counted now; migrate the routes on the
+		 * golden thread first, then flip to `error` once the count is zero.
+		 */
+		files: ['src/**/*.ts', 'src/**/*.tsx'],
+		rules: {
+			'no-restricted-syntax': [
+				'warn',
+				{
+					selector:
+						"VariableDeclarator[id.type='ObjectPattern'][init.type='AwaitExpression']:has(ObjectPattern > Property[key.name='data']):not(:has(ObjectPattern > Property[key.name='error'])):has(CallExpression[callee.property.name='from']):has(Identifier[name=/^supabase/])",
+					message:
+						'Se lee `data` sin leer `error`: un error real de Postgrest (columna/tabla que no existe) se confunde con un resultado vacío. Desestructura también `error` y decide qué hacer con él (throw, log, o un estado de error visible).',
+				},
+			],
+		},
+	},
 ];
