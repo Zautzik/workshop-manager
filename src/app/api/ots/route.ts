@@ -131,6 +131,14 @@ const PageSchema = z.object({
 	page:   z.coerce.number().int().min(1).default(1),
 	limit:  z.coerce.number().int().min(1).max(200).default(50),
 	active: z.string().optional(), // 'true' → filter to in-flight statuses only
+	// Un solo estado exacto, filtrado en el servidor — el comentario de
+	// arriba ya lo pedía y nadie lo había construido. Sin esto,
+	// CalibracionMotor.tsx pedía las primeras 200 OTs por prioridad y
+	// filtraba 'completed' en el navegador: con ~260 OTs sembradas, un
+	// trabajo terminado y de baja prioridad podía quedar siempre fuera de
+	// esa ventana, y el selector de calibración se veía casi vacío
+	// justo cuando más trabajo completado había (auditoría 2026-08).
+	status: OTStatusSchema.optional(),
 });
 
 // Active statuses come from the state machine (single source) — see
@@ -148,7 +156,7 @@ export async function GET(req: NextRequest) {
 			{ status: 400 }
 		);
 	}
-	const { page, limit, active } = pagination.data;
+	const { page, limit, active, status } = pagination.data;
 	const offset = (page - 1) * limit;
 
 	// Row-scoping: a vendedor sees only their own OTs (salesman_id = me);
@@ -171,6 +179,9 @@ export async function GET(req: NextRequest) {
 
 		if (active === 'true') {
 			query = query.in('status', [...ACTIVE_OT_STATUSES]);
+		}
+		if (status) {
+			query = query.eq('status', status);
 		}
 
 		const { data, error, count } = await query.range(offset, offset + limit - 1);

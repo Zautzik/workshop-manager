@@ -157,14 +157,19 @@ function useCompletedOTs() {
   return useQuery<CompletedOT[]>({
     queryKey: ['calibracion', 'completed-ots'],
     queryFn: async () => {
-      const res = await fetch('/api/ots?limit=200', { credentials: 'include' });
+      // Antes pedía las 200 OTs de mayor prioridad y filtraba 'completed' en
+      // el navegador — con las OTs ordenadas por prioridad, un trabajo
+      // terminado y de baja prioridad podía quedar siempre fuera de esa
+      // ventana, y el selector de calibración se veía casi vacío justo
+      // cuando más trabajo completado había para elegir (auditoría 2026-08).
+      // /api/ots ahora filtra `status` en el servidor.
+      const res = await fetch('/api/ots?limit=200&status=completed', { credentials: 'include' });
       if (!res.ok) return [];
       const payload = await res.json().catch(() => null);
       const list: any[] = Array.isArray(payload) ? payload : payload?.data ?? [];
       return list
         .filter(
           (o) =>
-            o.status === 'completed' &&
             o.width_cm &&
             o.height_cm &&
             o.grammage_gsm &&
