@@ -166,7 +166,7 @@ export function useMonthlyPayroll(year: number, month: number) {
         supabase.from('employees').select('id, full_name'),
         supabase
           .from('worker_assignments')
-          .select('employee_id, date, role, shift:shifts(start_time, end_time)')
+          .select('employee_id, date, role, hours_worked, shift:shifts(start_time, end_time)')
           .gte('date', monthStart)
           .lte('date', monthEnd),
         supabase
@@ -267,7 +267,18 @@ export function useMonthlyPayroll(year: number, month: number) {
           return;
         }
 
-        const hours = getShiftHours(assignment.shift);
+        // `getShiftHours` deriva del horario NOMINAL del turno (start_time/
+        // end_time de `shifts`) — siempre 9h para un turno "Día", exista o
+        // no overtime real ese día. `hours_worked` en `worker_assignments`
+        // es lo que de verdad se registró para ESA asignación, y es lo que
+        // ya usa el motor de acumulación de habilidades (skill-accrual.ts) y
+        // el modelo de sobretiempo real (labor-attribution.ts). Nómina tenía
+        // su propia segunda cuenta de "cuántas horas trabajó esta persona",
+        // que podía discrepar de las otras dos cada vez que alguien hacía
+        // horas extra o salía antes (auditoría 2026-08). El horario nominal
+        // se conserva sólo para decidir si el turno cae de noche
+        // (isNightShift), que es una pregunta distinta: CUÁNDO, no CUÁNTO.
+        const hours = Number(assignment.hours_worked) || getShiftHours(assignment.shift);
         const overtime = String(assignment?.role || '').toLowerCase().includes('overtime');
         const ot100 = String(assignment?.role || '').includes('100');
         const weekend = [0, 6].includes(new Date(String(assignment.date)).getDay());
