@@ -82,15 +82,32 @@ export const CALIBRATION = {
   DEFAULT_DIGITAL_SHEETS_PER_HOUR: 1400,
   /** Per-finish time model: fixed setup + sheets/hour throughput. */
   FINISH_RATES: {
-    corte: { setupH: 0.3, sheetsPerHour: 3000 },
+    // Una guillotina corta por RESMA/ALZADO, no pliego a pliego — un Polar
+    // corta un alzado de ~500 pliegos por golpe. "Pliegos/hora" es la unidad
+    // correcta para el resto de esta tabla (procesos continuos), pero
+    // aplicada literalmente acá cobraba 8,9 h por un corte de 25.770 pliegos
+    // que en la máquina real toma 1-2 h — casi cinco veces más caro. El
+    // número de abajo no es "pliegos/hora" medido, es 500 pliegos/alzado ×
+    // ~30 alzados/hora expresado en esa unidad para no tener que cambiar la
+    // forma de `FINISH_RATES` por una sola fila. `machines.optimal_speed_sheets_hr`
+    // para type='guillotine' (2.800) tiene el mismo defecto de fondo — para
+    // arreglarlo ahí hace falta una columna de pliegos-por-alzado, que no
+    // existe todavía.
+    corte: { setupH: 0.3, sheetsPerHour: 15000 },
     // La troqueladora del taller declara 3.500 pliegos/hora óptimos en
     // `machines.optimal_speed_sheets_hr`. Aquí decía 1.200: la misma máquina
     // costeada tres veces más lenta de lo que la propia ficha afirma, que en un
     // tiraje de 100.000 pliegos son 57 horas de troquelado inventadas.
     troquelado: { setupH: 1.5, sheetsPerHour: 3500 },
-    plegado: { setupH: 0.5, sheetsPerHour: 3000 },
+    // Plegadora y laminadora también habían quedado desalineadas de su propia
+    // ficha (`machines.optimal_speed_sheets_hr`, migración 20260808120000):
+    // plegado decía 3.000 contra 4.200 reales (el plegado salía 40% más caro
+    // de lo que cuesta), laminado decía 2.000 contra 1.800 reales (al revés:
+    // el laminado salía barato). Mismo defecto que el troquelado, dos
+    // procesos que nadie había vuelto a mirar (auditoría 2026-08).
+    plegado: { setupH: 0.5, sheetsPerHour: 4200 },
     pegado: { setupH: 0.5, sheetsPerHour: 2500 },
-    laminado: { setupH: 0.5, sheetsPerHour: 2000 },
+    laminado: { setupH: 0.5, sheetsPerHour: 1800 },
     barniz: { setupH: 0.3, sheetsPerHour: 4000 },
     relieve: { setupH: 1.0, sheetsPerHour: 1000 },
     perforado: { setupH: 0.3, sheetsPerHour: 3000 },
@@ -442,6 +459,7 @@ export function computeOTCalculations(form: OTFormData, opts: OTCalcOptions = {}
     calc_plates: plates,
     calc_print_hours: printHours,
     calc_finish_hours: finishHours,
+    calc_digital_hours: digitalHours,
   };
 }
 
@@ -538,9 +556,16 @@ export function generateDefaultOperations(
 
   // ── Printing (machine hour incl. make-ready) + press labor ──
   const totalColorPasses = colorCount(form.color_front) + colorCount(form.color_back);
-  if (totalColorPasses > 0 && calcs.calc_print_hours > 0) {
-    push('impresion', 'Impresión Offset', 'hrs', calcs.calc_print_hours, RATES.offset_print_per_hour);
-    push('impresion', 'Operador de Prensa', 'hrs', calcs.calc_print_hours, RATES.press_labor_per_hour);
+  // `calc_print_hours` es offset + digital sumados (correcto para programar
+  // la máquina). Para el costo hay que restar la parte digital: esa pasada
+  // ya se cobra más abajo por clic (`digital_variable_click`), y cobrarla
+  // ADEMÁS como hora de prensa offset la duplicaba — medido sobre 120.000
+  // etiquetas con dato variable, $47.235 de tiempo de máquina offset que
+  // nunca ocurrió (auditoría 2026-08).
+  const offsetOnlyHours = Math.max(0, calcs.calc_print_hours - (calcs.calc_digital_hours ?? 0));
+  if (totalColorPasses > 0 && offsetOnlyHours > 0) {
+    push('impresion', 'Impresión Offset', 'hrs', offsetOnlyHours, RATES.offset_print_per_hour);
+    push('impresion', 'Operador de Prensa', 'hrs', offsetOnlyHours, RATES.press_labor_per_hour);
   }
 
   // ── El troquel, cuando hay que mandarlo a hacer ──

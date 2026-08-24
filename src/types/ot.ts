@@ -258,6 +258,16 @@ export interface OTCalculations {
   calc_plates: number;
   calc_print_hours: number;
   calc_finish_hours: number;
+  /**
+   * De `calc_print_hours`, cuántas son la pasada digital del dato variable.
+   * `calc_print_hours` sigue siendo el total (offset + digital, correcto
+   * para programar la máquina) — este campo existe sólo para que el costo se
+   * reparta bien: la pasada digital ya se cobra por clic
+   * (`digital_variable_click`), así que cobrarla también como hora de prensa
+   * offset la duplica (auditoría 2026-08). Opcional y no persistido: ausente
+   * equivale a 0, que es el comportamiento de siempre.
+   */
+  calc_digital_hours?: number;
 }
 
 export interface OTPricing {

@@ -462,6 +462,22 @@ describe('el trabajo que pasa por dos máquinas', () => {
 		const ops = generateDefaultOperations(CON_NOMBRE, c, RATES);
 		expect(ops.some((o) => o.name.includes('dato variable'))).toBe(false);
 	});
+
+	it('la hora digital no se cobra dos veces: no está en las horas de offset', () => {
+		// `calc_print_hours` es offset + digital sumadas (correcto para
+		// programar la máquina). "Impresión Offset" y "Operador de Prensa"
+		// tienen que cobrar sólo la parte offset — la pasada digital ya se
+		// cobra por clic. Antes se pasaba calc_print_hours entero a las dos
+		// líneas de offset, así que la pasada digital se pagaba dos veces:
+		// como clic Y como hora de prensa offset que nunca ocurrió
+		// (auditoría 2026-08).
+		const c = computeOTCalculations({ ...CON_NOMBRE, variable_data: true }, { variableData: true });
+		const ops = generateDefaultOperations({ ...CON_NOMBRE, variable_data: true }, c, RATES);
+		const offset = ops.find((o) => o.name === 'Impresión Offset')!;
+		expect(c.calc_digital_hours).toBeGreaterThan(0);
+		expect(offset.quantity).toBeCloseTo(c.calc_print_hours - c.calc_digital_hours!, 5);
+		expect(offset.quantity).toBeLessThan(c.calc_print_hours);
+	});
 });
 
 describe('el clic del dato variable no es el clic a todo color', () => {
