@@ -11,7 +11,14 @@ const ClockSchema = z.object({
   method: z.enum(['qr', 'face', 'manual']).default('qr'),
   value: z.string().min(1),
   event_type: z.enum(['clock_in', 'clock_out']).default('clock_in'),
-  station_id: z.string().uuid().optional().nullable(),
+  // `attendance_events` has no `station_id` column — the real FK is
+  // `machine_id` (workstations merged into machines, 20260802130000). The
+  // field carried the old name here for months: PostgREST answers a bad
+  // COLUMN name with the same PGRST204 code as a genuinely missing TABLE, so
+  // every insert failed and `isMissingTable` below reported "apply the
+  // migration" for a migration that was already applied. Every QR clock-in
+  // silently failed as a result (2026-08 audit).
+  machine_id: z.string().uuid().optional().nullable(),
 });
 
 const isMissingTable = (err: { code?: string; message?: string } | null) => {
@@ -63,7 +70,7 @@ export async function POST(req: NextRequest) {
     if (!parsed.success) {
       return NextResponse.json({ error: 'Invalid input', details: parsed.error.flatten().fieldErrors }, { status: 400 });
     }
-    const { method, value, event_type, station_id } = parsed.data;
+    const { method, value, event_type, machine_id } = parsed.data;
 
     let identity;
     try {
@@ -80,7 +87,7 @@ export async function POST(req: NextRequest) {
 
     const { error } = await supabaseAdmin.from('attendance_events').insert({
       employee_id: identity.employee_id,
-      station_id: station_id ?? null,
+      machine_id: machine_id ?? null,
       event_type,
       method,
       metadata: { by_device: auth.id },
@@ -88,8 +95,13 @@ export async function POST(req: NextRequest) {
 
     if (error) {
       if (isMissingTable(error)) {
+        // PGRST204 also fires for a bad COLUMN name on an existing table —
+        // the exact way this route broke for months (see the `machine_id`
+        // comment above). Don't claim a migration is missing when the
+        // table's right there; name what's actually known.
+        console.error('attendance_events insert failed (missing table or column):', error);
         return NextResponse.json(
-          { error: 'Fichaje pendiente de activación — aplica la migración attendance_events.' },
+          { error: 'No se pudo registrar el fichaje: la tabla de asistencia no responde como se espera.' },
           { status: 503 }
         );
       }
