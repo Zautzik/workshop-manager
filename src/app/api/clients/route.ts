@@ -39,10 +39,15 @@ export async function GET(req: NextRequest) {
 	const scope = await resolveSalesScope(auth);
 
 	try {
+		// El frontend (ClientManager.tsx) ya pide TODOS los clientes una vez y
+		// filtra activos/inactivos en el propio navegador con `showInactive` —
+		// el filtro `is_active=true` de acá los descartaba antes de que el
+		// toggle pudiera hacer su trabajo, así que "Ver inactivos" nunca tenía
+		// nada que mostrar y un cliente dado de baja desaparecía sin manera de
+		// volver a verlo (auditoría 2026-08).
 		let query = supabaseAdmin
 			.from('clients')
 			.select('*')
-			.eq('is_active', true)
 			.order('name');
 
 		if (!scope.all) {
@@ -53,7 +58,11 @@ export async function GET(req: NextRequest) {
 			query = query.ilike('name', `%${q}%`);
 		}
 
-		query = query.limit(20);
+		// 20 dejaba fuera del alfabeto a cualquier taller con más de 20
+		// clientes — este ya tiene más. 500 es generoso para una cartera de
+		// una imprenta y evita repetir el mismo error de cap silencioso que
+		// ya costó una pantalla completa en otro lugar de la app.
+		query = query.limit(500);
 
 		const { data, error } = await query;
 
