@@ -1,22 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth, isAuthError } from '@/lib/api-middleware';
 import { supabaseAdmin } from '@/integrations/supabase/server';
-
-const ACTIVE_OT_STATUSES = [
-  'pre_press',
-  'visto_bueno',
-  'paper_purchase',
-  'in_storage',
-  'guillotine_first_cut',
-  'offset_printing',
-  'die_cutting',
-  'guillotine_final_cut',
-  'workshop',
-  'outsourced',
-  'workshop_revision',
-  'ready_for_delivery',
-  'in_delivery',
-] as const;
+// Third hand-maintained copy of "every non-completed status" found in the
+// repo — the other two (ots/route.ts, use-workflow-queries.ts) were already
+// fixed for the same omission (missing digital_printing) in a 2026-07 audit,
+// and this one was never pointed at the canonical export they now use
+// (2026-08 audit).
+import { ACTIVE_OT_STATUSES } from '@/lib/ot-state-machine';
 
 const DEFAULT_SHIFT_HOURS = 9;
 
@@ -94,7 +84,6 @@ export async function GET(req: NextRequest) {
         quantity, color_front, color_back,
         status, deadline, proceso_actual,
         flag_ord, flag_pro, flag_vbp, flag_plan, flag_paper_arrived,
-        workstation:machines!machine_id(id, name),
         machine:machines!assigned_machine_id(id, name, type)
       `)
       .in('status', ACTIVE_OT_STATUSES as any)

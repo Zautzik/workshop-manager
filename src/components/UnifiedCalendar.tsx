@@ -36,12 +36,18 @@ function useMaintenanceEvents() {
   return useQuery({
     queryKey: ['calendar-maintenance'],
     queryFn: async () => {
-      const { data } = await (supabase as any)
+      // `maintenance_work_orders` has no `due_date` column — the real one is
+      // `scheduled_date`. Selecting a column that doesn't exist errors the
+      // query; destructuring only `data` (no `error`) turned that into a
+      // silently empty maintenance layer on this calendar, one query away
+      // from the `ots.due_date` bug already fixed here (2026-08 audit).
+      const { data, error } = await supabase
         .from('maintenance_work_orders')
-        .select('id, title, scheduled_date, due_date')
+        .select('id, title, scheduled_date')
         .not('scheduled_date', 'is', null);
-      return (data ?? []).map((r: any) => ({
-        date: new Date(r.scheduled_date ?? r.due_date),
+      if (error) throw error;
+      return (data ?? []).map((r) => ({
+        date: new Date(r.scheduled_date as string),
         label: r.title ?? 'Mantenimiento',
         type: 'maintenance' as const,
       }));

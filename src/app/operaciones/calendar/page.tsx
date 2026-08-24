@@ -2,6 +2,7 @@
 import { Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import ProtectedRoute from '@/components/ProtectedRoute';
+import { useAuth } from '@/contexts/AuthContext';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
 import { GanttChart, Cpu, CalendarDays, CalendarRange } from 'lucide-react';
@@ -16,16 +17,29 @@ type TabKey = (typeof VALID_TABS)[number];
 function PlanificacionTabs() {
   const router = useRouter();
   const params = useSearchParams();
+  const { role } = useAuth();
+  // Cronograma, Máquinas y Semanal pegan contra /api/ot-schedule*, que sólo
+  // acepta supervisor/admin/manager. La página igual dejaba entrar a
+  // hr_manager con las cuatro pestañas visibles — llegaba a la que sí es
+  // suya (Calendario, licencias) por las tres que le devuelven 403, y sin
+  // isError en pantalla, un 403 se ve igual que una semana sin planificar
+  // (auditoría 2026-08).
+  const hrOnlyCalendar = role === 'hr_manager';
   const requested = params.get('tab');
+  const defaultTab: TabKey = hrOnlyCalendar ? 'calendario' : 'cronograma';
   const active: TabKey = (VALID_TABS as readonly string[]).includes(requested ?? '')
     ? (requested as TabKey)
-    : 'cronograma';
+    : defaultTab;
 
   const onChange = (value: string) => {
     const sp = new URLSearchParams(Array.from(params.entries()));
     sp.set('tab', value);
     router.replace(`/operaciones/calendar?${sp.toString()}`, { scroll: false });
   };
+
+  if (hrOnlyCalendar) {
+    return <UnifiedCalendar />;
+  }
 
   return (
     <Tabs value={active} onValueChange={onChange} className="w-full">
