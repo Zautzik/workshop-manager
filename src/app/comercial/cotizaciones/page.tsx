@@ -175,8 +175,6 @@ function buildEstimate(
 function CotizacionesInner() {
   const qc = useQueryClient();
   const router = useRouter();
-  const { data: vbs = [] } = useVistosBuenos();
-
 
   const { data: ots = [] } = useOTs();
 

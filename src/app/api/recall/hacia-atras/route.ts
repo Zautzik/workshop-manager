@@ -64,7 +64,11 @@ export async function GET(req: NextRequest) {
     otIds = ((data ?? []) as { id: string }[]).map((o) => o.id);
     subject = { kind: 'cliente', label: clientId };
   } else {
-    const { data } = await supabaseAdmin.from('ots').select('id').eq('ot_number', otNumber!);
+    // Como la búsqueda por guía: parcial y sin distinguir mayúsculas. Un
+    // `.eq` exacto exigía teclear "OT-40879" entero cuando el campo invitaba
+    // a escribir sólo el número — cualquier búsqueda razonable volvía vacía
+    // (2026-08 audit).
+    const { data } = await supabaseAdmin.from('ots').select('id').ilike('ot_number', `%${otNumber}%`);
     otIds = ((data ?? []) as { id: string }[]).map((o) => o.id);
     subject = { kind: 'ot', label: otNumber! };
   }

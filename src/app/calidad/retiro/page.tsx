@@ -96,7 +96,7 @@ function RetiroInner() {
 							value={valor}
 							onChange={(e) => setValor(e.target.value)}
 							onKeyDown={(e) => e.key === 'Enter' && valor.trim() && buscar.mutate()}
-							placeholder={modo === 'guia' ? 'G-0044' : '41221'}
+							placeholder={modo === 'guia' ? 'G-0044' : 'OT-40879 (o sólo 40879)'}
 							className="h-10 font-mono"
 						/>
 					</div>
