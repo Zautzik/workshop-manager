@@ -61,8 +61,10 @@ export async function GET(req: NextRequest) {
     const employeesRes = want.employees
       ? await supabaseAdmin
           .from('employees')
-          .select('id, full_name, employee_number, department, status, phone, email')
-          .or(`full_name.ilike.${searchLike},employee_number.ilike.${searchLike},department.ilike.${searchLike}`)
+          // `employee_number` never existed — real column is `employee_code`
+          // (2026-08 audit; same defect as /api/employees/[id]).
+          .select('id, full_name, employee_code, department, status, phone, email')
+          .or(`full_name.ilike.${searchLike},employee_code.ilike.${searchLike},department.ilike.${searchLike}`)
           .order('full_name', { ascending: true })
           .limit(limit)
       : { data: [] as any[] };

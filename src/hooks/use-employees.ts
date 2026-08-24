@@ -223,11 +223,13 @@ export function useEmployeeSkills(employeeId: string) {
 	return useQuery({
 		queryKey: hrQueryKeys.employeeSkills(employeeId),
 		queryFn: async () => {
+			// `employee_skills` has no `verified_at` — real column is
+			// `last_assessed_on` (2026-08 audit, same defect as certificaciones).
 			const { data, error } = await supabase
 				.from('employee_skills')
 				.select('*')
 				.eq('employee_id', employeeId)
-				.order('verified_at', { ascending: false });
+				.order('last_assessed_on', { ascending: false });
 
 			if (error) throw error;
 			return data || [];

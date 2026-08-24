@@ -29,9 +29,11 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
   const { id } = await ctx.params;
   const employeeId = new URL(req.url).searchParams.get('employee_id');
 
+  // `employees` has no `first_name`/`last_name` — one field, `full_name`.
+  // This join always 500'd (2026-08 audit).
   const { data: steps, error } = await supabaseAdmin
     .from('machine_training_paths')
-    .select('*, skills ( id, name, code ), training_articles ( id, title, slug ), employees!machine_training_paths_mentor_employee_id_fkey ( id, first_name, last_name )')
+    .select('*, skills ( id, name, code ), training_articles ( id, title, slug ), employees!machine_training_paths_mentor_employee_id_fkey ( id, full_name )')
     .eq('machine_id', id)
     .eq('is_active', true)
     .order('step_order');

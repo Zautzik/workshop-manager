@@ -83,6 +83,8 @@ export async function GET(
 		const { id } = await params;
 		const supabase = supabaseAdmin;
 
+		// `employee_number` never existed on `employees` — real column is
+		// `employee_code`. Both branches 500'd (2026-08 audit).
 		const { data: employee, error } = await supabase
 			.from('employees')
 			.select(
@@ -90,7 +92,7 @@ export async function GET(
 					? `
 				id,
 				full_name,
-				employee_number,
+				employee_code,
 				department,
 				status,
 				hire_date,
@@ -109,7 +111,7 @@ export async function GET(
 					: `
 				id,
 				full_name,
-				employee_number,
+				employee_code,
 				department,
 				status,
 				hire_date,

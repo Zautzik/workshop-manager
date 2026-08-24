@@ -15,10 +15,14 @@ function useAllSkillCerts() {
   return useQuery({
     queryKey: ['hr', 'all-skill-certs'],
     queryFn: async () => {
+      // `employee_skills` has no `verified_at` or `skill_name` — the real
+      // columns are `last_assessed_on` and a `skill_id` FK to `skills`. The
+      // sort threw on every load (42703), which the caller reads as "no
+      // certifications registered" (2026-08 audit).
       const { data, error } = await supabase
         .from('employee_skills')
-        .select('*, employees(full_name, department)')
-        .order('verified_at', { ascending: false });
+        .select('*, employees(full_name, department), skills(name)')
+        .order('last_assessed_on', { ascending: false });
       if (error) throw error;
       return data ?? [];
     },
@@ -36,7 +40,7 @@ export function CertificacionesContent() {
     const q = search.toLowerCase();
     return (certs as any[]).filter(c =>
       c.employees?.full_name?.toLowerCase().includes(q) ||
-      c.skill_name?.toLowerCase().includes(q)
+      c.skills?.name?.toLowerCase().includes(q)
     );
   }, [certs, search]);
 
@@ -54,7 +58,7 @@ export function CertificacionesContent() {
           <p>No hay certificaciones registradas.</p>
         </div>
       ) : filtered.map((c: any) => {
-        const expiry = c.expires_at ? parseISO(c.expires_at) : null;
+        const expiry = c.certification_expires_on ? parseISO(c.certification_expires_on) : null;
         const expired = expiry && expiry < today;
         return (
           <Card key={c.id} className={expired ? 'border-destructive/40' : ''}>
@@ -63,12 +67,12 @@ export function CertificacionesContent() {
                 ? <AlertTriangle className="h-5 w-5 text-destructive shrink-0" />
                 : <BadgeCheck className="h-5 w-5 text-green-500 shrink-0" />}
               <div className="flex-1 min-w-0">
-                <p className="font-medium text-sm">{c.skill_name}</p>
+                <p className="font-medium text-sm">{c.skills?.name ?? 'Habilidad'}</p>
                 <div className="flex items-center gap-3 text-xs text-muted-foreground mt-0.5 flex-wrap">
                   <span>{c.employees?.full_name}</span>
                   <span className="capitalize">{c.employees?.department}</span>
-                  {c.verified_at && isValid(parseISO(c.verified_at)) && (
-                    <span>Verificado: {format(parseISO(c.verified_at), 'PP', { locale: es })}</span>
+                  {c.last_assessed_on && isValid(parseISO(c.last_assessed_on)) && (
+                    <span>Verificado: {format(parseISO(c.last_assessed_on), 'PP', { locale: es })}</span>
                   )}
                   {expiry && isValid(expiry) && (
                     <span className={expired ? 'text-destructive font-semibold' : ''}>
