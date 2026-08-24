@@ -166,15 +166,20 @@ function DroppableWorkstation({
 	getSelectionExplanation,
 	onUnassignWorker,
 	maintenanceBlock,
+	maintenanceUnknown,
 }: any) {
 	// A machine opened for maintenance takes its station out of service. dnd-kit
 	// won't even consider it a target, so the drop is refused at the source
 	// rather than rejected after the fact.
 	const maintenance = maintenanceBlock ?? null;
+	// Si no se pudo consultar mantención (sesión vencida, red caída), no se
+	// asume "está libre" — se asume "no sé" y se bloquea igual. Lo contrario
+	// es exactamente el defecto que dejaba asignar gente a una prensa abierta
+	// para mantención cuando la consulta fallaba en silencio (auditoría 2026-08).
 	const { setNodeRef, isOver } = useDroppable({
 		id: station.id,
 		data: { workstation: station, selectedOT },
-		disabled: Boolean(maintenance),
+		disabled: Boolean(maintenance) || Boolean(maintenanceUnknown),
 	});
 	const normalizedCapacity = Math.max(1, Number(capacity || 0));
 	const openSlotCount = Math.max(0, normalizedCapacity - occupancy);
@@ -185,7 +190,7 @@ function DroppableWorkstation({
 			className={`${getWorkstationColor(
 				station.type
 			)} border-3 p-2 transition-all duration-300 ${
-				maintenance
+				maintenance || maintenanceUnknown
 					? 'opacity-60 border-amber-500/60 saturate-50'
 					: isOver
 					? 'ring-2 ring-primary border-primary shadow-lg'
@@ -199,6 +204,18 @@ function DroppableWorkstation({
 			>
 				<Wrench className='h-3 w-3 shrink-0' />
 				<span className='truncate'>En mantención</span>
+			</div>
+		)}
+		{/* No es que esté en mantención — es que no se pudo confirmar que NO lo
+			está. Mensaje distinto a propósito: reclamar una orden de mantención
+			que no se sabe si existe sería inventar un dato. */}
+		{!maintenance && maintenanceUnknown && (
+			<div
+				className='mb-1.5 flex items-center gap-1 rounded border border-amber-500/50 bg-amber-500/15 px-1.5 py-1 text-[10px] font-semibold text-amber-700 dark:text-amber-400'
+				title='No se pudo confirmar si esta estación está en mantención — asignación bloqueada por seguridad'
+			>
+				<Wrench className='h-3 w-3 shrink-0' />
+				<span className='truncate'>Sin verificar</span>
 			</div>
 		)}
 		<div className='flex items-center justify-between mb-1.5'>
@@ -366,8 +383,9 @@ export function WorkstationLayout({
 	onAssignmentChange,
 }: WorkstationLayoutProps) {
 	const { toast } = useToast();
-	// Equipos tells Planta which machines are out of service.
-	const { data: stationsUnderMaintenance } = useStationsUnderMaintenance();
+	// Equipos tells Planta which machines are out of service. `isError` matters
+	// as much as `data`: a failed check must block assignment, not clear it.
+	const { data: stationsUnderMaintenance, isError: maintenanceCheckFailed } = useStationsUnderMaintenance();
 	const [showOnlyOvertime, setShowOnlyOvertime] = useState(false);
 	const [showQuickGuide, setShowQuickGuide] = useState(false);
 	const [guideOpenedOnce, setGuideOpenedOnce] = useState(false);
@@ -448,8 +466,12 @@ export function WorkstationLayout({
 	};
 
 	const getAssignedWorkers = (workstationId: string) => {
+		// `worker_assignments.workstation_id` was dropped when workstations
+		// merged into machines — the real column is `machine_id`, and "estación"
+		// here already means a machine. Filtering on the dropped name meant no
+		// assignment ever matched any station on this board (2026-08 audit).
 		const workersInStation = assignments.filter(
-			a => a.workstation_id === workstationId && a.shift_id === selectedShift
+			a => a.machine_id === workstationId && a.shift_id === selectedShift
 		);
 
 		if (showOnlyOvertime) {
@@ -858,6 +880,7 @@ export function WorkstationLayout({
 												getSelectionExplanation={getSelectionExplanation}
 												onUnassignWorker={onUnassignWorker}
 												maintenanceBlock={stationsUnderMaintenance?.[station.id]}
+												maintenanceUnknown={maintenanceCheckFailed}
 											/>
 										);
 									})}

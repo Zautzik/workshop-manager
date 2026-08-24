@@ -32,7 +32,6 @@ export interface Machine {
   maintenance_cost_monthly?: number | null;
   depreciation_monthly?: number | null;
   is_active: boolean;
-  workstation_id?: string | null;
   /** Cómo se mide el desgaste: impresiones, horas, km o ciclos. */
   usage_unit?: MachineUsageUnit | null;
   /** Lectura actual. Sólo se mueve registrando lecturas, nunca editando. */
@@ -107,9 +106,12 @@ function canonicalMachineName(name: string) {
 }
 
 function machineQualityScore(machine: Machine) {
+  // A `workstation_id ? 10 : 0` term used to live here. `machines` has no
+  // such column since the workstations merge, so it always scored 0 for
+  // every candidate — inert, not wrong, but dead weight in a tiebreaker
+  // that's supposed to actually break ties (2026-08 audit).
   return (
     (machine.is_active ? 20 : 0) +
-    (machine.workstation_id ? 10 : 0) +
     (machine.brand ? 4 : 0) +
     (machine.model ? 4 : 0) +
     (machine.location ? 2 : 0)

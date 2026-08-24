@@ -31,7 +31,6 @@ const UpdateMachineSchema = z.object({
 	maintenance_cost_monthly: nullableNumber,
 	depreciation_monthly: nullableNumber,
 	is_active: z.boolean().optional(),
-	workstation_id: z.string().uuid().nullable().optional(),
 	usage_unit: z.enum(MACHINE_USAGE_UNIT_VALUES).optional(),
 	min_qualified_operators: z.number().int().min(0).max(50).nullable().optional(),
 	// `usage_counter` NO se acepta acá a propósito: se mueve registrando una

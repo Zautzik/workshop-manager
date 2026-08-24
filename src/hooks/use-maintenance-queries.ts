@@ -515,7 +515,13 @@ export function useStationsUnderMaintenance() {
       const res = await fetch('/api/maintenance/work-orders?open=1', {
         credentials: 'include',
       });
-      if (!res.ok) return {};
+      // Era `if (!res.ok) return {}` — un 401 (sesión vencida a mitad de
+      // turno) se leía exactamente igual que "ninguna estación bloqueada":
+      // toda prensa, incluida una abierta para mantención, quedaba
+      // disponible para asignar. Se lanza para que quien consuma esto pueda
+      // fallar CERRADO —tratar "no sé" distinto de "está libre"— en vez de
+      // heredar en silencio el mismo defecto (auditoría 2026-08).
+      if (!res.ok) throw new Error(`No se pudo verificar mantención (HTTP ${res.status})`);
       const payload = await res.json().catch(() => null);
       return (payload?.by_workstation ?? {}) as Record<string, MaintenanceBlock>;
     },

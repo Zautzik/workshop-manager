@@ -261,16 +261,7 @@ export function useWorkstations() {
 
       const machines = Array.isArray(machinePayload) ? machinePayload : [];
       const machinesById = new Map(machines.map((machine: any) => [String(machine.id), machine]));
-      const machinesByWorkstationId = new Map<string, any[]>();
       const machinesByType = new Map<string, any[]>();
-
-      machines.forEach((machine: any) => {
-        const wsId = machine?.workstation_id ? String(machine.workstation_id) : null;
-        if (!wsId) return;
-        const bucket = machinesByWorkstationId.get(wsId) || [];
-        bucket.push(machine);
-        machinesByWorkstationId.set(wsId, bucket);
-      });
 
       const normalizeMachineType = (value: any) => {
         const raw = String(value || '').toLowerCase().trim().replace(/[\s-]+/g, '_');
@@ -312,15 +303,10 @@ export function useWorkstations() {
           if (explicit) return explicit;
         }
 
-        const linked = (machinesByWorkstationId.get(String(workstation.id)) || []).slice().sort(sortByFreshness);
-        if (linked.length > 0) {
-          const linkedTypeMatch = linked.find((machine: any) => normalizeMachineType(machine?.type) === stationType);
-          if (linkedTypeMatch) return linkedTypeMatch;
-
-          const active = linked.find((machine: any) => machine?.is_active === true);
-          return active ?? linked[0] ?? null;
-        }
-
+        // A prior "group machines by their own workstation_id" fallback lived
+        // here — `machines.workstation_id` was dropped in the workstations→
+        // machines merge, so that grouping was always empty and this branch
+        // never fired. Removed rather than kept as dead weight (2026-08 audit).
         const byType = (machinesByType.get(stationType) || []).slice().sort(sortByFreshness);
         const activeByType = byType.find((machine: any) => machine?.is_active === true);
         return activeByType ?? byType[0] ?? null;

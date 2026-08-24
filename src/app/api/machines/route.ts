@@ -47,7 +47,6 @@ const CreateMachineSchema = z.object({
 	maintenance_cost_monthly: nullableNumber,
 	depreciation_monthly: nullableNumber,
 	is_active: z.boolean().optional(),
-	workstation_id: z.string().uuid().nullable().optional(),
 });
 
 // ── Cached DB fetch ─────────────────────────────────────────────────────────

@@ -67,7 +67,7 @@ export default function PlantaBoard({ initialTab = 'layout' }: PlantaBoardProps)
   const { data: shifts = [] } = useShifts();
   const { data: assignments = [], refetch: refetchAssignments } = useWorkerAssignments(selectedDate);
   const { data: monthlyOvertimeByWorker = {} } = useWorkerMonthlyOvertime(selectedDate);
-  const { data: stationsUnderMaintenance } = useStationsUnderMaintenance();
+  const { data: stationsUnderMaintenance, isError: maintenanceCheckFailed } = useStationsUnderMaintenance();
   const { data: compensationRates = [] } = useCompensationRatesForDate(selectedDate);
   const { data: workflowLeaveStatuses = [] } = useWorkflowLeaveStatuses(selectedDate);
   const { data: workflowIncentiveStatuses = [] } = useWorkflowIncentiveStatuses(selectedDate);
@@ -709,7 +709,11 @@ export default function PlantaBoard({ initialTab = 'layout' }: PlantaBoardProps)
     }
 
     const shiftAssignments = assignments.filter(a => a.shift_id === selectedShiftId);
-    const currentAssignments = shiftAssignments.filter(a => a.workstation_id === workstation.id);
+    // `worker_assignments.workstation_id` was dropped in the workstations→
+    // machines merge — comparing against it always failed, so this capacity
+    // check never saw any existing assignment and over-assignment went
+    // undetected (2026-08 audit).
+    const currentAssignments = shiftAssignments.filter(a => a.machine_id === workstation.id);
     if (currentAssignments.length >= workstation.max_workers) {
       toast({
         title: "Workstation at capacity",
@@ -870,6 +874,17 @@ export default function PlantaBoard({ initialTab = 'layout' }: PlantaBoardProps)
       toast({ title: 'Seleccione primero un turno', variant: 'destructive' });
       return;
     }
+    // No se puede confirmar qué estaciones están en mantención — auto-llenar
+    // igual asignaría gente a una prensa que podría estar fuera de servicio.
+    // "No sé" no es "está libre" (auditoría 2026-08).
+    if (maintenanceCheckFailed) {
+      toast({
+        title: 'No se pudo verificar mantención',
+        description: 'El llenado automático está bloqueado hasta poder confirmar qué estaciones están fuera de servicio.',
+        variant: 'destructive',
+      });
+      return;
+    }
 
     setBulkActionLoading('auto-fill');
     try {
@@ -884,7 +899,9 @@ export default function PlantaBoard({ initialTab = 'layout' }: PlantaBoardProps)
           skipped += 1;
           continue;
         }
-        const stationAssignments = currentShiftAssignments.filter((assignment: any) => assignment.workstation_id === station.id);
+        // Same dropped-column bug as the manual-assign capacity check above:
+        // the real FK is `machine_id`.
+        const stationAssignments = currentShiftAssignments.filter((assignment: any) => assignment.machine_id === station.id);
         const capacityLeft = Math.max(0, Number(station.max_workers || 0) - stationAssignments.length);
         if (capacityLeft <= 0) continue;
 
