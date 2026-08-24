@@ -10,13 +10,12 @@ import {
 } from '@/components/ui/select';
 import { useWorkerStats } from '@/hooks/use-operations-queries';
 import { toast } from 'sonner';
-import { useLanguage } from '@/contexts/LanguageContext';
+import { DEPARTMENTS } from '@/lib/departments';
 import WorkerCard from '../supervisor/WorkerCard';
 import { Button } from '@/components/ui/button';
 import { FileDown } from 'lucide-react';
 
 const WorkerStatsReport = () => {
-  const { t } = useLanguage();
   const [departmentFilter, setDepartmentFilter] = useState<string>('all');
   const { data: workers = [], isError } = useWorkerStats(departmentFilter);
 
@@ -52,7 +51,7 @@ const WorkerStatsReport = () => {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card className="border-manager/20">
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm text-manager">{t('efficiencyScore')}</CardTitle>
+            <CardTitle className="text-sm text-manager">Eficiencia</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold">{stats.avgEfficiency}%</div>
@@ -62,17 +61,17 @@ const WorkerStatsReport = () => {
 
         <Card className="border-manager/20">
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm text-manager">{t('rating')}</CardTitle>
+            <CardTitle className="text-sm text-manager">Calificación</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold">{stats.avgRating}/100</div>
-            <p className="text-xs text-muted-foreground mt-1">Average performance rating</p>
+            <p className="text-xs text-muted-foreground mt-1">Promedio de desempeño</p>
           </CardContent>
         </Card>
 
         <Card className="border-manager/20">
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm text-manager">{t('totalTasks')}</CardTitle>
+            <CardTitle className="text-sm text-manager">Total de Tareas</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold">{stats.totalTasks}</div>
@@ -85,19 +84,22 @@ const WorkerStatsReport = () => {
       <Card className="border-manager/20">
         <CardHeader>
           <div className="flex items-center justify-between">
-            <CardTitle className="text-manager">{t('workerStats')}</CardTitle>
+            <CardTitle className="text-manager">Estadísticas de Trabajadores</CardTitle>
             <div className="flex gap-2">
+              {/* Antes eran cinco claves en inglés que nunca calzaron con el
+                  texto libre real de employees.department — el filtro volvía
+                  vacío para cualquier opción menos "Todos" (2026-08 audit).
+                  DEPARTMENTS es la misma taxonomía que usa el alta de
+                  personas, para que no haya una segunda lista que diverja. */}
               <Select value={departmentFilter} onValueChange={setDepartmentFilter}>
                 <SelectTrigger className="w-48">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">{t('allWorkers')}</SelectItem>
-                  <SelectItem value="press">{t('press')}</SelectItem>
-                  <SelectItem value="manual_workshop">{t('manual_workshop')}</SelectItem>
-                  <SelectItem value="deliveries">{t('deliveries')}</SelectItem>
-                  <SelectItem value="pre_press">{t('pre_press')}</SelectItem>
-                  <SelectItem value="administration">{t('administration')}</SelectItem>
+                  <SelectItem value="all">Todos los Trabajadores</SelectItem>
+                  {DEPARTMENTS.map((d) => (
+                    <SelectItem key={d} value={d}>{d}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
               <Button variant="outline" size="icon">
@@ -109,7 +111,7 @@ const WorkerStatsReport = () => {
         <CardContent>
           {safeWorkers.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
-              {t('noData')}
+              No hay datos disponibles
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2">

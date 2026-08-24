@@ -49,22 +49,11 @@ import { Plus, Pencil, Trash2, AlertTriangle, Lock } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/AuthContext';
 import { formatCLP } from '@/lib/format';
+import { DEPARTMENTS } from '@/lib/departments';
 
 interface WorkersManagementProps {
   onUpdate: () => void;
 }
-
-/** The taxonomy the plant actually uses — matches existing employee records. */
-const DEPARTMENTS = [
-  'Impresión Offset',
-  'Pre-Prensa',
-  'Terminaciones',
-  'Corte',
-  'Troquelado',
-  'Despacho',
-  'Bodega',
-  'Management',
-] as const;
 
 const CONTRACT_TYPES = [
   { value: 'full_time', label: 'Tiempo Completo' },
