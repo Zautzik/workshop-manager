@@ -20,8 +20,10 @@ import { useCompensationRatesForDate, useSchedulingCostModel, useWorkerAssignmen
 import { useRealtimeProduction } from "@/hooks/use-realtime-production";
 import { DndContext, DragEndEvent, DragOverlay } from "@dnd-kit/core";
 import { isWorkerQualifiedForStation } from "@/lib/workstation-skills";
+import { isWorkerEligibleForStation, workerConflictFlags, workerSortScore } from "@/lib/worker-eligibility";
 import { CerrarDiaDialog } from "@/components/workflow/CerrarDiaDialog";
 import { useStationsUnderMaintenance } from "@/hooks/use-maintenance-queries";
+import { dateToLocalIso, startOfIsoWeek, weekDatesFrom } from "@/lib/week-dates";
 
 type WorkflowTab = 'en_proceso' | 'ots' | 'clients' | 'layout' | 'shifts' | 'production' | 'hoja_prod' | 'plan_semanal' | 'gantt' | 'calendar' | 'whatsapp';
 
@@ -34,34 +36,15 @@ export default function PlantaBoard({ initialTab = 'layout' }: PlantaBoardProps)
   const router = useRouter();
   useRealtimeProduction();
 
-  const getDateIso = (date: Date) => {
-    const offset = date.getTimezoneOffset() * 60 * 1000;
-    return new Date(date.getTime() - offset).toISOString().split("T")[0];
-  };
-
-  const getWeekStart = (date: Date) => {
-    const value = new Date(date);
-    const day = value.getDay();
-    const diff = day === 0 ? -6 : 1 - day;
-    value.setDate(value.getDate() + diff);
-    value.setHours(0, 0, 0, 0);
-    return value;
-  };
-
-  const buildWeekDates = (start: Date) => {
-    return Array.from({ length: 7 }, (_, index) => {
-      const date = new Date(start);
-      date.setDate(start.getDate() + index);
-      return date;
-    });
-  };
-
+  // Fecha/semana: src/lib/week-dates.ts — antes reimplementado acá mismo,
+  // y con una diferencia real de comportamiento contra la copia que vivía
+  // en HojaProduccion.tsx (auditoría 2026-08, ver el comentario del módulo).
   const today = new Date();
   const [activeTab, setActiveTab] = useState<WorkflowTab>(initialTab);
   const [selectedWorker, setSelectedWorker] = useState<any>(null);
   const [selectedOT, setSelectedOT] = useState<any>(null);
-  const [selectedDate, setSelectedDate] = useState<string>(getDateIso(today));
-  const [weekStartDate, setWeekStartDate] = useState<Date>(getWeekStart(today));
+  const [selectedDate, setSelectedDate] = useState<string>(dateToLocalIso(today));
+  const [weekStartDate, setWeekStartDate] = useState<Date>(startOfIsoWeek(today));
   const { data: workersData = [] } = useWorkersByRating();
   const { data: workstationsData = [] } = useWorkstations();
   const { data: shifts = [] } = useShifts();
@@ -262,9 +245,9 @@ export default function PlantaBoard({ initialTab = 'layout' }: PlantaBoardProps)
     }
   }, [isCostModelExpanded, COST_MODEL_EXPANDED_STORAGE_KEY]);
 
-  const weekDates = buildWeekDates(weekStartDate);
-  const weekStartIso = getDateIso(weekStartDate);
-  const weekEndIso = getDateIso(new Date(weekStartDate.getFullYear(), weekStartDate.getMonth(), weekStartDate.getDate() + 6));
+  const weekDates = weekDatesFrom(weekStartDate);
+  const weekStartIso = dateToLocalIso(weekStartDate);
+  const weekEndIso = dateToLocalIso(new Date(weekStartDate.getFullYear(), weekStartDate.getMonth(), weekStartDate.getDate() + 6));
 
   const persistPublishedWeeks = (nextValue: Record<string, string>) => {
     setPublishedWeeks(nextValue);
@@ -382,7 +365,7 @@ export default function PlantaBoard({ initialTab = 'layout' }: PlantaBoardProps)
     try {
       const date = new Date(selectedDate);
       date.setDate(date.getDate() - 7);
-      const sourceDate = getDateIso(date);
+      const sourceDate = dateToLocalIso(date);
       await applyShiftRosterFromDate(sourceDate, `${sourceDate} (last week)`);
     } finally {
       setQuickSetupLoading(null);
@@ -837,37 +820,8 @@ export default function PlantaBoard({ initialTab = 'layout' }: PlantaBoardProps)
     [assignments, selectedShiftId]
   );
 
-  const getWorkerConflictFlags = (workerId?: string | null, station?: any, isOvertime = false) => {
-    if (!workerId) {
-      return { leaveConflict: true, legalConflict: true, missingSkill: false };
-    }
-    const indicators = workerIndicatorsById?.[workerId] || {};
-    const worker = workers.find((entry: any) => entry.id === workerId);
-
-    const leaveConflict = indicators.leaveTone === 'alert';
-    const legalConflict = Boolean(indicators.legalHourConflict);
-    const missingSkill = station ? !isWorkerQualifiedForStation(worker, station) : false;
-
-    return { leaveConflict, legalConflict, missingSkill };
-  };
-
-  const isWorkerEligibleForStation = (worker: any, station: any, isOvertime: boolean) => {
-    const conflicts = getWorkerConflictFlags(worker?.id, station, isOvertime);
-    if (conflicts.leaveConflict || conflicts.legalConflict || conflicts.missingSkill) {
-      return false;
-    }
-    if (isOvertime && !worker?.overtime_availability) {
-      return false;
-    }
-    return true;
-  };
-
-  const getWorkerSortScore = (worker: any, station: any, isOvertime: boolean) => {
-    const costRate = Number(compensationByEmployee?.[worker?.id]?.hourly_rate || 0);
-    const rating = Number(worker?.overall_rating || 0);
-    const overtimePenalty = isOvertime ? 10 : 0;
-    return rating * 2 - costRate * 0.05 - overtimePenalty;
-  };
+  const sortScoreFor = (worker: any, isOvertime: boolean) =>
+    workerSortScore(worker, Number(compensationByEmployee?.[worker?.id]?.hourly_rate || 0), isOvertime);
 
   const handleBulkAutoFillShift = async () => {
     if (!selectedShiftId) {
@@ -911,8 +865,8 @@ export default function PlantaBoard({ initialTab = 'layout' }: PlantaBoardProps)
             const isOvertime = workersAssignedOtherShifts.has(worker.id);
             return { worker, isOvertime };
           })
-          .filter(({ worker, isOvertime }: { worker: any; isOvertime: boolean }) => isWorkerEligibleForStation(worker, station, isOvertime))
-          .sort((a: { worker: any; isOvertime: boolean }, b: { worker: any; isOvertime: boolean }) => getWorkerSortScore(b.worker, station, b.isOvertime) - getWorkerSortScore(a.worker, station, a.isOvertime));
+          .filter(({ worker, isOvertime }: { worker: any; isOvertime: boolean }) => isWorkerEligibleForStation(worker, station, isOvertime, workerIndicatorsById?.[worker.id]))
+          .sort((a: { worker: any; isOvertime: boolean }, b: { worker: any; isOvertime: boolean }) => sortScoreFor(b.worker, b.isOvertime) - sortScoreFor(a.worker, a.isOvertime));
 
         for (const candidate of candidates.slice(0, capacityLeft)) {
           const role = candidate.isOvertime ? 'overtime_operator_50' : 'operator';
@@ -965,8 +919,8 @@ export default function PlantaBoard({ initialTab = 'layout' }: PlantaBoardProps)
 
       const conflictedAssignments = currentShiftAssignments.filter((assignment: any) => {
         const workerId = assignment.employee_id || assignment.worker_id;
-        const isOvertime = String(assignment.role || '').includes('overtime');
-        const conflicts = getWorkerConflictFlags(workerId, assignment.workstation, isOvertime);
+        const worker = workers.find((entry: any) => entry.id === workerId);
+        const conflicts = workerConflictFlags(workerId, worker, assignment.workstation, workerIndicatorsById?.[workerId]);
         return conflicts.leaveConflict || conflicts.legalConflict || conflicts.missingSkill;
       });
 
@@ -981,8 +935,8 @@ export default function PlantaBoard({ initialTab = 'layout' }: PlantaBoardProps)
             const isOvertime = workersAssignedOtherShifts.has(worker.id);
             return { worker, isOvertime };
           })
-          .filter(({ worker, isOvertime }: { worker: any; isOvertime: boolean }) => isWorkerEligibleForStation(worker, station, isOvertime))
-          .sort((a: { worker: any; isOvertime: boolean }, b: { worker: any; isOvertime: boolean }) => getWorkerSortScore(b.worker, station, b.isOvertime) - getWorkerSortScore(a.worker, station, a.isOvertime))[0];
+          .filter(({ worker, isOvertime }: { worker: any; isOvertime: boolean }) => isWorkerEligibleForStation(worker, station, isOvertime, workerIndicatorsById?.[worker.id]))
+          .sort((a: { worker: any; isOvertime: boolean }, b: { worker: any; isOvertime: boolean }) => sortScoreFor(b.worker, b.isOvertime) - sortScoreFor(a.worker, a.isOvertime))[0];
 
         if (!replacement) {
           unresolved += 1;
@@ -1043,8 +997,8 @@ export default function PlantaBoard({ initialTab = 'layout' }: PlantaBoardProps)
           .filter((worker: any) => !reservedWorkerIds.has(worker.id))
           .filter((worker: any) => !workersAssignedOtherShifts.has(worker.id))
           .map((worker: any): { worker: any; isOvertime: boolean } => ({ worker, isOvertime: false }))
-          .filter(({ worker, isOvertime }: { worker: any; isOvertime: boolean }) => isWorkerEligibleForStation(worker, station, isOvertime))
-          .sort((a: { worker: any; isOvertime: boolean }, b: { worker: any; isOvertime: boolean }) => getWorkerSortScore(b.worker, station, false) - getWorkerSortScore(a.worker, station, false))[0];
+          .filter(({ worker, isOvertime }: { worker: any; isOvertime: boolean }) => isWorkerEligibleForStation(worker, station, isOvertime, workerIndicatorsById?.[worker.id]))
+          .sort((a: { worker: any; isOvertime: boolean }, b: { worker: any; isOvertime: boolean }) => sortScoreFor(b.worker, false) - sortScoreFor(a.worker, false))[0];
 
         if (!replacement) {
           remaining += 1;
@@ -1329,9 +1283,9 @@ export default function PlantaBoard({ initialTab = 'layout' }: PlantaBoardProps)
                   </div>
                   <div className="grid grid-cols-4 gap-1 mb-2">
                     {weekDates.map((date) => {
-                      const dateIso = getDateIso(date);
+                      const dateIso = dateToLocalIso(date);
                       const isSelected = dateIso === selectedDate;
-                      const isToday = dateIso === getDateIso(new Date());
+                      const isToday = dateIso === dateToLocalIso(new Date());
                       return (
                         <button
                           key={dateIso}
@@ -1424,7 +1378,7 @@ export default function PlantaBoard({ initialTab = 'layout' }: PlantaBoardProps)
                         {quickSetupLoading === 'repeat-last-week' ? 'Aplicando...' : 'Repetir semana anterior'}
                       </Button>
                       <div className="flex flex-wrap gap-1">
-                        {weekDates.map((date) => getDateIso(date)).filter((d) => d !== selectedDate).map((dateIso) => (
+                        {weekDates.map((date) => dateToLocalIso(date)).filter((d) => d !== selectedDate).map((dateIso) => (
                           <Button key={`copy-${dateIso}`} variant="outline" size="sm" disabled={!selectedShiftId || quickSetupLoading !== null} onClick={() => handleCopyFromWeekDay(dateIso)} className="h-6 px-2 text-[10px]">
                             <Copy className="w-2.5 h-2.5 mr-0.5" />
                             {dateIso}
