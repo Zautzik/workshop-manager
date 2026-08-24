@@ -81,6 +81,9 @@ interface DiagnosticsData {
 		employeesWithoutAccount: Array<{ id: string; name: string }>;
 		employeesWithoutRate: Array<{ id: string; name: string }>;
 	};
+	/** Consultas que fallaron de verdad, no que dieron vacío — antes las dos se
+	 *  veían idénticas en esta misma pantalla (auditoría 2026-08). */
+	queryErrors: string[];
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -720,6 +723,24 @@ export default function AppDiagnostics() {
 					</Button>
 				</div>
 			</div>
+
+			{/* Consultas que fallaron de verdad — antes esto se veía idéntico a
+			    "todo en cero" en esta misma pantalla. Va primero, arriba de todo:
+			    si el propio diagnóstico no pudo mirar algo, es lo primero que hay
+			    que saber antes de confiar en cualquier otro número de abajo. */}
+			{data && data.queryErrors.length > 0 && (
+				<div className="flex items-start gap-2 rounded-md border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-600 dark:text-red-400">
+					<XCircle className="h-4 w-4 shrink-0 mt-0.5" />
+					<div>
+						<p className="font-semibold">
+							{data.queryErrors.length} consulta{data.queryErrors.length === 1 ? '' : 's'} de este diagnóstico falló{data.queryErrors.length === 1 ? '' : 'ron'} — los números que dependen de ella{data.queryErrors.length === 1 ? '' : 's'} pueden estar en cero sin que eso signifique &ldquo;sin datos&rdquo;.
+						</p>
+						<ul className="mt-1 space-y-0.5 font-mono text-xs opacity-90">
+							{data.queryErrors.map((e, i) => <li key={i}>{e}</li>)}
+						</ul>
+					</div>
+				</div>
+			)}
 
 			{/* Status bar */}
 			{data && (

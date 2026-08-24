@@ -19,12 +19,39 @@ const TWO_WEEKS_AGO = () => {
 	return d.toISOString();
 };
 
+/**
+ * Un resultado de `Promise.allSettled` que "fulfilled" no significa que la
+ * consulta salió bien: Supabase casi nunca rechaza la promesa, resuelve con
+ * `{ data: null, error }`. Todo este archivo comparaba sólo `.status ===
+ * 'fulfilled'` y trataba un error real de Postgrest exactamente como un
+ * resultado vacío — la misma forma de falla que el bug de `due_date`, en la
+ * pantalla construida para atraparla (auditoría 2026-08). Esta función es el
+ * único punto donde se resuelve esa ambigüedad; `errors` acumula la etiqueta
+ * de cada consulta que de verdad falló para que la pantalla lo diga.
+ */
+function unwrap<T extends { error: { message: string } | null }>(
+	result: PromiseSettledResult<T>,
+	label: string,
+	errors: string[],
+): T | null {
+	if (result.status !== 'fulfilled') {
+		errors.push(`${label}: ${result.reason}`);
+		return null;
+	}
+	if (result.value.error) {
+		errors.push(`${label}: ${result.value.error.message}`);
+		return null;
+	}
+	return result.value;
+}
+
 export async function GET() {
 	const auth = await requireAuth(['admin']);
 	if (isAuthError(auth)) return auth;
 
 	const since = TWO_WEEKS_AGO();
 	const db = supabaseAdmin;
+	const queryErrors: string[] = [];
 
 	// ── Run all queries in parallel ──────────────────────────────────────────
 	const [
@@ -55,8 +82,10 @@ export async function GET() {
 		db.from('ots').select('id', { count: 'exact', head: true })
 			.gte('created_at', since),
 
-		// 3. Machine count + fields needed for cross-module checks
-		supabaseAdmin.from('machines').select('id,status,name,workstation_id,is_active', { count: 'exact' }),
+		// 3. Machine count + fields needed for cross-module checks. Had
+		// `workstation_id` here too — dropped from `machines` in the
+		// workstations merge, so this query has 500'd since (2026-08 audit).
+		supabaseAdmin.from('machines').select('id,status,name,is_active', { count: 'exact' }),
 
 		// 4. Employee count (active)
 		supabaseAdmin.from('employees')
@@ -111,16 +140,14 @@ export async function GET() {
 		? dbPing.value
 		: { latencyMs: null, error: 'Query failed' };
 
-	const machineRows =
-		machinesCount.status === 'fulfilled' ? (machinesCount.value.data ?? []) : [];
+	const machineRows = unwrap(machinesCount, 'machines', queryErrors)?.data ?? [];
 	const machineSummary = machineRows.reduce((acc: Record<string, number>, m: any) => {
 		acc[m.status] = (acc[m.status] || 0) + 1;
 		return acc;
 	}, {});
 
 	// WhatsApp stats by review_status
-	const waRows =
-		whatsappStats.status === 'fulfilled' ? (whatsappStats.value.data ?? []) : [];
+	const waRows = unwrap(whatsappStats, 'whatsapp stats', queryErrors)?.data ?? [];
 	const waByStatus = waRows.reduce((acc: Record<string, number>, row: any) => {
 		acc[row.review_status] = (acc[row.review_status] || 0) + 1;
 		return acc;
@@ -130,10 +157,8 @@ export async function GET() {
 	// Con `workers` retirada, los chequeos que medían la duplicación entre las
 	// dos tablas de personas ya no pueden fallar. Se sustituyen por los cortes
 	// del hilo dorado que sí siguen siendo posibles sobre la ficha única.
-	const employeeRows =
-		allWorkers.status === 'fulfilled' ? (allWorkers.value.data ?? []) : [];
-	const activeEmployees =
-		employeesWithLegacy.status === 'fulfilled' ? (employeesWithLegacy.value.data ?? []) : [];
+	const employeeRows = unwrap(allWorkers, 'employees (nombres)', queryErrors)?.data ?? [];
+	const activeEmployees = unwrap(employeesWithLegacy, 'empleados activos', queryErrors)?.data ?? [];
 
 	// Check 1: máquinas cuyo nombre coincide con el de una persona. Confunde a
 	// cualquiera que lea una asignación: no se sabe si es equipo u operario.
@@ -167,7 +192,7 @@ export async function GET() {
 	// dorado en su primer eslabón —persona → sueldo—: sin tarifa sus horas
 	// cuestan cero y toda OT en la que trabajen sale más barata de lo que es.
 	const ratedEmployeeIds = new Set(
-		(compensationRates.status === 'fulfilled' ? (compensationRates.value.data ?? []) : [])
+		(unwrap(compensationRates, 'tarifas de compensación', queryErrors)?.data ?? [])
 			.map((r: any) => r.employee_id),
 	);
 	const employeesWithoutRate = (activeEmployees as any[])
@@ -175,10 +200,7 @@ export async function GET() {
 		.map((e) => ({ id: e.id, name: e.full_name as string }));
 
 	// Auth users — strip sensitive fields, keep only what the UI needs
-	const rawUsers =
-		authUsersResult.status === 'fulfilled'
-			? (authUsersResult.value.data?.users ?? [])
-			: [];
+	const rawUsers = unwrap(authUsersResult, 'usuarios de auth', queryErrors)?.data?.users ?? [];
 
 	const INACTIVE_THRESHOLD_DAYS = 14;
 	const cutoff = new Date(since);
@@ -204,22 +226,20 @@ export async function GET() {
 				error: health.error,
 			},
 			counts: {
-				otsLast14d: otsCount.status === 'fulfilled' ? (otsCount.value.count ?? 0) : null,
+				otsLast14d: unwrap(otsCount, 'OTs 14d', queryErrors)?.count ?? null,
 				machines: machineRows.length,
 				machinesByStatus: machineSummary,
-				activeEmployees: employeesCount.status === 'fulfilled'
-					? (employeesCount.value.count ?? 0) : null,
-				workers: workersCount.status === 'fulfilled'
-					? (workersCount.value.count ?? 0) : null,
+				activeEmployees: unwrap(employeesCount, 'empleados activos (conteo)', queryErrors)?.count ?? null,
+				workers: unwrap(workersCount, 'total de personas', queryErrors)?.count ?? null,
 			},
 		},
 		webhooks: {
 			whatsapp: {
 				byStatus: waByStatus,
 				total: waRows.length,
-				logs: whatsappLogs.status === 'fulfilled' ? (whatsappLogs.value.data ?? []) : [],
+				logs: unwrap(whatsappLogs, 'logs de WhatsApp', queryErrors)?.data ?? [],
 			},
-			connectors: connectors.status === 'fulfilled' ? (connectors.value.data ?? []) : [],
+			connectors: unwrap(connectors, 'conectores', queryErrors)?.data ?? [],
 		},
 		security: {
 			users,
@@ -227,7 +247,7 @@ export async function GET() {
 			inactiveThresholdDays: INACTIVE_THRESHOLD_DAYS,
 		},
 		logs: {
-			hrAccessLogs: accessLogs.status === 'fulfilled' ? (accessLogs.value.data ?? []) : [],
+			hrAccessLogs: unwrap(accessLogs, 'logs de acceso HR', queryErrors)?.data ?? [],
 		},
 		crossModuleChecks: {
 			machineWorkerNameCollisions,
@@ -235,5 +255,10 @@ export async function GET() {
 			employeesWithoutAccount,
 			employeesWithoutRate,
 		},
+		// Antes, una consulta que fallaba se veía exactamente igual que una
+		// tabla vacía — cero en todos lados, sin ninguna pista. Ahora la
+		// pantalla que existe para encontrar bugs como ése puede decir cuándo
+		// ELLA MISMA no pudo mirar (auditoría 2026-08).
+		queryErrors,
 	});
 }
