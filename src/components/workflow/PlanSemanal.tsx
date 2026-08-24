@@ -12,6 +12,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useQueryClient } from '@tanstack/react-query';
 import { AdvanceFlags } from '@/components/workflow/AdvanceFlags';
 import { CalendarCheck2, ChevronLeft, ChevronRight, Printer, RefreshCw, Wifi, WifiOff } from 'lucide-react';
+// Antes reimplementado acá — ver src/lib/week-dates.ts (auditoría 2026-08).
+import { dateToLocalIso as toIsoDate, startOfIsoWeek as getWeekStart } from '@/lib/week-dates';
 
 const COLOR_VALUE: Record<string, string> = {
   cmyk: '4',
@@ -21,20 +23,6 @@ const COLOR_VALUE: Record<string, string> = {
   cmyk_pantone: '4+P',
   sin_impresion: '0',
 };
-
-function getWeekStart(date: Date) {
-  const value = new Date(date);
-  const day = value.getDay();
-  const diff = day === 0 ? -6 : 1 - day;
-  value.setDate(value.getDate() + diff);
-  value.setHours(0, 0, 0, 0);
-  return value;
-}
-
-function toIsoDate(date: Date) {
-  const offset = date.getTimezoneOffset() * 60000;
-  return new Date(date.getTime() - offset).toISOString().split('T')[0];
-}
 
 function formatColor(front?: string | null, back?: string | null) {
   if (!front) return '-';
@@ -73,7 +61,7 @@ function isOverdue(deadline?: string | null) {
 
 export function PlanSemanal() {
   const [weekStart, setWeekStart] = useState(() => toIsoDate(getWeekStart(new Date())));
-  const { data, isLoading, refetch } = useWeekSchedule(weekStart);
+  const { data, isLoading, isError, refetch } = useWeekSchedule(weekStart);
   const { isConnected } = useRealtimeProduction();
   const { role } = useAuth();
   const { toast } = useToast();
@@ -219,7 +207,20 @@ export function PlanSemanal() {
         </p>
       </div>
 
-      {isLoading ? (
+      {isError ? (
+        // Antes un 403/500 caía al mismo `data ?? []` que una semana
+        // genuinamente sin programar — un hr_manager que llegaba a esta
+        // pestaña veía una grilla vacía, no un error, sin ninguna pista de
+        // que la consulta había fallado (auditoría 2026-08). El toast
+        // global de providers.tsx ya avisa, pero la pantalla en sí también
+        // tiene que decirlo, no quedarse en un plan en blanco creíble.
+        <Card className="border-destructive/40 bg-destructive/5 p-10 text-center text-sm text-destructive">
+          No se pudo cargar el plan semanal. Puede ser que tu rol no tenga acceso a esta vista, o un problema de conexión.
+          <Button variant="outline" size="sm" className="mt-3 block mx-auto" onClick={() => refetch()}>
+            Reintentar
+          </Button>
+        </Card>
+      ) : isLoading ? (
         <Card className="bg-card/80 border-border p-10 text-center text-muted-foreground text-sm">
           Cargando plan semanal...
         </Card>
