@@ -16,6 +16,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { AdvanceFlags } from '@/components/workflow/AdvanceFlags';
+import { dateToLocalIso } from '@/lib/week-dates';
 import {
   ChevronLeft, ChevronRight, Printer, RefreshCw, Plus,
   Clock, AlertTriangle, CheckCircle2, Wifi, WifiOff, Trash2,
@@ -47,9 +48,12 @@ function fmtDate(dt?: string | null) {
 function isOverdue(dl?: string | null) {
   return !!dl && new Date(dl) < new Date();
 }
-function getDateIso(d: Date) {
-  return d.toISOString().split('T')[0];
-}
+// Antes decía `d.toISOString().split('T')[0]` — toISOString() convierte a
+// UTC primero, así que en Santiago (UTC-3/-4) el botón "Hoy" tecleado
+// entre ~21:00 y medianoche local seleccionaba el día SIGUIENTE. Bug real
+// y en vivo, encontrado al consolidar esta misma lógica duplicada en
+// PlantaBoard y PlanSemanal — ver src/lib/week-dates.ts (auditoría 2026-08).
+const getDateIso = dateToLocalIso;
 
 const MACHINE_TYPE_LABEL: Record<string, string> = {
   offset_printer: 'Offset',
