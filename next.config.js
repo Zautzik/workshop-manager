@@ -70,8 +70,13 @@ const nextConfig = {
 		domains: [],
 	},
 
-	// Output as standalone for docker/production deployment - bundles all dependencies into .next/standalone
-	output: 'standalone',
+	// Standalone output bundles all dependencies into .next/standalone — needed
+	// for the Docker/self-host path (npm run start:standalone). Vercel builds
+	// its own serverless bundle and never generates the standalone trace
+	// manifest, so setting this unconditionally there fails the build with
+	// "ENOENT ... .next/next-server.js.nft.json" (Vercel sets VERCEL=1 during
+	// its own build; that's the standard way to detect it).
+	output: process.env.VERCEL ? undefined : 'standalone',
 
 	// Configure Turbopack (fast bundler) root to this project to avoid parent folder lockfiles
 	turbopack: {
