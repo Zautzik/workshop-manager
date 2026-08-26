@@ -3,6 +3,7 @@
 import { useQuery } from '@tanstack/react-query';
 import {
 	Check,
+	Copy,
 	Loader2,
 	Package,
 	Plus,
@@ -123,6 +124,24 @@ export function ComprasDialog({ ot, open, onOpenChange, onDone }: Props) {
 
 	const cambiar = (i: number, patch: Partial<Requirement>) =>
 		setReqs((rs) => rs.map((r, j) => (j === i ? { ...r, ...patch } : r)));
+
+	// La base exige un solo camino por fila (ot_requirements_un_solo_camino):
+	// un requisito sale de una compra O de bodega, no de las dos. Repartir
+	// "1000 pliegos: 400 ya en bodega + 600 por comprar" entre dos fuentes se
+	// hace entonces con dos filas, no con una fila que sepa repartirse sola.
+	// Duplicar copia la cantidad para que sólo haya que recortarla en cada una,
+	// y limpia OC/lote/estado porque esas cosas son de cada fila, no del par.
+	const duplicar = (i: number) =>
+		setReqs((rs) => {
+			const copia: Requirement = {
+				...rs[i],
+				id: undefined,
+				purchaseId: null,
+				lotId: null,
+				status: 'pendiente',
+			};
+			return [...rs.slice(0, i + 1), copia, ...rs.slice(i + 1)];
+		});
 
 	const guardar = async () => {
 		if (!ot) return;
@@ -248,6 +267,27 @@ export function ComprasDialog({ ot, open, onOpenChange, onDone }: Props) {
 											onChange={(e) => cambiar(i, { description: e.target.value })}
 											className="h-8 min-w-0 flex-1 text-sm"
 										/>
+										<Input
+											type="number"
+											min="0"
+											step="any"
+											value={r.quantity ?? ''}
+											onChange={(e) =>
+												cambiar(i, {
+													quantity: e.target.value === '' ? null : Number(e.target.value),
+												})
+											}
+											placeholder="Cant."
+											// w-24, no w-16: un pliego de cartulina de esta OT es 32.620 — un campo
+											// angosto lo mostraba cortado a "326" (auditoría 2026-08).
+											className="h-8 w-24 shrink-0 text-sm"
+										/>
+										<Input
+											value={r.unit ?? ''}
+											onChange={(e) => cambiar(i, { unit: e.target.value || null })}
+											placeholder="unidad"
+											className="h-8 w-20 shrink-0 text-sm"
+										/>
 										<select
 											value={r.kind}
 											onChange={(e) => cambiar(i, { kind: e.target.value as ReqKind })}
@@ -259,6 +299,16 @@ export function ComprasDialog({ ot, open, onOpenChange, onDone }: Props) {
 												</option>
 											))}
 										</select>
+										<Button
+											variant="ghost"
+											size="sm"
+											className="h-8 w-8 p-0 text-muted-foreground"
+											onClick={() => duplicar(i)}
+											aria-label="Duplicar fila"
+											title="Duplicar — para repartir la cantidad entre dos fuentes"
+										>
+											<Copy className="h-3.5 w-3.5" />
+										</Button>
 										<Button
 											variant="ghost"
 											size="sm"
