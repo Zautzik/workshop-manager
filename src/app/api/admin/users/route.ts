@@ -56,10 +56,17 @@ export async function GET(request: NextRequest) {
 
 		// Fetch roles for all returned users
 		const userIds = authUsers.map((u) => u.id);
-		const { data: roles } = await supabaseAdmin
+		const { data: roles, error: rolesError } = await supabaseAdmin
 			.from('user_roles')
 			.select('*')
 			.in('user_id', userIds.length > 0 ? userIds : ['__none__']);
+
+		// A failed roles fetch must not silently render as "everyone has no
+		// role" — that's indistinguishable from a genuinely unassigned user.
+		if (rolesError) {
+			console.error('Error fetching user roles:', rolesError);
+			return NextResponse.json({ error: 'Failed to fetch user roles' }, { status: 500 });
+		}
 
 		const usersWithRoles = authUsers.map((u) => {
 			const userRole = (roles ?? []).find((r) => r.user_id === u.id);
@@ -261,14 +268,28 @@ export async function PATCH(request: NextRequest) {
 			return NextResponse.json({ error: 'No fields to update' }, { status: 400 });
 		}
 
-		const { error } = await supabaseAdmin
+		// `id` here is the Supabase Auth user id (what the UI has, from GET's
+		// `u.id`) — user_roles has its own independent primary key, so this
+		// must match on `user_id`, not `id`. Matching on `id` silently updated
+		// zero rows for every user, and an UPDATE affecting zero rows is not a
+		// Postgres/PostgREST error: the route returned `{ success: true }` and
+		// the UI declared victory while nothing in the database ever changed
+		// (auditoría 2026-08).
+		const { data: updated, error } = await supabaseAdmin
 			.from('user_roles')
 			.update(updatePayload)
-			.eq('id', id);
+			.eq('user_id', id)
+			.select('id');
 
 		if (error) {
 			console.error('Error updating user role:', error);
 			return NextResponse.json({ error: 'Failed to update user' }, { status: 500 });
+		}
+
+		// A real 0-row match — e.g. an auth user with no user_roles row yet —
+		// must not report success either, for the same reason.
+		if (!updated || updated.length === 0) {
+			return NextResponse.json({ error: 'User role record not found' }, { status: 404 });
 		}
 
 		return NextResponse.json({ success: true });
