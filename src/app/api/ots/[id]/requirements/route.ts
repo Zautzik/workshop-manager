@@ -72,19 +72,20 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     });
   }
 
-  const { data: otRow } = await supabaseAdmin
+  const { data: otRow, error: otError } = await supabaseAdmin
     .from('ots')
     .select(
       'quantity, substrate_type, grammage_gsm, pantone_colors, color_front, color_back, product_type, ' +
       'finish_troquelado, finish_plegado, finish_pegado, finish_laminado, finish_barniz, ' +
       'finish_relieve, finish_perforado, finish_hot_stamping, finish_uv_localizado, finish_numeracion, ' +
-      // El troquel: si Pre-Prensa ya eligió uno del estante, el requisito nace
-      // resuelto en vez de pedir algo que ya está.
-      'die_source, die_code, die_id, calc_sheets'
+      'calc_sheets'
     )
     .eq('id', id)
     .maybeSingle();
 
+  // Un error real de Postgrest no es "OT no encontrada" — son cosas
+  // distintas para quien las lee y para lo que hay que hacer con cada una.
+  if (otError) return NextResponse.json({ error: otError.message }, { status: 500 });
   if (!otRow) return NextResponse.json({ error: 'OT no encontrada' }, { status: 404 });
 
   const o = otRow as unknown as Record<string, unknown>;
@@ -96,8 +97,6 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     colorFront: o.color_front as string,
     colorBack: o.color_back as string,
     productType: o.product_type as string,
-    dieSource: o.die_id ? 'existente' : (o.die_source as string),
-    dieCode: (o.die_id ?? o.die_code) as string,
     sheets: o.calc_sheets as number,
     finishes: Object.fromEntries(
       Object.entries(o)

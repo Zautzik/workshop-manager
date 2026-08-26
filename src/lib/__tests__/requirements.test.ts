@@ -57,32 +57,17 @@ describe('proposeRequirements', () => {
 		expect(proposeRequirements({ finishes: { finish_hot_stamping: true } }).some((x) => x.description === 'Hot stamping')).toBe(true);
 	});
 
-	// El estante de troqueles y esta lista se construyeron el mismo día sin
-	// conocerse: una OT troquelada tenía dos semanas de plazo que la etapa
-	// encargada de conseguir cosas no sabía que existían.
-	it('un trabajo troquelado necesita el troquel', () => {
-		const r = proposeRequirements({ finishes: { finish_troquelado: true } });
-		const t = r.find((x) => x.kind === 'herramental');
-		expect(t).toBeTruthy();
-		expect(t?.status).toBe('pendiente');
-		expect(t?.notes).toContain('2 semanas');
+	// El troquelado es un paso de producción que hace el propio taller, igual
+	// que Plegado o Barniz — ninguno de esos genera un requisito de Compras, y
+	// el troquel tampoco debería. La decisión de si hace falta un troquel
+	// nuevo ya se toma en Pre-Prensa (TroquelDelEstante), con las medidas de
+	// la pieza en mano; repetirla acá confundía una decisión de herramental
+	// con una compra de material (auditoría 2026-08).
+	it('el troquelado no pide herramental — es un proceso, no una compra', () => {
+		expect(proposeRequirements({ finishes: { finish_troquelado: true } }).some((x) => x.kind === 'herramental')).toBe(false);
 	});
 
-	// Si Pre-Prensa ya lo eligió del estante no hay nada que conseguir, y
-	// mostrarlo pendiente enseña a ignorar la lista.
-	it('el troquel ya elegido nace resuelto y apunta al estante', () => {
-		const r = proposeRequirements({
-			finishes: { finish_troquelado: true },
-			dieSource: 'existente',
-			dieCode: 'TR-104',
-		});
-		const t = r.find((x) => x.kind === 'herramental');
-		expect(t?.status).toBe('resuelto');
-		expect(t?.source).toBe('bodega');
-		expect(t?.description).toBe('Troquel TR-104');
-	});
-
-	it('un trabajo sin troquelado no pide herramental', () => {
+	it('ningún trabajo pide herramental, troquelado o no', () => {
 		expect(proposeRequirements({ finishes: {} }).some((x) => x.kind === 'herramental')).toBe(false);
 	});
 

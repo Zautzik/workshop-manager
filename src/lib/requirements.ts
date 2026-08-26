@@ -92,9 +92,6 @@ export interface OTShape {
 	colorBack?: string | null;
 	finishes?: Record<string, boolean> | null;
 	productType?: string | null;
-	/** `existente` = ya se eligió del estante; `nuevo` = hay que mandarlo a hacer. */
-	dieSource?: string | null;
-	dieCode?: string | null;
 	/** Pliegos calculados por el motor, si ya se corrió. */
 	sheets?: number | null;
 }
@@ -152,24 +149,14 @@ export function proposeRequirements(ot: OTShape): Requirement[] {
 		});
 	}
 
-	// ── El troquel ──────────────────────────────────────────────────────────
-	//
-	// Es lo que más plazo agrega y lo que más fácil se olvida: un troquel nuevo
-	// son ~$320.000 y dos semanas. Que el estante exista no sirve de nada si la
-	// etapa que consigue las cosas no sabe que hace falta conseguirlo.
-	//
-	// Si Pre-Prensa ya eligió uno del estante, nace RESUELTO: no hay nada que
-	// hacer, y mostrarlo pendiente sería ruido que enseña a ignorar la lista.
-	if (lleva(ot.finishes, 'troquelado')) {
-		const yaElegido = ot.dieSource === 'existente' && !!ot.dieCode;
-		reqs.push({
-			kind: 'herramental',
-			description: yaElegido ? `Troquel ${ot.dieCode}` : 'Troquel — hay que definirlo',
-			source: yaElegido ? 'bodega' : 'comprar',
-			status: yaElegido ? 'resuelto' : 'pendiente',
-			notes: yaElegido ? null : 'Si no hay uno en el estante que sirva, son ~2 semanas.',
-		});
-	}
+	// El troquelado NO entra a esta lista — es un paso de producción que hace
+	// el propio taller, igual que Plegado o Barniz, y ninguno de esos aparece
+	// acá tampoco. La decisión de si hace falta un troquel nuevo ($320.000,
+	// dos semanas) ya se toma en Pre-Prensa, con las medidas de la pieza en
+	// mano — TroquelDelEstante (ver FichaPrePrensa.tsx) es donde se busca en
+	// el estante o se manda a hacer uno. Repetir la pregunta acá, disfrazada
+	// de «cosa que hay que comprar», confundía una decisión de herramental con
+	// una compra de material (auditoría 2026-08).
 
 	// Los servicios externos. Nacen `tercerizar` porque el taller no los hace.
 	if (lleva(ot.finishes, 'laminado')) {
