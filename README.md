@@ -173,3 +173,11 @@ The engineering log — what broke, how it was found, and what the fix taught. W
 be read: a costing engine that preferred a corrupt price book by explicit rule, a logo
 invisible on desktop for reasons that had nothing to do with the logo, and a regex that
 silently searched for the letter `d`.
+
+---
+
+## License
+
+Proprietary — all rights reserved. See [LICENSE](LICENSE). This is not open source
+software; no permission is granted to use, copy, modify, or distribute it without
+written authorization from the copyright holder.
