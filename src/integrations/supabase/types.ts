@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.1"
+    PostgrestVersion: "14.17"
   }
   graphql_public: {
     Tables: {
@@ -4476,6 +4476,111 @@ export type Database = {
           },
         ]
       }
+      ot_stage_reports: {
+        Row: {
+          created_at: string
+          hours: number | null
+          id: string
+          issues: string | null
+          machine_id: string | null
+          merma_sheets: number | null
+          observations: string | null
+          ot_id: string
+          recorded_by: string | null
+          to_status: Database["public"]["Enums"]["ot_status"] | null
+          units_moved: number | null
+          waste_notes: string | null
+          workflow_step: Database["public"]["Enums"]["ot_status"]
+        }
+        Insert: {
+          created_at?: string
+          hours?: number | null
+          id?: string
+          issues?: string | null
+          machine_id?: string | null
+          merma_sheets?: number | null
+          observations?: string | null
+          ot_id: string
+          recorded_by?: string | null
+          to_status?: Database["public"]["Enums"]["ot_status"] | null
+          units_moved?: number | null
+          waste_notes?: string | null
+          workflow_step: Database["public"]["Enums"]["ot_status"]
+        }
+        Update: {
+          created_at?: string
+          hours?: number | null
+          id?: string
+          issues?: string | null
+          machine_id?: string | null
+          merma_sheets?: number | null
+          observations?: string | null
+          ot_id?: string
+          recorded_by?: string | null
+          to_status?: Database["public"]["Enums"]["ot_status"] | null
+          units_moved?: number | null
+          waste_notes?: string | null
+          workflow_step?: Database["public"]["Enums"]["ot_status"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ot_stage_reports_machine_id_fkey"
+            columns: ["machine_id"]
+            isOneToOne: false
+            referencedRelation: "machines"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ot_stage_reports_machine_id_fkey"
+            columns: ["machine_id"]
+            isOneToOne: false
+            referencedRelation: "planta_live"
+            referencedColumns: ["machine_id"]
+          },
+          {
+            foreignKeyName: "ot_stage_reports_machine_id_fkey"
+            columns: ["machine_id"]
+            isOneToOne: false
+            referencedRelation: "planta_live"
+            referencedColumns: ["workstation_id"]
+          },
+          {
+            foreignKeyName: "ot_stage_reports_ot_id_fkey"
+            columns: ["ot_id"]
+            isOneToOne: false
+            referencedRelation: "ot_certificacion"
+            referencedColumns: ["ot_id"]
+          },
+          {
+            foreignKeyName: "ot_stage_reports_ot_id_fkey"
+            columns: ["ot_id"]
+            isOneToOne: false
+            referencedRelation: "ot_compras_estado"
+            referencedColumns: ["ot_id"]
+          },
+          {
+            foreignKeyName: "ot_stage_reports_ot_id_fkey"
+            columns: ["ot_id"]
+            isOneToOne: false
+            referencedRelation: "ot_cost_summary"
+            referencedColumns: ["ot_id"]
+          },
+          {
+            foreignKeyName: "ot_stage_reports_ot_id_fkey"
+            columns: ["ot_id"]
+            isOneToOne: false
+            referencedRelation: "ot_fulfillment"
+            referencedColumns: ["ot_id"]
+          },
+          {
+            foreignKeyName: "ot_stage_reports_ot_id_fkey"
+            columns: ["ot_id"]
+            isOneToOne: false
+            referencedRelation: "ots"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ot_state_transitions: {
         Row: {
           changed_by: string | null
@@ -8428,6 +8533,10 @@ export type Database = {
           p_table_name: string
         }
         Returns: undefined
+      }
+      map_real_cost_category: {
+        Args: { p_category: string }
+        Returns: Database["public"]["Enums"]["cost_line_category"]
       }
       receive_oc_into_lot: {
         Args: {
