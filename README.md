@@ -13,7 +13,7 @@ the biggest margin.
 Tailwind + Radix · Zod · Recharts · Vitest
 
 ```
-151 migrations   151 API routes   62 domain libraries   793 tests
+158 migrations   153 API routes   72 domain libraries   912 tests
 ```
 
 ---
@@ -92,6 +92,12 @@ block saying *why* there is nothing to show — "2 of 2 orders have no real cost
 `null` and the UI says what is missing. A cost per thousand with no sheet count is not
 zero; a margin with no cost is not 100%.
 
+**A failed query is not an empty table.** PostgREST resolves with `{data: null, error}`
+rather than rejecting, so an unread `error` renders a broken screen as a calm empty
+state. Screens distinguish the two, and anything gating a physical action — may this
+person run this press? — **fails closed**: *unknown* is never treated as *permitted*.
+An ESLint rule flags the pattern; see [NOTES.md](NOTES.md) §12.
+
 **Row-level security for rows, GRANTs for columns.** RLS filters rows and cannot hide a
 column — personal contact details are protected with column-level grants, not a policy
 that looks like it works.
@@ -103,7 +109,7 @@ that looks like it works.
 ```bash
 npm install
 cp .env.example .env.local        # Supabase URL + keys
-npx supabase db push              # 128 migrations
+npx supabase db push              # 158 migrations
 npm run dev
 ```
 
@@ -129,11 +135,19 @@ target. See [`scripts/seed/model.ts`](scripts/seed/model.ts).
 ### Checks
 
 ```bash
-npm run typecheck    # tsc --noEmit
-npm test             # 793 tests, 47 files
+npm run typecheck        # tsc --noEmit
+npm test                 # 912 tests, 53 files
 npm run lint
-npm run verify:csp   # asserts no CDN escapes the Content-Security-Policy
+npm run verify:csp       # asserts no CDN escapes the Content-Security-Policy
+npm run check:migrations # lists every function more than one migration defines
+npm run check:functions  # lists every function naming a column that no longer exists
 ```
+
+`check:functions` asks the database, not the source. `DROP COLUMN` does not validate
+plpgsql bodies — Postgres resolves a function's references when it *runs* — so a dropped
+column leaves functions that pass every deploy, type check and test, and fail the first
+time a person uses one. It happened four times before it became a script; see
+[NOTES.md](NOTES.md) §13.
 
 ---
 
@@ -141,17 +155,18 @@ npm run verify:csp   # asserts no CDN escapes the Content-Security-Policy
 
 ```
 src/
-  app/              routes + 50 API handlers
+  app/              routes + 151 API handlers
   components/       UI, grouped by module
   lib/              ← the domain. pure, tested, no React
   lib/__tests__/    one test file per module
   integrations/     Supabase clients (browser anon vs. service role)
 supabase/
-  migrations/       128, ordered, each explaining its own reasoning
+  migrations/       158, ordered, each explaining its own reasoning
 scripts/
   seed/             the demo shop: a pure model + a writer
 docs/               design records and audits
 NOTES.md            ← engineering log: the bugs worth reading about
+MASTERCLASS.md      ← the domain science, techniques and tools, distilled
 ```
 
 ---
@@ -167,9 +182,21 @@ See [NOTES.md](NOTES.md).)
 
 ---
 
+## [MASTERCLASS.md](MASTERCLASS.md)
+
+The durable layer between the two: what a print shop taught about sheets, press passes,
+make-ready and spoilage bands; the engineering techniques that came out of getting them
+wrong — gates that name what is missing, blocking on impossible data but never on absent
+data, deriving instead of storing a second truth, asking the catalog instead of the grep;
+and what each tool in the stack actually taught. Ends with a failure taxonomy and
+eighteen working rules.
+
+---
+
 ## [NOTES.md](NOTES.md)
 
 The engineering log — what broke, how it was found, and what the fix taught. Written to
 be read: a costing engine that preferred a corrupt price book by explicit rule, a logo
-invisible on desktop for reasons that had nothing to do with the logo, and a regex that
-silently searched for the letter `d`.
+invisible on desktop for reasons that had nothing to do with the logo, a regex that
+silently searched for the letter `d`, and two months of green CI over a production
+build that had been failing the whole time.
