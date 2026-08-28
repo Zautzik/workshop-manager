@@ -174,6 +174,9 @@ export const END_KEYWORDS = [
   'fin', 'termino', 'terminé', 'termine', 'listo', 'acabé', 'acabe',
   'end', 'done', 'terminamos', 'acabamos', 'finalizamos',
   'finalizado', 'terminado', 'completado', 'completo',
+  // El que reparte no escribe «fin»: escribe «entregado». Sin esto, el parte
+  // que cierra el recorrido entero era el único que no se reconocía.
+  'entregado', 'entregada', 'entregue', 'entregué', 'despachado', 'revisado', 'revisada',
 ];
 
 /** Keywords that signal a CANCEL message */
@@ -224,6 +227,31 @@ export const PROCESS_KEYWORDS: Record<string, string> = {
   'perforar': 'perforado',
   'numerado': 'numeracion',
   'numerar': 'numeracion',
+  // ── El taller no es sólo la prensa ────────────────────────────────────────
+  //
+  // El vocabulario nació mirando el offset y se quedó ahí: un parte del que
+  // revisa, del que arma o del que reparte no tenía ninguna palabra que
+  // reconocer, así que caía como `unknown` y no extraía nada. El prensista no
+  // es el único con un teléfono en el bolsillo.
+  'taller': 'taller',
+  'meson': 'taller',
+  'armado': 'taller',
+  'armar': 'taller',
+  'revision': 'revision',
+  'revisado': 'revision',
+  'revisada': 'revision',
+  'revisar': 'revision',
+  'control': 'revision',
+  'calidad': 'revision',
+  'entrega': 'entrega',
+  'despacho': 'entrega',
+  'reparto': 'entrega',
+  'entregado': 'entregado',
+  'entregada': 'entregado',
+  'recibido': 'entregado',
+  'tercerizado': 'tercerizado',
+  'tercero': 'tercerizado',
+  'externo': 'tercerizado',
   'alzado': 'alzado',
   'alzar': 'alzado',
   'compaginado': 'compaginado',
