@@ -89,10 +89,15 @@ export function MaterialQueAvanza({
 		isFirstFragment,
 	});
 
+	// Sólo papel puede salir acá. Tinta, cajas y todo lo demás que Compras haya
+	// reservado de bodega se queda adentro hasta su propia etapa — impresión
+	// consume la tinta, despacho consume las cajas. Sin este filtro, escanear
+	// por error la etiqueta de un pallet de tinta lo hubiera dejado "disponible"
+	// en esta lista como si fuera papel (auditoría 2026-08).
 	const { data: lotes = [] } = useQuery({
-		queryKey: ['lotes-para-consumo'],
+		queryKey: ['lotes-para-consumo', 'papel'],
 		queryFn: async () => {
-			const res = await fetch('/api/inventory/lots?con_saldo=1&limit=200');
+			const res = await fetch('/api/inventory/lots?con_saldo=1&limit=200&material_kind=papel');
 			if (!res.ok) return [] as Lote[];
 			return ((await res.json()).data ?? []) as Lote[];
 		},

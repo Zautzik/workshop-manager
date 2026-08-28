@@ -103,7 +103,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   // El papel llegó: ESO es la señal. Capturarla del acto de recibir, no de que
   // alguien se acuerde de arrastrar la tarjeta y de marcar la pastilla PAP.
-  const paper = await advanceOtOnPaperArrival(id);
+  const paper = await advanceOtOnPaperArrival(id, d.item_id);
 
   return NextResponse.json({ lot_id: data, ...(paper ? { ot: paper } : {}) }, { status: 201 });
 }
@@ -111,27 +111,49 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 /**
  * Recibir una OC ligada a una OT mueve la OT a "En Bodega" y marca PAP.
  *
+ * Pero sólo cuando lo que llegó es PAPEL. La pastilla y el avance existían
+ * antes de que hubiera forma de distinguir un ítem de otro, y disparaban con
+ * cualquier recepción de la OC — si la tinta o las cajas de esa misma orden
+ * llegaban antes que el papel, la OT se marcaba "papel en bodega" y hasta
+ * avanzaba a producción sin que el papel hubiera llegado nunca. `material_kind`
+ * es justamente la distinción que faltaba (auditoría 2026-08).
+ *
  * Mejor esfuerzo a propósito: el material YA entró al inventario y su costo YA
  * quedó registrado. Si esto falla, el galpón no puede quedar bloqueado — se
  * reporta en la respuesta y queda el arrastre manual, que es como funcionaba
  * antes de todos modos.
  */
-async function advanceOtOnPaperArrival(purchaseId: string) {
+async function advanceOtOnPaperArrival(purchaseId: string, itemId: string) {
   try {
-    const { data: purchase } = await supabaseAdmin
+    // Cualquier error de acá abajo se lanza a propósito — el catch de esta
+    // misma función ya sabe qué hacer con eso (avisar y no bloquear), y
+    // devolver silencioso en un error real haría que un corte de red se
+    // leyera igual que "esto no es papel" o "la OT ya no existe".
+    const { data: item, error: itemErr } = await supabaseAdmin
+      .from('inventory_items')
+      .select('material_kind')
+      .eq('id', itemId)
+      .maybeSingle();
+    if (itemErr) throw itemErr;
+
+    if ((item as { material_kind?: string | null } | null)?.material_kind !== 'papel') return null;
+
+    const { data: purchase, error: purchaseErr } = await supabaseAdmin
       .from('purchases' as any)
       .select('ot_id')
       .eq('id', purchaseId)
       .maybeSingle();
+    if (purchaseErr) throw purchaseErr;
 
     const otId = (purchase as { ot_id?: string | null } | null)?.ot_id;
     if (!otId) return null;
 
-    const { data: ot } = await supabaseAdmin
+    const { data: ot, error: otErr } = await supabaseAdmin
       .from('ots')
       .select('id, ot_number, status, flag_paper_arrived')
       .eq('id', otId)
       .maybeSingle();
+    if (otErr) throw otErr;
 
     if (!ot) return null;
 

@@ -14,6 +14,13 @@ const ItemSchema = z.object({
   sku: z.string().min(1).max(100),
   name: z.string().min(1).max(255),
   category: z.enum(['tool', 'supply', 'product_input', 'spare_part']),
+  // `category` distingue durable de consumible; `material_kind` distingue
+  // papel de tinta de envase — dos preguntas distintas que category sola no
+  // contesta (papel y tinta son los dos 'product_input'). Nulo = sin
+  // clasificar, y cualquier filtro que dependa de esto lo trata como "no es
+  // papel" en vez de adivinar (auditoría 2026-08).
+  material_kind: z.enum(['papel', 'tinta_especial', 'envase', 'servicio', 'insumo', 'herramental', 'otro'])
+    .nullable().optional(),
   unit: z.string().min(1).max(50),
   min_stock: z.coerce.number().min(0).default(0),
   estimated_unit_cost: z.coerce.number().min(0).default(0),
@@ -43,7 +50,7 @@ export async function GET(req: NextRequest) {
 
   let query = supabaseAdmin
     .from('inventory_items')
-    .select('id, sku, name, category, unit, min_stock, estimated_unit_cost, is_certification_required, is_active')
+    .select('id, sku, name, category, material_kind, unit, min_stock, estimated_unit_cost, is_certification_required, is_active')
     .eq('is_active', true)
     .order('name')
     .limit(limit);

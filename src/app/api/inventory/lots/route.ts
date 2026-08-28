@@ -53,7 +53,7 @@ export async function GET(req: NextRequest) {
       'id, lot_number, quantity_received, quantity_available, unit_cost, received_date, ' +
       'supplier_name, certification_code, certification_expires_on, blocked_reason, ' +
       'purchase_id, reservado, libre, reservas_activas, ' +
-      'inventory_items ( id, name, sku, unit, category, is_certification_required ), ' +
+      'inventory_items ( id, name, sku, unit, category, material_kind, is_certification_required ), ' +
       'purchases ( oc_number )'
     )
     .order('received_date', { ascending: false, nullsFirst: false })
@@ -62,6 +62,26 @@ export async function GET(req: NextRequest) {
   // Sin saldo no hay nada que etiquetar ni que consumir; se piden aparte.
   // «Con saldo» pasa a significar «se puede tomar», no «existe físicamente».
   if (q.get('con_saldo') === '1') consulta = consulta.gt('libre', 0);
+
+  // La vista no trae `material_kind` en su propia fila —vive en el ítem,
+  // embebido— así que filtrar por familia se resuelve en dos pasos: primero
+  // qué ítems son de esa familia, después qué lotes son de esos ítems. Un
+  // filtro embebido (`inventory_items.material_kind=eq...`) depende de que
+  // PostgREST trate la relación como inner join, que no es consistente entre
+  // versiones; `item_id IN (...)` no depende de eso.
+  const materialKind = q.get('material_kind');
+  if (materialKind) {
+    const { data: items, error: itemsErr } = await supabaseAdmin
+      .from('inventory_items')
+      .select('id')
+      .eq('material_kind', materialKind);
+    if (itemsErr) return NextResponse.json({ error: itemsErr.message }, { status: 500 });
+
+    const ids = (items ?? []).map((i) => i.id);
+    // Ninguno de esa familia: la lista de lotes es vacía, no "sin filtro".
+    if (ids.length === 0) return NextResponse.json({ data: [] });
+    consulta = consulta.in('item_id', ids);
+  }
 
   const { data, error } = await consulta;
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });

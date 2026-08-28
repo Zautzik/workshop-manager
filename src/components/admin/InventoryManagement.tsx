@@ -71,6 +71,20 @@ const CATEGORY_OPTIONS = [
   { value: 'spare_part', label: 'Repuestos' },
 ];
 
+// `category` distingue durable de consumible; esto distingue papel de tinta
+// de envase — la pregunta que category no contesta, porque papel y tinta son
+// los dos 'product_input'. Mismo vocabulario que ot_requirements.kind en
+// Compras (auditoría 2026-08).
+const MATERIAL_KIND_OPTIONS = [
+  { value: 'papel', label: 'Papel' },
+  { value: 'tinta_especial', label: 'Tinta especial' },
+  { value: 'envase', label: 'Envase y embalaje' },
+  { value: 'servicio', label: 'Servicio externo' },
+  { value: 'insumo', label: 'Insumo' },
+  { value: 'herramental', label: 'Herramental' },
+  { value: 'otro', label: 'Otro' },
+];
+
 // Spanish display labels for stock-alert severity (data values stay English).
 const SEVERITY_LABELS: Record<string, string> = {
   critical: 'CRÍTICO',
@@ -90,6 +104,11 @@ const TX_OPTIONS = [
 const getCategoryLabel = (value?: string | null) => {
   const found = CATEGORY_OPTIONS.find((option) => option.value === value);
   return found?.label || value || '-';
+};
+
+const getMaterialKindLabel = (value?: string | null) => {
+  const found = MATERIAL_KIND_OPTIONS.find((option) => option.value === value);
+  return found?.label || (value ? value : 'Sin clasificar');
 };
 
 const InventoryManagement = () => {
@@ -114,6 +133,7 @@ const InventoryManagement = () => {
     qr_value: '',
     name: '',
     category: 'tool',
+    material_kind: '' as string,
     unit: 'unit',
     min_stock: 0,
     estimated_unit_cost: 0,
@@ -208,6 +228,7 @@ const InventoryManagement = () => {
       qr_value: '',
       name: '',
       category: 'tool',
+      material_kind: '',
       unit: 'unit',
       min_stock: 0,
       estimated_unit_cost: 0,
@@ -260,6 +281,7 @@ const InventoryManagement = () => {
       barcode_value: itemForm.barcode_value.trim() || null,
       qr_value: itemForm.qr_value.trim() || null,
       name: itemForm.name.trim(),
+      material_kind: itemForm.material_kind || null,
     };
 
     const res = editingItem
@@ -353,6 +375,7 @@ const InventoryManagement = () => {
       qr_value: item.qr_value || '',
       name: item.name,
       category: item.category,
+      material_kind: item.material_kind || '',
       unit: item.unit,
       min_stock: Number(item.min_stock || 0),
       estimated_unit_cost: Number(item.estimated_unit_cost || 0),
@@ -518,6 +541,7 @@ const InventoryManagement = () => {
                     <TableHead>QR</TableHead>
                     <TableHead>Nombre</TableHead>
                     <TableHead>Categoría</TableHead>
+                    <TableHead>Familia</TableHead>
                     <TableHead>Stock</TableHead>
                     <TableHead>Stock mínimo</TableHead>
                     <TableHead>Costo promedio</TableHead>
@@ -532,6 +556,7 @@ const InventoryManagement = () => {
                       <TableCell>{item.qr_value || '-'}</TableCell>
                       <TableCell>{item.name}</TableCell>
                       <TableCell>{getCategoryLabel(item.category)}</TableCell>
+                      <TableCell>{getMaterialKindLabel(item.material_kind)}</TableCell>
                       <TableCell>{Number(item.current_stock || 0).toFixed(3)} {item.unit}</TableCell>
                       <TableCell>{Number(item.min_stock || 0).toFixed(3)} {item.unit}</TableCell>
                       <TableCell>{formatCLP(Number(item.weighted_unit_cost || item.estimated_unit_cost || 0))}</TableCell>
@@ -710,7 +735,7 @@ const InventoryManagement = () => {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-3 gap-3">
               <div className="space-y-2">
                 <Label>Categoría</Label>
                 <Select value={itemForm.category} onValueChange={(value) => setItemForm({ ...itemForm, category: value })}>
@@ -718,6 +743,27 @@ const InventoryManagement = () => {
                   <SelectContent>
                     {CATEGORY_OPTIONS.map((category) => (
                       <SelectItem key={category.value} value={category.value}>{category.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                {/* Distinto de Categoría: ahí es durable-vs-consumible, acá es
+                    papel-vs-tinta-vs-envase — la pregunta que decide, por
+                    ejemplo, si un lote de este ítem puede salir de bodega en
+                    la etapa que sólo saca papel (auditoría 2026-08). */}
+                <Label>Familia de material</Label>
+                <Select
+                  value={itemForm.material_kind || '__sin_clasificar__'}
+                  onValueChange={(value) =>
+                    setItemForm({ ...itemForm, material_kind: value === '__sin_clasificar__' ? '' : value })
+                  }
+                >
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__sin_clasificar__">Sin clasificar</SelectItem>
+                    {MATERIAL_KIND_OPTIONS.map((kind) => (
+                      <SelectItem key={kind.value} value={kind.value}>{kind.label}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
