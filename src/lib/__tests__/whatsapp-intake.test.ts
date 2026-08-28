@@ -188,7 +188,10 @@ describe('extractMetaInbound', () => {
     expect(result.messages[0].body).toBe('FIN OT-99 2000 pliegos');
   });
 
-  it('counts captionless media as ignored', () => {
+  // Bodega no escribe: la foto de la etiqueta ES el mensaje, y el texto viene
+  // adentro, en el código. Descartarla dejaba fuera del sistema al gesto más
+  // natural de la gente que está parada al lado del pallet.
+  it('deja pasar una foto sin epígrafe, marcada como tal', () => {
     const result = extractMetaInbound(
       envelope({
         messages: [
@@ -200,7 +203,25 @@ describe('extractMetaInbound', () => {
 
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    expect(result.messages).toHaveLength(1);
+    expect(result.messages).toHaveLength(2);
+    expect(result.ignored).toBe(0);
+
+    const foto = result.messages.find((m) => m.media_only);
+    expect(foto?.media_id).toBe('media-1');
+    expect(foto?.body).toBe('');
+  });
+
+  it('lo que de verdad no dice nada se sigue ignorando', () => {
+    // Una reacción o una ubicación no traen ni texto ni imagen que leer.
+    const result = extractMetaInbound(
+      envelope({
+        messages: [{ from: '56912345678', type: 'location' }],
+      }),
+    );
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.messages).toHaveLength(0);
     expect(result.ignored).toBe(1);
   });
 

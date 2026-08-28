@@ -27,6 +27,7 @@ import {
   verifyWhatsAppSignature,
   extractMetaInbound,
 } from '@/lib/whatsapp-intake';
+import { processWarehousePhoto } from '@/lib/warehouse-photo-ingest';
 import type { Json } from '@/integrations/supabase/types';
 
 /* ─── Input Schema ───────────────────────────────────────────── */
@@ -335,8 +336,9 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: intake.error }, { status: 400 });
       }
 
-      // Status-only webhooks (delivery receipts) and captionless media land
-      // here: acknowledge so Meta doesn't retry.
+      // Los acuses de entrega y las reacciones no traen nada que procesar.
+      // Las fotos sin epígrafe SÍ, y desde ahora llegan hasta acá: el texto que
+      // hay que leer viene dentro de la imagen.
       if (intake.messages.length === 0) {
         return NextResponse.json({
           status: 'ignored',
@@ -347,6 +349,25 @@ export async function POST(req: NextRequest) {
 
       const results: Record<string, unknown>[] = [];
       for (const msg of intake.messages) {
+        // ── La foto es el mensaje ────────────────────────────────────────
+        //
+        // Bodega no escribe: está de pie, con guantes, al lado de un pallet. El
+        // gesto que sí hace es sacarle una foto a la etiqueta, y hasta ahora esa
+        // foto se descartaba antes de llegar a ningún lado. Va por su propio
+        // camino porque no hay texto que parsear — el código viene en los
+        // píxeles.
+        if (msg.media_only && msg.media_id) {
+          const photo = await processWarehousePhoto({
+            from: msg.from,
+            media_id: msg.media_id,
+            media_mime: msg.media_mime,
+            profile_name: msg.ProfileName,
+            timestamp: msg.timestamp,
+          });
+          results.push(photo.payload);
+          continue;
+        }
+
         const parsed = WebhookSchema.safeParse(msg);
         if (!parsed.success) {
           results.push({ status: 'invalid', details: parsed.error.flatten() });
