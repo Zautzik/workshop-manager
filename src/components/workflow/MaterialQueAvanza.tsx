@@ -57,6 +57,18 @@ interface Lote {
  *
  * El selector queda igual, para el caso en que el código esté ilegible. Pero el
  * camino corto es apuntar la cámara.
+ *
+ * ── Y sin embargo no es obligatorio ─────────────────────────────────────────
+ *
+ * Escanear acá era condición para mover la OT, y eso estaba mal. La pantalla
+ * `/operaciones/escanear` existe justamente para declarar el papel junto a la
+ * máquina; exigirlo también en el tablero le pide al supervisor un dato que el
+ * operario tiene mejor. Peor todavía: el botón «Omitir» de este mismo diálogo
+ * ya se lo saltaba, así que el requisito era obligatorio y evitable a la vez.
+ *
+ * Ahora el bloque informa —cuántos pliegos deberían salir y por qué— y acepta
+ * el escaneo si está a mano. Lo que no se declare acá se declara en el escáner,
+ * y mientras tanto la OT se mueve.
  */
 export function MaterialQueAvanza({
 	movedUnits,
@@ -128,7 +140,10 @@ export function MaterialQueAvanza({
 			<div>
 				<Label htmlFor="qr-consumo" className="flex items-center gap-1.5 text-xs">
 					<ScanLine className="h-3 w-3" />
-					Escaneá la etiqueta del pallet que estás sacando
+					Etiqueta del pallet, si la tenés a mano
+					<span className="font-normal text-muted-foreground">
+						— si no, se declara en Escanear
+					</span>
 				</Label>
 				<Input
 					id="qr-consumo"

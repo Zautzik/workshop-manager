@@ -20,6 +20,14 @@ import { RealCostEntryDialog } from "./RealCostEntryDialog";
 import { OTHoverCard } from "./OTHoverCard";
 import { SplitOTDialog } from "./SplitOTDialog";
 import { PRODUCTION_PHASES } from '@/lib/production-phases';
+// El recorrido real de una OT vive en el motor de estados: el prensista que
+// manda «fin, entro OT 40965» tiene que llegar a la misma etapa a la que lo
+// llevaría este tablero.
+import { naturalNextStatuses, type OTWorkflowStatus } from '@/lib/ot-state-machine';
+import { useQuery } from '@tanstack/react-query';
+import { otStatusLabel } from '@/lib/status-labels';
+import type { StageReportPayload } from './CierreDeEtapa';
+import { PasadasPendientes } from './PasadasPendientes';
 
 interface OTManagementProps {
   onOTSelect: (ot: any) => void;
@@ -75,29 +83,28 @@ function getPriorityRing(p: number) {
 }
 function getStatusInfo(key: string) { return STATUS_FLOW.find(s => s.key === key) ?? STATUS_FLOW[0]; }
 function getAllNextStatuses(currentStatus: string) {
-  const idx = STATUS_FLOW.findIndex(s => s.key === currentStatus);
-  if (idx < 0 || idx >= STATUS_FLOW.length - 1) return [];
-  // from first cut: offer both offset AND digital printing
-  if (currentStatus === 'guillotine_first_cut')
-    return STATUS_FLOW.filter(s => s.key === 'offset_printing' || s.key === 'digital_printing');
-  // both printing types lead to die_cutting
-  if (currentStatus === 'offset_printing' || currentStatus === 'digital_printing')
-    return STATUS_FLOW.filter(s => s.key === 'die_cutting');
-  if (currentStatus === 'guillotine_final_cut')
-    return STATUS_FLOW.filter(s => ['workshop','outsourced','workshop_revision'].includes(s.key));
-  if (currentStatus === 'workshop' || currentStatus === 'outsourced')
-    return STATUS_FLOW.filter(s => s.key === 'workshop_revision');
-  const next = STATUS_FLOW[idx + 1];
-  // skip digital_printing in default flow (it's a fork, not linear)
-  if (next && (next.key === 'digital_printing' || next.key === 'workshop' || next.key === 'outsourced'))
-    return STATUS_FLOW.filter(s => s.key === 'workshop_revision');
-  return next ? [next] : [];
+  return naturalNextStatuses(currentStatus as OTWorkflowStatus)
+    .map(getStatusInfo);
 }
-
 export function OTManagement({ onOTSelect }: OTManagementProps) {
   const { data: ots = [], refetch: refetchOTs } = useOTs();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
+  // ── Lo que cada OT debe ──────────────────────────────────────────────────
+  //
+  // Mover una tarjeta ya no exige declarar cuánto tomó la etapa: eso frenaba el
+  // taller sin conseguir el dato. Lo que reemplaza al bloqueo es que la deuda se
+  // VEA — un punto ámbar mientras la pasada siga abierta. Una obligación
+  // invisible no es una obligación, es una sorpresa el día del despacho.
+  const { data: openPasses = {}, refetch: refetchOpenPasses } = useQuery<Record<string, string[]>>({
+    queryKey: ['ot-open-passes'],
+    queryFn: async () => {
+      const res = await fetch('/api/ots/open-passes', { credentials: 'include' });
+      if (!res.ok) return {};
+      return (await res.json()) ?? {};
+    },
+  });
 
   // Llegar con `?asistente=1` abre el asistente derecho. Lo usa el botón
   // «Completar todos los datos» de la cotización: sin esto el vendedor caía en
@@ -120,6 +127,7 @@ export function OTManagement({ onOTSelect }: OTManagementProps) {
   const [costEntryOT,     setCostEntryOT]     = useState<any>(null);
   const [costEntryTarget, setCostEntryTarget] = useState<{ key: string; label: string } | null>(null);
   const [splitOT,         setSplitOT]         = useState<any>(null);
+  const [pasadasOT,       setPasadasOT]       = useState<any>(null);
   const [splitTarget,     setSplitTarget]     = useState<{ key: string; label: string } | null>(null);
   const [rollbackTarget,  setRollbackTarget]  = useState<{ ot: any; key: string; labelEs: string; fromLabelEs: string } | null>(null);
   const [searchTerm,      setSearchTerm]      = useState("");
@@ -182,7 +190,12 @@ export function OTManagement({ onOTSelect }: OTManagementProps) {
     ? KANBAN_GROUPS.length * HEX_H + (KANBAN_GROUPS.length - 1) * MOBILE_GAP
     : HEX_H * 2;
 
-  const updateOTStatus = async (otId: string, newStatus: string, rollback = false) => {
+  const updateOTStatus = async (
+    otId: string,
+    newStatus: string,
+    rollback = false,
+    stageReport: StageReportPayload | null = null,
+  ) => {
     // 1. Snapshot the current list before we touch anything.
     const previousOTs = queryClient.getQueryData<any[]>(queryKeys.ots);
 
@@ -194,7 +207,14 @@ export function OTManagement({ onOTSelect }: OTManagementProps) {
     const res = await fetch(`/api/ots/${otId}/transition`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ to_status: newStatus, reason: rollback ? 'kanban_rollback' : 'kanban_advance', rollback }),
+      body: JSON.stringify({
+        to_status: newStatus,
+        reason: rollback ? 'kanban_rollback' : 'kanban_advance',
+        rollback,
+        // El cierre de la etapa viaja con el movimiento, no en un pedido
+        // aparte: si fueran dos, la que falla deja la OT movida sin horas.
+        stage_report: stageReport,
+      }),
     });
 
     if (!res.ok) {
@@ -205,9 +225,18 @@ export function OTManagement({ onOTSelect }: OTManagementProps) {
       return;
     }
 
-    toast({ title: rollback ? "OT retrocedida" : "OT avanzada", description: `→ ${getStatusInfo(newStatus).labelEs}` });
+    // El servidor avisa cuando la OT se movió pero su cierre no se pudo
+    // guardar. Es lo único que el usuario puede volver a cargar, así que no se
+    // esconde detrás del toast de éxito.
+    const body = await res.json().catch(() => null);
+    if (body?.warning) {
+      toast({ title: 'OT avanzada, cierre no guardado', description: body.warning, variant: 'destructive' });
+    } else {
+      toast({ title: rollback ? "OT retrocedida" : "OT avanzada", description: `→ ${getStatusInfo(newStatus).labelEs}` });
+    }
     // 4. Background refetch to pull any server-computed fields (updated_at, etc.).
     refetchOTs();
+    refetchOpenPasses();
   };
 
   const requestAdvance = (ot: any, key: string, label: string) => {
@@ -241,7 +270,7 @@ export function OTManagement({ onOTSelect }: OTManagementProps) {
 
     setCostEntryOT(ot); setCostEntryTarget({ key, label });
   };
-  const confirmAdvance = async (movedQuantity: number) => {
+  const confirmAdvance = async (movedQuantity: number, stageReport: StageReportPayload | null) => {
     if (!costEntryOT || !costEntryTarget) return;
 
     const totalQty = Number(costEntryOT.quantity ?? 0);
@@ -254,6 +283,7 @@ export function OTManagement({ onOTSelect }: OTManagementProps) {
         body: JSON.stringify({
           advance_quantity: movedQuantity,
           target_status: costEntryTarget.key,
+          stage_report: stageReport,
         }),
       });
 
@@ -263,13 +293,19 @@ export function OTManagement({ onOTSelect }: OTManagementProps) {
         return;
       }
 
-      toast({
-        title: 'OT dividida y avanzada',
-        description: `${costEntryOT.ot_number}: ${movedQuantity} uds. → ${costEntryTarget.label}`,
-      });
+      const body = await res.json().catch(() => null);
+      if (body?.warning) {
+        toast({ title: 'OT dividida, cierre no guardado', description: body.warning, variant: 'destructive' });
+      } else {
+        toast({
+          title: 'OT dividida y avanzada',
+          description: `${costEntryOT.ot_number}: ${movedQuantity} uds. → ${costEntryTarget.label}`,
+        });
+      }
       refetchOTs();
+      refetchOpenPasses();
     } else {
-      await updateOTStatus(costEntryOT.id, costEntryTarget.key);
+      await updateOTStatus(costEntryOT.id, costEntryTarget.key, false, stageReport);
     }
 
     setCostEntryOT(null);
@@ -493,6 +529,10 @@ export function OTManagement({ onOTSelect }: OTManagementProps) {
                                           ? Math.max(1, Math.min(100, Math.round((Number(ot.quantity ?? 0) / splitTotal) * 100)))
                                           : null;
                                         const priDot = ot.priority >= 8 ? '#ef4444' : ot.priority >= 5 ? '#f59e0b' : `rgb(${group.rgb})`;
+                                        // Las etapas por las que pasó y de las que todavía se
+                                        // deben horas. Van al `title` para que el motivo esté a
+                                        // un hover, no sólo el hecho de que algo falta.
+                                        const debe: string[] = openPasses[ot.id] ?? [];
                                         const MINI_W = Math.round(HEX_W * 0.2);
                                         const MINI_H = Math.round(MINI_W * 0.88);
                                         return (
@@ -511,7 +551,13 @@ export function OTManagement({ onOTSelect }: OTManagementProps) {
                                               hoverTimerRef.current = setTimeout(() => setHoveredOT(p => p?.ot.id === ot.id ? null : p), 80);
                                             }}
                                             onClick={() => { if (!isDragging) onOTSelect(ot); }}
-                                            title={`${ot.ot_number} - ${stInfo.labelEs} - ${ot.client_name}`}
+                                            title={
+                                              `${ot.ot_number} - ${stInfo.labelEs} - ${ot.client_name}` +
+                                              (debe.length
+                                                ? `
+Faltan horas de: ${debe.map(otStatusLabel).join(', ')}`
+                                                : '')
+                                            }
                                             style={{
                                               width: MINI_W, height: MINI_H, clipPath: HEX_CLIP,
                                               background: isDragging ? `rgb(${group.rgb} / 0.10)` : isPartial ? `rgb(${group.rgb} / 0.09)` : `rgb(${group.rgb} / 0.20)`,
@@ -522,6 +568,30 @@ export function OTManagement({ onOTSelect }: OTManagementProps) {
                                             }}
                                           >
                                             <div style={{ position: 'absolute', top: 7, left: '50%', transform: 'translateX(-50%)', width: 6, height: 6, borderRadius: '50%', background: priDot }} />
+                                            {debe.length > 0 && (
+                                              // Un anillo ámbar arriba a la derecha: se lee de un
+                                              // vistazo sin robarle sitio al número de OT, que es
+                                              // lo único que el hexágono tiene que decir siempre.
+                                              //
+                                              // Y es la puerta, no sólo el aviso: la deuda se paga
+                                              // donde se ve. `draggable={false}` y `stopPropagation`
+                                              // para que el clic no arranque un arrastre ni abra la
+                                              // OT — el hexágono entero ya hace las dos cosas.
+                                              <button
+                                                type="button"
+                                                draggable={false}
+                                                onDragStart={e => e.preventDefault()}
+                                                onClick={e => { e.stopPropagation(); setPasadasOT(ot); }}
+                                                title={`Faltan horas de: ${debe.map(otStatusLabel).join(', ')}`}
+                                                aria-label={`Cerrar pasadas pendientes de ${ot.ot_number}`}
+                                                style={{
+                                                  position: 'absolute', top: 4, right: '14%',
+                                                  width: 13, height: 13, borderRadius: '50%',
+                                                  border: '2px solid #f59e0b', background: 'transparent',
+                                                  cursor: 'pointer', padding: 0, zIndex: 2,
+                                                }}
+                                              />
+                                            )}
                                             <span style={{ fontSize: 16, fontWeight: 800, color: `rgb(${group.rgb})`, textAlign: 'center', lineHeight: 1.05, padding: '0 4px', marginTop: 6, overflow: 'hidden', maxWidth: '100%', wordBreak: 'break-all' }}>
                                               {ot.ot_number.replace(/^OT-?/i, '')}
                                             </span>
@@ -671,6 +741,12 @@ export function OTManagement({ onOTSelect }: OTManagementProps) {
           onConfirm={confirmAdvance}
         />
       )}
+      <PasadasPendientes
+        ot={pasadasOT}
+        onOpenChange={(open) => { if (!open) setPasadasOT(null); }}
+        onClosed={() => { refetchOpenPasses(); refetchOTs(); }}
+      />
+
       {/* OT Hover Card overlay */}
       {hoveredOT && !draggingId && (
         <OTHoverCard

@@ -10,12 +10,33 @@ import {
   validateTransition,
 } from '@/lib/ot-state-machine';
 import type { OTSpec } from '@/lib/ot-spec';
+import { estimatedHoursFor, promptsStageReport } from '@/lib/stage-report';
+
+/**
+ * El cierre de la etapa que termina. Viaja CON la transición y no por una ruta
+ * aparte a propósito: si fueran dos llamadas, la que falla deja al taller con
+ * una OT movida y sin horas —o con horas de una etapa que nunca se cerró—, que
+ * es exactamente el estado que este registro viene a evitar.
+ */
+const StageReportSchema = z.object({
+  // `null` es una respuesta válida: la pasada queda abierta y alguien la cierra
+  // después. El tope acá es sólo para que no entre un número que desborde la
+  // columna; el límite real —y el mensaje que explica que 480 son minutos, no
+  // horas— vive en `validateStageReport`, porque un rechazo de Zod diría
+  // «Number must be less than or equal to 400» en inglés y sin decir qué hacer.
+  hours: z.coerce.number().positive().max(999_999).nullable().optional(),
+  merma_sheets: z.coerce.number().int().min(0).optional().nullable(),
+  waste_notes: z.string().max(2000).optional().nullable(),
+  issues: z.string().max(2000).optional().nullable(),
+  observations: z.string().max(2000).optional().nullable(),
+});
 
 const TransitionSchema = z.object({
   to_status: z.string().min(1),
   reason: z.string().max(500).optional().nullable(),
   metadata: z.record(z.any()).optional(),
   rollback: z.boolean().optional(),
+  stage_report: StageReportSchema.optional().nullable(),
 });
 
 // POST /api/ots/[id]/transition
@@ -68,7 +89,11 @@ export async function POST(
         // terminaciones vacías y ninguna compuerta condicional se dispara.
         'finish_troquelado, finish_plegado, finish_pegado, finish_laminado, finish_barniz, ' +
         'finish_relieve, finish_perforado, finish_hot_stamping, finish_uv_localizado, finish_numeracion, ' +
-        'die_source, die_code, die_id, cliche_code, relieve_matrix_code, lamination_type',
+        'die_source, die_code, die_id, cliche_code, relieve_matrix_code, lamination_type, ' +
+        // Lo que el motor calculó: contra esto se juzga el cierre de la etapa —
+        // los pliegos dicen si la merma es del arreglo o de un problema, y las
+        // horas estimadas hacen saltar un 40 escrito donde se esperaba un 4.
+        'calc_sheets, calc_print_hours, calc_finish_hours',
       )
       .eq('id', id)
       .single();
@@ -101,7 +126,7 @@ export async function POST(
     // programación; operaciones revisadas dejan líneas de operación. Preguntar
     // por el rastro es más fiable que por una casilla que alguien puede marcar
     // sin haber hecho el trabajo.
-    const [programa, operaciones, arte, cotizacion, requisitos] = await Promise.all([
+    const [programa, operaciones, arte, cotizacion, requisitos, abiertas] = await Promise.all([
       supabaseAdmin.from('ot_machine_schedule').select('id', { count: 'exact', head: true }).eq('ot_id', id),
       supabaseAdmin.from('ot_operations').select('id', { count: 'exact', head: true }).eq('ot_id', id),
       supabaseAdmin.from('ot_attachments').select('id', { count: 'exact', head: true }).eq('ot_id', id),
@@ -113,6 +138,12 @@ export async function POST(
         .from('ot_requirements')
         .select('description, status')
         .eq('ot_id', id),
+      // Las pasadas que quedaron sin horas, para la compuerta de despacho.
+      supabaseAdmin
+        .from('ot_stage_reports')
+        .select('workflow_step, created_at')
+        .eq('ot_id', id)
+        .is('hours', null),
     ]);
 
     const spec: OTSpec = {
@@ -166,6 +197,22 @@ export async function POST(
       // `?? undefined` y no `?? []`: una lista vacía significaría «no falta
       // nada» y dejaría pasar cualquier OT. Sin dato, la compuerta no corre.
       requirements: (requisitos.data as { description: string; status: string }[] | null) ?? undefined,
+      stageReport: parsed.data.stage_report
+        ? {
+            hours: parsed.data.stage_report.hours ?? null,
+            mermaSheets: parsed.data.stage_report.merma_sheets ?? null,
+            wasteNotes: parsed.data.stage_report.waste_notes ?? null,
+            issues: parsed.data.stage_report.issues ?? null,
+            observations: parsed.data.stage_report.observations ?? null,
+          }
+        : null,
+      stageReportContext: {
+        enteredSheets: o.calc_sheets ?? null,
+        estimatedHours: estimatedHoursFor(fromStatus, o),
+      },
+      // `?? undefined` y no `?? []`: si la consulta falló, «no se sabe» no puede
+      // significar «no queda nada abierto». Sin dato, la compuerta no corre.
+      openPasses: (abiertas.data as { workflow_step: string; created_at: string }[] | null) ?? undefined,
     });
 
     if (!transitionCheck.ok) {
@@ -208,6 +255,48 @@ export async function POST(
         { error: 'La OT fue modificada por otra operación. Vuelve a intentarlo.', code: 'CONCURRENT_MODIFICATION' },
         { status: 409 }
       );
+    }
+
+    // ── La pasada por la etapa ───────────────────────────────────────────
+    //
+    // Se escribe SIEMPRE que la OT deja una etapa que se cierra, traiga o no
+    // traiga horas. Una fila sin horas no es una fila vacía: dice que la OT pasó
+    // por acá, cuándo y hacia dónde, y que el dato todavía se debe. Sin ella no
+    // habría a qué colgar las horas que llegan después por WhatsApp, ni qué
+    // contarle a la compuerta de despacho.
+    //
+    // Un retroceso no abre nada: mover una tarjeta hacia atrás es corregir un
+    // error de tablero, no terminar un trabajo.
+    //
+    // Va DESPUÉS del movimiento y no antes: la actualización es la operación
+    // disputada —lleva el guardia de concurrencia— y una pasada escrita antes
+    // quedaría hablando de una etapa que la OT nunca dejó si otro la movió
+    // primero. El precio es que una falla acá deja la OT movida sin su rastro;
+    // por eso no se traga en silencio como el historial: se avisa en la
+    // respuesta para que el tablero lo diga.
+    let stageReportWarning: string | null = null;
+    if (promptsStageReport(fromStatus) && !parsed.data.rollback) {
+      const r = parsed.data.stage_report;
+      const { error: reportError } = await supabaseAdmin.from('ot_stage_reports').insert({
+        ot_id: id,
+        workflow_step: fromStatus,
+        to_status: toStatus,
+        hours: r?.hours ?? null,
+        merma_sheets: r?.merma_sheets ?? null,
+        waste_notes: r?.waste_notes?.trim() || null,
+        issues: r?.issues?.trim() || null,
+        observations: r?.observations?.trim() || null,
+        // La máquina que corrió la etapa. Es lo que después convierte las horas
+        // en plata, y hoy sale de la asignada a la OT porque es el único dato
+        // que existe sin pedirle una elección más a quien está en el taller.
+        machine_id: o.assigned_machine_id ?? null,
+        recorded_by: auth.id,
+      });
+      if (reportError) {
+        console.error('Error writing OT stage report:', reportError);
+        stageReportWarning =
+          'La OT avanzó, pero la pasada por la etapa no quedó registrada. Avisá para que se cargue a mano.';
+      }
     }
 
     // Audit trail — best-effort, must not block the transition response.
@@ -269,7 +358,9 @@ export async function POST(
       }
     }
 
-    return NextResponse.json(updatedOt);
+    return NextResponse.json(
+      stageReportWarning ? { ...updatedOt, warning: stageReportWarning } : updatedOt,
+    );
   } catch (error) {
     console.error('Error transitioning OT:', error);
     return NextResponse.json({ error: 'No se pudo mover la OT de estado' }, { status: 500 });

@@ -19,6 +19,7 @@ import { z } from 'zod';
 import { requireAuth, isAuthError } from '@/lib/api-middleware';
 import { isDevBypassEnabled } from '@/lib/dev-bypass-guard';
 import { processMessage } from '@/lib/whatsapp-ingest';
+import { processWarehousePhoto } from '@/lib/warehouse-photo-ingest';
 
 const SIM_ROLES = ['admin', 'supervisor', 'manager'] as const;
 
@@ -28,9 +29,14 @@ function simulatorEnabled(): boolean {
 
 const SimulateSchema = z.object({
   from: z.string().min(7).max(30).regex(/^\+?[\d\s\-()]+$/),
-  body: z.string().min(1).max(500),
+  // Vacío cuando el mensaje es SÓLO una foto, que es como manda bodega: el
+  // texto viene dentro de la imagen, en el código de la etiqueta.
+  body: z.string().max(500).optional().default(''),
   profile_name: z.string().max(100).optional(),
   media_url: z.string().url().max(2000).optional(),
+  media_mime: z.string().max(100).optional(),
+}).refine((d) => d.body.trim().length > 0 || !!d.media_url, {
+  message: 'Mandá un texto o una foto.',
 });
 
 export async function GET() {
@@ -57,6 +63,19 @@ export async function POST(req: NextRequest) {
       { error: 'Datos inválidos', details: parsed.error.flatten().fieldErrors },
       { status: 400 }
     );
+  }
+
+  // Una foto sin texto va por el camino de bodega: no hay nada que parsear, el
+  // mensaje ES la imagen. Es el mismo desvío que hace el webhook real, para que
+  // el simulador siga corriendo exactamente el código de producción.
+  if (!parsed.data.body.trim() && parsed.data.media_url) {
+    const photo = await processWarehousePhoto({
+      from: parsed.data.from,
+      media_url: parsed.data.media_url,
+      media_mime: parsed.data.media_mime,
+      profile_name: parsed.data.profile_name,
+    });
+    return NextResponse.json(photo.payload, { status: photo.status, headers: photo.headers });
   }
 
   const result = await processMessage({

@@ -100,6 +100,16 @@ export interface NormalizedInbound {
    * the body). Downloaded via the Graph API when WHATSAPP_ACCESS_TOKEN is set. */
   media_id?: string;
   media_mime?: string;
+  /**
+   * Llegó una foto SIN texto: el mensaje entero es la imagen.
+   *
+   * Antes esto se descartaba —se contaba en `ignored` y no llegaba a ningún
+   * lado—, y con eso se descartaba el gesto más natural de bodega: sacarle una
+   * foto a la etiqueta del pallet. Quien está con guantes al lado de una
+   * máquina no escribe; la foto es el mensaje, y el código que trae adentro es
+   * el texto que hay que leer.
+   */
+  media_only?: boolean;
 }
 
 const MetaMediaSchema = z
@@ -212,7 +222,13 @@ export function extractMetaInbound(rawJson: unknown): MetaIntakeResult {
         const media = msg.image ?? msg.video ?? msg.document;
         const body = msg.type === 'text' ? msg.text?.body : media?.caption;
 
-        if (!body) {
+        // Una foto sin epígrafe SÍ es un mensaje procesable: el texto viene
+        // dentro de la imagen, en el código de la etiqueta. Lo que se sigue
+        // ignorando es lo que de verdad no dice nada — reacciones, ubicaciones,
+        // acuses de entrega.
+        const soloFoto = !body && !!media?.id;
+
+        if (!body && !soloFoto) {
           ignored += 1;
           continue;
         }
@@ -220,10 +236,11 @@ export function extractMetaInbound(rawJson: unknown): MetaIntakeResult {
         messages.push({
           // Meta sends bare digits (e.g. "56912345678"); normalize to E.164-ish.
           from: `+${msg.from}`,
-          body,
+          body: body ?? '',
           timestamp: metaTimestampToIso(msg.timestamp),
           ProfileName: nameByWaId.get(msg.from) ?? nameByWaId.values().next().value,
           ...(media?.id ? { media_id: media.id, media_mime: media.mime_type } : {}),
+          ...(soloFoto ? { media_only: true } : {}),
         });
       }
     }

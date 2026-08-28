@@ -468,6 +468,211 @@ the output.
 
 ---
 
+## 12 · The audit nobody could see the results of
+
+A full-application audit in August 2026 produced some thirty fixes. The most important
+one was found last, and it retroactively changed what the other twenty-nine meant.
+
+### Every Vercel build had been failing, and the site kept working
+
+`next.config.js` set `output: 'standalone'` unconditionally. Vercel builds its own
+serverless bundle and never generates the standalone trace manifest, so every build
+there died on:
+
+```
+ENOENT .next/next-server.js.nft.json
+npm run build exited with 1
+```
+
+A failed build on Vercel is not an outage. The platform keeps serving the last
+successful deploy. So the site stayed up, responded normally, and served code from
+weeks earlier, while `origin/master` accumulated merged, reviewed, passing work that
+nobody was running. `/operaciones/lotes` had been in the repository for days and did
+not exist for any user.
+
+GitHub Actions was green throughout, and correctly so: its runner has no `VERCEL=1`,
+so its `Build (production)` step took the self-host path, which genuinely works. **The
+badge was reporting on a build configuration that production does not use.**
+
+The fix is one expression — `output: process.env.VERCEL ? undefined : 'standalone'`.
+The lesson is not about Next.js:
+
+> A green pipeline attests to the build it ran, not to the build that ships. When the
+> two differ by one environment variable, they are two builds, and only one is being
+> watched.
+
+### Most of the other twenty-nine had one of two shapes
+
+**A query that fails reads exactly like a table that is empty.** PostgREST almost never
+rejects the promise on a real error — a column that does not exist resolves with
+`{data: null, error}`. Destructure only `data`, default it to `[]`, and a broken query
+renders as a calm empty state:
+
+```ts
+const { data } = await supabase.from('ots').select('due_date');  // column never existed
+const rows = data ?? [];                                          // "no hay OT activas"
+```
+
+Six screens were failing this way at once. `admin/diagnostics` — the page built to find
+this class of bug — had the bug: thirteen queries behind `Promise.allSettled`, checking
+`status === 'fulfilled'` and never `value.error`, so a genuine failure and an empty shop
+produced the same zeroes.
+
+The most expensive instance was not a read. `useStationsUnderMaintenance` did
+`if (!res.ok) return {}` — an expired session read as *no station is blocked*, and the
+Planta board would assign a person to a press physically under maintenance. It now
+throws, and both the board and the auto-fill **fail closed**: *I don't know* is no
+longer treated as *it's free*.
+
+**Dead column references outlive the column, again.** §7 recorded this for plpgsql
+bodies; the audit found the same thing in PostgREST `select()` strings across nine
+screens. `worker_assignments.workstation_id`, `attendance_events.station_id`,
+`ots.due_date`, `employees.employee_number`, four columns on `incentive_rules` — none
+of them exist, all of them compile, because inside a `select()` string they are just
+text. Four trace to one event: the `workstations` → `machines` merge from §5.
+
+These were not all cosmetic: `attendance_events.station_id` meant every QR clock-in
+click had been failing since the column was renamed, and the error it returned — *apply
+the migration* — was itself false, because the table existed and only the column name
+was wrong.
+
+The same commit carried a defect of a different kind, found by following the golden
+thread rather than by grepping for columns. `ot_real_costs` had been reconciled into
+`ot_cost_lines` — the ledger every profitability screen reads — exactly once, by a
+static backup on 2026-06-28, with no trigger behind it. Nothing was broken, nothing
+errored; the two tables had simply never been wired together. **Every real cost posted
+automatically for the two months since was invisible to margin.**
+
+### The response was three tripwires, not thirty fixes
+
+Fixing thirty instances of two patterns leaves the patterns. So:
+
+- **An ESLint rule** for `const { data } = await supabase…` with `error` unread. It
+  found ~50 preexisting sites on its first run — too many to correct in one pass with
+  the individual verification each deserves, so it sits at `warn`: counted and visible,
+  not blocking.
+- **A global `QueryCache` `onError`.** 118 of 128 sampled components never read
+  `isError`. Rather than add a branch to all of them, there is now a floor underneath
+  the ones that lack one.
+- **`npm run check:migrations`**, which lists every function that more than one
+  migration defines, chronologically. This is the `pg_proc` query §7 describes as a
+  manual ritual — made a script, because a ritual that depends on remembering is not a
+  control.
+
+### What it taught
+
+Every check this repository owns stayed green through all of it. Type checks passed,
+because a dead column inside a `select()` string is just text. Tests passed, because
+they cover the domain and none of this was domain logic. CI passed, on a build
+configuration production does not use. And none of it was running anyway.
+
+**Every bug in this pass was invisible to every automated check the project had, and
+visible within seconds to anyone who opened the screen and asked what the numbers
+meant.** The checks are worth keeping and three more were added — but the thing that
+found these was a person reading a screen and refusing to accept that the shop had no
+work today.
+
+---
+
+## 13 · The fourth time was the one that got a control
+
+`split_ot` failed on the board with
+
+```
+column "current_workstation_id" of relation "ots" does not exist
+```
+
+The column had been dropped on 2026-08-02 by `retirar_workstations` — correctly:
+workstations had been merged into machines and the column held 0 values in 2 rows. What
+was not done was asking who still named it. `split_ot`, written in June, copied it from
+the parent OT to the fragment.
+
+This is §7's lesson, for the fourth time. The mechanism never changes: a plpgsql body is
+stored as **text** and its references resolve when the function *runs*. `DROP COLUMN`
+does not inspect function bodies and does not fail. Neither does the deploy, the type
+check, the test run, or any other query. The function sits broken and mute until someone
+uses it — and the someone is always a person working, never a test.
+
+Three and a half weeks, in this case. The previous three were nine days
+(`worker_assignments` trigger), unknown (the cost timeline's six dead columns), and *not
+yet* — `calculate_monthly_payroll` was found before payday rather than on it.
+
+### The audit was worth more than the fix
+
+Fixing the column the error named would have repeated §7's mistake, where fixing the
+trigger the error named left a second trigger with the same defect. So: every one of the
+62 columns `split_ot` writes, checked against the live schema. Only that one had
+drifted.
+
+Widening the grep found a second survivor the error had not mentioned:
+`PATCH /api/ots/[id]` still accepted `current_workstation_id` in its Zod schema, and
+that route spreads the validated object straight into `.update()`. Nothing in the app
+sends it, so it was a loaded gun rather than a live bug — but it would have taken down
+the *entire* OT edit, not one field.
+
+### `npm run check:functions`
+
+§7 ends with the right query written down, and §12 says it out loud: *a ritual that
+depends on remembering is not a control*. The `pg_proc` query had been written, saved,
+and quoted in a migration — and the defect happened again anyway, because nobody ran it.
+
+So it is a script now. `catalogo_para_auditoria()` returns the raw material — function
+bodies, real columns per table, which tables each trigger hangs off — and
+`scripts/check-dead-function-refs.cjs` does the analysis in JavaScript, where it can be
+read and corrected.
+
+**It only reports references it can resolve to a concrete table.** Five forms: a
+`%ROWTYPE` variable's fields, `NEW`/`OLD` inside a trigger, an `INSERT` column list, an
+`UPDATE … SET` target, and a `FROM t alias` → `alias.col`. Anything it cannot tie to a
+table, it stays quiet about. The easy version — flag any word that is not a known column
+— would have found all four cases and roughly two hundred false positives, and a check
+that is wrong that often does not get corrected, it gets switched off.
+
+### Its first run found a real one, and lied twelve times
+
+44 findings. Twelve were false, all from one function: `mirror_legacy_capture` is a
+single trigger hanging off **two** tables, branching on `TG_TABLE_NAME`, touching fields
+that exist in only one of them. That is correct plpgsql — the field access resolves when
+the branch runs. The catalog was keeping one table per function, so it judged the
+production branch against the warehouse table. Fixed forward in a second migration
+rather than by editing the applied one, because a migration file that disagrees with the
+database is the drift this control exists to catch.
+
+The remaining 32 are one genuinely broken function. `get_order_labor_margin` references
+eleven columns that do not exist:
+
+```
+worker_assignments.assignment_date      → the column is `date`
+employment_contracts.contract_start_date → `start_date`
+compensation_rates.effective_date        → `effective_from`
+ots.revenue                              → `total_price`
+ots.order_date, ots.completion_date      → `created_at`, `completed_at`
+```
+
+Confirmed by calling it: `42703 column ec.contract_start_date does not exist`. Nothing
+in the application calls it yet, which is exactly the `calculate_monthly_payroll` shape
+— it would have failed the first time someone wired it to a screen, with no visible
+connection to the migration that broke it. It is left broken and **listed below**,
+because guessing the intended column for `employee_incentives.payment_date` is a
+business question, not a rename.
+
+Which left the check permanently red, and a check that is permanently red is a check
+someone eventually deletes. So those eleven references are named — individually, as
+`function|table|column` — in an allowlist inside the script. It prints them on every run
+and exits 0; **anything not on the list turns it red.** Verified by breaking one entry
+on purpose and watching `ots.revenue` come back as a new finding. Same instinct as §12's
+ESLint rule sitting at `warn` with fifty preexisting sites: counted and visible, not
+blocking.
+
+### What it taught
+
+The gap was never knowledge. §7 diagnosed this precisely and wrote down the query. The
+gap was that the knowledge lived in a document, and documents do not run on every
+deploy. **A lesson is not learned until something other than a person is responsible for
+remembering it.**
+
+---
+
 ## What is still wrong
 
 Kept here rather than in a private list, because a log that only contains solved
@@ -476,13 +681,41 @@ problems is marketing.
 - **The calibration gate has never been run.** The engine's own header asks for three
   historical jobs chosen by the plant supervisor, pushed through the wizard, with the
   constants tuned until estimates land within ±10%. The ink and die-cutting corrections
-  above were argued from physics and from the machine's own record. That is better than
-  what was there. It is not the same as agreeing with an invoice.
-- **Purchase order lines have no UI.** The seed writes 261 of them; a buyer cannot write
-  the 262nd. Until that exists, real material cost stops resolving the moment someone
-  actually buys paper.
-- **Eighteen of forty-eight libraries have no tests**, and they are the wrong eighteen:
+  above — and the guillotine, folder and laminator corrections in §12's pass — were
+  argued from physics and from each machine's own record. That is better than what was
+  there. It is not the same as agreeing with an invoice.
+- **The guillotine is still costed in the wrong unit.** It cuts by the lift, roughly 500
+  sheets per stroke, not sheet by sheet; costing it continuously priced a 25,770-sheet
+  cut at 8.9 hours against 1–2 on the machine. The rate now carries lifts-per-hour
+  *expressed* in sheets/hour so `FINISH_RATES` keeps its shape, but
+  `machines.optimal_speed_sheets_hr` has the same defect underneath and needs a
+  sheets-per-lift column to be fixed properly.
+- **Twenty of sixty-five libraries have no tests**, and they are still the wrong twenty:
   `auth`, `api-middleware`, `identity`, `whatsapp-ingest`. The domain is tested; the
   perimeter is not.
-- **`LanguageContext` survives in seven components** of an application that has decided
+- **~50 unread-`error` sites remain**, held at `warn` by the ESLint tripwire in §12.
+  The same pattern was behind the `due_date` bug and at least five further findings in
+  that pass, so each site needs individual verification rather than a bulk edit. The
+  golden-thread routes go first.
+- **`LanguageContext` survives in six components** of an application that has decided
   to speak Spanish — another instance of §5 that has not been closed yet.
+- **`get_order_labor_margin` is broken and unused.** Eleven dead column references,
+  found by `check:functions` on its first run (§13). Repairing it is not a mechanical
+  rename: `employee_incentives.payment_date` has no obvious successor, and the function
+  computes a labour margin whose intended definition should be confirmed against how the
+  shop actually thinks about it before the columns are guessed at. The eleven references
+  are named in `check:functions`'s allowlist, so they print on every run without turning
+  the check red; removing an entry is how the repair gets verified.
+- **`check:functions` reads five reference forms, not all of them.** A dead column named
+  in a bare `SELECT` list with no alias, or reached through a CTE, is still invisible to
+  it. That is a deliberate trade for zero false positives, and it means the check
+  narrows the hole rather than closing it.
+- **The capture spine is still half-wired.** `capture_events` is fed by mirror triggers
+  from the legacy WhatsApp tables (Phase B2); Phase B, which would repoint the webhooks
+  to write it directly, never shipped. The scan station now emits capture events and the
+  warehouse photo path writes them, but the two `whatsapp_*_logs` tables remain the
+  system of record for text messages.
+- **Nothing sends a reply.** The WhatsApp paths — production reports, warehouse photos —
+  compose an answer for the operator and return it in the webhook response, where only
+  the simulator can see it. Until outbound is wired, a warehouse worker photographing a
+  pallet gets silence, and silence is indistinguishable from failure.

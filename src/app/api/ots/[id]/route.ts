@@ -102,7 +102,11 @@ const UpdateOTSchema = z.object({
 	// Production floor tracking
 	proceso_actual: z.string().max(500).optional().nullable(),
 	assigned_machine_id: z.string().uuid().optional().nullable(),
-	current_workstation_id: z.string().uuid().optional().nullable(),
+	// `current_workstation_id` se aceptaba acá y la columna no existe desde que
+	// los puestos se fusionaron con las máquinas (agosto 2026). Como el objeto
+	// validado se vuelca entero al `update`, mandarlo hacía fallar el PATCH
+	// completo con «column does not exist» — el mismo defecto que tenía
+	// `split_ot`, por la misma causa: nadie preguntó quién nombraba lo borrado.
 	// Planning flags (Hoja de Producción checkboxes)
 	flag_ord: z.boolean().optional(),
 	flag_pro: z.boolean().optional(),

@@ -29,6 +29,11 @@ import { OPERATION_CATEGORIES, type OTOperationCategory } from '@/types/ot';
 import { consumeMaterial } from '@/lib/partial-advance';
 import { colorCount, makeReadySheets, pressPasses } from '@/lib/ot-calculations';
 import { MaterialQueAvanza, type ConsumoElegido } from './MaterialQueAvanza';
+import { estimatedHoursFor, firstProblem, promptsStageReport, validateStageReport } from '@/lib/stage-report';
+import {
+  CierreDeEtapa, CIERRE_VACIO, cierreToInput, cierreToPayload,
+  type CierreEtapa, type StageReportPayload,
+} from './CierreDeEtapa';
 
 interface RealCostLine {
   operation_code: string;
@@ -70,7 +75,13 @@ interface RealCostEntryDialogProps {
   };
   targetStatus: string;
   targetStatusLabel: string;
-  onConfirm: (movedQuantity: number) => Promise<void> | void; // called after costs saved + advance/split
+  /**
+   * Se llama con las unidades que avanzan y con el cierre de la etapa que
+   * termina —`null` cuando la etapa no lo pide, como bodega o compras—. El
+   * cierre viaja hasta el mismo pedido que mueve la OT: dos llamadas separadas
+   * dejarían, cuando una falla, una OT movida sin horas o al revés.
+   */
+  onConfirm: (movedQuantity: number, stageReport: StageReportPayload | null) => Promise<void> | void;
 }
 
 export function RealCostEntryDialog({
@@ -92,6 +103,16 @@ export function RealCostEntryDialog({
   const [movedQuantity, setMovedQuantity] = useState<number>(totalQuantity);
   const isVistoGood = ot.status === 'visto_bueno';
 
+  // ── El cierre se pide, no se exige ───────────────────────────────────────
+  //
+  // Aparece en las etapas que esta casa ejecuta y cronometra —el taller y el
+  // reparto—, y se puede dejar en blanco: la pasada queda abierta y se cierra
+  // después desde donde sea. `promptsStageReport` es la misma lista que usa el
+  // servidor, así que el formulario y la compuerta nunca discrepan.
+  const needsClosure = promptsStageReport(ot.status);
+  const [cierre, setCierre] = useState<CierreEtapa>(CIERRE_VACIO);
+  const [showCierreErrors, setShowCierreErrors] = useState(false);
+
   // ── El papel se mueve con las unidades ────────────────────────────────────
   //
   // Este diálogo preguntaba sólo por las unidades y el material se quedaba
@@ -101,6 +122,37 @@ export function RealCostEntryDialog({
   const consume = consumeMaterial(ot.status, targetStatus);
   const otAny = ot as unknown as Record<string, any>;
   const [consumo, setConsumo] = useState<ConsumoElegido | null>(null);
+
+  // Contra qué se juzga el cierre: los pliegos del trabajo dicen si la merma es
+  // el arreglo o un problema, y lo estimado hace saltar un 40 escrito donde se
+  // esperaba un 4. Ambos son opcionales — sin ellos las compuertas no corren.
+  const enteredSheets = Number(otAny.calc_sheets ?? 0) || null;
+  const estimatedHours = estimatedHoursFor(ot.status, otAny);
+
+  /**
+   * ¿Se puede avanzar? Devuelve la pasada lista para el servidor.
+   *
+   * Sólo dice que no cuando el dato es IMPOSIBLE —480 horas, merma mayor que el
+   * tiraje—, nunca cuando falta. Dejarlo en blanco manda la pasada abierta, que
+   * es una respuesta legítima: quien arrastra la tarjeta a veces no es quien
+   * estuvo en la máquina.
+   */
+  const takeClosure = (): { ok: boolean; payload: StageReportPayload | null } => {
+    if (!needsClosure) return { ok: true, payload: null };
+    const check = validateStageReport(cierreToInput(cierre), { enteredSheets, estimatedHours });
+    if (!check.ok) {
+      setShowCierreErrors(true);
+      toast({
+        title: 'Ese dato no puede ser',
+        description: firstProblem(check) ?? 'Revisá el cierre de la etapa.',
+        variant: 'destructive',
+      });
+      return { ok: false, payload: null };
+    }
+    // Una pasada vacía igual viaja: el servidor la necesita para saber que la OT
+    // pasó por acá y que las horas se deben.
+    return { ok: true, payload: cierreToPayload(cierre) };
+  };
 
   // Load budgeted operations as reference
   useEffect(() => {
@@ -153,6 +205,10 @@ export function RealCostEntryDialog({
       setLines([]);
       setImageFile(null);
       setImagePreview(null);
+      // El cierre NO se arrastra a la próxima OT: cuatro horas y media
+      // heredadas de otra tarjeta son peores que un campo vacío.
+      setCierre(CIERRE_VACIO);
+      setShowCierreErrors(false);
     }
   }, [open]);
 
@@ -205,8 +261,12 @@ export function RealCostEntryDialog({
       });
       return;
     }
+    // Omitir es omitir COSTOS. La pasada viaja igual —abierta si no se llenó—
+    // porque es el rastro de que la OT estuvo acá.
+    const closure = takeClosure();
+    if (!closure.ok) return;
     if (isVistoGood && imageFile) await uploadImage();
-    await onConfirm(movedQuantity);
+    await onConfirm(movedQuantity, closure.payload);
     onOpenChange(false);
   };
 
@@ -229,6 +289,12 @@ export function RealCostEntryDialog({
   };
 
   const handleSaveAndAdvance = async () => {
+    // El cierre se valida ANTES de escribir nada: rebotar después de haber
+    // guardado los costos dejaría media operación hecha y al usuario sin saber
+    // cuál mitad.
+    const closure = takeClosure();
+    if (!closure.ok) return;
+
     // Validate that at least one line has a description
     const validLines = lines.filter((l) => l.description.trim().length > 0);
     if (validLines.length === 0) {
@@ -278,14 +344,20 @@ export function RealCostEntryDialog({
       }
       if (isVistoGood && imageFile) await uploadImage();
 
-      // El consumo va ANTES del avance: si el lote está retenido o el
-      // certificado venció, la OT no tiene que haberse movido. Al revés
-      // quedaría un fragmento en la guillotina sin papel descontado, que es
-      // justo el estado que esto viene a evitar.
-      if (consume) {
-        if (!consumo) {
-          throw new Error('Escaneá la etiqueta del pallet que estás sacando antes de avanzar.');
-        }
+      // ── El papel se declara si se puede, y si no, no se frena ──────────
+      //
+      // Antes esto exigía escanear un pallet para poder mover la OT. Estaba
+      // mal por dos motivos. Uno: `/operaciones/escanear` existe para eso, al
+      // lado de la máquina y con guantes puestos — pedirlo también acá le
+      // reclama al supervisor un dato que el operario declara mejor. Dos: el
+      // botón «Omitir» de este mismo diálogo ya se lo saltaba, así que el
+      // requisito era obligatorio y evitable a la vez, que es la peor de las
+      // dos cosas.
+      //
+      // Cuando SÍ hay un lote escaneado el consumo va antes del avance: si el
+      // lote está retenido o el certificado venció, la OT no tiene que haberse
+      // movido. Esa verificación no se relaja; lo que se relajó es exigirla.
+      if (consume && consumo) {
         const res = await fetch('/api/lots/scan', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -303,7 +375,7 @@ export function RealCostEntryDialog({
         }
       }
 
-      await onConfirm(movedQuantity);
+      await onConfirm(movedQuantity, closure.payload);
       onOpenChange(false);
     } catch (err: any) {
       toast({
@@ -345,8 +417,9 @@ export function RealCostEntryDialog({
 
         <div className="flex items-center gap-2 px-1 py-2 rounded-md bg-amber-500/10 border border-amber-500/30 text-amber-400 text-sm">
           <AlertCircle className="h-4 w-4 flex-shrink-0" />
-          Registre los costos reales incurridos en esta etapa antes de avanzar la OT. Los valores
-          presupuestados se muestran como referencia.
+          {needsClosure
+            ? 'Todo lo de abajo es opcional y se puede completar después. Lo que no se llene queda pendiente y se pide antes de despachar la OT.'
+            : 'Registre los costos reales incurridos en esta etapa antes de avanzar la OT. Los valores presupuestados se muestran como referencia.'}
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-[1fr_220px] gap-3 p-3 rounded-md border border-border bg-muted/30">
@@ -376,6 +449,22 @@ export function RealCostEntryDialog({
             />
           </div>
         </div>
+
+        {/* El cierre va arriba de los costos porque es lo obligatorio, y
+            pegado a la cantidad porque las horas son las de ESTA pasada. Nunca
+            coincide con el bloque de material: ese sale de bodega, y bodega no
+            es una etapa de taller. */}
+        {needsClosure && (
+          <CierreDeEtapa
+            otId={ot.id}
+            stage={ot.status}
+            enteredSheets={enteredSheets}
+            estimatedHours={estimatedHours}
+            value={cierre}
+            onChange={setCierre}
+            showErrors={showCierreErrors}
+          />
+        )}
 
         {/* Sólo cuando el salto saca papel de bodega. Las etapas posteriores
             mueven producto semiterminado y volver a descontar contaría dos
@@ -600,7 +689,9 @@ export function RealCostEntryDialog({
             className="text-muted-foreground"
           >
             <SkipForward className="h-4 w-4 mr-1" />
-            Omitir
+            {/* Omitir siempre omitió sólo los COSTOS. Decirlo evita leer el
+                botón como «avanzar sin llenar nada», que ahora sería falso. */}
+            {needsClosure ? 'Omitir costos' : 'Omitir'}
           </Button>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancelar

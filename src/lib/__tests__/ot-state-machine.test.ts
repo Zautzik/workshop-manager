@@ -215,6 +215,9 @@ describe('no se sale de Pre-Prensa con la ficha a medias', () => {
 	it('sólo vigila el paso a la prueba, no cualquier avance', () => {
 		const v = validateTransition({
 			...base, fromStatus: 'offset_printing', toStatus: 'die_cutting', spec: COTIZABLE,
+			// La pasada por la prensa se declara para que lo que se mida acá sea la
+			// ficha y no el cierre de etapa, que tiene su propia prueba.
+			stageReport: { hours: 4 },
 		});
 		expect(v.ok).toBe(true);
 	});
@@ -301,5 +304,103 @@ describe('la compuerta de Compras', () => {
 	it('sin requisitos cargados no bloquea', () => {
 		expect(validateTransition(base).ok).toBe(true);
 		expect(validateTransition({ ...base, requirements: [] }).ok).toBe(true);
+	});
+});
+
+describe('mover es libre; el cierre se pide, no se exige', () => {
+	const base = {
+		fromStatus: 'die_cutting' as const,
+		toStatus: 'guillotine_final_cut' as const,
+		role: 'supervisor' as const,
+		hasApprovedApproval: false,
+		hasAnyRealCosts: false,
+	};
+
+	// Frenar la tarjeta no hace que alguien cargue las horas: hace que el trabajo
+	// se mueva por fuera del sistema, que es la única forma de perderlo del todo.
+	it('sin cierre la OT sale igual del troquel', () => {
+		expect(validateTransition(base).ok).toBe(true);
+	});
+
+	it('sin horas pero con lo demás, también', () => {
+		const r = validateTransition({
+			...base, stageReport: { hours: null, mermaSheets: 120, issues: 'Se trabó dos veces.' },
+		});
+		expect(r.ok).toBe(true);
+	});
+
+	it('con las horas declaradas pasa', () => {
+		expect(validateTransition({ ...base, stageReport: { hours: 5.5 } }).ok).toBe(true);
+	});
+
+	// Lo que falta se puede completar; lo que está mal hay que descubrirlo.
+	it('un dato imposible sí frena, con el motivo', () => {
+		const r = validateTransition({ ...base, stageReport: { hours: 480 } });
+		expect(r.ok).toBe(false);
+		expect(r.code).toBe('STAGE_REPORT_INVALID');
+		expect(r.message).toContain('dividí por 60');
+	});
+
+	it('en una etapa que no se cierra, un cierre inválido no se juzga', () => {
+		const r = validateTransition({
+			...base, fromStatus: 'outsourced', toStatus: 'workshop_revision',
+			stageReport: { hours: 480 },
+		});
+		expect(r.ok).toBe(true);
+	});
+});
+
+describe('no se despacha con pasadas sin cerrar', () => {
+	const base = {
+		fromStatus: 'workshop_revision' as const,
+		toStatus: 'ready_for_delivery' as const,
+		role: 'supervisor' as const,
+		hasApprovedApproval: true,
+		hasAnyRealCosts: true,
+	};
+
+	it('frena y nombra la etapa que falta', () => {
+		const r = validateTransition({
+			...base, openPasses: [{ workflow_step: 'die_cutting' }],
+		});
+		expect(r.ok).toBe(false);
+		expect(r.code).toBe('PASADAS_ABIERTAS');
+		expect(r.message).toContain('Troquelado');
+	});
+
+	it('sin pasadas abiertas deja pasar', () => {
+		expect(validateTransition({ ...base, openPasses: [] }).ok).toBe(true);
+	});
+
+	// Frenar por «no se sabe» es la falla que las compuertas 1 y 3 ya evitan.
+	it('si no se consultó, la compuerta no corre', () => {
+		expect(validateTransition(base).ok).toBe(true);
+	});
+
+	it('cobra en las tres etapas de salida', () => {
+		for (const to of ['ready_for_delivery', 'in_delivery', 'completed'] as const) {
+			const r = validateTransition({
+				...base, fromStatus: 'workshop_revision', toStatus: to,
+				openPasses: [{ workflow_step: 'offset_printing' }],
+			});
+			expect(r.code, `esperaba compuerta al pasar a ${to}`).toBe('PASADAS_ABIERTAS');
+		}
+	});
+
+	it('no molesta mientras la OT sigue en el taller', () => {
+		const r = validateTransition({
+			...base, fromStatus: 'die_cutting', toStatus: 'guillotine_final_cut',
+			openPasses: [{ workflow_step: 'offset_printing' }],
+		});
+		expect(r.ok).toBe(true);
+	});
+
+	// Retroceder es corregir un error de tablero, no terminar un trabajo.
+	it('un retroceso nunca cobra nada', () => {
+		const r = validateTransition({
+			...base, fromStatus: 'die_cutting', toStatus: 'offset_printing',
+			rollback: true, role: 'admin', openPasses: [{ workflow_step: 'offset_printing' }],
+		});
+		expect(r.ok).toBe(true);
 	});
 });
