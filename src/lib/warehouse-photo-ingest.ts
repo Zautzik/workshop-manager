@@ -1,20 +1,26 @@
 /**
- * Bodega manda una foto y el papel queda descontado.
+ * Bodega manda una foto y queda lista para descontar.
  *
- * El recorrido entero, sin una tecla: se le saca una foto a la etiqueta del
- * pallet, se manda por WhatsApp, y del otro lado el lote sale de inventario
- * contra la OT que lo estaba esperando — con el certificado y la retención
- * verificados igual que si alguien lo hubiera escaneado en la pantalla.
+ * Sin una tecla hasta acá: se le saca una foto a la etiqueta del pallet, se
+ * manda por WhatsApp, y del otro lado se identifica el lote y se resuelve
+ * para qué OT y cuánto — de lo más explícito a lo más inferido, ver
+ * `resolveWarehousePhoto`.
  *
- * ── Por qué pasa por `consumir_lote` y no escribe la transacción ────────────
+ * ── Por qué esto no descuenta nada ──────────────────────────────────────────
  *
- * Porque `consumir_lote` es donde viven las verificaciones que hacen que esto
+ * Lo único que garantiza el HMAC del webhook es que Meta reenvió el mensaje,
+ * no quién sacó la foto. Aplicar el consumo acá —como se hacía antes— dejaba
+ * que cualquiera con el número de WhatsApp del taller y una foto de una
+ * etiqueta impresa moviera inventario real sin que ningún humano lo viera.
+ * El flujo de texto de este mismo webhook nunca tuvo ese problema porque
+ * siempre encoló `pending`; esta foto es la misma bodega y tiene que valer
+ * la misma regla.
+ *
+ * Esto sólo escribe la captura, pendiente. Quien aprueba en
+ * `PATCH /api/captures/[id]` —autenticado, con rol— es quien de verdad llama
+ * a `consumir_lote`, que es donde viven las verificaciones que hacen que esto
  * sea trazabilidad y no un registro: lote retenido, saldo real, papel
- * comprometido con otra orden, certificado vencido. El router de capturas
- * insertaba movimientos de inventario por su cuenta y se saltaba las cuatro —
- * una foto que entrara por ahí sería más rápida y valdría menos que nada.
- *
- * La foto no relaja ninguna regla. Sólo reemplaza el teclado.
+ * comprometido con otra orden, certificado vencido (auditoría 2026-08).
  */
 
 import { supabaseAdmin } from '@/integrations/supabase/server';
@@ -30,7 +36,6 @@ import {
 	type Reserva,
 } from '@/lib/warehouse-photo';
 import { checkRateLimit, retryAfterSeconds } from '@/lib/rate-limiter';
-import logger from '@/lib/logger';
 import type { Json } from '@/integrations/supabase/types';
 
 export interface FotoEntrante extends MediaEntrante {
@@ -80,13 +85,19 @@ async function lotFromCode(code: string): Promise<
 		return { lotId: wh.extra!, otNumberFromLabel: null };
 	}
 
-	const { data: lotes } = await supabaseAdmin
+	const { data: lotes, error: lotesErr } = await supabaseAdmin
 		.from('inventory_lots')
 		.select('id, lot_number')
 		.eq('item_id', wh.itemId)
 		.gt('quantity_available', 0)
 		.limit(3);
 
+	// Un error de lectura no es "no hay partidas con saldo" — lo primero es
+	// "no pude revisar" y lo segundo, en la respuesta, suena a que el material
+	// no existe cuando en realidad no se llegó a mirar (auditoría 2026-08).
+	if (lotesErr) {
+		return { problem: 'No pude revisar el stock ahora. Probá de nuevo o avisá a bodega.' };
+	}
 	if (!lotes || lotes.length === 0) {
 		return { problem: 'Ese material no tiene ninguna partida con saldo en bodega.' };
 	}
@@ -133,12 +144,17 @@ export async function processWarehousePhoto(input: FotoEntrante): Promise<Result
 	}
 
 	// ── El lote, y todo lo que ya se sabe sobre para quién es ────────────────
-	const { data: lote } = await supabaseAdmin
+	const { data: lote, error: loteErr } = await supabaseAdmin
 		.from('inventory_lots')
 		.select('id, lot_number, quantity_available, blocked_reason')
 		.eq('id', resuelto.lotId)
 		.maybeSingle();
 
+	if (loteErr) {
+		return responder(200, 'No pude revisar ese lote ahora. Probá de nuevo o avisá a bodega.', {
+			scanned_value: leido.value,
+		});
+	}
 	if (!lote) {
 		return responder(200, 'Ese lote no existe en el sistema. Avisá a bodega.', {
 			scanned_value: leido.value,
@@ -185,81 +201,48 @@ export async function processWarehousePhoto(input: FotoEntrante): Promise<Result
 		esperando: ((esperandoQ.data ?? []) as OTEsperando[]),
 	});
 
-	// La captura se escribe SIEMPRE, se haya podido descontar o no. Una foto que
-	// llegó y no se pudo aplicar es justamente la que alguien tiene que mirar; si
-	// sólo se registraran las exitosas, el problema quedaría en el teléfono del
-	// que la mandó.
-	const capturaBase = {
+	// ── La captura se escribe SIEMPRE, y siempre pendiente ───────────────────
+	//
+	// Antes esto llamaba a `consumir_lote` de una y marcaba la captura
+	// `auto_approved`/`applied: true` apenas la foto resolvía sin ambigüedad.
+	// Estaba mal: lo único que garantiza el HMAC del webhook es que Meta
+	// reenvió el mensaje, no quién sacó la foto — cualquiera con el número de
+	// WhatsApp del taller y una foto de una etiqueta impresa podía descontar
+	// stock real sin que nadie humano lo viera. El flujo de texto de este
+	// mismo webhook nunca aplicó nada solo, siempre encoló `pending`; esta
+	// foto es la misma bodega y tiene que valer la misma regla.
+	//
+	// Ahora la foto sólo LEE y RESUELVE. Quien aprueba en `/api/captures/[id]`
+	// —un admin/manager/supervisor autenticado, no un número de teléfono— es
+	// quien de verdad dispara `consumir_lote`, con su propio user id como
+	// `p_by`. Ver ese archivo para la otra mitad de este cambio (auditoría
+	// 2026-08).
+	const pregunta = replyForResolution(resolucion, lote.lot_number);
+	await supabaseAdmin.from('capture_events' as never).insert({
 		domain: 'warehouse' as const,
 		event_type: 'use',
 		channel: 'qr' as const,
 		operator_phone: input.from,
 		operator_name: input.profile_name ?? null,
 		lot_id: lote.id,
-		scanned_value: leido.value,
-		message_timestamp: input.timestamp ?? new Date().toISOString(),
-		raw_message: null,
-	};
-
-	if (!resolucion.otId || resolucion.quantity == null) {
-		const pregunta = replyForResolution(resolucion, lote.lot_number);
-		await supabaseAdmin.from('capture_events' as never).insert({
-			...capturaBase,
-			ot_id: resolucion.otId,
-			quantity: resolucion.quantity,
-			status: 'pending',
-			review_comments: resolucion.question ?? 'Falta la cantidad a descontar.',
-			parsed_data: { resolution: resolucion } as unknown as Json,
-		} as never);
-		return responder(200, pregunta, {
-			lot_number: lote.lot_number,
-			candidates: resolucion.candidates,
-			needs_answer: true,
-		});
-	}
-
-	// ── Descontar, por el único camino que verifica ──────────────────────────
-	const { error } = await supabaseAdmin.rpc('consumir_lote' as never, {
-		p_lot_id: lote.id,
-		p_ot_id: resolucion.otId,
-		p_quantity: resolucion.quantity,
-		p_by: null,
-		p_stage: 'foto_bodega',
-		p_override_reason: null,
-	} as never);
-
-	if (error) {
-		// El mensaje de `consumir_lote` ya está escrito para una persona —
-		// «el certificado del lote X venció el 12-03-2026»— así que se reenvía tal
-		// cual en vez de traducirlo a un error genérico.
-		logger.warn({ err: error, lot: lote.lot_number }, 'Foto de bodega rechazada por consumir_lote');
-		await supabaseAdmin.from('capture_events' as never).insert({
-			...capturaBase,
-			ot_id: resolucion.otId,
-			quantity: resolucion.quantity,
-			status: 'rejected',
-			review_comments: error.message,
-			parsed_data: { resolution: resolucion } as unknown as Json,
-		} as never);
-		return responder(200, error.message, { lot_number: lote.lot_number, applied: false });
-	}
-
-	await supabaseAdmin.from('capture_events' as never).insert({
-		...capturaBase,
 		ot_id: resolucion.otId,
 		ot_number: resolucion.otNumber,
 		quantity: resolucion.quantity,
-		status: 'auto_approved',
-		applied: true,
-		applied_ref_type: 'inventory_tx',
+		scanned_value: leido.value,
+		message_timestamp: input.timestamp ?? new Date().toISOString(),
+		raw_message: null,
+		status: 'pending',
+		review_comments: resolucion.question ?? 'Foto de bodega — confirmar y aplicar.',
 		parsed_data: { resolution: resolucion } as unknown as Json,
 	} as never);
 
-	return responder(200, replyForResolution(resolucion, lote.lot_number), {
+	return responder(200, pregunta, {
 		lot_number: lote.lot_number,
 		ot_number: resolucion.otNumber,
 		quantity: resolucion.quantity,
 		source: resolucion.source,
-		applied: true,
+		candidates: resolucion.candidates,
+		needs_answer: !resolucion.otId || resolucion.quantity == null,
+		applied: false,
 	});
 }

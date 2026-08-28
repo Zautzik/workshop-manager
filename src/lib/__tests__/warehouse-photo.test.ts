@@ -144,4 +144,23 @@ describe('replyForResolution — lo que se lee de pie', () => {
 		expect(m).toContain('¿Para cuál sale');
 		expect(m).toContain('40502 · 40503');
 	});
+
+	// Estado que no es ni «pregunto» ni «sé todo»: hay una sola OT esperando
+	// pero su calc_sheets todavía no se corrió, así que la OT se resuelve y la
+	// cantidad no. Decir «descontando todo lo que haya» acá sería mentir — no
+	// hay nada aplicado, y el mensaje tiene que decir eso, no sonar a éxito.
+	it('OT resuelta sin cantidad no dice "descontando" — pide el número', () => {
+		const r = resolveWarehousePhoto({
+			lotId: LOTE,
+			esperando: [{ id: 'a', ot_number: '40502', calc_sheets: null }],
+		});
+		expect(r.otId).toBe('a');
+		expect(r.quantity).toBeNull();
+		expect(r.question).toBeNull();
+
+		const m = replyForResolution(r, 'L-9');
+		expect(m).toContain('OT 40502');
+		expect(m).not.toContain('Descontando');
+		expect(m).toContain('no sé cuánto');
+	});
 });

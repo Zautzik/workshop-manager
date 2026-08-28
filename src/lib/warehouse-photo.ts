@@ -209,7 +209,15 @@ export function resolveWarehousePhoto(input: EntradaFoto): ResolucionFoto {
 	};
 }
 
-/** Lo que se le contesta al que mandó la foto. Corto: lo lee de pie. */
+/**
+ * Lo que se le contesta al que mandó la foto. Corto: lo lee de pie.
+ *
+ * Ninguna foto descuenta sola — bodega o un supervisor la confirma después
+ * (ver `PATCH /api/captures/[id]`), así que esto nunca dice «descontando»:
+ * diría que ya pasó cuando todavía está pendiente. Hay tres respuestas
+ * posibles, no dos — «pregunto», «sé todo, falta confirmar» y «sé la OT pero
+ * no cuánto» son estados distintos y cada uno necesita su propia frase.
+ */
 export function replyForResolution(r: ResolucionFoto, lotNumber?: string | null): string {
 	const lote = lotNumber ? `Lote ${lotNumber}` : 'Lote leído';
 
@@ -225,9 +233,12 @@ export function replyForResolution(r: ResolucionFoto, lotNumber?: string | null)
 		unica_esperando: 'es la única esperando papel',
 	}[r.source ?? 'etiqueta'];
 
-	const cuanto = r.quantity != null
-		? `${r.quantity.toLocaleString('es-CL')} pliegos`
-		: 'todo lo que haya';
+	// Se sabe para qué OT es, pero no cuánto (p. ej. la OT todavía no tiene
+	// los pliegos calculados). No hay nada que confirmar todavía — hace falta
+	// el número antes de que esto pueda aprobarse.
+	if (r.quantity == null) {
+		return `${lote} → OT ${r.otNumber} (${porque}), pero no sé cuánto. Decime la cantidad antes de que se pueda confirmar.`;
+	}
 
-	return `${lote} → OT ${r.otNumber} (${porque}). Descontando ${cuanto}.`;
+	return `${lote} → OT ${r.otNumber} (${porque}): ${r.quantity.toLocaleString('es-CL')} pliegos. Queda pendiente de confirmar antes de descontarlo.`;
 }
