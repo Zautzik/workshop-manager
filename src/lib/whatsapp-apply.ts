@@ -61,7 +61,7 @@ async function closePass(
 ): Promise<ApplyOutcome['closed']> {
 	// La más vieja primero: si un avance parcial dejó dos pasadas abiertas por la
 	// misma etapa, el parte que llega cierra la que lleva más tiempo esperando.
-	const { data: abierta } = await supabaseAdmin
+	const { data: abierta, error: buscarErr } = await supabaseAdmin
 		.from('ot_stage_reports')
 		.select('id')
 		.eq('ot_id', otId)
@@ -70,6 +70,10 @@ async function closePass(
 		.order('created_at', { ascending: true })
 		.limit(1)
 		.maybeSingle();
+	// Un error acá NO es "no hay pasada abierta" — leerlo así insertaría una
+	// fila nueva junto a la que ya existe, duplicando el rastro de horas en vez
+	// de cerrarlo (auditoría 2026-08).
+	if (buscarErr) throw new Error(`No se pudo buscar la pasada abierta: ${buscarErr.message}`);
 
 	const campos = {
 		hours: p.hours,
@@ -82,17 +86,20 @@ async function closePass(
 	if (abierta) {
 		// `.is('hours', null)` otra vez: entre la lectura y el UPDATE puede haber
 		// entrado el supervisor por el tablero, y el que llega segundo no pisa.
-		const { data } = await supabaseAdmin
+		// Cero filas afectadas por esa carrera es un resultado legítimo — `data`
+		// en null sin `error` sigue devolviendo null más abajo, sin tocarlo.
+		const { data, error } = await supabaseAdmin
 			.from('ot_stage_reports')
 			.update(campos)
 			.eq('id', abierta.id)
 			.is('hours', null)
 			.select('id, workflow_step, hours')
 			.maybeSingle();
+		if (error) throw new Error(`No se pudo cerrar la pasada: ${error.message}`);
 		return data ?? null;
 	}
 
-	const { data } = await supabaseAdmin
+	const { data, error } = await supabaseAdmin
 		.from('ot_stage_reports')
 		.insert({
 			ot_id: otId,
@@ -102,6 +109,7 @@ async function closePass(
 		})
 		.select('id, workflow_step, hours')
 		.maybeSingle();
+	if (error) throw new Error(`No se pudo registrar la pasada: ${error.message}`);
 	return data ?? null;
 }
 
@@ -118,12 +126,19 @@ export async function applyFlowProposal(
 ): Promise<ApplyOutcome> {
 	const out: ApplyOutcome = { closed: null, moved: null, blocked: null, notes: [] };
 
-	const { data: ot } = await supabaseAdmin
+	const { data: ot, error: otErr } = await supabaseAdmin
 		.from('ots')
 		.select('id, status, assigned_machine_id')
 		.eq('id', otId)
 		.maybeSingle();
 
+	// "No se pudo verificar" y "no existe" son motivos distintos y uno de los
+	// dos es transitorio — decirle al que mandó el parte que su OT desapareció
+	// por un corte de red sería peor que no contestar nada.
+	if (otErr) {
+		out.blocked = `No se pudo verificar la OT: ${otErr.message}`;
+		return out;
+	}
 	if (!ot) {
 		out.blocked = 'La OT ya no existe.';
 		return out;
@@ -140,14 +155,21 @@ export async function applyFlowProposal(
 			'alguien la movió mientras tanto.',
 		);
 	} else if (proposal.closeStage && promptsStageReport(fromStatus)) {
-		out.closed = await closePass(
-			otId,
-			proposal.closeStage,
-			proposal,
-			actor,
-			ot.assigned_machine_id ?? null,
-		);
-		if (!out.closed) out.notes.push('La pasada ya estaba cerrada por otra vía.');
+		// `closePass` lanza en vez de devolver silencioso ante un error de
+		// lectura/escritura real — acá se atrapa para no perder el resto del
+		// parte (las horas son ciertas aunque cerrar la pasada haya fallado).
+		try {
+			out.closed = await closePass(
+				otId,
+				proposal.closeStage,
+				proposal,
+				actor,
+				ot.assigned_machine_id ?? null,
+			);
+			if (!out.closed) out.notes.push('La pasada ya estaba cerrada por otra vía.');
+		} catch (err) {
+			out.notes.push(err instanceof Error ? err.message : 'No se pudo cerrar la pasada.');
+		}
 	}
 
 	if (!proposal.nextStatus) return out;
@@ -180,7 +202,7 @@ export async function applyFlowProposal(
 	}
 
 	const nowIso = new Date().toISOString();
-	const { data: updated } = await supabaseAdmin
+	const { data: updated, error: updateErr } = await supabaseAdmin
 		.from('ots')
 		.update({
 			status: proposal.nextStatus,
@@ -194,6 +216,14 @@ export async function applyFlowProposal(
 		.select('id, status')
 		.maybeSingle();
 
+	// Cero filas (carrera perdida) y un error real son cosas distintas — la
+	// primera es "otro te ganó", la segunda es "no se pudo ni intentar", y
+	// decirle al prensista que alguien más movió su OT cuando en realidad la
+	// base falló le hace desconfiar de la OT equivocada.
+	if (updateErr) {
+		out.blocked = `No se pudo mover la OT: ${updateErr.message}`;
+		return out;
+	}
 	if (!updated) {
 		out.blocked = 'La OT fue movida por otra operación mientras se aplicaba el parte.';
 		return out;
