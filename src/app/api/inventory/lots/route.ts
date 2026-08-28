@@ -50,7 +50,7 @@ export async function GET(req: NextRequest) {
   let consulta = supabaseAdmin
     .from('inventory_lots_disponibilidad')
     .select(
-      'id, lot_number, quantity_received, quantity_available, unit_cost, received_date, ' +
+      'id, item_id, lot_number, quantity_received, quantity_available, unit_cost, received_date, ' +
       'supplier_name, certification_code, certification_expires_on, blocked_reason, ' +
       'purchase_id, reservado, libre, reservas_activas, ' +
       'inventory_items ( id, name, sku, unit, category, material_kind, is_certification_required ), ' +

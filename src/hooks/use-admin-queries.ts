@@ -63,22 +63,27 @@ export function useInventoryItems() {
   });
 }
 
+/**
+ * Antes le preguntaba a la tabla directo desde el navegador. `inventory_lots`
+ * exige `auth.uid() IS NOT NULL` por RLS — la ruta ya autenticada con rol de
+ * servicio (`/api/inventory/lots`) siempre pudo leerla, así que esta pantalla
+ * tenía DOS caminos hacia el mismo dato, y sólo uno funcionaba de manera
+ * confiable. De paso se gana `libre` (el saldo con lo reservado descontado,
+ * que `quantity_available` no distingue) y `material_kind` (auditoría 2026-08).
+ */
 export function useInventoryLots(itemId?: string | null) {
   return useQuery<any[]>({
     queryKey: queryKeys.inventoryLots(itemId),
     queryFn: async () => {
-      let query = supabase
-        .from('inventory_lots')
-        .select('*, inventory_items(name, sku, category, unit)')
-        .order('received_date', { ascending: false });
-
-      if (itemId) {
-        query = query.eq('item_id', itemId);
+      const params = new URLSearchParams({ limit: '500' });
+      const res = await fetch(`/api/inventory/lots?${params}`, { credentials: 'include' });
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        throw new Error(body?.error ?? 'No se pudieron cargar los lotes');
       }
-
-      const { data, error } = await query;
-      if (error) throw error;
-      return (data ?? []) as any[];
+      const body = await res.json();
+      const all = (body.data ?? []) as any[];
+      return itemId ? all.filter((l) => l.item_id === itemId) : all;
     },
   });
 }

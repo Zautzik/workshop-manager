@@ -23,6 +23,7 @@
 import { useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { KpiCard } from '@/components/ui/kpi-card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -53,7 +54,8 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { Plus, Pencil, Trash2, AlertTriangle, Calculator, Boxes, ChevronDown } from 'lucide-react';
+import { Plus, Pencil, Trash2, AlertTriangle, Calculator, Boxes, ChevronDown, Lock } from 'lucide-react';
+import { certStatus } from '@/lib/purchasing';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { formatCLP } from '@/lib/format';
 import {
@@ -94,12 +96,13 @@ const SEVERITY_LABELS: Record<string, string> = {
 };
 
 const TX_OPTIONS = [
-  { value: 'purchase', label: 'Purchase (+)' },
-  { value: 'consumption', label: 'Consumption (-)' },
-  { value: 'adjustment_in', label: 'Adjustment In (+)' },
-  { value: 'adjustment_out', label: 'Adjustment Out (-)' },
-  { value: 'return_to_stock', label: 'Return to Stock (+)' },
+  { value: 'purchase', label: 'Compra (+)' },
+  { value: 'consumption', label: 'Consumo (-)' },
+  { value: 'adjustment_in', label: 'Ajuste a favor (+)' },
+  { value: 'adjustment_out', label: 'Ajuste en contra (-)' },
+  { value: 'return_to_stock', label: 'Devolución a bodega (+)' },
 ];
+const TX_TYPE_LABEL: Record<string, string> = Object.fromEntries(TX_OPTIONS.map((o) => [o.value, o.label]));
 
 const getCategoryLabel = (value?: string | null) => {
   const found = CATEGORY_OPTIONS.find((option) => option.value === value);
@@ -111,10 +114,29 @@ const getMaterialKindLabel = (value?: string | null) => {
   return found?.label || (value ? value : 'Sin clasificar');
 };
 
+/**
+ * Tres estados, no uno. "Nunca recibido" y "agotado" se ven idénticos en el
+ * número (0) pero significan cosas distintas — el primero es estructural
+ * (nadie lo ha comprado todavía), el segundo es un evento real (se tenía y se
+ * acabó). Tratarlos igual es cómo 29 de 37 ítems terminan con la misma
+ * alarma roja y la alarma deja de servir (auditoría 2026-08).
+ */
+function stockState(current: number, min: number, everReceived: boolean) {
+  if (current <= 0) {
+    return everReceived
+      ? { key: 'agotado' as const, label: 'Agotado', dot: 'bg-red-500', text: 'text-red-600 dark:text-red-400' }
+      : { key: 'nunca' as const, label: 'Nunca recibido', dot: 'bg-slate-400', text: 'text-muted-foreground' };
+  }
+  if (current < min) {
+    return { key: 'bajo' as const, label: 'Bajo mínimo', dot: 'bg-amber-500', text: 'text-amber-600 dark:text-amber-400' };
+  }
+  return { key: 'ok' as const, label: 'Disponible', dot: 'bg-emerald-500', text: 'text-emerald-600 dark:text-emerald-400' };
+}
+
 const InventoryManagement = () => {
   const { t } = useLanguage();
   const { data: items = [], refetch: refetchItems } = useInventoryItems();
-  const { data: lots = [], refetch: refetchLots } = useInventoryLots();
+  const { data: lots = [], refetch: refetchLots, isLoading: lotsLoading, isError: lotsError } = useInventoryLots();
   const { data: transactions = [], refetch: refetchTransactions } = useInventoryTransactions();
   const { data: alerts = [] } = useInventoryLowStockAlerts();
   const { data: ots = [] } = useOTs();
@@ -126,6 +148,7 @@ const InventoryManagement = () => {
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [scanSearch, setScanSearch] = useState('');
   const [alertsOpen, setAlertsOpen] = useState(false);
+  const [neverOpen, setNeverOpen] = useState(false);
 
   const [itemForm, setItemForm] = useState({
     sku: '',
@@ -186,6 +209,32 @@ const InventoryManagement = () => {
       return sku.includes(query) || name.includes(query) || barcode.includes(query) || qr.includes(query);
     });
   }, [items, categoryFilter, scanSearch]);
+
+  // Un ítem en 0 puede ser dos cosas muy distintas: nunca entró un lote suyo a
+  // bodega (estructural — se resuelve con la primera OC), o entró y ya se
+  // consumió del todo (evento real, alguien lo tenía y ahora no). El view de
+  // severidad no distingue los dos casos —ambos son "critical"— porque no ve
+  // el HISTORIAL de lotes, sólo la suma disponible. Acá sí se tiene la lista
+  // completa de lotes en la misma pantalla, así que se cruza sin pedirle nada
+  // nuevo a la base (auditoría 2026-08).
+  const everReceivedIds = useMemo(
+    () => new Set(lots.map((l: any) => l.item_id).filter(Boolean)),
+    [lots],
+  );
+
+  // La misma alarma para "nunca se ha comprado" y "se agotó" es la que hace
+  // que 29 de 37 ítems se vean igual de urgentes. Acá se separan en dos
+  // grupos antes de mostrarlos: uno necesita una OC hoy, el otro es un hueco
+  // del catálogo que puede esperar a la primera compra.
+  const { needsAction, neverReceived } = useMemo(() => {
+    const needsAction: any[] = [];
+    const neverReceived: any[] = [];
+    for (const a of alerts) {
+      if (Number(a.current_stock) <= 0 && !everReceivedIds.has(a.id)) neverReceived.push(a);
+      else needsAction.push(a);
+    }
+    return { needsAction, neverReceived };
+  }, [alerts, everReceivedIds]);
 
   const totalStockValue = useMemo(() => {
     return items.reduce((sum: number, item: any) => {
@@ -429,53 +478,30 @@ const InventoryManagement = () => {
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card className="border-primary/20">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm text-primary flex items-center gap-2">
-              <Boxes className="h-4 w-4" />
-              Total de SKUs
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-bold">{items.length}</p>
-          </CardContent>
-        </Card>
-
-        <Card className="border-primary/20">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm text-primary">Valor estimado de stock</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-bold">{formatCLP(totalStockValue)}</p>
-          </CardContent>
-        </Card>
-
-        <Card className="border-destructive/30">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm text-destructive flex items-center gap-2">
-              <AlertTriangle className="h-4 w-4" />
-              Alertas de stock bajo
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-bold text-destructive">{alerts.length}</p>
-          </CardContent>
-        </Card>
+        <KpiCard icon={Boxes} label="Total de SKUs" value={String(items.length)} tone="primary" />
+        <KpiCard label="Valor estimado de stock" value={formatCLP(totalStockValue)} tone="primary" />
+        <KpiCard
+          icon={AlertTriangle}
+          label="Necesita una OC"
+          value={String(needsAction.length)}
+          tone={needsAction.length > 0 ? 'critical' : 'primary'}
+          hint={neverReceived.length > 0 ? `+ ${neverReceived.length} nunca recibidos (no es urgente, es un hueco del catálogo)` : undefined}
+        />
       </div>
 
-      {alerts.length > 0 && (
+      {needsAction.length > 0 && (
         <Collapsible open={alertsOpen} onOpenChange={setAlertsOpen} className="ml-auto w-full sm:max-w-sm">
           <div className="rounded-md border border-destructive/40 bg-destructive/5">
             <CollapsibleTrigger className="flex w-full items-center justify-between gap-2 rounded-md px-3 py-2 text-sm font-medium text-destructive hover:bg-destructive/10">
               <span className="flex items-center gap-2">
                 <AlertTriangle className="h-4 w-4" />
-                {alerts.length} alertas de stock bajo
+                {needsAction.length} {needsAction.length === 1 ? 'ítem necesita' : 'ítems necesitan'} una OC
               </span>
               <ChevronDown className={`h-4 w-4 transition-transform ${alertsOpen ? 'rotate-180' : ''}`} />
             </CollapsibleTrigger>
             <CollapsibleContent>
               <div className="max-h-72 space-y-1.5 overflow-y-auto px-3 pb-3">
-                {alerts.map((alert: any) => (
+                {needsAction.map((alert: any) => (
                   <div key={alert.id} className="flex items-center justify-between gap-2 rounded-md border border-destructive/30 bg-background/60 px-2 py-1.5">
                     <div className="min-w-0">
                       <p className="truncate text-sm font-medium">{alert.name}</p>
@@ -492,6 +518,29 @@ const InventoryManagement = () => {
         </Collapsible>
       )}
 
+      {neverReceived.length > 0 && (
+        <Collapsible open={neverOpen} onOpenChange={setNeverOpen} className="ml-auto w-full sm:max-w-sm">
+          <div className="rounded-md border border-border bg-muted/30">
+            <CollapsibleTrigger className="flex w-full items-center justify-between gap-2 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-muted/50">
+              <span>{neverReceived.length} nunca recibidos</span>
+              <ChevronDown className={`h-4 w-4 transition-transform ${neverOpen ? 'rotate-180' : ''}`} />
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <div className="max-h-72 space-y-1.5 overflow-y-auto px-3 pb-3">
+                {neverReceived.map((alert: any) => (
+                  <div key={alert.id} className="flex items-center justify-between gap-2 rounded-md border border-border bg-background/60 px-2 py-1.5">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium">{alert.name}</p>
+                      <p className="truncate text-xs text-muted-foreground">{getCategoryLabel(alert.category)} • sin lotes registrados todavía</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CollapsibleContent>
+          </div>
+        </Collapsible>
+      )}
+
       <Card className="border-primary/20">
         <CardHeader>
           <CardTitle className="text-primary">Módulo de inventario</CardTitle>
@@ -499,8 +548,8 @@ const InventoryManagement = () => {
         <CardContent>
           <Tabs defaultValue="items" className="w-full">
             <TabsList className="grid w-full grid-cols-4">
-              <TabsTrigger value="items">Items</TabsTrigger>
-              <TabsTrigger value="lots">Lots</TabsTrigger>
+              <TabsTrigger value="items">Ítems</TabsTrigger>
+              <TabsTrigger value="lots">Lotes</TabsTrigger>
               <TabsTrigger value="transactions">Movimientos de stock</TabsTrigger>
               <TabsTrigger value="calculator">Estimador de costos</TabsTrigger>
             </TabsList>
@@ -529,7 +578,7 @@ const InventoryManagement = () => {
 
                 <Button onClick={() => setShowItemDialog(true)} className="bg-primary hover:bg-primary/90">
                   <Plus className="mr-2 h-4 w-4" />
-                  Add Item
+                  Agregar ítem
                 </Button>
               </div>
 
@@ -537,7 +586,7 @@ const InventoryManagement = () => {
                 <TableHeader>
                   <TableRow>
                     <TableHead>SKU</TableHead>
-                    <TableHead>Barcode</TableHead>
+                    <TableHead>Código de barras</TableHead>
                     <TableHead>QR</TableHead>
                     <TableHead>Nombre</TableHead>
                     <TableHead>Categoría</TableHead>
@@ -549,7 +598,9 @@ const InventoryManagement = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredItems.map((item: any) => (
+                  {filteredItems.map((item: any) => {
+                    const st = stockState(Number(item.current_stock || 0), Number(item.min_stock || 0), everReceivedIds.has(item.id));
+                    return (
                     <TableRow key={item.id}>
                       <TableCell>{item.sku}</TableCell>
                       <TableCell>{item.barcode_value || '-'}</TableCell>
@@ -557,7 +608,15 @@ const InventoryManagement = () => {
                       <TableCell>{item.name}</TableCell>
                       <TableCell>{getCategoryLabel(item.category)}</TableCell>
                       <TableCell>{getMaterialKindLabel(item.material_kind)}</TableCell>
-                      <TableCell>{Number(item.current_stock || 0).toFixed(3)} {item.unit}</TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-1.5">
+                          <span className={`h-2 w-2 shrink-0 rounded-full ${st.dot}`} title={st.label} />
+                          <span className={st.key === 'ok' ? '' : `${st.text} font-medium`}>
+                            {Number(item.current_stock || 0).toFixed(3)} {item.unit}
+                          </span>
+                        </div>
+                        {st.key !== 'ok' && <span className={`text-[11px] ${st.text}`}>{st.label}</span>}
+                      </TableCell>
                       <TableCell>{Number(item.min_stock || 0).toFixed(3)} {item.unit}</TableCell>
                       <TableCell>{formatCLP(Number(item.weighted_unit_cost || item.estimated_unit_cost || 0))}</TableCell>
                       <TableCell>
@@ -571,7 +630,8 @@ const InventoryManagement = () => {
                         </div>
                       </TableCell>
                     </TableRow>
-                  ))}
+                    );
+                  })}
                 </TableBody>
               </Table>
             </TabsContent>
@@ -580,7 +640,7 @@ const InventoryManagement = () => {
               <div className="flex justify-end">
                 <Button onClick={() => setShowLotDialog(true)} className="bg-primary hover:bg-primary/90">
                   <Plus className="mr-2 h-4 w-4" />
-                  Add Lot
+                  Agregar lote
                 </Button>
               </div>
 
@@ -589,23 +649,59 @@ const InventoryManagement = () => {
                   <TableRow>
                     <TableHead>Ítem</TableHead>
                     <TableHead>Lote</TableHead>
-                    <TableHead>Certification</TableHead>
-                    <TableHead>Expiry</TableHead>
-                    <TableHead>Available</TableHead>
-                    <TableHead>Costo unitario</TableHead>
+                    <TableHead>Certificado</TableHead>
+                    <TableHead>Vence</TableHead>
+                    {/* Recibido y disponible por separado — un lote a medio
+                        consumir se veía tan lleno como uno intacto cuando sólo
+                        se mostraba quantity_available (auditoría 2026-08). */}
+                    <TableHead className="text-right">Recibido</TableHead>
+                    <TableHead className="text-right">Disponible</TableHead>
+                    <TableHead className="text-right">Costo unitario</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {lots.map((lot: any) => (
-                    <TableRow key={lot.id}>
-                      <TableCell>{lot.inventory_items?.name || '-'}</TableCell>
-                      <TableCell>{lot.lot_number}</TableCell>
-                      <TableCell>{lot.certification_code || '-'}</TableCell>
-                      <TableCell>{lot.certification_expires_on || '-'}</TableCell>
-                      <TableCell>{Number(lot.quantity_available || 0).toFixed(3)}</TableCell>
-                      <TableCell>{formatCLP(Number(lot.unit_cost || 0))}</TableCell>
-                    </TableRow>
-                  ))}
+                  {lotsLoading && (
+                    <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-8">Cargando lotes…</TableCell></TableRow>
+                  )}
+                  {lotsError && (
+                    <TableRow><TableCell colSpan={6} className="text-center text-red-600 py-8">
+                      No se pudieron cargar los lotes. <button className="underline" onClick={() => refetchLots()}>Reintentar</button>
+                    </TableCell></TableRow>
+                  )}
+                  {!lotsLoading && !lotsError && lots.length === 0 && (
+                    <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-8">Sin lotes todavía.</TableCell></TableRow>
+                  )}
+                  {lots.map((lot: any) => {
+                    const estado = certStatus(lot.certification_expires_on);
+                    const bloqueado = !!lot.blocked_reason;
+                    const disponible = Number(lot.libre ?? lot.quantity_available ?? 0);
+                    return (
+                      <TableRow key={lot.id} className={bloqueado ? 'bg-red-500/5' : undefined}>
+                        <TableCell>{lot.inventory_items?.name || '-'}</TableCell>
+                        <TableCell className="font-mono text-xs">
+                          <div className="flex items-center gap-1.5">
+                            {lot.lot_number}
+                            {bloqueado && (
+                              <span title={lot.blocked_reason} className="inline-flex items-center gap-1 rounded-full bg-red-500/15 px-1.5 py-0.5 text-[10px] text-red-600 dark:text-red-400">
+                                <Lock className="h-3 w-3" /> retenido
+                              </span>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell>{lot.certification_code || '-'}</TableCell>
+                        <TableCell>
+                          {lot.certification_expires_on ? (
+                            <span className={estado === 'vencido' ? 'text-red-600 dark:text-red-400 font-medium' : estado === 'por_vencer' ? 'text-amber-600 dark:text-amber-400' : ''}>
+                              {lot.certification_expires_on}
+                            </span>
+                          ) : '-'}
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums text-muted-foreground">{Number(lot.quantity_received || 0).toFixed(3)}</TableCell>
+                        <TableCell className={`text-right tabular-nums font-medium ${disponible <= 0 ? 'text-muted-foreground' : ''}`}>{disponible.toFixed(3)}</TableCell>
+                        <TableCell className="text-right tabular-nums">{formatCLP(Number(lot.unit_cost || 0))}</TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             </TabsContent>
@@ -614,7 +710,7 @@ const InventoryManagement = () => {
               <div className="flex justify-end">
                 <Button onClick={() => setShowTxDialog(true)} className="bg-primary hover:bg-primary/90">
                   <Plus className="mr-2 h-4 w-4" />
-                  Add Transaction
+                  Agregar movimiento
                 </Button>
               </div>
 
@@ -625,21 +721,21 @@ const InventoryManagement = () => {
                     <TableHead>Tipo</TableHead>
                     <TableHead>Ítem</TableHead>
                     <TableHead>Lote</TableHead>
-                    <TableHead>Qty</TableHead>
+                    <TableHead className="text-right">Cantidad</TableHead>
                     <TableHead>Orden de trabajo</TableHead>
-                    <TableHead>Estimated Total</TableHead>
+                    <TableHead className="text-right">Costo estimado</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {transactions.map((tx: any) => (
                     <TableRow key={tx.id}>
-                      <TableCell>{new Date(tx.created_at).toLocaleString()}</TableCell>
-                      <TableCell>{tx.tx_type}</TableCell>
+                      <TableCell>{new Date(tx.created_at).toLocaleString('es-CL')}</TableCell>
+                      <TableCell>{TX_TYPE_LABEL[tx.tx_type] ?? tx.tx_type}</TableCell>
                       <TableCell>{tx.item_name}</TableCell>
                       <TableCell>{tx.lot_number || '-'}</TableCell>
-                      <TableCell>{Number(tx.quantity).toFixed(3)} {tx.unit}</TableCell>
-                      <TableCell>{tx.ot_number ? `${tx.ot_number} (${tx.client_name || 'No client'})` : '-'}</TableCell>
-                      <TableCell>{formatCLP(Number(tx.estimated_total_cost || 0))}</TableCell>
+                      <TableCell className="text-right tabular-nums">{Number(tx.quantity).toFixed(3)} {tx.unit}</TableCell>
+                      <TableCell>{tx.ot_number ? `${tx.ot_number} (${tx.client_name || 'Sin cliente'})` : '-'}</TableCell>
+                      <TableCell className="text-right tabular-nums">{formatCLP(Number(tx.estimated_total_cost || 0))}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -651,7 +747,7 @@ const InventoryManagement = () => {
                 <CardHeader>
                   <CardTitle className="text-base flex items-center gap-2">
                     <Calculator className="h-4 w-4" />
-                    Estimated Cost Calculator
+                    Calculadora de costo estimado
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
@@ -706,9 +802,9 @@ const InventoryManagement = () => {
       <Dialog open={showItemDialog} onOpenChange={setShowItemDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{editingItem ? 'Edit Inventory Item' : 'Create Inventory Item'}</DialogTitle>
+            <DialogTitle>{editingItem ? 'Editar ítem de inventario' : 'Crear ítem de inventario'}</DialogTitle>
             <DialogDescription>
-              CRUD for tools, supplies, product inputs, and spare parts.
+              Herramientas, insumos, materias primas y repuestos.
             </DialogDescription>
           </DialogHeader>
 
