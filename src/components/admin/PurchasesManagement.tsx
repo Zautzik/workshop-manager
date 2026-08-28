@@ -2,6 +2,7 @@
 import { useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { KpiCard } from '@/components/ui/kpi-card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -24,7 +25,7 @@ import { usePurchases } from '@/hooks/use-admin-queries';
 import { useOTs } from '@/hooks/use-operations-queries';
 import {
   usePurchaseInvoices, useCreateOC, useCreateFactura, useUpdateFactura,
-  useStockItems, useReceiveOC, usePurchaseOrder,
+  useStockItems, useReceiveOC, usePurchaseOrder, useSuppliers,
   type OCRow, type FacturaCompra, type StockItem, type PurchaseOrderLine,
 } from '@/hooks/use-procurement-queries';
 
@@ -105,6 +106,17 @@ const PurchasesManagement = () => {
   const [lineSeq, setLineSeq] = useState(0);
   const { data: stockItems = [] } = useStockItems();
 
+  // "Proveedor" era texto libre — la misma empresa entraba una vez como
+  // "Papeles Bío Bío" y otra como "Distribuidora Andes", y sólo el RUT
+  // (que nadie cruza a mano) delataba que eran la misma. Elegir de la lista
+  // real es lo que evita la próxima variante; a la que ya existen, esta
+  // pantalla no las arregla — es una decisión de negocio, no una migración
+  // automática (auditoría 2026-08).
+  const { data: suppliersData } = useSuppliers();
+  const knownSuppliers = suppliersData?.data ?? [];
+  const NUEVO_PROVEEDOR = '__nuevo_proveedor__';
+  const [supplierPick, setSupplierPick] = useState<string>(NUEVO_PROVEEDOR);
+
   const addLine = () => {
     setLines((ls) => [...ls, { key: lineSeq, item_id: '', quantity: 0, unit_cost: 0 }]);
     setLineSeq((n) => n + 1);
@@ -151,8 +163,19 @@ const PurchasesManagement = () => {
 
   const resetForm = () => {
     setForm({ supplier: '', supplier_rut: '', ot_id: '', total_cost: 0, expected_date: '', certification_details: '', notes: '' });
+    setSupplierPick(NUEVO_PROVEEDOR);
     setLines([]);
     setShowNew(false);
+  };
+
+  const pickSupplier = (value: string) => {
+    setSupplierPick(value);
+    if (value === NUEVO_PROVEEDOR) {
+      setForm((f) => ({ ...f, supplier: '', supplier_rut: '' }));
+      return;
+    }
+    const s = knownSuppliers.find((k) => k.supplier === value);
+    setForm((f) => ({ ...f, supplier: value, supplier_rut: s?.supplier_rut ?? f.supplier_rut }));
   };
 
   const submitOC = async () => {
@@ -203,24 +226,10 @@ const PurchasesManagement = () => {
       <CardContent className="space-y-5">
         {/* KPIs */}
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <div className="rounded-lg border bg-card/60 p-3">
-            <p className="text-xs uppercase tracking-wider text-muted-foreground">Comprometido (en OT)</p>
-            <p className="text-xl font-bold text-sky-600">{formatCLP(kpis.committed)}</p>
-          </div>
-          <div className="rounded-lg border bg-card/60 p-3">
-            <p className="text-xs uppercase tracking-wider text-muted-foreground">Facturado</p>
-            <p className="text-xl font-bold text-emerald-600">{formatCLP(kpis.invoiced)}</p>
-          </div>
-          <div className="rounded-lg border bg-card/60 p-3">
-            <p className="text-xs uppercase tracking-wider text-muted-foreground">Cobran de más</p>
-            <p className="text-xl font-bold text-amber-600">{kpis.discrepancies}</p>
-          </div>
-          <div className="rounded-lg border bg-card/60 p-3">
-            <p className="text-xs uppercase tracking-wider text-muted-foreground">Certificado vencido</p>
-            <p className={`text-xl font-bold ${kpis.certVencidos > 0 ? 'text-red-600' : 'text-muted-foreground'}`}>
-              {kpis.certVencidos}
-            </p>
-          </div>
+          <KpiCard label="Comprometido (en OT)" value={formatCLP(kpis.committed)} tone="info" />
+          <KpiCard label="Facturado" value={formatCLP(kpis.invoiced)} tone="success" />
+          <KpiCard label="Cobran de más" value={String(kpis.discrepancies)} tone={kpis.discrepancies > 0 ? 'warning' : 'default'} />
+          <KpiCard label="Certificado vencido" value={String(kpis.certVencidos)} tone={kpis.certVencidos > 0 ? 'critical' : 'default'} />
         </div>
 
         <Table>
@@ -364,10 +373,29 @@ const PurchasesManagement = () => {
             <DialogDescription>Vincula la compra a una OT para que el costo se refleje en su ledger.</DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
+            <div className="space-y-1.5">
+              <Label>Proveedor</Label>
+              <Select value={supplierPick} onValueChange={pickSupplier}>
+                <SelectTrigger><SelectValue placeholder="Elegí un proveedor…" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={NUEVO_PROVEEDOR}>+ Proveedor nuevo</SelectItem>
+                  {knownSuppliers.map((s) => (
+                    <SelectItem key={s.supplier} value={s.supplier}>
+                      {s.supplier}{s.supplier_rut ? ` · ${s.supplier_rut}` : ''}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label>Proveedor</Label>
-                <Input value={form.supplier} onChange={(e) => setForm({ ...form, supplier: e.target.value })} />
+                <Label>{supplierPick === NUEVO_PROVEEDOR ? 'Nombre del proveedor' : 'Nombre (de la lista)'}</Label>
+                <Input
+                  value={form.supplier}
+                  disabled={supplierPick !== NUEVO_PROVEEDOR}
+                  onChange={(e) => setForm({ ...form, supplier: e.target.value })}
+                  placeholder="Razón social"
+                />
               </div>
               <div className="space-y-1.5">
                 <Label>RUT proveedor</Label>
