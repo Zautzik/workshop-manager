@@ -1,6 +1,7 @@
 'use client';
 import { useMemo, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { KpiCard } from '@/components/ui/kpi-card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -24,7 +25,12 @@ const isExpired = (c: SupplierCertification) => !!c.expires_on && new Date(c.exp
 type DialogState = { mode: 'edit'; supplier: Supplier } | { mode: 'create' } | null;
 
 export function SuppliersDirectory() {
-  const { data } = useSuppliers();
+  // "Cargando" y "sin proveedores" se veían idénticos — un fetch que todavía
+  // no volvió mostraba la misma fila vacía que un directorio genuinamente
+  // sin nadie. En esta pantalla las tres consultas del lado del servidor
+  // (OCs, perfiles, categorías) tardan lo suficiente para que la diferencia
+  // se note (auditoría 2026-08).
+  const { data, isLoading, isError, refetch } = useSuppliers();
   const suppliers = data?.data ?? [];
   const totals = data?.totals;
   const [dialog, setDialog] = useState<DialogState>(null);
@@ -32,10 +38,10 @@ export function SuppliersDirectory() {
   return (
     <div className="space-y-5">
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <Kpi label="Proveedores" value={String(totals?.count ?? 0)} hint="en el directorio" tint="text-foreground" />
-        <Kpi label="Comprado (histórico)" value={formatCLP(totals?.spend ?? 0)} hint="suma de OCs" tint="text-orange-600" />
-        <Kpi label="PEFC certificados" value={String(totals?.pefc ?? 0)} hint="cadena de custodia" tint="text-green-600" />
-        <Kpi label="OCs abiertas" value={String(totals?.open ?? 0)} hint="sin cerrar/anular" tint="text-sky-600" />
+        <KpiCard label="Proveedores" value={String(totals?.count ?? 0)} hint="en el directorio" tone="default" />
+        <KpiCard label="Comprado (histórico)" value={formatCLP(totals?.spend ?? 0)} hint="suma de OCs" tone="warning" />
+        <KpiCard label="PEFC certificados" value={String(totals?.pefc ?? 0)} hint="cadena de custodia" tone="success" />
+        <KpiCard label="OCs abiertas" value={String(totals?.open ?? 0)} hint="sin cerrar/anular" tone="info" />
       </div>
 
       <Card>
@@ -58,7 +64,15 @@ export function SuppliersDirectory() {
                 <th className="text-right py-2 px-2 font-medium"></th>
               </tr></thead>
               <tbody>
-                {suppliers.length === 0 && (
+                {isLoading && (
+                  <tr><td colSpan={6} className="text-center text-muted-foreground py-8">Cargando proveedores…</td></tr>
+                )}
+                {isError && (
+                  <tr><td colSpan={6} className="text-center text-red-600 py-8">
+                    No se pudo cargar el directorio. <button className="underline" onClick={() => refetch()}>Reintentar</button>
+                  </td></tr>
+                )}
+                {!isLoading && !isError && suppliers.length === 0 && (
                   <tr><td colSpan={6} className="text-center text-muted-foreground py-8">
                     <Building2 className="h-8 w-8 mx-auto mb-2 opacity-30" />Sin proveedores aún.
                   </td></tr>
@@ -269,12 +283,3 @@ function SupplierDialog({ state, onClose }: { state: DialogState; onClose: () =>
   );
 }
 
-function Kpi({ label, value, hint, tint }: { label: string; value: string; hint: string; tint: string }) {
-  return (
-    <div className="rounded-lg border bg-card/60 p-3">
-      <p className="text-xs uppercase tracking-wider text-muted-foreground">{label}</p>
-      <p className={`text-xl font-bold ${tint}`}>{value}</p>
-      <p className="text-[11px] text-muted-foreground mt-0.5">{hint}</p>
-    </div>
-  );
-}
