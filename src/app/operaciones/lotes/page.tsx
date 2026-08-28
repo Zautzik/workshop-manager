@@ -24,6 +24,8 @@ import { certStatus, CERT_LABELS } from '@/lib/purchasing';
  */
 function LotesInner() {
 	const [elegidos, setElegidos] = useState<Set<string>>(new Set());
+	const [busqueda, setBusqueda] = useState('');
+	const [soloConProblema, setSoloConProblema] = useState(false);
 
 	const { data: lotes = [], isLoading } = useQuery({
 		queryKey: ['lotes-bodega'],
@@ -50,6 +52,18 @@ function LotesInner() {
 		const e = certStatus(l.certification_expires_on);
 		return e === 'vencido' || e === 'sin_certificado' || (l as { blocked_reason?: string }).blocked_reason;
 	});
+	const idsConProblema = new Set(conProblema.map((l) => l.id));
+
+	// Hasta 200 lotes en una sola lista: sin buscador esto es puro scroll.
+	const query = busqueda.trim().toLowerCase();
+	const lotesVisibles = lotes.filter((l) => {
+		if (soloConProblema && !idsConProblema.has(l.id)) return false;
+		if (!query) return true;
+		const numero = String(l.lot_number ?? '').toLowerCase();
+		const nombre = String(l.inventory_items?.name ?? '').toLowerCase();
+		const proveedor = String(l.supplier_name ?? '').toLowerCase();
+		return numero.includes(query) || nombre.includes(query) || proveedor.includes(query);
+	});
 
 	return (
 		<div className="space-y-4 p-6 md:p-8">
@@ -75,11 +89,28 @@ function LotesInner() {
 						<p className="text-sm text-red-700 dark:text-red-400">
 							<span className="font-semibold">{conProblema.length}</span>{' '}
 							{conProblema.length === 1 ? 'lote no puede' : 'lotes no pueden'} entrar a producción
-							sin autorización escrita. Están marcados abajo.
+							sin autorización escrita.{' '}
+							<button
+								type="button"
+								onClick={() => setSoloConProblema((v) => !v)}
+								className="font-semibold underline underline-offset-2"
+							>
+								{soloConProblema ? 'Ver todos' : 'Ver sólo éstos'}
+							</button>
 						</p>
 					</CardContent>
 				</Card>
 			)}
+
+			<div className="print:hidden">
+				<input
+					type="text"
+					value={busqueda}
+					onChange={(e) => setBusqueda(e.target.value)}
+					placeholder="Buscar por número de lote, ítem o proveedor…"
+					className="w-full max-w-md rounded-lg border border-input bg-card px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+				/>
+			</div>
 
 			{/* La lista. En pantalla se elige; al imprimir desaparece. */}
 			<div className="space-y-1.5 print:hidden">
@@ -89,7 +120,12 @@ function LotesInner() {
 						No hay lotes. Entran al recibir una orden de compra.
 					</p>
 				)}
-				{lotes.map((l) => {
+				{!isLoading && lotes.length > 0 && lotesVisibles.length === 0 && (
+					<p className="py-8 text-center text-sm text-muted-foreground">
+						Nada calza con esa búsqueda o filtro.
+					</p>
+				)}
+				{lotesVisibles.map((l) => {
 					const estado = certStatus(l.certification_expires_on);
 					const retenido = (l as { blocked_reason?: string | null }).blocked_reason;
 					const problema = estado === 'vencido' || estado === 'sin_certificado' || !!retenido;

@@ -133,6 +133,8 @@ function stockState(current: number, min: number, everReceived: boolean) {
   return { key: 'ok' as const, label: 'Disponible', dot: 'bg-emerald-500', text: 'text-emerald-600 dark:text-emerald-400' };
 }
 
+const STOCK_ORDER: Record<string, number> = { nunca: 0, agotado: 0, bajo: 1, ok: 2 };
+
 const InventoryManagement = () => {
   const { t } = useLanguage();
   const { data: items = [], refetch: refetchItems } = useInventoryItems();
@@ -146,6 +148,7 @@ const InventoryManagement = () => {
   const [showTxDialog, setShowTxDialog] = useState(false);
   const [editingItem, setEditingItem] = useState<any>(null);
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
+  const [materialFilter, setMaterialFilter] = useState<string>('all');
   const [scanSearch, setScanSearch] = useState('');
   const [alertsOpen, setAlertsOpen] = useState(false);
   const [neverOpen, setNeverOpen] = useState(false);
@@ -194,21 +197,23 @@ const InventoryManagement = () => {
   });
 
   const filteredItems = useMemo(() => {
-    const byCategory = categoryFilter === 'all'
+    let out = categoryFilter === 'all'
       ? items
       : items.filter((item: any) => item.category === categoryFilter);
 
-    const query = scanSearch.trim().toLowerCase();
-    if (!query) return byCategory;
+    if (materialFilter !== 'all') out = out.filter((item: any) => item.material_kind === materialFilter);
 
-    return byCategory.filter((item: any) => {
+    const query = scanSearch.trim().toLowerCase();
+    if (!query) return out;
+
+    return out.filter((item: any) => {
       const sku = String(item.sku || '').toLowerCase();
       const name = String(item.name || '').toLowerCase();
       const barcode = String(item.barcode_value || '').toLowerCase();
       const qr = String(item.qr_value || '').toLowerCase();
       return sku.includes(query) || name.includes(query) || barcode.includes(query) || qr.includes(query);
     });
-  }, [items, categoryFilter, scanSearch]);
+  }, [items, categoryFilter, materialFilter, scanSearch]);
 
   // Un ítem en 0 puede ser dos cosas muy distintas: nunca entró un lote suyo a
   // bodega (estructural — se resuelve con la primera OC), o entró y ya se
@@ -220,6 +225,27 @@ const InventoryManagement = () => {
   const everReceivedIds = useMemo(
     () => new Set(lots.map((l: any) => l.item_id).filter(Boolean)),
     [lots],
+  );
+
+  // Ordenado por urgencia, no por SKU — lo que necesita atención sube solo
+  // arriba en vez de esperar en la fila 24 a que alguien scrollee hasta ahí.
+  const sortedItems = useMemo(() => {
+    return [...filteredItems].sort((a: any, b: any) => {
+      const sa = stockState(Number(a.current_stock || 0), Number(a.min_stock || 0), everReceivedIds.has(a.id));
+      const sb = stockState(Number(b.current_stock || 0), Number(b.min_stock || 0), everReceivedIds.has(b.id));
+      const oa = sa.key === 'agotado' ? -1 : STOCK_ORDER[sa.key];
+      const ob = sb.key === 'agotado' ? -1 : STOCK_ORDER[sb.key];
+      if (oa !== ob) return oa - ob;
+      return String(a.name || '').localeCompare(String(b.name || ''));
+    });
+  }, [filteredItems, everReceivedIds]);
+
+  // La franja de arriba respeta el filtro activo — buscar "cartulina" no debe
+  // seguir mostrando la urgencia de la tinta que ya no aparece en la grilla.
+  const urgentInView = useMemo(
+    () => sortedItems.filter((item: any) =>
+      stockState(Number(item.current_stock || 0), Number(item.min_stock || 0), everReceivedIds.has(item.id)).key === 'agotado'),
+    [sortedItems, everReceivedIds],
   );
 
   // La misma alarma para "nunca se ha comprado" y "se agotó" es la que hace
@@ -582,58 +608,105 @@ const InventoryManagement = () => {
                 </Button>
               </div>
 
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>SKU</TableHead>
-                    <TableHead>Código de barras</TableHead>
-                    <TableHead>QR</TableHead>
-                    <TableHead>Nombre</TableHead>
-                    <TableHead>Categoría</TableHead>
-                    <TableHead>Familia</TableHead>
-                    <TableHead>Stock</TableHead>
-                    <TableHead>Stock mínimo</TableHead>
-                    <TableHead>Costo promedio</TableHead>
-                    <TableHead>{t('actions')}</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredItems.map((item: any) => {
-                    const st = stockState(Number(item.current_stock || 0), Number(item.min_stock || 0), everReceivedIds.has(item.id));
-                    return (
-                    <TableRow key={item.id}>
-                      <TableCell>{item.sku}</TableCell>
-                      <TableCell>{item.barcode_value || '-'}</TableCell>
-                      <TableCell>{item.qr_value || '-'}</TableCell>
-                      <TableCell>{item.name}</TableCell>
-                      <TableCell>{getCategoryLabel(item.category)}</TableCell>
-                      <TableCell>{getMaterialKindLabel(item.material_kind)}</TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-1.5">
-                          <span className={`h-2 w-2 shrink-0 rounded-full ${st.dot}`} title={st.label} />
-                          <span className={st.key === 'ok' ? '' : `${st.text} font-medium`}>
-                            {Number(item.current_stock || 0).toFixed(3)} {item.unit}
-                          </span>
+              {/* Familia, aparte de Categoría: son dos preguntas distintas
+                  (durable-vs-consumible contra papel-vs-tinta-vs-envase), y
+                  cruzarlas acá es exactamente lo que el catálogo ahora sabe
+                  hacer (auditoría 2026-08). */}
+              <div className="flex flex-wrap gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setMaterialFilter('all')}
+                  className={`rounded-full border px-3 py-1 text-xs font-mono transition-colors ${
+                    materialFilter === 'all' ? 'border-foreground bg-foreground text-background' : 'border-input text-muted-foreground hover:border-foreground/40'
+                  }`}
+                >
+                  Todas las familias
+                </button>
+                {MATERIAL_KIND_OPTIONS.map((k) => (
+                  <button
+                    key={k.value}
+                    type="button"
+                    onClick={() => setMaterialFilter(k.value)}
+                    className={`rounded-full border px-3 py-1 text-xs font-mono transition-colors ${
+                      materialFilter === k.value ? 'border-foreground bg-foreground text-background' : 'border-input text-muted-foreground hover:border-foreground/40'
+                    }`}
+                  >
+                    {k.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Lo urgente, antes que nada — y respeta el filtro activo: si
+                  se busca "cartulina", acá no aparece la tinta que ya no se
+                  ve en la grilla de abajo. */}
+              {urgentInView.length > 0 && (
+                <div className="rounded-lg border border-destructive/40 bg-destructive/5 px-3 py-2.5">
+                  <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-destructive mb-1.5">
+                    <AlertTriangle className="h-3.5 w-3.5" />
+                    Necesita atención ahora ({urgentInView.length})
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {urgentInView.map((item: any) => (
+                      <span key={item.id} className="rounded-md border border-destructive/40 bg-background px-2 py-0.5 text-[11px] font-mono text-destructive">
+                        {item.sku}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {sortedItems.length === 0 && (
+                <p className="py-12 text-center text-sm text-muted-foreground">Nada calza con ese filtro o búsqueda.</p>
+              )}
+
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                {sortedItems.map((item: any) => {
+                  const st = stockState(Number(item.current_stock || 0), Number(item.min_stock || 0), everReceivedIds.has(item.id));
+                  // Barra relativa a 2x el mínimo: al mínimo justo se ve a
+                  // medio llenar, no llena — un stock "apenas alcanza" no
+                  // debería leerse igual de bien que uno sobrado.
+                  const min = Number(item.min_stock || 0);
+                  const stock = Number(item.current_stock || 0);
+                  const pct = min > 0 ? Math.min(100, Math.round((stock / (min * 2)) * 100)) : (stock > 0 ? 100 : 0);
+                  return (
+                    <div key={item.id} className="flex flex-col gap-2 rounded-lg border bg-card p-3">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-medium leading-tight" title={item.name}>{item.name}</p>
+                          <p className="font-mono text-[11px] text-muted-foreground">{item.sku}</p>
                         </div>
-                        {st.key !== 'ok' && <span className={`text-[11px] ${st.text}`}>{st.label}</span>}
-                      </TableCell>
-                      <TableCell>{Number(item.min_stock || 0).toFixed(3)} {item.unit}</TableCell>
-                      <TableCell>{formatCLP(Number(item.weighted_unit_cost || item.estimated_unit_cost || 0))}</TableCell>
-                      <TableCell>
-                        <div className="flex gap-2">
-                          <Button variant="outline" size="icon" onClick={() => openEditDialog(item)}>
-                            <Pencil className="h-4 w-4" />
+                        <span className="shrink-0 rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-mono text-muted-foreground">
+                          {getMaterialKindLabel(item.material_kind)}
+                        </span>
+                      </div>
+
+                      <div className="h-1.5 overflow-hidden rounded-full bg-muted">
+                        <div className={`h-full rounded-full ${st.dot}`} style={{ width: `${pct}%` }} />
+                      </div>
+                      <div className="flex items-center justify-between font-mono text-[11px] text-muted-foreground">
+                        <span className={st.key === 'ok' ? '' : `${st.text} font-semibold`}>
+                          {stock.toLocaleString('es-CL')} {item.unit}
+                        </span>
+                        <span>mín. {min.toLocaleString('es-CL')}</span>
+                      </div>
+                      <span className={`text-[11px] font-mono font-medium ${st.text}`}>{st.label}</span>
+
+                      <div className="flex items-center justify-between border-t pt-2 mt-1">
+                        <span className="text-xs text-muted-foreground">{getCategoryLabel(item.category)}</span>
+                        <div className="flex items-center gap-1">
+                          <span className="text-xs font-medium">{formatCLP(Number(item.weighted_unit_cost || item.estimated_unit_cost || 0))}</span>
+                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEditDialog(item)}>
+                            <Pencil className="h-3.5 w-3.5" />
                           </Button>
-                          <Button variant="outline" size="icon" onClick={() => handleDeleteItem(item.id)}>
-                            <Trash2 className="h-4 w-4" />
+                          <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive" onClick={() => handleDeleteItem(item.id)}>
+                            <Trash2 className="h-3.5 w-3.5" />
                           </Button>
                         </div>
-                      </TableCell>
-                    </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </TabsContent>
 
             <TabsContent value="lots" className="space-y-4">
