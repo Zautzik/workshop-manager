@@ -1,4 +1,5 @@
 import type { LucideIcon } from 'lucide-react';
+import type { ReactNode } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 /**
@@ -18,6 +19,8 @@ export interface KpiCardProps {
 	/** Color del ícono, la etiqueta y el valor — semántico, no decorativo. */
 	tone?: 'default' | 'primary' | 'warning' | 'critical' | 'success' | 'info';
 	borderTone?: boolean;
+	/** Contenido extra bajo el valor — para que la tarjeta no sea sólo un número flotando en espacio vacío. */
+	children?: ReactNode;
 }
 
 const TONE_CLASSES: Record<NonNullable<KpiCardProps['tone']>, { text: string; border: string }> = {
@@ -29,7 +32,7 @@ const TONE_CLASSES: Record<NonNullable<KpiCardProps['tone']>, { text: string; bo
 	info: { text: 'text-sky-600 dark:text-sky-400', border: 'border-sky-500/30' },
 };
 
-export function KpiCard({ icon: Icon, label, value, hint, tone = 'default', borderTone = true }: KpiCardProps) {
+export function KpiCard({ icon: Icon, label, value, hint, tone = 'default', borderTone = true, children }: KpiCardProps) {
 	const cls = TONE_CLASSES[tone];
 	return (
 		<Card className={borderTone ? cls.border : undefined}>
@@ -42,6 +45,7 @@ export function KpiCard({ icon: Icon, label, value, hint, tone = 'default', bord
 			<CardContent>
 				<p className={`text-2xl font-bold ${tone === 'default' ? '' : cls.text}`}>{value}</p>
 				{hint && <p className="text-[11px] text-muted-foreground mt-0.5">{hint}</p>}
+				{children && <div className="mt-3">{children}</div>}
 			</CardContent>
 		</Card>
 	);

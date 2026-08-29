@@ -114,6 +114,48 @@ const getMaterialKindLabel = (value?: string | null) => {
   return found?.label || (value ? value : 'Sin clasificar');
 };
 
+// Colores por familia, deliberadamente lejos de rojo/ámbar/verde — esos tres
+// ya significan algo (agotado/bajo/disponible) y una familia con el mismo
+// tono se leería como una alarma de stock que no es.
+const FAMILY_STYLES: Record<string, { chip: string; dot: string; bar: string; border: string }> = {
+  papel: { chip: 'bg-sky-500/15 text-sky-700 dark:text-sky-300', dot: 'bg-sky-500', bar: 'bg-sky-500', border: 'border-l-sky-500' },
+  tinta_especial: { chip: 'bg-violet-500/15 text-violet-700 dark:text-violet-300', dot: 'bg-violet-500', bar: 'bg-violet-500', border: 'border-l-violet-500' },
+  envase: { chip: 'bg-teal-500/15 text-teal-700 dark:text-teal-300', dot: 'bg-teal-500', bar: 'bg-teal-500', border: 'border-l-teal-500' },
+  servicio: { chip: 'bg-slate-500/15 text-slate-700 dark:text-slate-300', dot: 'bg-slate-500', bar: 'bg-slate-500', border: 'border-l-slate-500' },
+  insumo: { chip: 'bg-fuchsia-500/15 text-fuchsia-700 dark:text-fuchsia-300', dot: 'bg-fuchsia-500', bar: 'bg-fuchsia-500', border: 'border-l-fuchsia-500' },
+  herramental: { chip: 'bg-indigo-500/15 text-indigo-700 dark:text-indigo-300', dot: 'bg-indigo-500', bar: 'bg-indigo-500', border: 'border-l-indigo-500' },
+  otro: { chip: 'bg-zinc-500/15 text-zinc-700 dark:text-zinc-300', dot: 'bg-zinc-500', bar: 'bg-zinc-500', border: 'border-l-zinc-500' },
+};
+const familyStyle = (kind?: string | null) => FAMILY_STYLES[String(kind)] ?? FAMILY_STYLES.otro;
+
+/**
+ * "Couche sheet 115gsm" y "Couche sheet 150gsm" son el mismo producto en dos
+ * gramajes — no dos productos que compiten por atención en la grilla. Se
+ * corta el nombre en el primer token que empieza con un dígito: todo lo de
+ * antes es el producto, todo lo de después es lo que lo distingue de sus
+ * hermanos (auditoría 2026-08, feedback directo: "buscar un couche 150 entre
+ * couches que se ven idénticos es una misión").
+ */
+function splitVariant(name: string): { base: string; spec: string } {
+  const tokens = String(name || '').trim().split(/\s+/);
+  const idx = tokens.findIndex((t) => /^[0-9]/.test(t));
+  if (idx <= 0) return { base: name.trim(), spec: '' };
+  const base = tokens.slice(0, idx).join(' ');
+  const spec = tokens.slice(idx).join(' ');
+  if (base.length < 3) return { base: name.trim(), spec: '' };
+  return { base, spec };
+}
+
+function specNumber(spec: string): number | null {
+  const m = spec.match(/[0-9]+(?:[.,][0-9]+)?/);
+  return m ? parseFloat(m[0].replace(',', '.')) : null;
+}
+
+function specUnit(spec: string): string {
+  const m = spec.match(/[0-9](?:[.,][0-9]+)?\s*([a-zA-Zµ×]+)/);
+  return m ? m[1] : '';
+}
+
 /**
  * Tres estados, no uno. "Nunca recibido" y "agotado" se ven idénticos en el
  * número (0) pero significan cosas distintas — el primero es estructural
@@ -149,6 +191,7 @@ const InventoryManagement = () => {
   const [editingItem, setEditingItem] = useState<any>(null);
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [materialFilter, setMaterialFilter] = useState<string>('all');
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const [scanSearch, setScanSearch] = useState('');
   const [alertsOpen, setAlertsOpen] = useState(false);
   const [neverOpen, setNeverOpen] = useState(false);
@@ -270,6 +313,186 @@ const InventoryManagement = () => {
     }, 0);
   }, [items]);
 
+  // Cuántos ítems y cuánto valor hay por familia — lo que llenaba las
+  // tarjetas de KPI de espacio vacío ahora muestra la distribución real del
+  // catálogo, no sólo un número suelto (feedback directo sobre la grilla).
+  const familyBreakdown = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const item of items) {
+      const key = item.material_kind || 'otro';
+      counts.set(key, (counts.get(key) || 0) + 1);
+    }
+    return MATERIAL_KIND_OPTIONS
+      .map((k) => ({ key: k.value, label: k.label, count: counts.get(k.value) || 0 }))
+      .filter((f) => f.count > 0)
+      .sort((a, b) => b.count - a.count);
+  }, [items]);
+
+  const valueByFamily = useMemo(() => {
+    const values = new Map<string, number>();
+    for (const item of items) {
+      const key = item.material_kind || 'otro';
+      const stock = Number(item.current_stock || 0);
+      const cost = Number(item.weighted_unit_cost || item.estimated_unit_cost || 0);
+      values.set(key, (values.get(key) || 0) + stock * cost);
+    }
+    const total = Array.from(values.values()).reduce((s, v) => s + v, 0) || 1;
+    return MATERIAL_KIND_OPTIONS
+      .map((k) => ({ key: k.value, label: k.label, value: values.get(k.value) || 0, pct: ((values.get(k.value) || 0) / total) * 100 }))
+      .filter((f) => f.value > 0)
+      .sort((a, b) => b.value - a.value);
+  }, [items]);
+
+  const neverReceivedByFamily = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const a of neverReceived) {
+      const full = items.find((i: any) => i.id === a.id);
+      const key = full?.material_kind || 'otro';
+      counts.set(key, (counts.get(key) || 0) + 1);
+    }
+    return MATERIAL_KIND_OPTIONS
+      .map((k) => ({ key: k.value, label: k.label, count: counts.get(k.value) || 0 }))
+      .filter((f) => f.count > 0)
+      .sort((a, b) => b.count - a.count);
+  }, [neverReceived, items]);
+
+  // Agrupar variantes de un mismo producto (mismo nombre base, misma
+  // familia) para que "Couche 150" y "Couche 200" sean una tarjeta que se
+  // abre, no dos tarjetas casi idénticas compitiendo por el ojo. Se
+  // desactiva mientras se busca texto: ahí la búsqueda ya hace el trabajo de
+  // encontrar el ítem exacto, agrupar sólo estorbaría.
+  const itemGroups = useMemo(() => {
+    type Group = { key: string; base: string; familia: string; items: any[] };
+    const map = new Map<string, Group>();
+    for (const item of sortedItems) {
+      const { base } = splitVariant(item.name);
+      const key = `${item.material_kind || 'otro'}::${base.toLowerCase()}`;
+      if (!map.has(key)) map.set(key, { key, base, familia: item.material_kind, items: [] });
+      map.get(key)!.items.push(item);
+    }
+    for (const g of map.values()) {
+      g.items.sort((a, b) => {
+        const na = specNumber(splitVariant(a.name).spec);
+        const nb = specNumber(splitVariant(b.name).spec);
+        if (na != null && nb != null && na !== nb) return na - nb;
+        return String(a.name || '').localeCompare(String(b.name || ''));
+      });
+    }
+    return Array.from(map.values());
+  }, [sortedItems]);
+
+  const isSearching = scanSearch.trim().length > 0;
+
+  const toggleGroup = (key: string) =>
+    setExpandedGroups((s) => {
+      const n = new Set(s);
+      if (n.has(key)) n.delete(key);
+      else n.add(key);
+      return n;
+    });
+
+  const renderItemCard = (item: any) => {
+    const st = stockState(Number(item.current_stock || 0), Number(item.min_stock || 0), everReceivedIds.has(item.id));
+    // Barra relativa a 2x el mínimo: al mínimo justo se ve a medio llenar,
+    // no llena — un stock "apenas alcanza" no debería leerse igual de bien
+    // que uno sobrado.
+    const min = Number(item.min_stock || 0);
+    const stock = Number(item.current_stock || 0);
+    const pct = min > 0 ? Math.min(100, Math.round((stock / (min * 2)) * 100)) : (stock > 0 ? 100 : 0);
+    const fs = familyStyle(item.material_kind);
+    return (
+      <div key={item.id} className={`flex flex-col gap-2 rounded-lg border border-l-4 ${fs.border} bg-card p-3`}>
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0">
+            <p className="truncate text-sm font-medium leading-tight" title={item.name}>{item.name}</p>
+            <p className="font-mono text-[11px] text-muted-foreground">{item.sku}</p>
+          </div>
+          <span className={`shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-medium ${fs.chip}`}>
+            {getMaterialKindLabel(item.material_kind)}
+          </span>
+        </div>
+
+        <div className="h-1.5 overflow-hidden rounded-full bg-muted">
+          <div className={`h-full rounded-full ${st.dot}`} style={{ width: `${pct}%` }} />
+        </div>
+        <div className="flex items-center justify-between font-mono text-[11px] text-muted-foreground">
+          <span className={st.key === 'ok' ? '' : `${st.text} font-semibold`}>
+            {stock.toLocaleString('es-CL')} {item.unit}
+          </span>
+          <span>mín. {min.toLocaleString('es-CL')}</span>
+        </div>
+        <span className={`text-[11px] font-mono font-medium ${st.text}`}>{st.label}</span>
+
+        <div className="flex items-center justify-between border-t pt-2 mt-1">
+          <span className="text-xs text-muted-foreground">{getCategoryLabel(item.category)}</span>
+          <div className="flex items-center gap-1">
+            <span className="text-xs font-medium">{formatCLP(Number(item.weighted_unit_cost || item.estimated_unit_cost || 0))}</span>
+            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEditDialog(item)}>
+              <Pencil className="h-3.5 w-3.5" />
+            </Button>
+            <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive" onClick={() => handleDeleteItem(item.id)}>
+              <Trash2 className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderGroupCard = (group: { key: string; base: string; familia: string; items: any[] }) => {
+    const fs = familyStyle(group.familia);
+    const expanded = expandedGroups.has(group.key);
+
+    // El peor estado entre las variantes, para que la tarjeta cerrada no
+    // esconda una emergencia detrás de un "3 variantes" neutro.
+    let worst = stockState(Number(group.items[0].current_stock || 0), Number(group.items[0].min_stock || 0), everReceivedIds.has(group.items[0].id));
+    let worstOrder = worst.key === 'agotado' ? -1 : STOCK_ORDER[worst.key];
+    for (const it of group.items) {
+      const s = stockState(Number(it.current_stock || 0), Number(it.min_stock || 0), everReceivedIds.has(it.id));
+      const order = s.key === 'agotado' ? -1 : STOCK_ORDER[s.key];
+      if (order < worstOrder) { worst = s; worstOrder = order; }
+    }
+
+    const specs = group.items
+      .map((it) => specNumber(splitVariant(it.name).spec))
+      .filter((n): n is number => n != null)
+      .sort((a, b) => a - b);
+    const unit = specUnit(splitVariant(group.items[0].name).spec);
+    const specLabel = specs.length
+      ? (specs[0] === specs[specs.length - 1] ? `${specs[0]}${unit}` : `${specs[0]}–${specs[specs.length - 1]}${unit}`)
+      : null;
+
+    return (
+      <div key={group.key} className={`rounded-lg border border-l-4 ${fs.border} bg-card ${expanded ? 'col-span-full' : ''}`}>
+        <button type="button" onClick={() => toggleGroup(group.key)} className="flex w-full flex-col gap-2 p-3 text-left">
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0">
+              <p className="truncate text-sm font-medium leading-tight" title={group.base}>{group.base}</p>
+              {specLabel && <p className="font-mono text-[11px] text-muted-foreground">{specLabel}</p>}
+            </div>
+            <div className="flex shrink-0 items-center gap-1.5">
+              <span className={`rounded-md px-1.5 py-0.5 text-[10px] font-medium ${fs.chip}`}>
+                {getMaterialKindLabel(group.familia)}
+              </span>
+              <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${expanded ? 'rotate-180' : ''}`} />
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className={`h-2 w-2 shrink-0 rounded-full ${worst.dot}`} />
+            <span className={`text-[11px] font-medium ${worst.text}`}>{worst.label}</span>
+            <span className="text-[11px] text-muted-foreground">· {group.items.length} variantes</span>
+          </div>
+        </button>
+
+        {expanded && (
+          <div className="grid grid-cols-1 gap-3 border-t p-3 sm:grid-cols-2 lg:grid-cols-4">
+            {group.items.map((it) => renderItemCard(it))}
+          </div>
+        )}
+      </div>
+    );
+  };
+
   const estimatedSelection = useMemo(() => {
     const selected = items.find((item: any) => item.id === calculator.item_id);
     if (!selected) return null;
@@ -346,7 +569,7 @@ const InventoryManagement = () => {
 
   const handleSaveItem = async () => {
     if (!itemForm.sku.trim() || !itemForm.name.trim()) {
-      toast.error('Indica el SKU y el nombre');
+      toast.error('Indica el código y el nombre');
       return;
     }
 
@@ -504,15 +727,64 @@ const InventoryManagement = () => {
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <KpiCard icon={Boxes} label="Total de SKUs" value={String(items.length)} tone="primary" />
-        <KpiCard label="Valor estimado de stock" value={formatCLP(totalStockValue)} tone="primary" />
+        <KpiCard icon={Boxes} label="Total de ítems" value={String(items.length)} tone="primary">
+          <div className="flex flex-wrap gap-1.5">
+            {familyBreakdown.map((f) => (
+              <span key={f.key} className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium ${familyStyle(f.key).chip}`}>
+                <span className={`h-1.5 w-1.5 rounded-full ${familyStyle(f.key).dot}`} />
+                {f.label} {f.count}
+              </span>
+            ))}
+          </div>
+        </KpiCard>
+
+        <KpiCard label="Valor estimado de stock" value={formatCLP(totalStockValue)} tone="primary">
+          <div className="flex h-2 overflow-hidden rounded-full bg-muted">
+            {valueByFamily.map((f) => (
+              <span key={f.key} className={familyStyle(f.key).bar} style={{ width: `${f.pct}%` }} title={`${f.label}: ${formatCLP(f.value)}`} />
+            ))}
+          </div>
+          <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
+            {valueByFamily.slice(0, 3).map((f) => (
+              <span key={f.key} className="inline-flex items-center gap-1">
+                <span className={`h-1.5 w-1.5 rounded-full ${familyStyle(f.key).dot}`} />
+                {f.label} {f.pct.toFixed(0)}%
+              </span>
+            ))}
+          </div>
+        </KpiCard>
+
         <KpiCard
           icon={AlertTriangle}
           label="Necesita una OC"
           value={String(needsAction.length)}
           tone={needsAction.length > 0 ? 'critical' : 'primary'}
-          hint={neverReceived.length > 0 ? `+ ${neverReceived.length} nunca recibidos (no es urgente, es un hueco del catálogo)` : undefined}
-        />
+        >
+          {needsAction.length > 0 ? (
+            <div className="flex flex-wrap gap-1">
+              {needsAction.slice(0, 6).map((a: any) => (
+                <span key={a.id} className="rounded-md border border-destructive/40 bg-destructive/5 px-1.5 py-0.5 font-mono text-[10px] text-destructive">
+                  {a.sku}
+                </span>
+              ))}
+              {needsAction.length > 6 && <span className="text-[11px] text-muted-foreground">+{needsAction.length - 6} más</span>}
+            </div>
+          ) : neverReceived.length > 0 ? (
+            <div>
+              <p className="text-[11px] text-muted-foreground mb-1.5">
+                {neverReceived.length} sin comprar todavía (no es urgente, es un hueco del catálogo), por familia:
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                {neverReceivedByFamily.map((f) => (
+                  <span key={f.key} className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium ${familyStyle(f.key).chip}`}>
+                    <span className={`h-1.5 w-1.5 rounded-full ${familyStyle(f.key).dot}`} />
+                    {f.label} {f.count}
+                  </span>
+                ))}
+              </div>
+            </div>
+          ) : null}
+        </KpiCard>
       </div>
 
       {needsAction.length > 0 && (
@@ -598,7 +870,7 @@ const InventoryManagement = () => {
                     value={scanSearch}
                     onChange={(e) => setScanSearch(e.target.value)}
                     className="w-80"
-                    placeholder="Escanee/Busque SKU, código de barras o QR"
+                    placeholder="Escanee/Busque por nombre, código, código de barras o QR"
                   />
                 </div>
 
@@ -616,24 +888,29 @@ const InventoryManagement = () => {
                 <button
                   type="button"
                   onClick={() => setMaterialFilter('all')}
-                  className={`rounded-full border px-3 py-1 text-xs font-mono transition-colors ${
+                  className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
                     materialFilter === 'all' ? 'border-foreground bg-foreground text-background' : 'border-input text-muted-foreground hover:border-foreground/40'
                   }`}
                 >
                   Todas las familias
                 </button>
-                {MATERIAL_KIND_OPTIONS.map((k) => (
-                  <button
-                    key={k.value}
-                    type="button"
-                    onClick={() => setMaterialFilter(k.value)}
-                    className={`rounded-full border px-3 py-1 text-xs font-mono transition-colors ${
-                      materialFilter === k.value ? 'border-foreground bg-foreground text-background' : 'border-input text-muted-foreground hover:border-foreground/40'
-                    }`}
-                  >
-                    {k.label}
-                  </button>
-                ))}
+                {MATERIAL_KIND_OPTIONS.map((k) => {
+                  const fs = familyStyle(k.value);
+                  const active = materialFilter === k.value;
+                  return (
+                    <button
+                      key={k.value}
+                      type="button"
+                      onClick={() => setMaterialFilter(k.value)}
+                      className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
+                        active ? `border-transparent ${fs.chip}` : 'border-input text-muted-foreground hover:border-foreground/40'
+                      }`}
+                    >
+                      <span className={`h-1.5 w-1.5 rounded-full ${fs.dot}`} />
+                      {k.label}
+                    </button>
+                  );
+                })}
               </div>
 
               {/* Lo urgente, antes que nada — y respeta el filtro activo: si
@@ -659,53 +936,16 @@ const InventoryManagement = () => {
                 <p className="py-12 text-center text-sm text-muted-foreground">Nada calza con ese filtro o búsqueda.</p>
               )}
 
+              {!isSearching && (
+                <p className="text-[11px] text-muted-foreground">
+                  Variantes del mismo producto (distinto gramaje o tamaño) están agrupadas — tocá una tarjeta con flecha para abrirla.
+                </p>
+              )}
+
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                {sortedItems.map((item: any) => {
-                  const st = stockState(Number(item.current_stock || 0), Number(item.min_stock || 0), everReceivedIds.has(item.id));
-                  // Barra relativa a 2x el mínimo: al mínimo justo se ve a
-                  // medio llenar, no llena — un stock "apenas alcanza" no
-                  // debería leerse igual de bien que uno sobrado.
-                  const min = Number(item.min_stock || 0);
-                  const stock = Number(item.current_stock || 0);
-                  const pct = min > 0 ? Math.min(100, Math.round((stock / (min * 2)) * 100)) : (stock > 0 ? 100 : 0);
-                  return (
-                    <div key={item.id} className="flex flex-col gap-2 rounded-lg border bg-card p-3">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0">
-                          <p className="truncate text-sm font-medium leading-tight" title={item.name}>{item.name}</p>
-                          <p className="font-mono text-[11px] text-muted-foreground">{item.sku}</p>
-                        </div>
-                        <span className="shrink-0 rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-mono text-muted-foreground">
-                          {getMaterialKindLabel(item.material_kind)}
-                        </span>
-                      </div>
-
-                      <div className="h-1.5 overflow-hidden rounded-full bg-muted">
-                        <div className={`h-full rounded-full ${st.dot}`} style={{ width: `${pct}%` }} />
-                      </div>
-                      <div className="flex items-center justify-between font-mono text-[11px] text-muted-foreground">
-                        <span className={st.key === 'ok' ? '' : `${st.text} font-semibold`}>
-                          {stock.toLocaleString('es-CL')} {item.unit}
-                        </span>
-                        <span>mín. {min.toLocaleString('es-CL')}</span>
-                      </div>
-                      <span className={`text-[11px] font-mono font-medium ${st.text}`}>{st.label}</span>
-
-                      <div className="flex items-center justify-between border-t pt-2 mt-1">
-                        <span className="text-xs text-muted-foreground">{getCategoryLabel(item.category)}</span>
-                        <div className="flex items-center gap-1">
-                          <span className="text-xs font-medium">{formatCLP(Number(item.weighted_unit_cost || item.estimated_unit_cost || 0))}</span>
-                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEditDialog(item)}>
-                            <Pencil className="h-3.5 w-3.5" />
-                          </Button>
-                          <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive" onClick={() => handleDeleteItem(item.id)}>
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
+                {isSearching
+                  ? sortedItems.map((item: any) => renderItemCard(item))
+                  : itemGroups.map((group) => (group.items.length > 1 ? renderGroupCard(group) : renderItemCard(group.items[0])))}
               </div>
             </TabsContent>
 
@@ -884,7 +1124,7 @@ const InventoryManagement = () => {
           <div className="space-y-3">
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
-                <Label>SKU</Label>
+                <Label>Código</Label>
                 <Input value={itemForm.sku} onChange={(e) => setItemForm({ ...itemForm, sku: e.target.value })} />
               </div>
               <div className="space-y-2">
