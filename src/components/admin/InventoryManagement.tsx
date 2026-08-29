@@ -44,8 +44,6 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { Badge } from '@/components/ui/badge';
 import {
   Select,
   SelectContent,
@@ -54,7 +52,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { Plus, Pencil, Trash2, AlertTriangle, Calculator, Boxes, ChevronDown, Lock } from 'lucide-react';
+import { Plus, Pencil, Trash2, AlertTriangle, Calculator, ChevronDown, Lock } from 'lucide-react';
 import { certStatus } from '@/lib/purchasing';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { formatCLP } from '@/lib/format';
@@ -86,14 +84,6 @@ const MATERIAL_KIND_OPTIONS = [
   { value: 'herramental', label: 'Herramental' },
   { value: 'otro', label: 'Otro' },
 ];
-
-// Spanish display labels for stock-alert severity (data values stay English).
-const SEVERITY_LABELS: Record<string, string> = {
-  critical: 'CRÍTICO',
-  high: 'ALTO',
-  medium: 'MEDIO',
-  low: 'BAJO',
-};
 
 const TX_OPTIONS = [
   { value: 'purchase', label: 'Compra (+)' },
@@ -184,6 +174,11 @@ const InventoryManagement = () => {
   const { data: transactions = [], refetch: refetchTransactions } = useInventoryTransactions();
   const { data: alerts = [] } = useInventoryLowStockAlerts();
   const { data: ots = [] } = useOTs();
+  // Fijo al montar: una ventana de "últimos 30 días" no necesita
+  // recalcularse en cada render, y leer Date.now() dentro de un useMemo es
+  // impuro para el compilador de React — el inicializador perezoso de
+  // useState corre una sola vez, así que es el lugar correcto para leerlo.
+  const [now] = useState(() => Date.now());
 
   const [showItemDialog, setShowItemDialog] = useState(false);
   const [showLotDialog, setShowLotDialog] = useState(false);
@@ -192,9 +187,8 @@ const InventoryManagement = () => {
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [materialFilter, setMaterialFilter] = useState<string>('all');
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+  const [collapsedFamilies, setCollapsedFamilies] = useState<Set<string>>(new Set());
   const [scanSearch, setScanSearch] = useState('');
-  const [alertsOpen, setAlertsOpen] = useState(false);
-  const [neverOpen, setNeverOpen] = useState(false);
 
   const [itemForm, setItemForm] = useState({
     sku: '',
@@ -270,6 +264,28 @@ const InventoryManagement = () => {
     [lots],
   );
 
+  // Cobertura estimada: cuántos días dura el stock actual al ritmo real de
+  // consumo — el reorder point de la industria (lead time × consumo diario)
+  // en vez de un mínimo fijo que no sabe si el papel se mueve rápido o
+  // lleva meses quieto. Se calcula sobre el consumo real de los últimos 30
+  // días; sin consumo reciente, no se muestra número — mejor nada que una
+  // cifra inventada (auditoría 2026-08, principio de reorder point de la
+  // industria de impresión: consumo real + lead time, no un umbral estático).
+  const dailyConsumptionByItem = useMemo(() => {
+    const WINDOW_DAYS = 30;
+    const cutoff = now - WINDOW_DAYS * 24 * 60 * 60 * 1000;
+    const totals = new Map<string, number>();
+    for (const tx of transactions) {
+      if (tx.tx_type !== 'consumption') continue;
+      const ts = new Date(tx.created_at).getTime();
+      if (Number.isNaN(ts) || ts < cutoff) continue;
+      totals.set(tx.item_id, (totals.get(tx.item_id) || 0) + Number(tx.quantity || 0));
+    }
+    const rates = new Map<string, number>();
+    for (const [itemId, total] of totals) rates.set(itemId, total / WINDOW_DAYS);
+    return rates;
+  }, [transactions, now]);
+
   // Ordenado por urgencia, no por SKU — lo que necesita atención sube solo
   // arriba en vez de esperar en la fila 24 a que alguien scrollee hasta ahí.
   const sortedItems = useMemo(() => {
@@ -292,18 +308,13 @@ const InventoryManagement = () => {
   );
 
   // La misma alarma para "nunca se ha comprado" y "se agotó" es la que hace
-  // que 29 de 37 ítems se vean igual de urgentes. Acá se separan en dos
-  // grupos antes de mostrarlos: uno necesita una OC hoy, el otro es un hueco
-  // del catálogo que puede esperar a la primera compra.
-  const { needsAction, neverReceived } = useMemo(() => {
-    const needsAction: any[] = [];
-    const neverReceived: any[] = [];
-    for (const a of alerts) {
-      if (Number(a.current_stock) <= 0 && !everReceivedIds.has(a.id)) neverReceived.push(a);
-      else needsAction.push(a);
-    }
-    return { needsAction, neverReceived };
-  }, [alerts, everReceivedIds]);
+  // que 29 de 37 ítems se vean igual de urgentes. needsAction filtra el
+  // segundo caso — el primero ya se ve directo en cada fila como "Nunca
+  // recibido", no hace falta una lista aparte.
+  const needsAction = useMemo(
+    () => alerts.filter((a: any) => !(Number(a.current_stock) <= 0 && !everReceivedIds.has(a.id))),
+    [alerts, everReceivedIds],
+  );
 
   const totalStockValue = useMemo(() => {
     return items.reduce((sum: number, item: any) => {
@@ -313,21 +324,8 @@ const InventoryManagement = () => {
     }, 0);
   }, [items]);
 
-  // Cuántos ítems y cuánto valor hay por familia — lo que llenaba las
-  // tarjetas de KPI de espacio vacío ahora muestra la distribución real del
-  // catálogo, no sólo un número suelto (feedback directo sobre la grilla).
-  const familyBreakdown = useMemo(() => {
-    const counts = new Map<string, number>();
-    for (const item of items) {
-      const key = item.material_kind || 'otro';
-      counts.set(key, (counts.get(key) || 0) + 1);
-    }
-    return MATERIAL_KIND_OPTIONS
-      .map((k) => ({ key: k.value, label: k.label, count: counts.get(k.value) || 0 }))
-      .filter((f) => f.count > 0)
-      .sort((a, b) => b.count - a.count);
-  }, [items]);
-
+  // Cuánto valor hay por familia — la barra que llena de contenido real la
+  // tarjeta de "valor estimado", no sólo un número suelto (feedback directo).
   const valueByFamily = useMemo(() => {
     const values = new Map<string, number>();
     for (const item of items) {
@@ -342,19 +340,6 @@ const InventoryManagement = () => {
       .filter((f) => f.value > 0)
       .sort((a, b) => b.value - a.value);
   }, [items]);
-
-  const neverReceivedByFamily = useMemo(() => {
-    const counts = new Map<string, number>();
-    for (const a of neverReceived) {
-      const full = items.find((i: any) => i.id === a.id);
-      const key = full?.material_kind || 'otro';
-      counts.set(key, (counts.get(key) || 0) + 1);
-    }
-    return MATERIAL_KIND_OPTIONS
-      .map((k) => ({ key: k.value, label: k.label, count: counts.get(k.value) || 0 }))
-      .filter((f) => f.count > 0)
-      .sort((a, b) => b.count - a.count);
-  }, [neverReceived, items]);
 
   // Agrupar variantes de un mismo producto (mismo nombre base, misma
   // familia) para que "Couche 150" y "Couche 200" sean una tarjeta que se
@@ -381,6 +366,26 @@ const InventoryManagement = () => {
     return Array.from(map.values());
   }, [sortedItems]);
 
+  // El contenedor grande que pidió el feedback: Papel, Tinta, Envase... cada
+  // uno con sus productos adentro, en vez de una grilla plana de 37
+  // tarjetas del mismo tamaño. Las familias con algo realmente agotado
+  // suben arriba; el resto sigue el orden declarado en MATERIAL_KIND_OPTIONS.
+  const familyGroups = useMemo(() => {
+    const map = new Map<string, { key: string; label: string; groups: any[] }>();
+    for (const g of itemGroups) {
+      const key = g.familia || 'otro';
+      if (!map.has(key)) map.set(key, { key, label: getMaterialKindLabel(key), groups: [] });
+      map.get(key)!.groups.push(g);
+    }
+    const hasUrgent = (groups: any[]) =>
+      groups.some((g) => g.items.some((it: any) =>
+        stockState(Number(it.current_stock || 0), Number(it.min_stock || 0), everReceivedIds.has(it.id)).key === 'agotado'));
+    return MATERIAL_KIND_OPTIONS
+      .map((k) => map.get(k.value))
+      .filter((f): f is { key: string; label: string; groups: any[] } => !!f)
+      .sort((a, b) => Number(hasUrgent(b.groups)) - Number(hasUrgent(a.groups)));
+  }, [itemGroups, everReceivedIds]);
+
   const isSearching = scanSearch.trim().length > 0;
 
   const toggleGroup = (key: string) =>
@@ -391,59 +396,68 @@ const InventoryManagement = () => {
       return n;
     });
 
-  const renderItemCard = (item: any) => {
+  const toggleFamily = (key: string) =>
+    setCollapsedFamilies((s) => {
+      const n = new Set(s);
+      if (n.has(key)) n.delete(key);
+      else n.add(key);
+      return n;
+    });
+
+  // Una fila, no una tarjeta: el nombre y el código ya dicen qué es, la
+  // familia ya la dice el contenedor que lo envuelve — no hace falta
+  // repetirla en cada línea. "Pack it in": 37 ítems tienen que entrar en la
+  // pantalla, no en 37 tarjetas de 140px de alto (feedback directo).
+  const renderItemRow = (item: any, indent = false) => {
     const st = stockState(Number(item.current_stock || 0), Number(item.min_stock || 0), everReceivedIds.has(item.id));
-    // Barra relativa a 2x el mínimo: al mínimo justo se ve a medio llenar,
-    // no llena — un stock "apenas alcanza" no debería leerse igual de bien
-    // que uno sobrado.
     const min = Number(item.min_stock || 0);
     const stock = Number(item.current_stock || 0);
-    const pct = min > 0 ? Math.min(100, Math.round((stock / (min * 2)) * 100)) : (stock > 0 ? 100 : 0);
-    const fs = familyStyle(item.material_kind);
+    const rate = dailyConsumptionByItem.get(item.id);
+    const coverageDays = rate && rate > 0 ? Math.floor(stock / rate) : null;
+    const coverageTone = coverageDays == null
+      ? 'text-muted-foreground/50'
+      : coverageDays < 7
+        ? 'text-destructive font-semibold'
+        : coverageDays < 14
+          ? 'text-amber-600 dark:text-amber-400'
+          : 'text-muted-foreground';
     return (
-      <div key={item.id} className={`flex flex-col gap-2 rounded-lg border border-l-4 ${fs.border} bg-card p-3`}>
-        <div className="flex items-start justify-between gap-2">
-          <div className="min-w-0">
-            <p className="truncate text-sm font-medium leading-tight" title={item.name}>{item.name}</p>
-            <p className="font-mono text-[11px] text-muted-foreground">{item.sku}</p>
-          </div>
-          <span className={`shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-medium ${fs.chip}`}>
-            {getMaterialKindLabel(item.material_kind)}
-          </span>
+      <div key={item.id} className={`flex items-center gap-2 py-1.5 pr-1 text-sm ${indent ? 'pl-7' : 'pl-2'}`}>
+        <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${st.dot}`} />
+        <div className="min-w-0 flex-1">
+          <span className="truncate font-medium" title={item.name}>{indent ? splitVariant(item.name).spec || item.name : item.name}</span>
+          <span className="ml-2 font-mono text-[10px] text-muted-foreground">{item.sku}</span>
         </div>
-
-        <div className="h-1.5 overflow-hidden rounded-full bg-muted">
-          <div className={`h-full rounded-full ${st.dot}`} style={{ width: `${pct}%` }} />
-        </div>
-        <div className="flex items-center justify-between font-mono text-[11px] text-muted-foreground">
-          <span className={st.key === 'ok' ? '' : `${st.text} font-semibold`}>
-            {stock.toLocaleString('es-CL')} {item.unit}
-          </span>
-          <span>mín. {min.toLocaleString('es-CL')}</span>
-        </div>
-        <span className={`text-[11px] font-mono font-medium ${st.text}`}>{st.label}</span>
-
-        <div className="flex items-center justify-between border-t pt-2 mt-1">
-          <span className="text-xs text-muted-foreground">{getCategoryLabel(item.category)}</span>
-          <div className="flex items-center gap-1">
-            <span className="text-xs font-medium">{formatCLP(Number(item.weighted_unit_cost || item.estimated_unit_cost || 0))}</span>
-            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEditDialog(item)}>
-              <Pencil className="h-3.5 w-3.5" />
-            </Button>
-            <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive" onClick={() => handleDeleteItem(item.id)}>
-              <Trash2 className="h-3.5 w-3.5" />
-            </Button>
-          </div>
+        <span className={`w-28 shrink-0 text-right font-mono text-[11px] ${st.key === 'ok' ? 'text-muted-foreground' : `${st.text} font-semibold`}`}>
+          {stock.toLocaleString('es-CL')}/{min.toLocaleString('es-CL')} {item.unit}
+        </span>
+        <span
+          className={`w-16 shrink-0 text-right font-mono text-[11px] ${coverageTone}`}
+          title={coverageDays == null ? 'Sin consumo registrado en los últimos 30 días' : `≈${coverageDays} días de cobertura al ritmo de consumo de los últimos 30 días`}
+        >
+          {coverageDays == null ? '—' : `≈${coverageDays}d`}
+        </span>
+        <span className="w-20 shrink-0 text-right text-xs text-muted-foreground">
+          {formatCLP(Number(item.weighted_unit_cost || item.estimated_unit_cost || 0))}
+        </span>
+        <div className="flex shrink-0 items-center">
+          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => openEditDialog(item)}>
+            <Pencil className="h-3 w-3" />
+          </Button>
+          <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-destructive" onClick={() => handleDeleteItem(item.id)}>
+            <Trash2 className="h-3 w-3" />
+          </Button>
         </div>
       </div>
     );
   };
 
-  const renderGroupCard = (group: { key: string; base: string; familia: string; items: any[] }) => {
-    const fs = familyStyle(group.familia);
+  const renderProductRow = (group: { key: string; base: string; familia: string; items: any[] }) => {
+    if (group.items.length === 1) return renderItemRow(group.items[0]);
+
     const expanded = expandedGroups.has(group.key);
 
-    // El peor estado entre las variantes, para que la tarjeta cerrada no
+    // El peor estado entre las variantes, para que la fila cerrada no
     // esconda una emergencia detrás de un "3 variantes" neutro.
     let worst = stockState(Number(group.items[0].current_stock || 0), Number(group.items[0].min_stock || 0), everReceivedIds.has(group.items[0].id));
     let worstOrder = worst.key === 'agotado' ? -1 : STOCK_ORDER[worst.key];
@@ -463,30 +477,46 @@ const InventoryManagement = () => {
       : null;
 
     return (
-      <div key={group.key} className={`rounded-lg border border-l-4 ${fs.border} bg-card ${expanded ? 'col-span-full' : ''}`}>
-        <button type="button" onClick={() => toggleGroup(group.key)} className="flex w-full flex-col gap-2 p-3 text-left">
-          <div className="flex items-start justify-between gap-2">
-            <div className="min-w-0">
-              <p className="truncate text-sm font-medium leading-tight" title={group.base}>{group.base}</p>
-              {specLabel && <p className="font-mono text-[11px] text-muted-foreground">{specLabel}</p>}
-            </div>
-            <div className="flex shrink-0 items-center gap-1.5">
-              <span className={`rounded-md px-1.5 py-0.5 text-[10px] font-medium ${fs.chip}`}>
-                {getMaterialKindLabel(group.familia)}
-              </span>
-              <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${expanded ? 'rotate-180' : ''}`} />
-            </div>
+      <div key={group.key}>
+        <button type="button" onClick={() => toggleGroup(group.key)} className="flex w-full items-center gap-2 rounded py-1.5 pl-2 pr-1 text-left text-sm hover:bg-muted/50">
+          <ChevronDown className={`h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform ${expanded ? 'rotate-180' : ''}`} />
+          <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${worst.dot}`} />
+          <div className="min-w-0 flex-1">
+            <span className="font-medium">{group.base}</span>
+            {specLabel && <span className="ml-2 font-mono text-[11px] text-muted-foreground">{specLabel}</span>}
           </div>
-          <div className="flex items-center gap-2">
-            <span className={`h-2 w-2 shrink-0 rounded-full ${worst.dot}`} />
-            <span className={`text-[11px] font-medium ${worst.text}`}>{worst.label}</span>
-            <span className="text-[11px] text-muted-foreground">· {group.items.length} variantes</span>
-          </div>
+          <span className="shrink-0 text-[11px] text-muted-foreground">{group.items.length} variantes</span>
         </button>
-
         {expanded && (
-          <div className="grid grid-cols-1 gap-3 border-t p-3 sm:grid-cols-2 lg:grid-cols-4">
-            {group.items.map((it) => renderItemCard(it))}
+          <div className="border-l ml-4 border-border/60">
+            {group.items.map((it) => renderItemRow(it, true))}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const renderFamilySection = (fam: { key: string; label: string; groups: any[] }) => {
+    const fs = familyStyle(fam.key);
+    const collapsed = collapsedFamilies.has(fam.key);
+    const count = fam.groups.reduce((n, g) => n + g.items.length, 0);
+    return (
+      <div key={fam.key} className="overflow-hidden rounded-lg border">
+        <button
+          type="button"
+          onClick={() => toggleFamily(fam.key)}
+          className={`flex w-full items-center justify-between gap-2 px-3 py-2 ${fs.chip}`}
+        >
+          <span className="flex items-center gap-2 text-sm font-semibold">
+            <span className={`h-2 w-2 rounded-full ${fs.dot}`} />
+            {fam.label}
+            <span className="font-normal opacity-70">{count}</span>
+          </span>
+          <ChevronDown className={`h-4 w-4 transition-transform ${collapsed ? '' : 'rotate-180'}`} />
+        </button>
+        {!collapsed && (
+          <div className="divide-y divide-border/40 bg-card px-1">
+            {fam.groups.map((g) => renderProductRow(g))}
           </div>
         )}
       </div>
@@ -726,118 +756,42 @@ const InventoryManagement = () => {
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <KpiCard icon={Boxes} label="Total de ítems" value={String(items.length)} tone="primary">
-          <div className="flex flex-wrap gap-1.5">
-            {familyBreakdown.map((f) => (
-              <span key={f.key} className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium ${familyStyle(f.key).chip}`}>
-                <span className={`h-1.5 w-1.5 rounded-full ${familyStyle(f.key).dot}`} />
-                {f.label} {f.count}
-              </span>
-            ))}
-          </div>
-        </KpiCard>
+      {/* Una sola barra, no tres tarjetas: "37 SKUs" y "0 necesita OC" no
+          justifican una tarjeta entera cada uno — feedback directo de que
+          las tarjetas de KPI eran puro espacio vacío. */}
+      <div className="flex flex-wrap items-center gap-x-6 gap-y-3 rounded-lg border border-primary/20 bg-card px-4 py-3">
+        <div className="shrink-0">
+          <p className="text-xs text-muted-foreground">Valor estimado de stock</p>
+          <p className="text-2xl font-bold text-primary">{formatCLP(totalStockValue)}</p>
+        </div>
 
-        <KpiCard label="Valor estimado de stock" value={formatCLP(totalStockValue)} tone="primary">
+        <div className="min-w-[180px] flex-1">
           <div className="flex h-2 overflow-hidden rounded-full bg-muted">
             {valueByFamily.map((f) => (
               <span key={f.key} className={familyStyle(f.key).bar} style={{ width: `${f.pct}%` }} title={`${f.label}: ${formatCLP(f.value)}`} />
             ))}
           </div>
-          <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
-            {valueByFamily.slice(0, 3).map((f) => (
+          <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-muted-foreground">
+            {valueByFamily.slice(0, 4).map((f) => (
               <span key={f.key} className="inline-flex items-center gap-1">
                 <span className={`h-1.5 w-1.5 rounded-full ${familyStyle(f.key).dot}`} />
                 {f.label} {f.pct.toFixed(0)}%
               </span>
             ))}
           </div>
-        </KpiCard>
+        </div>
 
-        <KpiCard
-          icon={AlertTriangle}
-          label="Necesita una OC"
-          value={String(needsAction.length)}
-          tone={needsAction.length > 0 ? 'critical' : 'primary'}
-        >
-          {needsAction.length > 0 ? (
-            <div className="flex flex-wrap gap-1">
-              {needsAction.slice(0, 6).map((a: any) => (
-                <span key={a.id} className="rounded-md border border-destructive/40 bg-destructive/5 px-1.5 py-0.5 font-mono text-[10px] text-destructive">
-                  {a.sku}
-                </span>
-              ))}
-              {needsAction.length > 6 && <span className="text-[11px] text-muted-foreground">+{needsAction.length - 6} más</span>}
-            </div>
-          ) : neverReceived.length > 0 ? (
-            <div>
-              <p className="text-[11px] text-muted-foreground mb-1.5">
-                {neverReceived.length} sin comprar todavía (no es urgente, es un hueco del catálogo), por familia:
-              </p>
-              <div className="flex flex-wrap gap-1.5">
-                {neverReceivedByFamily.map((f) => (
-                  <span key={f.key} className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium ${familyStyle(f.key).chip}`}>
-                    <span className={`h-1.5 w-1.5 rounded-full ${familyStyle(f.key).dot}`} />
-                    {f.label} {f.count}
-                  </span>
-                ))}
-              </div>
-            </div>
-          ) : null}
-        </KpiCard>
+        <div className="flex shrink-0 items-center gap-2 text-xs">
+          <span className="rounded-full bg-muted px-2.5 py-1 font-medium text-muted-foreground">{items.length} ítems</span>
+          <span
+            className={`rounded-full px-2.5 py-1 font-medium ${
+              needsAction.length > 0 ? 'bg-destructive/10 text-destructive' : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+            }`}
+          >
+            {needsAction.length > 0 ? `${needsAction.length} necesita${needsAction.length === 1 ? '' : 'n'} OC` : 'al día, nada urgente'}
+          </span>
+        </div>
       </div>
-
-      {needsAction.length > 0 && (
-        <Collapsible open={alertsOpen} onOpenChange={setAlertsOpen} className="ml-auto w-full sm:max-w-sm">
-          <div className="rounded-md border border-destructive/40 bg-destructive/5">
-            <CollapsibleTrigger className="flex w-full items-center justify-between gap-2 rounded-md px-3 py-2 text-sm font-medium text-destructive hover:bg-destructive/10">
-              <span className="flex items-center gap-2">
-                <AlertTriangle className="h-4 w-4" />
-                {needsAction.length} {needsAction.length === 1 ? 'ítem necesita' : 'ítems necesitan'} una OC
-              </span>
-              <ChevronDown className={`h-4 w-4 transition-transform ${alertsOpen ? 'rotate-180' : ''}`} />
-            </CollapsibleTrigger>
-            <CollapsibleContent>
-              <div className="max-h-72 space-y-1.5 overflow-y-auto px-3 pb-3">
-                {needsAction.map((alert: any) => (
-                  <div key={alert.id} className="flex items-center justify-between gap-2 rounded-md border border-destructive/30 bg-background/60 px-2 py-1.5">
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-medium">{alert.name}</p>
-                      <p className="truncate text-xs text-muted-foreground">
-                        {getCategoryLabel(alert.category)} • {Number(alert.current_stock).toFixed(0)}/{Number(alert.min_stock).toFixed(0)} {alert.unit ?? ''}
-                      </p>
-                    </div>
-                    <Badge variant="destructive" className="shrink-0 text-[10px]">{SEVERITY_LABELS[String(alert.severity || 'medium')] ?? String(alert.severity || 'medium').toUpperCase()}</Badge>
-                  </div>
-                ))}
-              </div>
-            </CollapsibleContent>
-          </div>
-        </Collapsible>
-      )}
-
-      {neverReceived.length > 0 && (
-        <Collapsible open={neverOpen} onOpenChange={setNeverOpen} className="ml-auto w-full sm:max-w-sm">
-          <div className="rounded-md border border-border bg-muted/30">
-            <CollapsibleTrigger className="flex w-full items-center justify-between gap-2 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-muted/50">
-              <span>{neverReceived.length} nunca recibidos</span>
-              <ChevronDown className={`h-4 w-4 transition-transform ${neverOpen ? 'rotate-180' : ''}`} />
-            </CollapsibleTrigger>
-            <CollapsibleContent>
-              <div className="max-h-72 space-y-1.5 overflow-y-auto px-3 pb-3">
-                {neverReceived.map((alert: any) => (
-                  <div key={alert.id} className="flex items-center justify-between gap-2 rounded-md border border-border bg-background/60 px-2 py-1.5">
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-medium">{alert.name}</p>
-                      <p className="truncate text-xs text-muted-foreground">{getCategoryLabel(alert.category)} • sin lotes registrados todavía</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CollapsibleContent>
-          </div>
-        </Collapsible>
-      )}
 
       <Card className="border-primary/20">
         <CardHeader>
@@ -936,17 +890,24 @@ const InventoryManagement = () => {
                 <p className="py-12 text-center text-sm text-muted-foreground">Nada calza con ese filtro o búsqueda.</p>
               )}
 
-              {!isSearching && (
-                <p className="text-[11px] text-muted-foreground">
-                  Variantes del mismo producto (distinto gramaje o tamaño) están agrupadas — tocá una tarjeta con flecha para abrirla.
-                </p>
+              {sortedItems.length > 0 && (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 px-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                    <span className="flex-1">Ítem</span>
+                    <span className="w-28 shrink-0 text-right">Stock / mín.</span>
+                    <span className="w-16 shrink-0 text-right" title="Días de cobertura al ritmo de consumo real de los últimos 30 días">Cobertura</span>
+                    <span className="w-20 shrink-0 text-right">Costo</span>
+                    <span className="w-14 shrink-0" />
+                  </div>
+                  {isSearching ? (
+                    <div className="divide-y divide-border/40 rounded-lg border bg-card px-1">
+                      {sortedItems.map((item: any) => renderItemRow(item))}
+                    </div>
+                  ) : (
+                    familyGroups.map((fam) => renderFamilySection(fam))
+                  )}
+                </div>
               )}
-
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                {isSearching
-                  ? sortedItems.map((item: any) => renderItemCard(item))
-                  : itemGroups.map((group) => (group.items.length > 1 ? renderGroupCard(group) : renderItemCard(group.items[0])))}
-              </div>
             </TabsContent>
 
             <TabsContent value="lots" className="space-y-4">
