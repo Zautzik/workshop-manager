@@ -136,6 +136,20 @@ function splitVariant(name: string): { base: string; spec: string } {
   return { base, spec };
 }
 
+/**
+ * "Couche 200 g" y "Papel Couché 150g 70×100" son el mismo papel — uno
+ * catalogado con el prefijo genérico "Papel", el otro sin él, y con/sin
+ * tilde en "Couché". Sin normalizar esto quedan como dos productos
+ * distintos bajo la misma familia "Papel", que es justo la redundancia que
+ * el prefijo debería evitar (feedback directo: "ambos deberían estar bajo
+ * el paraguas Couche"). Mismo bug afecta "Papel Bond" / "Bond".
+ */
+function normalizeBaseKey(base: string): string {
+  const noAccents = base.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+  const stripped = noAccents.startsWith('papel ') ? noAccents.slice('papel '.length) : noAccents;
+  return stripped.trim() || noAccents;
+}
+
 function specNumber(spec: string): number | null {
   const m = spec.match(/[0-9]+(?:[.,][0-9]+)?/);
   return m ? parseFloat(m[0].replace(',', '.')) : null;
@@ -363,9 +377,14 @@ const InventoryManagement = () => {
     const map = new Map<string, Group>();
     for (const item of sortedItems) {
       const { base } = splitVariant(item.name);
-      const key = `${item.material_kind || 'otro'}::${base.toLowerCase()}`;
+      const key = `${item.material_kind || 'otro'}::${normalizeBaseKey(base)}`;
       if (!map.has(key)) map.set(key, { key, base, familia: item.material_kind, items: [] });
-      map.get(key)!.items.push(item);
+      const g = map.get(key)!;
+      g.items.push(item);
+      // "Papel Couché" y "Couche" caen en la misma llave — se muestra la
+      // más corta como nombre del producto, sin el prefijo redundante
+      // (ya está bajo la sección de la familia "Papel").
+      if (base.length < g.base.length) g.base = base;
     }
     for (const g of map.values()) {
       g.items.sort((a, b) => {
