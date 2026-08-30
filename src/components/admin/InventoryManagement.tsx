@@ -160,7 +160,7 @@ function stockState(current: number, min: number, everReceived: boolean) {
       : { key: 'nunca' as const, label: 'Nunca recibido', dot: 'bg-slate-400', text: 'text-muted-foreground' };
   }
   if (current < min) {
-    return { key: 'bajo' as const, label: 'Bajo mínimo', dot: 'bg-amber-500', text: 'text-amber-600 dark:text-amber-400' };
+    return { key: 'bajo' as const, label: 'Bajo mínimo', dot: 'bg-red-500', text: 'text-red-600 dark:text-red-400' };
   }
   return { key: 'ok' as const, label: 'Disponible', dot: 'bg-emerald-500', text: 'text-emerald-600 dark:text-emerald-400' };
 }
@@ -315,6 +315,18 @@ const InventoryManagement = () => {
     () => alerts.filter((a: any) => !(Number(a.current_stock) <= 0 && !everReceivedIds.has(a.id))),
     [alerts, everReceivedIds],
   );
+
+  // El mínimo estático puede decir "Disponible" mientras el ritmo real de
+  // consumo dice "se acaba en 2 días" — son dos preguntas distintas
+  // (¿cuánto queda? vs ¿cuánto dura?), y la de arriba sólo mostraba la
+  // primera. Sin esto, "al día, nada urgente" puede ser literalmente falso.
+  const criticalCoverageItems = useMemo(() => {
+    return items.filter((item: any) => {
+      const rate = dailyConsumptionByItem.get(item.id);
+      if (!rate || rate <= 0) return false;
+      return Number(item.current_stock || 0) / rate < 7;
+    });
+  }, [items, dailyConsumptionByItem]);
 
   const totalStockValue = useMemo(() => {
     return items.reduce((sum: number, item: any) => {
@@ -781,15 +793,30 @@ const InventoryManagement = () => {
           </div>
         </div>
 
-        <div className="flex shrink-0 items-center gap-2 text-xs">
+        <div className="flex shrink-0 flex-wrap items-center gap-2 text-xs">
           <span className="rounded-full bg-muted px-2.5 py-1 font-medium text-muted-foreground">{items.length} ítems</span>
           <span
             className={`rounded-full px-2.5 py-1 font-medium ${
-              needsAction.length > 0 ? 'bg-destructive/10 text-destructive' : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+              needsAction.length > 0 || criticalCoverageItems.length > 0
+                ? 'bg-destructive/10 text-destructive'
+                : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
             }`}
           >
-            {needsAction.length > 0 ? `${needsAction.length} necesita${needsAction.length === 1 ? '' : 'n'} OC` : 'al día, nada urgente'}
+            {needsAction.length > 0 || criticalCoverageItems.length > 0 ? 'atención requerida' : 'al día, nada urgente'}
           </span>
+          {needsAction.length > 0 && (
+            <span className="rounded-full bg-destructive/10 px-2.5 py-1 font-medium text-destructive">
+              {needsAction.length} bajo mínimo
+            </span>
+          )}
+          {criticalCoverageItems.length > 0 && (
+            <span
+              className="rounded-full bg-destructive/10 px-2.5 py-1 font-medium text-destructive"
+              title="Menos de 7 días de cobertura al ritmo real de consumo — aunque el mínimo estático diga que está bien"
+            >
+              {criticalCoverageItems.length} a punto de agotarse
+            </span>
+          )}
         </div>
       </div>
 
