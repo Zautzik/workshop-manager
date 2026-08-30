@@ -108,5 +108,5 @@ export function ModuleBreadcrumbs() {
 
   if (!trail || pathname === trail.module.href) return null;
 
-  return <Breadcrumbs className="px-6 pt-5 md:pr-36" />;
+  return <Breadcrumbs className="px-6 pt-5 md:pr-36 print:hidden" />;
 }

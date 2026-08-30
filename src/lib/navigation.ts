@@ -140,9 +140,9 @@ export const MODULES: NavModule[] = [
         items: [
           { label: 'Inventario', href: '/operaciones/inventario',  description: 'Stock, materiales y movimientos de almacén',   icon: Package,      color: 'bg-teal-500/10 text-teal-400' },
           { label: 'Compras',    href: '/operaciones/compras',     description: 'Órdenes de compra, cotizaciones y proveedores (incluye proveedores)', icon: ShoppingCart, color: 'bg-orange-500/10 text-orange-400' },
-          // Existía y funcionaba, pero no aparecía en ningún menú — sólo
-          // tecleando la URL (auditoría 2026-08).
-          { label: 'Lotes', href: '/operaciones/lotes', description: 'Etiquetas de lo recién recibido y qué lote no se puede usar', icon: Archive, color: 'bg-teal-500/10 text-teal-400' },
+          // Absorbido por la pestaña Lotes de Inventario — el destino cambió,
+          // no la entrada del menú (auditoría 2026-08).
+          { label: 'Lotes', href: '/operaciones/inventario?tab=lots', description: 'Etiquetas de lo recién recibido y qué lote no se puede usar', icon: Archive, color: 'bg-teal-500/10 text-teal-400' },
         ],
       },
       {

@@ -364,11 +364,15 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   );
 
   return (
-    <div className="flex h-screen overflow-hidden bg-background">
+    // Impresión: cualquier página bajo el shell que quiera imprimir un
+    // subárbol propio (ej. etiquetas de lote) depende de que este contenedor
+    // no le recorte el alto ni lo esconda — `overflow-hidden` + `h-screen`
+    // sólo tienen sentido en pantalla (auditoría 2026-08).
+    <div className="flex h-screen overflow-hidden bg-background print:h-auto print:overflow-visible">
       {/* Mobile overlay */}
       {mobileOpen && (
         <div
-          className="fixed inset-0 z-40 bg-black/50 md:hidden"
+          className="fixed inset-0 z-40 bg-black/50 md:hidden print:hidden"
           onClick={() => setMobileOpen(false)}
         />
       )}
@@ -376,7 +380,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       {/* Mobile sidebar */}
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-50 w-64 bg-card border-r border-border/50 transform transition-transform duration-200 md:hidden",
+          "fixed inset-y-0 left-0 z-50 w-64 bg-card border-r border-border/50 transform transition-transform duration-200 md:hidden print:hidden",
           mobileOpen ? "translate-x-0" : "-translate-x-full"
         )}
       >
@@ -390,7 +394,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           wider than the window. */}
       <aside
         className={cn(
-          "hidden md:flex flex-col border-r border-border bg-card transition-all duration-200",
+          "hidden md:flex flex-col border-r border-border bg-card transition-all duration-200 print:hidden",
           collapsed ? "w-[56px]" : "w-60"
         )}
       >
@@ -398,13 +402,13 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       </aside>
 
       {/* Main content */}
-      <main className="flex-1 flex flex-col overflow-hidden relative">
+      <main className="flex-1 flex flex-col overflow-hidden relative print:overflow-visible">
         {/* Top bar. It floats over the content instead of occupying a row of its
             own — a 56px band whose middle was always empty was costing every
             page a fifth of a viewport that never scrolls. `pointer-events-none`
             on the strip means only the controls themselves intercept clicks;
             the page underneath stays fully usable. */}
-        <header className="pointer-events-none absolute inset-x-0 top-0 z-30 flex h-14 items-center gap-1 px-2 sm:px-3">
+        <header className="pointer-events-none absolute inset-x-0 top-0 z-30 flex h-14 items-center gap-1 px-2 sm:px-3 print:hidden">
           {/* Below md there is no rail, so the menu button and the brand live
               here. From md up the rail head carries them and this side stays
               empty, leaving the corner to each page's own title.
@@ -466,7 +470,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         {/* Page content — full height now that nothing sits above it. The top
             padding below md clears the floating brand; from md up the rail head
             holds those controls and the page starts at the very top. */}
-        <div className="flex-1 overflow-y-auto pt-14 md:pt-0">
+        <div className="flex-1 overflow-y-auto pt-14 md:pt-0 print:overflow-visible print:pt-0">
           {children}
         </div>
       </main>
