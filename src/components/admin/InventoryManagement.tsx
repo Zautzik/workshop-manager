@@ -371,6 +371,26 @@ const InventoryManagement = () => {
     [alerts, everReceivedIds],
   );
 
+  const neverReceivedCount = useMemo(
+    () => alerts.filter((a: any) => Number(a.current_stock) <= 0 && !everReceivedIds.has(a.id)).length,
+    [alerts, everReceivedIds],
+  );
+
+  // Conteo de ítems por familia, sin filtrar — el panel lateral es un
+  // resumen persistente del catálogo completo, no de lo que está visible
+  // bajo el filtro/búsqueda activos en la pestaña Ítems.
+  const familyBreakdown = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const item of items) {
+      const key = item.material_kind || 'otro';
+      counts.set(key, (counts.get(key) || 0) + 1);
+    }
+    return MATERIAL_KIND_OPTIONS
+      .map((k) => ({ key: k.value, label: k.label, count: counts.get(k.value) || 0 }))
+      .filter((f) => f.count > 0)
+      .sort((a, b) => b.count - a.count);
+  }, [items]);
+
   // El mínimo estático puede decir "Disponible" mientras el ritmo real de
   // consumo dice "se acaba en 2 días" — son dos preguntas distintas
   // (¿cuánto queda? vs ¿cuánto dura?), y la de arriba sólo mostraba la
@@ -903,59 +923,12 @@ const InventoryManagement = () => {
 
   return (
     <div className="space-y-4">
-      {/* Una sola barra, no tres tarjetas: "37 SKUs" y "0 necesita OC" no
-          justifican una tarjeta entera cada uno — feedback directo de que
-          las tarjetas de KPI eran puro espacio vacío. */}
-      <div className="flex flex-wrap items-center gap-x-6 gap-y-3 rounded-lg border border-primary/20 bg-card px-4 py-3">
-        <div className="shrink-0">
-          <p className="text-xs text-muted-foreground">Valor estimado de stock</p>
-          <p className="text-2xl font-bold text-primary">{formatCLP(totalStockValue)}</p>
-        </div>
-
-        <div className="min-w-[180px] flex-1">
-          <div className="flex h-2 overflow-hidden rounded-full bg-muted">
-            {valueByFamily.map((f) => (
-              <span key={f.key} className={familyStyle(f.key).bar} style={{ width: `${f.pct}%` }} title={`${f.label}: ${formatCLP(f.value)}`} />
-            ))}
-          </div>
-          <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-muted-foreground">
-            {valueByFamily.slice(0, 4).map((f) => (
-              <span key={f.key} className="inline-flex items-center gap-1">
-                <span className={`h-1.5 w-1.5 rounded-full ${familyStyle(f.key).dot}`} />
-                {f.label} {f.pct.toFixed(0)}%
-              </span>
-            ))}
-          </div>
-        </div>
-
-        <div className="flex shrink-0 flex-wrap items-center gap-2 text-xs">
-          <span className="rounded-full bg-muted px-2.5 py-1 font-medium text-muted-foreground">{items.length} ítems</span>
-          <span
-            className={`rounded-full px-2.5 py-1 font-medium ${
-              needsAction.length > 0 || criticalCoverageItems.length > 0
-                ? 'bg-destructive/10 text-destructive'
-                : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
-            }`}
-          >
-            {needsAction.length > 0 || criticalCoverageItems.length > 0 ? 'atención requerida' : 'al día, nada urgente'}
-          </span>
-          {needsAction.length > 0 && (
-            <span className="rounded-full bg-destructive/10 px-2.5 py-1 font-medium text-destructive">
-              {needsAction.length} bajo mínimo
-            </span>
-          )}
-          {criticalCoverageItems.length > 0 && (
-            <span
-              className="rounded-full bg-destructive/10 px-2.5 py-1 font-medium text-destructive"
-              title="Menos de 7 días de cobertura al ritmo real de consumo — aunque el mínimo estático diga que está bien"
-            >
-              {criticalCoverageItems.length} a punto de agotarse
-            </span>
-          )}
-        </div>
-      </div>
-
-      <Card className="border-primary/20">
+      {/* Panel lateral persistente, no una barra que se pierde al scrollear
+          — pedido directo: "el panel de KPIs y métricas corre a lo largo de
+          toda la página, siempre visible junto al árbol". */}
+      <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-[1fr_300px]">
+        <div className="min-w-0">
+          <Card className="border-primary/20">
         <CardHeader>
           <CardTitle className="text-primary">Módulo de inventario</CardTitle>
         </CardHeader>
@@ -1233,7 +1206,78 @@ const InventoryManagement = () => {
             </TabsContent>
           </Tabs>
         </CardContent>
-      </Card>
+          </Card>
+        </div>
+
+        <aside className="space-y-4 xl:sticky xl:top-4">
+          <div className="space-y-3 rounded-lg border border-primary/20 bg-card p-4">
+            <p className="text-xs font-semibold uppercase tracking-wide text-primary">KPIs y métricas</p>
+
+            <div>
+              <p className="text-xs text-muted-foreground">Valor estimado de stock</p>
+              <p className="text-2xl font-bold text-primary">{formatCLP(totalStockValue)}</p>
+            </div>
+
+            <div>
+              <div className="flex h-2 overflow-hidden rounded-full bg-muted">
+                {valueByFamily.map((f) => (
+                  <span key={f.key} className={familyStyle(f.key).bar} style={{ width: `${f.pct}%` }} title={`${f.label}: ${formatCLP(f.value)}`} />
+                ))}
+              </div>
+              <div className="mt-1.5 space-y-1 text-[11px] text-muted-foreground">
+                {valueByFamily.map((f) => (
+                  <div key={f.key} className="flex items-center justify-between">
+                    <span className="inline-flex items-center gap-1.5">
+                      <span className={`h-1.5 w-1.5 rounded-full ${familyStyle(f.key).dot}`} />
+                      {f.label}
+                    </span>
+                    <span>{f.pct.toFixed(0)}%</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-1.5 border-t pt-3 text-sm">
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">Ítems en catálogo</span>
+                <span className="font-semibold">{items.length}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">Necesitan OC</span>
+                <span className={`font-semibold ${needsAction.length > 0 ? 'text-destructive' : 'text-emerald-600 dark:text-emerald-400'}`}>
+                  {needsAction.length}
+                </span>
+              </div>
+              <div
+                className="flex items-center justify-between"
+                title="Menos de 7 días de cobertura al ritmo real de consumo — aunque el mínimo estático diga que está bien"
+              >
+                <span className="text-muted-foreground">A punto de agotarse</span>
+                <span className={`font-semibold ${criticalCoverageItems.length > 0 ? 'text-destructive' : 'text-emerald-600 dark:text-emerald-400'}`}>
+                  {criticalCoverageItems.length}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">Nunca recibidos</span>
+                <span className="font-semibold text-muted-foreground">{neverReceivedCount}</span>
+              </div>
+            </div>
+
+            <div className="space-y-1.5 border-t pt-3">
+              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Por familia</p>
+              {familyBreakdown.map((f) => (
+                <div key={f.key} className="flex items-center justify-between text-sm">
+                  <span className="inline-flex items-center gap-1.5">
+                    <span className={`h-1.5 w-1.5 rounded-full ${familyStyle(f.key).dot}`} />
+                    {f.label}
+                  </span>
+                  <span className="font-mono text-xs text-muted-foreground">{f.count}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </aside>
+      </div>
 
       <Dialog open={showItemDialog} onOpenChange={setShowItemDialog}>
         <DialogContent>
