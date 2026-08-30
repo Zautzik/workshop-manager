@@ -21,6 +21,7 @@
  */
 'use client';
 import { useMemo, useState } from 'react';
+import type { ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { KpiCard } from '@/components/ui/kpi-card';
@@ -173,6 +174,31 @@ function parseWeight(spec: string): { weight: string | null; rest: string | null
   const weight = m[1].trim();
   const rest = spec.slice(m[0].length).trim();
   return { weight, rest: rest || null };
+}
+
+/**
+ * Las tintas no traen un número en el nombre para partir como el papel
+ * ("Tinta Black CMYK offset" no tiene dígitos) — se agrupan por lo que son:
+ * cuatricromía (los 4 colores de proceso) o Pantone (color directo). Dentro
+ * de cuatricromía el mismo color puede venir de más de una marca — la marca
+ * real, cuando está registrada, vive en las notas del ítem como
+ * "Proveedor: X.", no en el nombre (pedido directo: "manejamos distintas
+ * marcas para cada color, primero por cuatricromía, luego color, luego
+ * marca").
+ */
+function inkColor(name: string): string | null {
+  const n = name.toLowerCase();
+  if (n.includes('yellow')) return 'Yellow';
+  if (n.includes('magenta')) return 'Magenta';
+  if (n.includes('cyan')) return 'Cyan';
+  if (n.includes('black')) return 'Black';
+  return null;
+}
+
+function inkBrand(notes?: string | null): string | null {
+  if (!notes) return null;
+  const m = notes.match(/Proveedor:\s*([^.]+)\.?/i);
+  return m ? m[1].trim() : null;
 }
 
 /**
@@ -391,7 +417,13 @@ const InventoryManagement = () => {
     type Group = { key: string; base: string; familia: string; items: any[] };
     const map = new Map<string, Group>();
     for (const item of sortedItems) {
-      const { base } = splitVariant(item.name);
+      let { base } = splitVariant(item.name);
+      // Cuatricromía y Pantones no tienen un dígito que las una por el
+      // mecanismo genérico — se reconocen por lo que dicen, no por su forma.
+      if (item.material_kind === 'tinta_especial') {
+        if (inkColor(item.name)) base = 'Cuatricromía';
+        else if (item.name.toLowerCase().includes('pantone')) base = 'Pantones';
+      }
       const key = `${item.material_kind || 'otro'}::${normalizeBaseKey(base)}`;
       if (!map.has(key)) map.set(key, { key, base, familia: item.material_kind, items: [] });
       const g = map.get(key)!;
@@ -512,25 +544,26 @@ const InventoryManagement = () => {
     return worst;
   };
 
-  // Tercer nivel, sólo cuando el papel realmente lo tiene: gramaje primero,
-  // tamaño después ("Couche" → "150g" → "70×100"). Un peso sin nada detrás
-  // (p. ej. "300gsm" sola) no abre nada — no hay tamaño que mostrar
-  // (pedido directo: "de Couche vamos a gramaje, y de ahí a tamaño").
-  const renderWeightRow = (groupKey: string, weight: string, items: any[]) => {
-    const weightKey = `${groupKey}::${weight}`;
-    const expanded = expandedGroups.has(weightKey);
+  // Tercer nivel genérico: una etiqueta intermedia (gramaje para papel,
+  // color para tinta) que se abre a una hoja por variante (tamaño, marca).
+  // Sin nada detrás no hay nada que abrir — no se inventa un nivel vacío
+  // (pedido directo: "de Couche vamos a gramaje, y de ahí a tamaño"; "de
+  // cuatricromía vamos a color, y de ahí a marca").
+  const renderMidTierRow = (groupKey: string, tierLabel: string, items: any[], countWord: string, leafLabelFor: (item: any) => string) => {
+    const tierKey = `${groupKey}::${tierLabel}`;
+    const expanded = expandedGroups.has(tierKey);
     const worst = worstStateOf(items);
     return (
-      <div key={weightKey}>
-        <button type="button" onClick={() => toggleGroup(weightKey)} className="flex w-full items-center gap-2 rounded py-1.5 pl-7 pr-1 text-left text-sm hover:bg-muted/50">
+      <div key={tierKey}>
+        <button type="button" onClick={() => toggleGroup(tierKey)} className="flex w-full items-center gap-2 rounded py-1.5 pl-7 pr-1 text-left text-sm hover:bg-muted/50">
           <ChevronDown className={`h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform ${expanded ? 'rotate-180' : ''}`} />
           <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${worst.dot}`} />
-          <span className="min-w-0 flex-1 font-medium">{weight}</span>
-          <span className="shrink-0 text-[11px] text-muted-foreground">{items.length} tamaño{items.length === 1 ? '' : 's'}</span>
+          <span className="min-w-0 flex-1 font-medium">{tierLabel}</span>
+          <span className="shrink-0 text-[11px] text-muted-foreground">{items.length} {countWord}{items.length === 1 ? '' : 's'}</span>
         </button>
         {expanded && (
           <div className="border-l ml-9 border-border/60">
-            {items.map((it) => renderItemRow(it, 2, parseWeight(splitVariant(it.name).spec).rest ?? it.name))}
+            {items.map((it) => renderItemRow(it, 2, leafLabelFor(it)))}
           </div>
         )}
       </div>
@@ -552,18 +585,46 @@ const InventoryManagement = () => {
       ? (specs[0] === specs[specs.length - 1] ? `${specs[0]}${unit}` : `${specs[0]}–${specs[specs.length - 1]}${unit}`)
       : null;
 
-    // Partir por gramaje: cada peso con algo detrás (un tamaño) se abre a un
-    // tercer nivel; sin nada detrás, es una hoja directa como antes.
-    const byWeight = new Map<string, any[]>();
-    const flatLeaves: any[] = [];
-    for (const it of group.items) {
-      const { weight, rest } = parseWeight(splitVariant(it.name).spec);
-      if (weight != null && rest != null) {
-        if (!byWeight.has(weight)) byWeight.set(weight, []);
-        byWeight.get(weight)!.push(it);
-      } else {
-        flatLeaves.push(it);
+    let body: ReactNode;
+    if (group.base === 'Cuatricromía') {
+      // Color primero, marca después — no hay dígito que partir acá, la
+      // clasificación ya viene hecha desde itemGroups.
+      const byColor = new Map<string, any[]>();
+      for (const it of group.items) {
+        const color = inkColor(it.name) ?? 'Otro';
+        if (!byColor.has(color)) byColor.set(color, []);
+        byColor.get(color)!.push(it);
       }
+      const COLOR_ORDER = ['Yellow', 'Magenta', 'Cyan', 'Black'];
+      const colorEntries = Array.from(byColor.entries()).sort((a, b) => COLOR_ORDER.indexOf(a[0]) - COLOR_ORDER.indexOf(b[0]));
+      body = (
+        <div className="border-l ml-4 border-border/60">
+          {colorEntries.map(([color, colorItems]) =>
+            colorItems.length === 1
+              ? renderItemRow(colorItems[0], 1, color)
+              : renderMidTierRow(group.key, color, colorItems, 'marca', (it) => inkBrand(it.notes) ?? 'Sin marca registrada'))}
+        </div>
+      );
+    } else {
+      // Partir por gramaje: cada peso con algo detrás (un tamaño) se abre a
+      // un tercer nivel; sin nada detrás, es una hoja directa como antes.
+      const byWeight = new Map<string, any[]>();
+      const flatLeaves: any[] = [];
+      for (const it of group.items) {
+        const { weight, rest } = parseWeight(splitVariant(it.name).spec);
+        if (weight != null && rest != null) {
+          if (!byWeight.has(weight)) byWeight.set(weight, []);
+          byWeight.get(weight)!.push(it);
+        } else {
+          flatLeaves.push(it);
+        }
+      }
+      body = (
+        <div className="border-l ml-4 border-border/60">
+          {Array.from(byWeight.entries()).map(([weight, items]) => renderMidTierRow(group.key, weight, items, 'tamaño', (it) => parseWeight(splitVariant(it.name).spec).rest ?? it.name))}
+          {flatLeaves.map((it) => renderItemRow(it, 1, splitVariant(it.name).spec || it.name))}
+        </div>
+      );
     }
 
     return (
@@ -577,12 +638,7 @@ const InventoryManagement = () => {
           </div>
           <span className="shrink-0 text-[11px] text-muted-foreground">{group.items.length} variantes</span>
         </button>
-        {expanded && (
-          <div className="border-l ml-4 border-border/60">
-            {Array.from(byWeight.entries()).map(([weight, items]) => renderWeightRow(group.key, weight, items))}
-            {flatLeaves.map((it) => renderItemRow(it, 1, splitVariant(it.name).spec || it.name))}
-          </div>
-        )}
+        {expanded && body}
       </div>
     );
   };
