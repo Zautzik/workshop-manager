@@ -55,7 +55,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { Plus, Pencil, Trash2, AlertTriangle, Calculator, ChevronDown, Lock, Printer, ShieldAlert } from 'lucide-react';
+import { Plus, Pencil, Trash2, AlertTriangle, Calculator, ChevronDown, Lock, Printer, ShieldAlert, Upload } from 'lucide-react';
 import { certStatus } from '@/lib/purchasing';
 import { EtiquetaLote } from '@/components/bodega/EtiquetaLote';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -255,6 +255,12 @@ const InventoryManagement = () => {
   const [now] = useState(() => Date.now());
 
   const [showItemDialog, setShowItemDialog] = useState(false);
+  const [showImportDialog, setShowImportDialog] = useState(false);
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [importPreview, setImportPreview] = useState<any>(null);
+  const [importResult, setImportResult] = useState<any>(null);
+  const [importLoading, setImportLoading] = useState(false);
+  const [importError, setImportError] = useState<string | null>(null);
   const [showLotDialog, setShowLotDialog] = useState(false);
   const [showTxDialog, setShowTxDialog] = useState(false);
   const [editingItem, setEditingItem] = useState<any>(null);
@@ -844,6 +850,62 @@ const InventoryManagement = () => {
     refetchTransactions();
   };
 
+  const resetImportState = () => {
+    setImportFile(null);
+    setImportPreview(null);
+    setImportResult(null);
+    setImportError(null);
+    setImportLoading(false);
+  };
+
+  const handleImportFileChange = async (file: File | null) => {
+    setImportFile(file);
+    setImportPreview(null);
+    setImportResult(null);
+    setImportError(null);
+    if (!file) return;
+
+    setImportLoading(true);
+    try {
+      const body = new FormData();
+      body.append('file', file);
+      const res = await fetch('/api/inventory/import/preview', { method: 'POST', credentials: 'include', body });
+      const json = await res.json().catch(() => null);
+      if (!res.ok) {
+        setImportError(json?.error || 'No se pudo leer el archivo');
+        return;
+      }
+      setImportPreview(json);
+    } catch {
+      setImportError('No se pudo leer el archivo');
+    } finally {
+      setImportLoading(false);
+    }
+  };
+
+  const handleImportCommit = async () => {
+    if (!importFile) return;
+    setImportLoading(true);
+    setImportError(null);
+    try {
+      const body = new FormData();
+      body.append('file', importFile);
+      const res = await fetch('/api/inventory/import/commit', { method: 'POST', credentials: 'include', body });
+      const json = await res.json().catch(() => null);
+      if (!res.ok) {
+        setImportError(json?.error || 'No se pudo completar la importación');
+        return;
+      }
+      setImportResult(json);
+      refetchAllInventoryData();
+      toast.success(`Importación completa: ${json.created} nuevos, ${json.updated} actualizados`);
+    } catch {
+      setImportError('No se pudo completar la importación');
+    } finally {
+      setImportLoading(false);
+    }
+  };
+
   const resetItemForm = () => {
     setItemForm({
       sku: '',
@@ -1091,10 +1153,16 @@ const InventoryManagement = () => {
                   />
                 </div>
 
-                <Button onClick={() => setShowItemDialog(true)} className="bg-primary hover:bg-primary/90">
-                  <Plus className="mr-2 h-4 w-4" />
-                  Agregar ítem
-                </Button>
+                <div className="flex gap-2">
+                  <Button variant="outline" onClick={() => setShowImportDialog(true)}>
+                    <Upload className="mr-2 h-4 w-4" />
+                    Importar Excel
+                  </Button>
+                  <Button onClick={() => setShowItemDialog(true)} className="bg-primary hover:bg-primary/90">
+                    <Plus className="mr-2 h-4 w-4" />
+                    Agregar ítem
+                  </Button>
+                </div>
               </div>
 
               {/* Familia, aparte de Categoría: son dos preguntas distintas
@@ -1536,6 +1604,152 @@ const InventoryManagement = () => {
           </div>
         </aside>
       </div>
+
+      <Dialog
+        open={showImportDialog}
+        onOpenChange={(open) => {
+          setShowImportDialog(open);
+          if (!open) resetImportState();
+        }}
+      >
+        <DialogContent className="max-w-4xl">
+          <DialogHeader>
+            <DialogTitle>Importar Excel de inventario</DialogTitle>
+            <DialogDescription>
+              El export mensual del sistema anterior — se identifica por Código; los ítems nuevos se crean con un
+              lote de apertura, los que ya existen sólo actualizan nombre, clasificación, mínimo y costo. El stock
+              de ítems existentes nunca se toca automáticamente.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            {!importResult && (
+              <Input
+                type="file"
+                accept=".xlsx,.xls"
+                onChange={(e) => handleImportFileChange(e.target.files?.[0] ?? null)}
+                disabled={importLoading}
+              />
+            )}
+
+            {importLoading && <p className="text-sm text-muted-foreground">Procesando…</p>}
+            {importError && <p className="text-sm text-destructive">{importError}</p>}
+
+            {importPreview && !importResult && (
+              <div className="space-y-3">
+                <div className="flex flex-wrap gap-2 text-xs">
+                  <span className="rounded-full bg-emerald-500/10 px-2.5 py-1 font-medium text-emerald-600 dark:text-emerald-400">
+                    {importPreview.summary.new} nuevos
+                  </span>
+                  <span className="rounded-full bg-sky-500/10 px-2.5 py-1 font-medium text-sky-600 dark:text-sky-400">
+                    {importPreview.summary.updated} actualizados
+                  </span>
+                  <span className="rounded-full bg-muted px-2.5 py-1 font-medium text-muted-foreground">
+                    {importPreview.summary.unchanged} sin cambios
+                  </span>
+                  {importPreview.summary.stockDiffers > 0 && (
+                    <span
+                      className="rounded-full bg-amber-500/10 px-2.5 py-1 font-medium text-amber-600 dark:text-amber-400"
+                      title="El Excel reporta un stock distinto al del sistema — no se ajusta automáticamente, revisar manualmente."
+                    >
+                      {importPreview.summary.stockDiffers} con diferencia de stock
+                    </span>
+                  )}
+                </div>
+
+                {importPreview.warnings.length > 0 && (
+                  <div className="rounded-md border border-amber-500/40 bg-amber-500/5 p-2 text-xs text-amber-700 dark:text-amber-400">
+                    {importPreview.warnings.map((w: string, i: number) => <p key={i}>{w}</p>)}
+                  </div>
+                )}
+
+                <div className="max-h-80 overflow-y-auto rounded-md border">
+                  <table className="w-full text-xs">
+                    <thead className="sticky top-0 bg-card">
+                      <tr className="border-b text-left text-muted-foreground">
+                        <th className="p-2">Código</th>
+                        <th className="p-2">Nombre</th>
+                        <th className="p-2">Familia</th>
+                        <th className="p-2">Estado</th>
+                        <th className="p-2 text-right">Stock Excel</th>
+                        <th className="p-2 text-right">Stock actual</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {importPreview.rows.map((r: any) => (
+                        <tr key={r.sku} className="border-b last:border-0">
+                          <td className="p-2 font-mono">{r.sku}</td>
+                          <td className="p-2 max-w-[220px] truncate" title={r.name}>{r.name}</td>
+                          <td className="p-2">
+                            <span className={`rounded px-1.5 py-0.5 text-[10px] ${familyStyle(r.materialKind).chip}`}>
+                              {getMaterialKindLabel(r.materialKind)}
+                            </span>
+                            {r.categoriaUnmapped && (
+                              <span className="ml-1 text-amber-600 dark:text-amber-400" title="Categoría sin mapeo conocido">
+                                ⚠
+                              </span>
+                            )}
+                          </td>
+                          <td className="p-2">
+                            {r.status === 'new' && <span className="text-emerald-600 dark:text-emerald-400">Nuevo</span>}
+                            {r.status === 'updated' && (
+                              <span className="text-sky-600 dark:text-sky-400" title={r.changes.join(', ')}>
+                                Actualiza {r.changes.join(', ')}
+                              </span>
+                            )}
+                            {r.status === 'unchanged' && <span className="text-muted-foreground">Sin cambios</span>}
+                          </td>
+                          <td className="p-2 text-right font-mono">{r.excelStock.toLocaleString('es-CL')}</td>
+                          <td className={`p-2 text-right font-mono ${r.stockDiffers ? 'text-amber-600 dark:text-amber-400 font-semibold' : ''}`}>
+                            {r.currentStock == null ? '—' : r.currentStock.toLocaleString('es-CL')}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {importResult && (
+              <div className="space-y-3">
+                <div className="flex flex-wrap gap-2 text-xs">
+                  <span className="rounded-full bg-emerald-500/10 px-2.5 py-1 font-medium text-emerald-600 dark:text-emerald-400">
+                    {importResult.created} creados
+                  </span>
+                  <span className="rounded-full bg-sky-500/10 px-2.5 py-1 font-medium text-sky-600 dark:text-sky-400">
+                    {importResult.updated} actualizados
+                  </span>
+                  <span className="rounded-full bg-muted px-2.5 py-1 font-medium text-muted-foreground">
+                    {importResult.unchanged} sin cambios
+                  </span>
+                  {importResult.errors.length > 0 && (
+                    <span className="rounded-full bg-destructive/10 px-2.5 py-1 font-medium text-destructive">
+                      {importResult.errors.length} con error
+                    </span>
+                  )}
+                </div>
+                {importResult.errors.length > 0 && (
+                  <div className="max-h-40 overflow-y-auto rounded-md border border-destructive/40 bg-destructive/5 p-2 text-xs text-destructive">
+                    {importResult.errors.map((e: string, i: number) => <p key={i}>{e}</p>)}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowImportDialog(false)}>
+              {importResult ? 'Cerrar' : 'Cancelar'}
+            </Button>
+            {importPreview && !importResult && (
+              <Button onClick={handleImportCommit} disabled={importLoading} className="bg-primary hover:bg-primary/90">
+                Confirmar importación
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={showItemDialog} onOpenChange={setShowItemDialog}>
         <DialogContent>
