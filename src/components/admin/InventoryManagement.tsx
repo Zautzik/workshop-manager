@@ -61,7 +61,6 @@ import {
   useInventoryItems,
   useInventoryLots,
   useInventoryTransactions,
-  useInventoryLowStockAlerts,
 } from '@/hooks/use-admin-queries';
 import { useOTs } from '@/hooks/use-operations-queries';
 
@@ -227,7 +226,6 @@ const InventoryManagement = () => {
   const { data: items = [], refetch: refetchItems } = useInventoryItems();
   const { data: lots = [], refetch: refetchLots, isLoading: lotsLoading, isError: lotsError } = useInventoryLots();
   const { data: transactions = [], refetch: refetchTransactions } = useInventoryTransactions();
-  const { data: alerts = [] } = useInventoryLowStockAlerts();
   const { data: ots = [] } = useOTs();
   // Fijo al montar: una ventana de "últimos 30 días" no necesita
   // recalcularse en cada render, y leer Date.now() dentro de un useMemo es
@@ -362,20 +360,6 @@ const InventoryManagement = () => {
     [sortedItems, everReceivedIds],
   );
 
-  // La misma alarma para "nunca se ha comprado" y "se agotó" es la que hace
-  // que 29 de 37 ítems se vean igual de urgentes. needsAction filtra el
-  // segundo caso — el primero ya se ve directo en cada fila como "Nunca
-  // recibido", no hace falta una lista aparte.
-  const needsAction = useMemo(
-    () => alerts.filter((a: any) => !(Number(a.current_stock) <= 0 && !everReceivedIds.has(a.id))),
-    [alerts, everReceivedIds],
-  );
-
-  const neverReceivedCount = useMemo(
-    () => alerts.filter((a: any) => Number(a.current_stock) <= 0 && !everReceivedIds.has(a.id)).length,
-    [alerts, everReceivedIds],
-  );
-
   // Conteo de ítems por familia, sin filtrar — el panel lateral es un
   // resumen persistente del catálogo completo, no de lo que está visible
   // bajo el filtro/búsqueda activos en la pestaña Ítems.
@@ -391,18 +375,6 @@ const InventoryManagement = () => {
       .sort((a, b) => b.count - a.count);
   }, [items]);
 
-  // El mínimo estático puede decir "Disponible" mientras el ritmo real de
-  // consumo dice "se acaba en 2 días" — son dos preguntas distintas
-  // (¿cuánto queda? vs ¿cuánto dura?), y la de arriba sólo mostraba la
-  // primera. Sin esto, "al día, nada urgente" puede ser literalmente falso.
-  const criticalCoverageItems = useMemo(() => {
-    return items.filter((item: any) => {
-      const rate = dailyConsumptionByItem.get(item.id);
-      if (!rate || rate <= 0) return false;
-      return Number(item.current_stock || 0) / rate < 7;
-    });
-  }, [items, dailyConsumptionByItem]);
-
   const totalStockValue = useMemo(() => {
     return items.reduce((sum: number, item: any) => {
       const stock = Number(item.current_stock || 0);
@@ -410,6 +382,93 @@ const InventoryManagement = () => {
       return sum + stock * cost;
     }, 0);
   }, [items]);
+
+  // Rotación de inventario y DIO (Days Inventory Outstanding) — los dos KPI
+  // que cualquier framework de control de inventario "elite" (APICS SCOR,
+  // la jerarquía de Gartner) pone primero. Se aproxima con el valor de
+  // stock ACTUAL como base (no hay snapshots históricos de valor para
+  // promediar) — es una aproximación estándar cuando no existe ese
+  // histórico, no un número inventado.
+  const turnoverMetrics = useMemo(() => {
+    const WINDOW_DAYS = 30;
+    const cutoff = now - WINDOW_DAYS * 24 * 60 * 60 * 1000;
+    let consumptionValue = 0;
+    for (const tx of transactions) {
+      if (tx.tx_type !== 'consumption') continue;
+      const ts = new Date(tx.created_at).getTime();
+      if (Number.isNaN(ts) || ts < cutoff) continue;
+      consumptionValue += Number(tx.estimated_total_cost || 0);
+    }
+    const dailyValue = consumptionValue / WINDOW_DAYS;
+    const annualTurnover = totalStockValue > 0 && dailyValue > 0 ? (dailyValue * 365) / totalStockValue : null;
+    const dio = dailyValue > 0 ? totalStockValue / dailyValue : null;
+    return { consumptionValue, annualTurnover, dio };
+  }, [transactions, now, totalStockValue]);
+
+  // Lead time real: días entre orden (purchase_date) y recepción
+  // (received_date) de cada lote con una OC vinculada — no un supuesto, el
+  // promedio de lo que de verdad ha tardado en llegar.
+  const avgLeadTime = useMemo(() => {
+    const diffs: number[] = [];
+    for (const lot of lots) {
+      const purchaseDate = lot.purchases?.purchase_date;
+      if (!purchaseDate || !lot.received_date) continue;
+      const d = (new Date(lot.received_date).getTime() - new Date(purchaseDate).getTime()) / (24 * 60 * 60 * 1000);
+      if (d >= 0 && d < 120) diffs.push(d);
+    }
+    if (!diffs.length) return null;
+    return { days: diffs.reduce((a, b) => a + b, 0) / diffs.length, sampleSize: diffs.length };
+  }, [lots]);
+
+  // Punto de reorden real = lead time real × consumo real diario — el
+  // reemplazo "elite" de un mínimo fijo puesto a ojo. Sólo se calcula para
+  // ítems con consumo reciente registrado; sin eso no hay una tasa real que
+  // multiplicar (mejor no mostrar el ítem que inventarle un punto de
+  // reorden).
+  const belowRealReorderPoint = useMemo(() => {
+    if (!avgLeadTime) return [];
+    return items.filter((item: any) => {
+      const rate = dailyConsumptionByItem.get(item.id);
+      if (!rate || rate <= 0) return false;
+      const reorderPoint = avgLeadTime.days * rate;
+      return Number(item.current_stock || 0) < reorderPoint;
+    });
+  }, [items, dailyConsumptionByItem, avgLeadTime]);
+
+  // FIFO: el lote más viejo de un ítem sigue intacto mientras uno más nuevo
+  // ya se consumió — exactamente el riesgo que importa en papel/tinta, que
+  // se degradan con el tiempo guardados. Se detecta con el estado ACTUAL de
+  // los lotes (recibido vs. disponible), sin necesitar un historial de
+  // saldos por fecha que la base no guarda.
+  const fifoViolations = useMemo(() => {
+    const byItem = new Map<string, any[]>();
+    for (const lot of lots) {
+      if (!lot.item_id) continue;
+      if (!byItem.has(lot.item_id)) byItem.set(lot.item_id, []);
+      byItem.get(lot.item_id)!.push(lot);
+    }
+    const violations: { itemId: string; oldestLot: string }[] = [];
+    for (const [itemId, itemLots] of byItem) {
+      if (itemLots.length < 2) continue;
+      const sorted = [...itemLots].sort((a, b) => new Date(a.received_date).getTime() - new Date(b.received_date).getTime());
+      const oldest = sorted[0];
+      const oldestUntouched = Number(oldest.quantity_available) >= Number(oldest.quantity_received);
+      const newerConsumed = sorted.slice(1).some((l) => Number(l.quantity_available) < Number(l.quantity_received));
+      if (oldestUntouched && newerConsumed) violations.push({ itemId, oldestLot: oldest.lot_number });
+    }
+    return violations;
+  }, [lots]);
+
+  // Costeo por trabajo: % del consumo real que quedó asociado a una OT.
+  // La API ya exige la OT para consumos nuevos, pero la mayoría del
+  // historial real no pasó por ese camino — vale la pena verlo, no darlo
+  // por hecho.
+  const jobCostingCoverage = useMemo(() => {
+    const consumptions = transactions.filter((tx: any) => tx.tx_type === 'consumption');
+    if (!consumptions.length) return null;
+    const withOt = consumptions.filter((tx: any) => tx.work_order_id).length;
+    return { pct: (withOt / consumptions.length) * 100, withOt, total: consumptions.length };
+  }, [transactions]);
 
   // Cuánto valor hay por familia — la barra que llena de contenido real la
   // tarjeta de "valor estimado", no sólo un número suelto (feedback directo).
@@ -1237,29 +1296,61 @@ const InventoryManagement = () => {
               </div>
             </div>
 
-            <div className="space-y-1.5 border-t pt-3 text-sm">
-              <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">Ítems en catálogo</span>
-                <span className="font-semibold">{items.length}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">Necesitan OC</span>
-                <span className={`font-semibold ${needsAction.length > 0 ? 'text-destructive' : 'text-emerald-600 dark:text-emerald-400'}`}>
-                  {needsAction.length}
-                </span>
-              </div>
+            <div className="space-y-2 border-t pt-3 text-sm">
+              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Control de inventario</p>
+
               <div
                 className="flex items-center justify-between"
-                title="Menos de 7 días de cobertura al ritmo real de consumo — aunque el mínimo estático diga que está bien"
+                title="Consumo real (en valor) de los últimos 30 días, anualizado, sobre el valor de stock actual — aproximación estándar cuando no hay snapshots históricos de valor para promediar."
               >
-                <span className="text-muted-foreground">A punto de agotarse</span>
-                <span className={`font-semibold ${criticalCoverageItems.length > 0 ? 'text-destructive' : 'text-emerald-600 dark:text-emerald-400'}`}>
-                  {criticalCoverageItems.length}
+                <span className="text-muted-foreground">Rotación anual</span>
+                <span className="font-semibold">{turnoverMetrics.annualTurnover != null ? `${turnoverMetrics.annualTurnover.toFixed(1)}×` : '—'}</span>
+              </div>
+
+              <div
+                className="flex items-center justify-between"
+                title="Días que duraría el valor de stock actual al ritmo de consumo real de los últimos 30 días (DIO)."
+              >
+                <span className="text-muted-foreground">Cobertura total (DIO)</span>
+                <span className="font-semibold">{turnoverMetrics.dio != null ? `≈${Math.round(turnoverMetrics.dio)}d` : '—'}</span>
+              </div>
+
+              <div
+                className="flex items-center justify-between"
+                title={
+                  avgLeadTime
+                    ? `Punto de reorden = lead time real (${avgLeadTime.days.toFixed(1)}d, de ${avgLeadTime.sampleSize} recepciones) × consumo real diario. Sólo cuenta ítems con consumo reciente registrado.`
+                    : 'Sin lotes con OC vinculada todavía para calcular un lead time real.'
+                }
+              >
+                <span className="text-muted-foreground">Bajo punto de reorden real</span>
+                <span className={`font-semibold ${belowRealReorderPoint.length > 0 ? 'text-destructive' : 'text-emerald-600 dark:text-emerald-400'}`}>
+                  {avgLeadTime ? belowRealReorderPoint.length : '—'}
                 </span>
               </div>
-              <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">Nunca recibidos</span>
-                <span className="font-semibold text-muted-foreground">{neverReceivedCount}</span>
+
+              <div
+                className="flex items-center justify-between"
+                title="Ítems con un lote más viejo intacto mientras uno más nuevo ya se consumió — el riesgo real de guardar papel/tinta más tiempo del necesario."
+              >
+                <span className="text-muted-foreground">Fuera de orden FIFO</span>
+                <span className={`font-semibold ${fifoViolations.length > 0 ? 'text-destructive' : 'text-emerald-600 dark:text-emerald-400'}`}>
+                  {fifoViolations.length}
+                </span>
+              </div>
+
+              <div
+                className="flex items-center justify-between"
+                title="Porcentaje del consumo real que quedó asociado a una orden de trabajo — la base de un costeo real por trabajo, no una tarifa estimada."
+              >
+                <span className="text-muted-foreground">Consumo con OT asociada</span>
+                <span
+                  className={`font-semibold ${
+                    jobCostingCoverage == null ? '' : jobCostingCoverage.pct < 50 ? 'text-destructive' : 'text-emerald-600 dark:text-emerald-400'
+                  }`}
+                >
+                  {jobCostingCoverage ? `${jobCostingCoverage.pct.toFixed(0)}%` : '—'}
+                </span>
               </div>
             </div>
 

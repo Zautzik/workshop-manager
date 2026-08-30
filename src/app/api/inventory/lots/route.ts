@@ -54,7 +54,7 @@ export async function GET(req: NextRequest) {
       'supplier_name, certification_code, certification_expires_on, blocked_reason, ' +
       'purchase_id, reservado, libre, reservas_activas, ' +
       'inventory_items ( id, name, sku, unit, category, material_kind, is_certification_required ), ' +
-      'purchases ( oc_number )'
+      'purchases ( oc_number, purchase_date )'
     )
     .order('received_date', { ascending: false, nullsFirst: false })
     .limit(limite);
