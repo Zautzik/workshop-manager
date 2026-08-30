@@ -161,6 +161,21 @@ function specUnit(spec: string): string {
 }
 
 /**
+ * Un tercer nivel, sólo donde el papel realmente lo tiene: gramaje primero,
+ * tamaño después ("150g 70×100" → peso "150g", tamaño "70×100"). Lo que no
+ * empieza con un número seguido de g/gsm/grs (tubos en mm, cajas en cm,
+ * Pantone) se queda en dos niveles — inventar un peso ahí sería ruido, no
+ * jerarquía (pedido directo: "de Couche vamos a gramaje, y de ahí a tamaño").
+ */
+function parseWeight(spec: string): { weight: string | null; rest: string | null } {
+  const m = spec.match(/^([0-9]+(?:[.,][0-9]+)?\s*(?:gsm|grs|gr|g))(?=[\s)]|$)/i);
+  if (!m) return { weight: null, rest: spec || null };
+  const weight = m[1].trim();
+  const rest = spec.slice(m[0].length).trim();
+  return { weight, rest: rest || null };
+}
+
+/**
  * Tres estados, no uno. "Nunca recibido" y "agotado" se ven idénticos en el
  * número (0) pero significan cosas distintas — el primero es estructural
  * (nadie lo ha comprado todavía), el segundo es un evento real (se tenía y se
@@ -439,7 +454,7 @@ const InventoryManagement = () => {
   // familia ya la dice el contenedor que lo envuelve — no hace falta
   // repetirla en cada línea. "Pack it in": 37 ítems tienen que entrar en la
   // pantalla, no en 37 tarjetas de 140px de alto (feedback directo).
-  const renderItemRow = (item: any, indent = false) => {
+  const renderItemRow = (item: any, level: 0 | 1 | 2 = 0, label?: string) => {
     const st = stockState(Number(item.current_stock || 0), Number(item.min_stock || 0), everReceivedIds.has(item.id));
     const min = Number(item.min_stock || 0);
     const stock = Number(item.current_stock || 0);
@@ -452,11 +467,12 @@ const InventoryManagement = () => {
         : coverageDays < 14
           ? 'text-amber-600 dark:text-amber-400'
           : 'text-muted-foreground';
+    const padClass = level === 0 ? 'pl-2' : level === 1 ? 'pl-7' : 'pl-12';
     return (
-      <div key={item.id} className={`flex items-center gap-2 py-1.5 pr-1 text-sm ${indent ? 'pl-7' : 'pl-2'}`}>
+      <div key={item.id} className={`flex items-center gap-2 py-1.5 pr-1 text-sm ${padClass}`}>
         <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${st.dot}`} />
         <div className="min-w-0 flex-1">
-          <span className="truncate font-medium" title={item.name}>{indent ? splitVariant(item.name).spec || item.name : item.name}</span>
+          <span className="truncate font-medium" title={item.name}>{label ?? item.name}</span>
           <span className="ml-2 font-mono text-[10px] text-muted-foreground">{item.sku}</span>
         </div>
         <span className={`w-28 shrink-0 text-right font-mono text-[11px] ${st.key === 'ok' ? 'text-muted-foreground' : `${st.text} font-semibold`}`}>
@@ -483,20 +499,49 @@ const InventoryManagement = () => {
     );
   };
 
-  const renderProductRow = (group: { key: string; base: string; familia: string; items: any[] }) => {
-    if (group.items.length === 1) return renderItemRow(group.items[0]);
-
-    const expanded = expandedGroups.has(group.key);
-
-    // El peor estado entre las variantes, para que la fila cerrada no
-    // esconda una emergencia detrás de un "3 variantes" neutro.
-    let worst = stockState(Number(group.items[0].current_stock || 0), Number(group.items[0].min_stock || 0), everReceivedIds.has(group.items[0].id));
+  // El peor estado entre un grupo de ítems, para que una fila cerrada no
+  // esconda una emergencia detrás de un "N variantes" neutro.
+  const worstStateOf = (items: any[]) => {
+    let worst = stockState(Number(items[0].current_stock || 0), Number(items[0].min_stock || 0), everReceivedIds.has(items[0].id));
     let worstOrder = worst.key === 'agotado' ? -1 : STOCK_ORDER[worst.key];
-    for (const it of group.items) {
+    for (const it of items) {
       const s = stockState(Number(it.current_stock || 0), Number(it.min_stock || 0), everReceivedIds.has(it.id));
       const order = s.key === 'agotado' ? -1 : STOCK_ORDER[s.key];
       if (order < worstOrder) { worst = s; worstOrder = order; }
     }
+    return worst;
+  };
+
+  // Tercer nivel, sólo cuando el papel realmente lo tiene: gramaje primero,
+  // tamaño después ("Couche" → "150g" → "70×100"). Un peso sin nada detrás
+  // (p. ej. "300gsm" sola) no abre nada — no hay tamaño que mostrar
+  // (pedido directo: "de Couche vamos a gramaje, y de ahí a tamaño").
+  const renderWeightRow = (groupKey: string, weight: string, items: any[]) => {
+    const weightKey = `${groupKey}::${weight}`;
+    const expanded = expandedGroups.has(weightKey);
+    const worst = worstStateOf(items);
+    return (
+      <div key={weightKey}>
+        <button type="button" onClick={() => toggleGroup(weightKey)} className="flex w-full items-center gap-2 rounded py-1.5 pl-7 pr-1 text-left text-sm hover:bg-muted/50">
+          <ChevronDown className={`h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform ${expanded ? 'rotate-180' : ''}`} />
+          <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${worst.dot}`} />
+          <span className="min-w-0 flex-1 font-medium">{weight}</span>
+          <span className="shrink-0 text-[11px] text-muted-foreground">{items.length} tamaño{items.length === 1 ? '' : 's'}</span>
+        </button>
+        {expanded && (
+          <div className="border-l ml-9 border-border/60">
+            {items.map((it) => renderItemRow(it, 2, parseWeight(splitVariant(it.name).spec).rest ?? it.name))}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const renderProductRow = (group: { key: string; base: string; familia: string; items: any[] }) => {
+    if (group.items.length === 1) return renderItemRow(group.items[0]);
+
+    const expanded = expandedGroups.has(group.key);
+    const worst = worstStateOf(group.items);
 
     const specs = group.items
       .map((it) => specNumber(splitVariant(it.name).spec))
@@ -506,6 +551,20 @@ const InventoryManagement = () => {
     const specLabel = specs.length
       ? (specs[0] === specs[specs.length - 1] ? `${specs[0]}${unit}` : `${specs[0]}–${specs[specs.length - 1]}${unit}`)
       : null;
+
+    // Partir por gramaje: cada peso con algo detrás (un tamaño) se abre a un
+    // tercer nivel; sin nada detrás, es una hoja directa como antes.
+    const byWeight = new Map<string, any[]>();
+    const flatLeaves: any[] = [];
+    for (const it of group.items) {
+      const { weight, rest } = parseWeight(splitVariant(it.name).spec);
+      if (weight != null && rest != null) {
+        if (!byWeight.has(weight)) byWeight.set(weight, []);
+        byWeight.get(weight)!.push(it);
+      } else {
+        flatLeaves.push(it);
+      }
+    }
 
     return (
       <div key={group.key}>
@@ -520,7 +579,8 @@ const InventoryManagement = () => {
         </button>
         {expanded && (
           <div className="border-l ml-4 border-border/60">
-            {group.items.map((it) => renderItemRow(it, true))}
+            {Array.from(byWeight.entries()).map(([weight, items]) => renderWeightRow(group.key, weight, items))}
+            {flatLeaves.map((it) => renderItemRow(it, 1, splitVariant(it.name).spec || it.name))}
           </div>
         )}
       </div>
