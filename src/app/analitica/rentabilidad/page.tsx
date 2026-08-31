@@ -8,6 +8,7 @@ import { PieChart, FileSpreadsheet, ClipboardList } from 'lucide-react';
 import { OrderLaborMarginAnalysis } from '@/components/financial/OrderLaborMarginAnalysis';
 import { OTCostAnalysisReport } from '@/components/financial/OTCostAnalysisReport';
 import { OTFinancialTracking } from '@/components/financial/OTFinancialTracking';
+import { MaquetaLoadPanel } from '@/components/financial/MaquetaLoadPanel';
 import AnalyticsFilterBar from '@/components/analitica/AnalyticsFilterBar';
 
 // El orden importa: se aterriza en el margen del TRABAJO, no en una de sus
@@ -72,6 +73,10 @@ export default function AnaliticaRentabilidadPage() {
         <Suspense fallback={<Skeleton className="h-96 w-full" />}>
           <RentabilidadTabs />
         </Suspense>
+        {/* `maquetaLoadByClient` existía en src/lib/maqueta.ts, con pruebas, y
+            ninguna pantalla lo llamaba (auditoría 2026-08-31). Se omite sola
+            cuando no hay maquetas registradas todavía. */}
+        <MaquetaLoadPanel />
       </div>
     </ProtectedRoute>
   );

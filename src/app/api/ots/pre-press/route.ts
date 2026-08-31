@@ -39,7 +39,13 @@ export async function GET(_req: NextRequest) {
 			'die_source, die_code, die_id, cliche_code, relieve_matrix_code, lamination_type',
 		)
 		.eq('status', 'pre_press')
-		.order('deadline', { ascending: true, nullsFirst: false });
+		.order('deadline', { ascending: true, nullsFirst: false })
+		// Tope explícito: cada otra lista paginada de este repo lo tiene (ver
+		// PageSchema en ots/route.ts, max 200) precisamente para no repetir el
+		// fetch-de-tabla-completa que ya causó un bug de Rentabilidad (PostgREST
+		// trunca en 1000 en silencio). Esta ruta no lo tenía -- inofensivo con 3
+		// filas hoy, no cuando la cola crezca (auditoría 2026-08-31).
+		.limit(200);
 
 	if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
@@ -138,13 +144,12 @@ export async function GET(_req: NextRequest) {
 	});
 
 	return NextResponse.json({
-		// Las que menos les falta van primero: son las que se pueden cerrar hoy.
-		// Ordena por ANTIGÜEDAD, no por lo que falta.
-		//
-		// Antes iban primero las que menos les faltaba —las fáciles de cerrar— y
-		// eso es exactamente al revés de cómo se gobierna una cola: lo que hunde
-		// una fecha de entrega es el trabajo que lleva seis días esperando, no el
-		// que entró hoy con un hueco.
+		// Ordena por ANTIGÜEDAD, no por lo que falta. Antes iban primero las que
+		// menos les faltaba —las fáciles de cerrar— y eso es exactamente al revés
+		// de cómo se gobierna una cola: lo que hunde una fecha de entrega es el
+		// trabajo que lleva seis días esperando, no el que entró hoy con un hueco.
+		// (El comentario anterior decía lo contrario de lo que este `sort` hace
+		// -- quedó de la versión vieja del criterio; auditoría 2026-08-31.)
 		trabajos: trabajos.sort((a, b) =>
 			String(a.en_pre_prensa_desde).localeCompare(String(b.en_pre_prensa_desde)),
 		),

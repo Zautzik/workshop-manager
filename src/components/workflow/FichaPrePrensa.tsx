@@ -23,6 +23,7 @@
  */
 
 import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { AlertTriangle, ArrowRight, Box, CheckCircle2, Clock, Loader2, Send } from 'lucide-react';
 import Link from 'next/link';
 
@@ -57,6 +58,22 @@ function diasEsperando(desde?: string | null): number | null {
 	return Math.floor((Date.now() - t) / 86_400_000);
 }
 
+/**
+ * Días que quedan hasta la entrega comprometida. Negativo = ya vencida.
+ *
+ * La Fase A de la especificación pedía esto explícitamente —"si sale hoy,
+ * entrega el 27; cada día que espera la corre uno"— y nunca se construyó: la
+ * pantalla mostraba la antigüedad (hace cuánto espera) pero nunca la
+ * consecuencia (qué le hace eso a la fecha prometida). Son dos preguntas
+ * distintas y la segunda es la que de verdad le importa al vendedor.
+ */
+function diasParaEntrega(deadline?: string | null): number | null {
+	if (!deadline) return null;
+	const t = new Date(deadline.length <= 10 ? `${deadline}T23:59:59` : deadline).getTime();
+	if (!Number.isFinite(t)) return null;
+	return Math.ceil((t - Date.now()) / 86_400_000);
+}
+
 /** Dónde se completa cada cosa. Sin esto la lista dice qué falta y no dónde ir. */
 const DONDE: Partial<Record<keyof OTSpec, { texto: string; href: (otId: string) => string }>> = {
 	// `/operaciones/ot/[id]` NO EXISTE — nunca existió. Todos estos enlaces eran
@@ -64,9 +81,22 @@ const DONDE: Partial<Record<keyof OTSpec, { texto: string; href: (otId: string) 
 	// existe es el asistente, que es donde se completan los datos de una OT.
 	substrateBrand: { texto: 'Completar en el asistente', href: () => '/operaciones/kanban?asistente=1' },
 	substrateSupplier: { texto: 'Completar en el asistente', href: () => '/operaciones/kanban?asistente=1' },
-	impositionConfirmed: { texto: 'Programar en máquina', href: () => '/planta' },
-	machineId: { texto: 'Programar en máquina', href: () => '/planta' },
-	operationsReviewed: { texto: 'Revisar operaciones', href: () => '/planta' },
+	// Apuntaban a /planta -- el asignador de operarios a estaciones, que nunca
+	// escribe `ot_machine_schedule` ni `ot_operations`. El enlace no daba 404
+	// (por eso no se veía) pero tampoco resolvía nada: mandaba a alguien a
+	// caminar hasta un lugar que no podía cerrar el hueco que lo mandó ahí
+	// (auditoría 2026-08-31).
+	//
+	// El montaje de verdad (una fila en `ot_machine_schedule`) se programa en
+	// Hoja de Producción -- y programar ahí ahora también fija
+	// `assigned_machine_id` si estaba vacío, así que la misma acción cierra
+	// montaje Y máquina asignada.
+	impositionConfirmed: { texto: 'Programar en Hoja de Producción', href: () => '/operaciones/hoja-produccion' },
+	machineId: { texto: 'Programar en Hoja de Producción', href: () => '/operaciones/hoja-produccion' },
+	// Las operaciones se revisan en el Kanban: el botón "Montaje/Costos" de la
+	// tarjeta abre EditBudgetWizard para esta OT -- estaba montado en el
+	// tablero pero nada lo abría hasta ahora.
+	operationsReviewed: { texto: 'Revisar operaciones', href: (otId) => `/operaciones/kanban?editar=${otId}` },
 	// `artAttached` no está: se resuelve acá mismo, subiendo el archivo.
 	pressId: { texto: 'Elegir prensa', href: () => '/operaciones/kanban?asistente=1' },
 	// `dieSource` no está acá a propósito: se resuelve dentro de la ficha con el
@@ -75,7 +105,51 @@ const DONDE: Partial<Record<keyof OTSpec, { texto: string; href: (otId: string) 
 	laminationType: { texto: 'Completar en el asistente', href: () => '/operaciones/kanban?asistente=1' },
 	clicheCode: { texto: 'Completar en el asistente', href: () => '/operaciones/kanban?asistente=1' },
 	relieveMatrixCode: { texto: 'Completar en el asistente', href: () => '/operaciones/kanban?asistente=1' },
+	// No hay pantalla para esto -- es un llamado. El enlace lleva a donde se
+	// escribe la fecha una vez que el cliente la dio.
+	deadline: { texto: 'Cargar fecha', href: (otId) => `/operaciones/kanban?editar=${otId}` },
 };
+
+/**
+ * Vueltas y costo acumulado, visibles antes de abrir el diálogo.
+ *
+ * Misma `queryKey` que `MaquetasDialog` (['maquetas', otId]) a propósito:
+ * React Query cachea la respuesta una sola vez y las dos vistas la comparten
+ * -- abrir el diálogo después no repite el fetch.
+ */
+function MaquetasResumen({ otId, onAbrir }: { otId: string; onAbrir: () => void }) {
+	const { data } = useQuery<{ rounds: number; total: number }>({
+		queryKey: ['maquetas', otId],
+		queryFn: async () => {
+			const r = await fetch(`/api/ots/${otId}/maquetas`, { credentials: 'include' });
+			if (!r.ok) throw new Error('No se pudo leer');
+			return r.json();
+		},
+	});
+	const vueltas = data?.rounds ?? 0;
+	const total = data?.total ?? 0;
+
+	return (
+		<div className="flex flex-wrap items-center gap-2 border-t border-border pt-3">
+			<Button variant="outline" size="sm" className="h-8 text-xs" onClick={onAbrir}>
+				<Box className="mr-1.5 h-3.5 w-3.5" /> Registrar maquetas
+			</Button>
+			{vueltas > 0 ? (
+				<span className="text-xs font-medium text-foreground">
+					{vueltas} {vueltas === 1 ? 'vuelta registrada' : 'vueltas registradas'} ·{' '}
+					<span className="tabular-nums text-amber-700 dark:text-amber-400">{formatCLP(total)}</span> acumulado
+					{vueltas >= 3 && (
+						<span className="ml-1.5 text-muted-foreground">— cliente que cuesta convencer</span>
+					)}
+				</span>
+			) : (
+				<span className="text-xs text-muted-foreground">
+					Lo que cuesta convencer al cliente antes de imprimir nada.
+				</span>
+			)}
+		</div>
+	);
+}
 
 export function FichaPrePrensa({ otId, otNumber, spec, quotedPrice, firmPrice, desde, onChanged }: Props) {
 	const [maquetas, setMaquetas] = useState(false);
@@ -95,6 +169,7 @@ export function FichaPrePrensa({ otId, otNumber, spec, quotedPrice, firmPrice, d
 	const nuestros = faltan.filter((g) => g.owner === 'interno');
 	const delCliente = faltan.filter((g) => g.owner === 'cliente');
 	const dias = diasEsperando(desde);
+	const diasEntrega = diasParaEntrega(spec.deadline);
 	const [mandando, setMandando] = useState(false);
 
 	/**
@@ -154,6 +229,37 @@ export function FichaPrePrensa({ otId, otNumber, spec, quotedPrice, firmPrice, d
 					Firmar la prueba es el punto de no retorno: después se compra papel y se graban
 					planchas. Por eso la ficha tiene que estar entera <strong>antes</strong>, no después.
 				</p>
+				{/* El impacto en la fecha, no sólo la antigüedad. La cola ya decía
+				    "hace 6 días acá"; lo que le faltaba es la consecuencia -- qué le
+				    hace eso a la fecha que se le prometió al cliente. Sin fecha
+				    cargada, ni siquiera se puede contestar la pregunta, y eso es un
+				    hueco de nivel 1 tan real como cualquier otro (spec Fase A). */}
+				{!lista && (
+					!spec.deadline ? (
+						<p className="mt-2 flex items-center gap-1.5 rounded-md border border-red-500/30 bg-red-500/10 px-2.5 py-1.5 text-xs font-medium text-red-700 dark:text-red-400">
+							<AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+							Sin fecha de entrega comprometida — no se puede saber qué tan urgente es esto.
+						</p>
+					) : diasEntrega !== null && (
+						<p
+							className={`mt-2 flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-medium ${
+								diasEntrega < 0
+									? 'border-red-500/30 bg-red-500/10 text-red-700 dark:text-red-400'
+									: diasEntrega <= 2
+										? 'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400'
+										: 'border-border bg-muted/40 text-muted-foreground'
+							}`}
+						>
+							<Clock className="h-3.5 w-3.5 shrink-0" />
+							{diasEntrega < 0
+								? `La entrega ya venció hace ${Math.abs(diasEntrega)} ${Math.abs(diasEntrega) === 1 ? 'día' : 'días'}.`
+								: diasEntrega === 0
+									? 'Entrega comprometida hoy.'
+									: `Entrega comprometida en ${diasEntrega} ${diasEntrega === 1 ? 'día' : 'días'}.`}{' '}
+							Cada día que esta ficha sigue incompleta le saca uno a esos días.
+						</p>
+					)
+				)}
 			</CardHeader>
 
 			<CardContent className="space-y-4">
@@ -239,15 +345,14 @@ export function FichaPrePrensa({ otId, otNumber, spec, quotedPrice, firmPrice, d
 				)}
 
 				{/* La maqueta se arma acá, y su costo se paga aunque el cliente no
-				    apruebe. Si no hay dónde anotarla, desaparece en gastos generales. */}
-				<div className="flex items-center gap-2 border-t border-border pt-3">
-					<Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => setMaquetas(true)}>
-						<Box className="mr-1.5 h-3.5 w-3.5" /> Registrar maquetas
-					</Button>
-					<span className="text-xs text-muted-foreground">
-						Lo que cuesta convencer al cliente antes de imprimir nada.
-					</span>
-				</div>
+				    apruebe. Si no hay dónde anotarla, desaparece en gastos generales.
+				    El conteo y el acumulado van AL LADO del botón -- la especificación
+				    (Fase D) lo pedía así a propósito: el dato ya existía en
+				    `ot_cost_lines` y sólo se veía adentro del diálogo, así que nadie lo
+				    miraba antes de decidir mandar la vuelta siguiente (auditoría
+				    2026-08-31). Misma query key que `MaquetasDialog`: comparten caché,
+				    no hay una segunda llamada. */}
+				<MaquetasResumen otId={otId} onAbrir={() => setMaquetas(true)} />
 
 				<MaquetasDialog
 					otId={otId}

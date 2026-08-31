@@ -3,6 +3,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { CheckCircle2, ScanLine, ShieldAlert } from 'lucide-react';
 import { useRef, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { toast } from 'sonner';
 
 import ProtectedRoute from '@/components/ProtectedRoute';
@@ -43,10 +44,21 @@ const ETAPAS = [
  * igual y registrándolo «después».
  */
 function EscanearInner() {
+	// `?ot=<id>&etapa=<stage>` -- lo usa el aviso que ahora aparece al cerrar
+	// una etapa en el tablero (CierreDeEtapa.tsx): sin esto, llegar acá desde
+	// ese aviso significaba volver a buscar la misma OT en la lista.
+	// Como estado inicial y no como efecto, por la misma razón que ya explica
+	// OTManagement.tsx para `?asistente=1`: un efecto reabriría/repisaría la
+	// elección cada vez que cambia el parámetro, incluso después de que el
+	// operario ya la corrigió a mano.
+	const searchParams = useSearchParams();
 	const [codigo, setCodigo] = useState('');
-	const [otId, setOtId] = useState('');
+	const [otId, setOtId] = useState(() => searchParams?.get('ot') ?? '');
 	const [cantidad, setCantidad] = useState('');
-	const [etapa, setEtapa] = useState<string>('guillotine_first_cut');
+	const [etapa, setEtapa] = useState<string>(() => {
+		const pedida = searchParams?.get('etapa');
+		return pedida && ETAPAS.some((e) => e.key === pedida) ? pedida : 'guillotine_first_cut';
+	});
 	const [autorizacion, setAutorizacion] = useState('');
 	const [pideAutorizacion, setPideAutorizacion] = useState<string | null>(null);
 	const [ultimo, setUltimo] = useState<Record<string, unknown> | null>(null);

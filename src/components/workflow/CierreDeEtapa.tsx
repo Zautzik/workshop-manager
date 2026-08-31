@@ -254,6 +254,32 @@ export function CierreDeEtapa({
 				</div>
 			)}
 
+			{/* Este cierre guarda cuántos pliegos se perdieron, pero NO descuenta ni
+			    un kilo de inventario -- son dos hechos distintos que hoy no se tocan
+			    entre sí. Lo que sí mueve el stock es escanear el lote en
+			    /operaciones/escanear (RPC `consumir_lote`), una pantalla aparte que
+			    nada desde acá recordaba usar. Sin este aviso, cerrar la etapa se
+			    siente como "ya quedó registrado" cuando el papel usado sigue
+			    apareciendo disponible en Inventario (auditoría 2026-08-31, R1-9). No
+			    se hace automático a propósito: automatizarlo exigiría adivinar de qué
+			    lote salió el papel, y adivinar un lote es el "consumo sin
+			    verificación" que `consumir_lote` fue escrito para impedir.
+			    Sólo en las etapas donde Escanear de verdad ofrece la OT (su propia
+			    lista filtra a estas tres, ver /operaciones/escanear/page.tsx): un
+			    aviso en Corte Final o Revisión Taller mandaría a una pantalla que ni
+			    va a mostrar el trabajo. */}
+			{['guillotine_first_cut', 'offset_printing', 'digital_printing'].includes(stage) && (
+				<a
+					href={`/operaciones/escanear?ot=${otId}&etapa=${stage}`}
+					target="_blank"
+					rel="noopener noreferrer"
+					className="flex items-center gap-1.5 rounded-md border border-amber-500/30 bg-amber-500/10 px-2.5 py-1.5 text-xs text-amber-700 dark:text-amber-400 hover:bg-amber-500/15"
+				>
+					<Info className="h-3.5 w-3.5 shrink-0" />
+					El papel no se descuenta solo del inventario — escaneá el lote que usaste en esta pasada.
+				</a>
+			)}
+
 			<div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
 				<div>
 					<Label htmlFor="cierre-problemas" className="text-xs">Problemas durante el proceso</Label>

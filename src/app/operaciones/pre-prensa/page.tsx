@@ -46,6 +46,14 @@ function diasEsperando(desde?: string | null): number | null {
 	return Math.floor((Date.now() - t) / 86_400_000);
 }
 
+/** Días hasta la entrega comprometida. La misma cuenta que hace la ficha. */
+function diasParaEntrega(deadline?: string | null): number | null {
+	if (!deadline) return null;
+	const t = new Date(deadline.length <= 10 ? `${deadline}T23:59:59` : deadline).getTime();
+	if (!Number.isFinite(t)) return null;
+	return Math.ceil((t - Date.now()) / 86_400_000);
+}
+
 function PrePrensaInner() {
 	const [seleccionada, setSeleccionada] = useState<string | null>(null);
 	const { data, isLoading, refetch } = useQuery<{ trabajos: Trabajo[]; diagnostics: { total: number; listas: number; esperando_al_cliente: number } }>({
@@ -162,6 +170,22 @@ function PrePrensaInner() {
 														espera al cliente
 													</span>
 												)}
+												{/* El impacto en la fecha, visible sin abrir la ficha:
+												    sin esto una fila se ve tan urgente como cualquier
+												    otra hasta que alguien la abre. */}
+												{!t.deadline ? (
+													<span className="rounded-full bg-red-500/15 px-1.5 font-medium text-red-700 dark:text-red-400">
+														sin fecha
+													</span>
+												) : (() => {
+													const de = diasParaEntrega(t.deadline);
+													if (de === null || de > 2) return null;
+													return (
+														<span className="rounded-full bg-red-500/15 px-1.5 font-medium text-red-700 dark:text-red-400">
+															{de < 0 ? `vencida ${Math.abs(de)}d` : de === 0 ? 'entrega hoy' : `entrega en ${de}d`}
+														</span>
+													);
+												})()}
 											</>
 										)}
 									</p>

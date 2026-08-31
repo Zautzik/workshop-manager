@@ -105,6 +105,22 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
 
 	if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
+	// Cuántas vueltas hay, contadas de las descripciones ("Maqueta — 2ª vuelta:
+	// ...") y no de un contador aparte -- la vuelta ya vive en el texto que
+	// `maquetaCostLines` escribe, y una segunda fuente del mismo número es
+	// exactamente el patrón que este repositorio lleva meses cerrando.
+	//
+	// Existía el dato (`ot_cost_lines`) y sólo se leía DENTRO del diálogo de
+	// registrar -- Pre-Prensa nunca mostraba el conteo ni el acumulado antes de
+	// que alguien lo abriera, aunque la especificación (Fase D) pedía
+	// explícitamente que estuviera "al lado del botón de mandar la vuelta
+	// siguiente" (auditoría 2026-08-31).
+	const numerosDeVuelta = new Set(
+		(data ?? [])
+			.map((l: any) => Number(String(l.description).match(/(\d+)ª vuelta/)?.[1]))
+			.filter((n: number) => Number.isFinite(n)),
+	);
+
 	// Los valores del trabajo viajan con la lectura para que la vista previa del
 	// formulario use LOS MISMOS que el servidor va a usar al guardar. Sin esto el
 	// formulario previsualizaba con una cartulina genérica y guardaba con el
@@ -112,6 +128,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
 	return NextResponse.json({
 		lines: data ?? [],
 		total: (data ?? []).reduce((s: number, l: any) => s + Number(l.total ?? 0), 0),
+		rounds: numerosDeVuelta.size,
 		defaults: await valoresPorDefecto(id),
 	});
 }
