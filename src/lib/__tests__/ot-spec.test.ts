@@ -94,6 +94,22 @@ describe('completa PARA ALGO, no completa a secas', () => {
 		expect(missingFor(2, sinPrensa).map((g) => g.field)).toContain('pressId');
 	});
 
+	it('montaje no confirmado en `false` explícito SÍ es un hueco', () => {
+		// Regresión: estos dos campos son booleanos y caían en el `vacio()`
+		// genérico, que sólo reconoce como "falta" null/undefined/string
+		// vacío/número<=0/array vacío. `vacio(false)` da `false` -- no falta --
+		// así que una OT con el montaje explícitamente sin confirmar nunca
+		// aparecía en la lista de huecos. La ruta real siempre manda un booleano
+		// real (`count > 0`), nunca `undefined`, así que el fixture lo imita.
+		const sinMontaje = { ...PRODUCIBLE, impositionConfirmed: false };
+		expect(missingFor(2, sinMontaje).map((g) => g.field)).toContain('impositionConfirmed');
+	});
+
+	it('operaciones no revisadas en `false` explícito SÍ es un hueco', () => {
+		const sinRevisar = { ...PRODUCIBLE, operationsReviewed: false };
+		expect(missingFor(2, sinRevisar).map((g) => g.field)).toContain('operationsReviewed');
+	});
+
 	it('cada hueco dice POR QUÉ importa, no sólo qué falta', () => {
 		// Pedir un dato sin explicar para qué parece burocracia, y el vendedor
 		// aprende a saltárselo.

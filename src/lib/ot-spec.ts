@@ -223,6 +223,16 @@ export function missingFor(level: SpecLevel, spec: OTSpec): Gap[] {
 		if (r.field === 'artAttached') return !spec.artAttached && !spec.sinArte;
 		// Las terminaciones vacías son una respuesta —«ninguna»— no un hueco.
 		if (r.field === 'finishes') return spec.finishes === null || spec.finishes === undefined;
+		// impositionConfirmed y operationsReviewed son booleanos, y `vacio()` sólo
+		// reconoce como "falta" null/undefined/string vacío/número <= 0/array
+		// vacío. `vacio(false)` da `false` -- no falta -- asi que estos dos
+		// requisitos nunca se reportaban como gap sin importar el estado real de
+		// la OT: el motor de precio los revisa bien (`priceBand` los niega
+		// explicitamente) pero la compuerta que si bloquea nunca los veia.
+		// Confirmado en vivo: una OT sin ot_machine_schedule ni ot_operations
+		// paso de pre_press a visto_bueno sin objecion (auditoria 2026-08-30).
+		if (r.field === 'impositionConfirmed') return !spec.impositionConfirmed;
+		if (r.field === 'operationsReviewed') return !spec.operationsReviewed;
 		return vacio(spec[r.field]);
 	});
 }

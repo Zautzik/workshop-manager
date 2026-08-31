@@ -5,6 +5,7 @@ import { supabaseAdmin } from '@/integrations/supabase/server';
 import { buildRateLimitActor, enforceRouteRateLimit } from '@/lib/api-rate-limit';
 import type { Json } from '@/integrations/supabase/types';
 import { isValidStatus, type OTWorkflowStatus, validateTransition } from '@/lib/ot-state-machine';
+import { loadRoleAccess } from '@/lib/transition-rules';
 
 const BulkTransitionSchema = z.object({
   ot_ids: z.array(z.string().uuid()).min(1).max(200),
@@ -71,7 +72,7 @@ export async function POST(req: NextRequest) {
 
     // ── Batch pre-fetch: 3 queries regardless of how many OTs ─────────────
     // Previously this loop did 3-4 queries per OT (N+1), timing out at ~50+ OTs.
-    const [otsResult, approvalsResult, costsResult] = await Promise.all([
+    const [otsResult, approvalsResult, costsResult, roleAccess] = await Promise.all([
       supabaseAdmin
         .from('ots')
         .select('id, ot_number, status')
@@ -85,6 +86,7 @@ export async function POST(req: NextRequest) {
         .from('ot_real_costs')
         .select('ot_id')
         .in('ot_id', otIds),
+      loadRoleAccess(),
     ]);
 
     // Index into Maps/Sets for O(1) lookup inside the validation loop.
@@ -115,6 +117,7 @@ export async function POST(req: NextRequest) {
         fromStatus: ot.status as OTWorkflowStatus,
         toStatus,
         role: auth.role!,
+        roleAccess,
         hasApprovedApproval: approvedOtIds.has(otId),
         hasAnyRealCosts: costsOtIds.has(otId),
       });

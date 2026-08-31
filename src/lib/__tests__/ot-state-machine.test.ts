@@ -123,6 +123,46 @@ describe('validateTransition', () => {
 		expect(result.code).toBe('ROLE_FORBIDDEN');
 	});
 
+	it('without roleAccess, falls back to the hardcoded default (unchanged pre-table behavior)', () => {
+		const result = validateTransition({
+			fromStatus: 'guillotine_final_cut',
+			toStatus: 'workshop',
+			role: 'technician',
+			hasApprovedApproval: true,
+			hasAnyRealCosts: true,
+		});
+		expect(result.ok).toBe(true);
+	});
+
+	it('an explicit roleAccess override wins over the hardcoded default', () => {
+		// Un técnico habilitado por tabla para cerrar directo a `completed`,
+		// algo que el default hardcodeado nunca permite.
+		const result = validateTransition({
+			fromStatus: 'in_delivery',
+			toStatus: 'completed',
+			role: 'technician',
+			hasApprovedApproval: true,
+			hasAnyRealCosts: true,
+			roleAccess: { technician: ['completed'] } as any,
+		});
+		expect(result.ok).toBe(true);
+	});
+
+	it('an explicit roleAccess override can also be stricter than the default', () => {
+		// admin normalmente puede todo; una tabla que sólo lo lista para
+		// `pre_press` lo restringe igual que a cualquier otro rol.
+		const result = validateTransition({
+			fromStatus: 'workshop',
+			toStatus: 'ready_for_delivery',
+			role: 'admin',
+			hasApprovedApproval: true,
+			hasAnyRealCosts: true,
+			roleAccess: { admin: ['pre_press'] } as any,
+		});
+		expect(result.ok).toBe(false);
+		expect(result.code).toBe('ROLE_FORBIDDEN');
+	});
+
 	it('allows admin rollback to a previous status', () => {
 		const result = validateTransition({
 			fromStatus: 'workshop',
@@ -168,6 +208,11 @@ describe('no se sale de Pre-Prensa con la ficha a medias', () => {
 		clientId: 'c1', productType: 'caja_plegadiza', quantity: 200_000,
 		widthCm: 20, heightCm: 30, substrateType: 'cartulina', grammageGsm: 300,
 		colorFront: 'cmyk', deadline: '2026-09-15', pressId: 'r1',
+		// Explícitos en `false`, como los arma la ruta de transición real (`count
+		// > 0`) -- no `undefined`. La compuerta bloqueaba `undefined` bien y
+		// dejaba pasar `false`: un fixture que sólo omite el campo no habría
+		// atrapado ese bug nunca.
+		impositionConfirmed: false, operationsReviewed: false,
 	};
 	const PRODUCIBLE = {
 		...COTIZABLE, substrateBrand: 'Ártica', substrateSupplier: 'Bío Bío',
@@ -212,7 +257,45 @@ describe('no se sale de Pre-Prensa con la ficha a medias', () => {
 		expect(validateTransition(base).ok).toBe(true);
 	});
 
-	it('sólo vigila el paso a la prueba, no cualquier avance', () => {
+	it('montaje no confirmado Y operaciones no revisadas SÍ son gaps, aunque valgan false', () => {
+		// Regresión: `missingFor` delegaba estos dos campos a `vacio()`, que sólo
+		// reconoce como "falta" null/undefined/string vacío/número<=0/array vacío.
+		// `vacio(false)` da `false` -- no falta -- así que un booleano real en
+		// `false` nunca se reportaba como gap, para ninguna OT (auditoría
+		// 2026-08-30). `COTIZABLE` ya trae ambos en `false`, como los arma la
+		// ruta real; esto lo hace explícito para que no se pueda romper en
+		// silencio otra vez.
+		const v = validateTransition({ ...base, spec: COTIZABLE });
+		expect(v.gaps!.map((g) => g.field)).toEqual(
+			expect.arrayContaining(['impositionConfirmed', 'operationsReviewed']),
+		);
+	});
+
+	it('una PRODUCIBLE con el montaje marcado false explícito vuelve a fallar', () => {
+		const v = validateTransition({
+			...base, spec: { ...PRODUCIBLE, impositionConfirmed: false },
+		});
+		expect(v.ok).toBe(false);
+		expect(v.gaps!.map((g) => g.field)).toContain('impositionConfirmed');
+	});
+
+	it('un salto largo desde pre_press tampoco esquiva la compuerta', () => {
+		// Regresión: la compuerta sólo miraba el hop exacto pre_press ->
+		// visto_bueno. El forward-only permite pedir cualquier estado posterior
+		// en una sola llamada -- una OT nacida por conversión de cotización puede
+		// pedir `in_storage` directamente, saltándose visto_bueno entero -- y ese
+		// salto la esquivaba aunque la ficha fuera sólo nivel 1 (auditoría
+		// 2026-08-30).
+		const v = validateTransition({ ...base, toStatus: 'in_storage', spec: COTIZABLE });
+		expect(v.ok).toBe(false);
+		expect(v.code).toBe('SPEC_INCOMPLETE');
+	});
+
+	it('el mismo salto largo pasa con la ficha completa', () => {
+		expect(validateTransition({ ...base, toStatus: 'in_storage', spec: PRODUCIBLE }).ok).toBe(true);
+	});
+
+	it('no vigila salidas de otro estado que no sea pre_press', () => {
 		const v = validateTransition({
 			...base, fromStatus: 'offset_printing', toStatus: 'die_cutting', spec: COTIZABLE,
 			// La pasada por la prensa se declara para que lo que se mida acá sea la
@@ -223,10 +306,41 @@ describe('no se sale de Pre-Prensa con la ficha a medias', () => {
 	});
 });
 
-describe('el precio firme no se aleja en silencio', () => {
+describe('no se compra papel sin visto bueno de verdad', () => {
 	const base = {
 		fromStatus: 'visto_bueno' as const, toStatus: 'paper_purchase' as const,
 		role: 'admin' as const, hasApprovedApproval: false, hasAnyRealCosts: false,
+	};
+
+	it('sin ot_approvals aprobado, no se compra papel', () => {
+		// Regresión: la documentación (2026-08-15) daba esto por conectado y
+		// nadie lo había escrito -- `hasApprovedApproval` sólo se exigía para
+		// ready_for_delivery. Confirmado en vivo (auditoría 2026-08-30).
+		const v = validateTransition(base);
+		expect(v.ok).toBe(false);
+		expect(v.code).toBe('APPROVAL_REQUIRED');
+	});
+
+	it('con la aprobación cargada, pasa', () => {
+		expect(validateTransition({ ...base, hasApprovedApproval: true }).ok).toBe(true);
+	});
+
+	it('un rollback de vuelta a paper_purchase no exige aprobación de nuevo', () => {
+		// Reponer papel tras una merma no es pedirle al cliente que apruebe otra
+		// vez un trabajo que ya aprobó una vez.
+		const v = validateTransition({
+			fromStatus: 'offset_printing', toStatus: 'paper_purchase', role: 'admin',
+			hasApprovedApproval: false, hasAnyRealCosts: false, rollback: true,
+		});
+		expect(v.ok).toBe(true);
+	});
+});
+
+describe('el precio firme no se aleja en silencio', () => {
+	const base = {
+		fromStatus: 'visto_bueno' as const, toStatus: 'paper_purchase' as const,
+		// La aprobación va aparte (ver arriba); acá se aísla el drift de precio.
+		role: 'admin' as const, hasApprovedApproval: true, hasAnyRealCosts: false,
 	};
 
 	it('46% arriba frena la compra de papel', () => {

@@ -5,6 +5,8 @@ import { supabaseAdmin } from '@/integrations/supabase/server';
 import { buildRateLimitActor, enforceRouteRateLimit } from '@/lib/api-rate-limit';
 import { isValidStatus, validateTransition, type OTWorkflowStatus } from '@/lib/ot-state-machine';
 import { estimatedHoursFor, promptsStageReport } from '@/lib/stage-report';
+import { loadRoleAccess } from '@/lib/transition-rules';
+import { dispatchNotifications, emitDomainEvent } from '@/lib/domain-events';
 
 // El cierre de la etapa que el fragmento deja atrás. Un avance parcial es una
 // PASADA propia —se cortaron tres mil hoy y los otros tres mil salen mañana— y
@@ -82,7 +84,7 @@ export async function POST(
 
   // The fragment advances forward from the parent's status — enforce the same
   // workflow rules (role access, forward-only, approval + real-cost gates).
-  const [approvalResult, costsResult, openPassesResult] = await Promise.all([
+  const [approvalResult, costsResult, openPassesResult, roleAccess] = await Promise.all([
     supabaseAdmin
       .from('ot_approvals')
       .select('id', { count: 'exact', head: true })
@@ -97,6 +99,7 @@ export async function POST(
       .select('workflow_step, created_at')
       .eq('ot_id', otId)
       .is('hours', null),
+    loadRoleAccess(),
   ]);
 
   const fromStatus = ot.status as OTWorkflowStatus;
@@ -105,6 +108,7 @@ export async function POST(
     fromStatus,
     toStatus,
     role: auth.role!,
+    roleAccess,
     hasApprovedApproval: (approvalResult.count ?? 0) > 0,
     hasAnyRealCosts: (costsResult.count ?? 0) > 0,
     stageReport: stage_report
@@ -170,6 +174,28 @@ export async function POST(
       stageReportWarning =
         'La OT se dividió y avanzó, pero la pasada por la etapa no quedó registrada. Avisá para que se cargue a mano.';
     }
+  }
+
+  // El fragmento es el que llegó a `toStatus` — si eso es un hito, avisa igual
+  // que una transición normal. Antes esta ruta no emitía nada: una OT que
+  // llegaba a "completada" por un avance parcial no avisaba a nadie.
+  const fragment = (data as { split?: { id?: string; ot_number?: string } } | null)?.split;
+  if (fragment?.id) {
+    const event = await emitDomainEvent({
+      type: 'ot.status_changed',
+      otId: fragment.id,
+      actorId: auth.id,
+      actorRole: auth.role,
+      payload: {
+        ot_number: fragment.ot_number ?? null,
+        from_status: fromStatus,
+        to_status: toStatus,
+        by_role: auth.role,
+        actor_name: auth.name ?? auth.email,
+        split_from_ot_id: otId,
+      },
+    });
+    if (event) await dispatchNotifications(event);
   }
 
   // `split_ot` devuelve un objeto `{ original, split }`: el aviso se agrega como

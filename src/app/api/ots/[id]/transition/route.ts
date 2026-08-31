@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { isAuthError, requireAuth } from '@/lib/api-middleware';
 import { supabaseAdmin } from '@/integrations/supabase/server';
 import { buildRateLimitActor, enforceRouteRateLimit } from '@/lib/api-rate-limit';
-import type { Database, Json } from '@/integrations/supabase/types';
+import type { Json } from '@/integrations/supabase/types';
 import {
   isValidStatus,
   type OTWorkflowStatus,
@@ -11,6 +11,13 @@ import {
 } from '@/lib/ot-state-machine';
 import type { OTSpec } from '@/lib/ot-spec';
 import { estimatedHoursFor, promptsStageReport } from '@/lib/stage-report';
+import { loadRoleAccess } from '@/lib/transition-rules';
+import { dispatchNotifications, emitDomainEvent } from '@/lib/domain-events';
+import { tryBackflush } from '@/lib/backflush';
+
+// Las mismas tres etapas donde /operaciones/escanear ofrece el recordatorio
+// de escanear un lote (ver CierreDeEtapa.tsx) — es donde el papel deja bodega.
+const BACKFLUSH_STAGES = new Set<OTWorkflowStatus>(['guillotine_first_cut', 'offset_printing', 'digital_printing']);
 
 /**
  * El cierre de la etapa que termina. Viaja CON la transición y no por una ruta
@@ -107,7 +114,7 @@ export async function POST(
     const o = ot as Record<string, any>;
     const fromStatus = o.status as OTWorkflowStatus;
 
-    const [approvalResult, costsResult] = await Promise.all([
+    const [approvalResult, costsResult, roleAccess] = await Promise.all([
       supabaseAdmin
         .from('ot_approvals')
         .select('id', { count: 'exact', head: true })
@@ -117,6 +124,7 @@ export async function POST(
         .from('ot_real_costs')
         .select('id', { count: 'exact', head: true })
         .eq('ot_id', id),
+      loadRoleAccess(),
     ]);
 
     // ── La ficha, para las compuertas ────────────────────────────────────
@@ -185,6 +193,7 @@ export async function POST(
       fromStatus,
       toStatus,
       role: auth.role!,
+      roleAccess,
       spec,
       // Lo cotizado vive en el visto bueno; lo firme es el precio de la OT hoy,
       // ya recalculado con lo que Pre-Prensa completó.
@@ -233,12 +242,20 @@ export async function POST(
     // silently clobbering their transition. Mirrors the bulk-transition route.
     // completed_at follows the status: stamped on completion, cleared when a
     // rollback takes the OT back out of completed (lead-time analytics read it).
+    //
+    // flag_paper_arrived follows a rollback into paper_purchase the same way:
+    // the flag only ever got set to true (by the OC-receipt hook) and never
+    // cleared, so a second shortage cycle kept reporting "el papel ya llegó"
+    // for paper that no longer covers the job (auditoría 2026-08-30, Run 1 —
+    // confirmed live: the second receive logged paper_flagged:false only
+    // because it was already stuck true from the first).
     const { data: updatedOt, error: updateError } = await supabaseAdmin
       .from('ots')
       .update({
         status: toStatus,
         updated_at: nowIso,
         completed_at: toStatus === 'completed' ? nowIso : fromStatus === 'completed' ? null : undefined,
+        flag_paper_arrived: parsed.data.rollback && toStatus === 'paper_purchase' ? false : undefined,
       })
       .eq('id', id)
       .eq('status', fromStatus)
@@ -299,6 +316,27 @@ export async function POST(
       }
     }
 
+    // Backflush: si la máquina de esta OT está en modo backflush y la etapa
+    // que se cierra es una que consume papel, se intenta el descuento
+    // automático acá — mismo lugar que ya escribe la pasada de la etapa que
+    // termina. Silencioso cuando no aplica (el caso normal: 'scan' es el
+    // default); se avisa sólo cuando SÍ se intentó, para no ensuciar la
+    // respuesta de cada transición común con un mensaje que no aplica.
+    if (BACKFLUSH_STAGES.has(fromStatus) && !parsed.data.rollback) {
+      const bf = await tryBackflush({ otId: id, stage: fromStatus });
+      if (bf.attempted) {
+        // `bf.reason` ya dice si fue completo o parcial (y cuánto faltó) — no
+        // se reconstruye acá; un mensaje propio para el caso "consumed" perdía
+        // justo el aviso de faltante que importa (confirmado en vivo: 100 de
+        // 6500 pliegos se mostraba como "se descontaron 100" sin decir que
+        // sobraban 6400 por completar a mano).
+        const texto = bf.consumed
+          ? `Backflush: ${bf.reason} — ${Math.round(bf.quantity ?? 0)} pliegos de ${bf.itemName} (lote ${bf.lotNumber}).`
+          : `Backflush no pudo descontar: ${bf.reason}.`;
+        stageReportWarning = stageReportWarning ? `${stageReportWarning} ${texto}` : texto;
+      }
+    }
+
     // Audit trail — best-effort, must not block the transition response.
     const { error: historyError } = await supabaseAdmin
       .from('ot_status_history')
@@ -316,47 +354,28 @@ export async function POST(
       console.error('Error writing OT status history:', historyError);
     }
 
-    const db = supabaseAdmin;
-
-    // Notify only on milestone transitions — ready-for-delivery and completion.
-    // Every intermediate plant move used to notify up to 20 managers, which is
-    // ~20 pings per OT per day → notification fatigue (2026-07 audit). A digest
-    // for the rest can come later.
-    const MILESTONE_STATUSES: OTWorkflowStatus[] = ['ready_for_delivery', 'completed'];
-    if (MILESTONE_STATUSES.includes(toStatus)) {
-      const approverRoles: Array<Database['public']['Enums']['app_role']> = ['admin', 'supervisor', 'manager'];
-      const { data: candidateUsers } = await db
-        .from('user_roles')
-        .select('user_id, role')
-        .in('role', approverRoles)
-        .neq('user_id', auth.id)
-        .limit(20);
-
-      if (Array.isArray(candidateUsers) && candidateUsers.length > 0) {
-        const statusLabel = toStatus === 'completed' ? 'completada' : 'lista para despacho';
-        const notifications = candidateUsers.map((row: { user_id: string; role: string }) => ({
-          user_id: row.user_id,
-          type: 'ot_status_changed' as const,
-          title: `OT ${updatedOt.ot_number} ${statusLabel}`,
-          message: `Cambiada por ${auth.name ?? auth.email}`,
-          resource_type: 'ot',
-          resource_id: id,
-          metadata: {
-            from_status: fromStatus,
-            to_status: toStatus,
-            by_role: auth.role,
-            reason: parsed.data.reason ?? null,
-            rollback: parsed.data.rollback ?? false,
-            transition_metadata: parsed.data.metadata ?? {},
-          },
-        }));
-
-        const { error: notificationError } = await db.from('notifications').insert(notifications);
-        if (notificationError) {
-          console.error('Error creating notifications:', notificationError);
-        }
-      }
-    }
+    // Bitácora + aviso a supervisión cuando corresponda. `dispatchNotifications`
+    // decide sola si `toStatus` es un hito (ready_for_delivery/completed) — la
+    // misma pregunta que antes vivía inline acá, ahora compartida con /split y
+    // el visto bueno del portal, que movían el estado sin pasar por acá y por
+    // eso no avisaban nunca.
+    const event = await emitDomainEvent({
+      type: 'ot.status_changed',
+      otId: id,
+      actorId: auth.id,
+      actorRole: auth.role,
+      payload: {
+        ot_number: updatedOt.ot_number,
+        from_status: fromStatus,
+        to_status: toStatus,
+        by_role: auth.role,
+        actor_name: auth.name ?? auth.email,
+        reason: parsed.data.reason ?? null,
+        rollback: parsed.data.rollback ?? false,
+        transition_metadata: parsed.data.metadata ?? {},
+      },
+    });
+    if (event) await dispatchNotifications(event);
 
     return NextResponse.json(
       stageReportWarning ? { ...updatedOt, warning: stageReportWarning } : updatedOt,

@@ -52,7 +52,17 @@ const FORWARD_TRANSITIONS = new Map<OTWorkflowStatus, OTWorkflowStatus[]>(
   STATUS_ORDER.map((status, index) => [status, STATUS_ORDER.slice(index + 1)])
 );
 
-const ROLE_ACCESS: Record<AppRole, OTWorkflowStatus[]> = {
+/**
+ * A qué estados puede mover una OT cada rol, por defecto.
+ *
+ * Red de seguridad, no la fuente de verdad: en producción `validateTransition`
+ * recibe `roleAccess` ya cargado de la tabla `ot_role_transitions` (ver
+ * `loadRoleAccess()` en src/lib/transition-rules.ts) y este objeto sólo se usa
+ * si esa tabla está vacía, si la consulta falla, o si el llamador no pasó
+ * nada — que es el caso de todos los tests existentes, a propósito: fijan el
+ * comportamiento base sin tener que tocar una base de datos.
+ */
+export const DEFAULT_ROLE_ACCESS: Record<AppRole, OTWorkflowStatus[]> = {
   admin: STATUS_ORDER,
   supervisor: STATUS_ORDER,
   manager: ['pre_press', 'visto_bueno', 'ready_for_delivery', 'in_delivery', 'completed'],
@@ -106,6 +116,15 @@ export interface TransitionValidationInput {
    * vacía sí afirma algo —no queda nada abierto— y deja pasar.
    */
   openPasses?: readonly OpenPass[];
+  /**
+   * A qué estados puede mover cada rol, ya resuelto (tabla o default).
+   *
+   * Opcional a propósito, como el resto de este input: sin esto, la función se
+   * comporta exactamente como antes de que `ot_role_transitions` existiera —
+   * usa `DEFAULT_ROLE_ACCESS`. Quien SÍ quiere que la tabla mande (las tres
+   * rutas reales) llama primero a `loadRoleAccess()` y pasa el resultado acá.
+   */
+  roleAccess?: Record<AppRole, OTWorkflowStatus[]>;
 }
 
 export interface TransitionValidationResult {
@@ -193,7 +212,7 @@ export function validateTransition(input: TransitionValidationInput): Transition
     return { ok: true };
   }
 
-  const roleAllowedStatuses = ROLE_ACCESS[role] ?? [];
+  const roleAllowedStatuses = (input.roleAccess ?? DEFAULT_ROLE_ACCESS)[role] ?? [];
   if (!roleAllowedStatuses.includes(toStatus)) {
     return {
       ok: false,
@@ -220,18 +239,49 @@ export function validateTransition(input: TransitionValidationInput): Transition
   //
   // El mensaje NOMBRA lo que falta. «Ficha incompleta» obliga a adivinar; «falta
   // la marca del sustrato, el montaje y el arte» se puede accionar.
-  if (input.spec && fromStatus === 'pre_press' && toStatus === 'visto_bueno') {
+  //
+  // Corre para CUALQUIER salida de pre_press, no sólo hacia visto_bueno. El
+  // forward-only de más arriba permite saltar directo a cualquier estado
+  // posterior en una sola llamada (una OT nacida por conversión de cotización
+  // puede pedir `to_status: in_storage` sin pasar por visto_bueno); si esta
+  // compuerta sólo mirara el salto exacto pre_press -> visto_bueno, ese salto
+  // más largo la esquivaba enteramente -- confirmado en vivo (auditoría
+  // 2026-08-30): una OT recién convertida llegó a in_storage sin que nadie
+  // confirmara el montaje ni revisara las operaciones.
+  if (input.spec && fromStatus === 'pre_press' && toStatus !== 'pre_press') {
     const gaps = missingFor(2, input.spec);
     if (gaps.length > 0) {
       return {
         ok: false,
         code: 'SPEC_INCOMPLETE',
         message:
-          `${gaps.length === 1 ? 'Falta un dato' : `Faltan ${gaps.length} datos`} para poder mandar la prueba: ` +
+          `${gaps.length === 1 ? 'Falta un dato' : `Faltan ${gaps.length} datos`} para que la OT salga de Pre-Prensa: ` +
           gaps.map((g) => g.label.toLowerCase()).join(', ') + '.',
         gaps,
       };
     }
+  }
+
+  // ── Compuerta 1b: no se compra papel sin visto bueno de verdad ───────────
+  //
+  // README y la spec de Pre-Prensa lo llaman "el punto de no retorno": se
+  // compra material y se graban planchas. La documentación (2026-08-15) daba
+  // por conectada esta compuerta -- "hoy lee ot_approvals, que está vacía" --
+  // pero nadie la había escrito: `hasApprovedApproval` sólo se exigía para
+  // `ready_for_delivery`. Confirmado en vivo (auditoría 2026-08-30): una OT
+  // pasó de visto_bueno a paper_purchase con cero filas en ot_approvals.
+  //
+  // Un rollback no pasa por acá (retorna antes, arriba): reponer papel tras
+  // una merma no es pedirle al cliente que apruebe de nuevo un trabajo que ya
+  // aprobó una vez.
+  if (toStatus === 'paper_purchase' && !hasApprovedApproval) {
+    return {
+      ok: false,
+      code: 'APPROVAL_REQUIRED',
+      message:
+        'Falta el visto bueno del cliente sobre la prueba. Sin esa aprobación no se puede ' +
+        'comprar papel ni grabar planchas -- es el punto de no retorno.',
+    };
   }
 
   // ── Compuerta 2: el precio firme no puede alejarse en silencio ───────────
