@@ -33,7 +33,9 @@ import {
 } from '@/components/ui/select';
 import { computeOTCalculations, CALIBRATION } from '@/lib/ot-calculations';
 import type { OTFormData } from '@/types/ot';
-import { Target, Plus, Trash2, TrendingUp, TrendingDown, Check } from 'lucide-react';
+import { Target, Plus, Trash2, TrendingUp, TrendingDown, Check, RefreshCw } from 'lucide-react';
+import { useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
 
 /** Tolerance the calibration gate is measured against. */
 const TOLERANCE_PCT = 10;
@@ -204,6 +206,133 @@ interface CompletedOT {
   color_back: string;
 }
 
+interface CostVarianceSnapshot {
+  id: string;
+  period_start: string;
+  period_end: string;
+  ot_count: number;
+  total_revenue: number;
+  total_estimated: number;
+  total_actual: number;
+  variance_pct: number | null;
+  computed_at: string;
+}
+
+const mesLabel = (isoStart: string) => {
+  const d = new Date(`${isoStart}T00:00:00`);
+  return d.toLocaleDateString('es-CL', { month: 'long', year: 'numeric' });
+};
+
+const clp = (n: number) => `$${Math.round(n).toLocaleString('es-CL')}`;
+
+/**
+ * El mismo veredicto que el banco de pruebas de arriba — ¿el motor le achunta
+ * a lo real? — pero medido solo, sobre TODAS las OT completadas del mes, no
+ * sobre tres que alguien eligió a mano.
+ *
+ * pg_cron recalcula el mes en curso todas las noches (ver
+ * 20260901130000_cierre_de_periodo_y_desviacion.sql); el botón de acá es para
+ * cuando hace falta el número de ahora mismo, sin esperar a esa corrida.
+ */
+function DesvioAutomatico() {
+  const qc = useQueryClient();
+  const { data: snapshots = [], isLoading } = useQuery<CostVarianceSnapshot[]>({
+    queryKey: ['cost-variance-snapshots'],
+    queryFn: async () => {
+      const res = await fetch('/api/analytics/cost-variance?limit=6', { credentials: 'include' });
+      if (!res.ok) return [];
+      return res.json();
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const [recalculando, setRecalculando] = useState(false);
+  const recalcular = async () => {
+    setRecalculando(true);
+    try {
+      const res = await fetch('/api/analytics/cost-variance', { method: 'POST', credentials: 'include' });
+      if (!res.ok) throw new Error();
+      await qc.invalidateQueries({ queryKey: ['cost-variance-snapshots'] });
+      toast.success('Cierre del mes en curso recalculado');
+    } catch {
+      toast.error('No se pudo recalcular');
+    } finally {
+      setRecalculando(false);
+    }
+  };
+
+  const ultimo = snapshots[0] ?? null;
+
+  return (
+    <Card className="border-border">
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+            Desvío real, medido solo
+          </CardTitle>
+          <Button size="sm" variant="outline" className="h-7 gap-1.5 text-xs" onClick={recalcular} disabled={recalculando}>
+            <RefreshCw className={`h-3 w-3 ${recalculando ? 'animate-spin' : ''}`} />
+            Recalcular mes en curso
+          </Button>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Todas las OT completadas del mes, no tres elegidas a mano: estimado contra real desde{' '}
+          <span className="font-mono">ot_cost_summary</span>. Se recalcula solo, todas las noches.
+        </p>
+      </CardHeader>
+      <CardContent>
+        {isLoading ? (
+          <p className="text-sm text-muted-foreground">Cargando…</p>
+        ) : !ultimo ? (
+          <p className="text-sm text-muted-foreground">Sin cierres calculados todavía.</p>
+        ) : (
+          <div className="space-y-3">
+            <div className="flex flex-wrap items-center gap-4">
+              <div>
+                <div className="text-lg font-bold tabular-nums text-foreground capitalize">
+                  {mesLabel(ultimo.period_start)}
+                </div>
+                <div className="text-xs text-muted-foreground">{ultimo.ot_count} OT completadas</div>
+              </div>
+              <DeviationBadge pct={ultimo.variance_pct} />
+              <div className="text-xs text-muted-foreground">
+                Estimado {clp(ultimo.total_estimated)} · Real {clp(ultimo.total_actual)}
+              </div>
+            </div>
+            {snapshots.length > 1 && (
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="text-left text-muted-foreground border-b">
+                      <th className="py-1.5 pr-3">Período</th>
+                      <th className="py-1.5 pr-3 text-right">OT</th>
+                      <th className="py-1.5 pr-3 text-right">Estimado</th>
+                      <th className="py-1.5 pr-3 text-right">Real</th>
+                      <th className="py-1.5 pr-3 text-right">Desvío</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {snapshots.slice(1).map((s) => (
+                      <tr key={s.id} className="border-b border-border/50">
+                        <td className="py-1.5 pr-3 capitalize">{mesLabel(s.period_start)}</td>
+                        <td className="py-1.5 pr-3 text-right tabular-nums">{s.ot_count}</td>
+                        <td className="py-1.5 pr-3 text-right tabular-nums">{clp(s.total_estimated)}</td>
+                        <td className="py-1.5 pr-3 text-right tabular-nums">{clp(s.total_actual)}</td>
+                        <td className="py-1.5 pr-3 text-right"><DeviationBadge pct={s.variance_pct} /></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 export function CalibracionMotor() {
   const [jobs, setJobs] = useState<HistoricalJob[]>(seedJobs);
   const { data: completedOTs = [] } = useCompletedOTs();
@@ -299,6 +428,8 @@ export function CalibracionMotor() {
           </div>
         </CardContent>
       </Card>
+
+      <DesvioAutomatico />
 
       {rows.map(({ job, calc, devSheets, devPrint, devFinish }) => (
         <Card key={job.id} className="border-border">
