@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { requireAuth, isAuthError } from '@/lib/api-middleware';
 import { supabaseAdmin } from '@/integrations/supabase/server';
+import { MOVEMENT_TYPE_CODE_VALUES } from '@/types/movement-type-code';
 
 export const dynamic = 'force-dynamic';
 
@@ -13,17 +14,10 @@ const TxSchema = z
   .object({
     item_id: z.string().uuid(),
     lot_id: z.string().uuid().nullable().optional(),
-    // Los códigos válidos siguen acotados por el enum de Postgres; cuál de
-    // ellos EXIGE una OT ya no lo decide esta lista, lo decide `movement_types`
-    // (ver el .refine de abajo). Agregar un tipo nuevo ya no pide tocar este
-    // enum de Zod y esta ruta a la vez -- sólo la tabla.
-    tx_type: z.enum([
-      'purchase',
-      'consumption',
-      'adjustment_in',
-      'adjustment_out',
-      'return_to_stock',
-    ]),
+    // Los códigos válidos siguen acotados por el enum de Postgres (ver
+    // src/types/movement-type-code.ts); cuál de ellos EXIGE una OT ya no lo
+    // decide esta lista, lo decide `movement_types` (ver el .refine de abajo).
+    tx_type: z.enum(MOVEMENT_TYPE_CODE_VALUES),
     quantity: z.coerce.number().gt(0),
     unit_cost: z.coerce.number().min(0).nullable().optional(),
     work_order_id: z.string().uuid().nullable().optional(),

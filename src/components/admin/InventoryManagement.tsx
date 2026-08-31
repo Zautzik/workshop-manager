@@ -59,6 +59,7 @@ import { Plus, Pencil, Trash2, AlertTriangle, Calculator, ChevronDown, Lock, Pri
 import { certStatus } from '@/lib/purchasing';
 import { EtiquetaLote } from '@/components/bodega/EtiquetaLote';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { cn } from '@/lib/utils';
 import { formatCLP } from '@/lib/format';
 import {
   useInventoryItems,
@@ -66,8 +67,11 @@ import {
   useInventoryTransactions,
 } from '@/hooks/use-admin-queries';
 import { useOTs } from '@/hooks/use-operations-queries';
+import { useMovementTypes } from '@/hooks/use-movement-types';
+import { useAuth } from '@/contexts/AuthContext';
+import { MovementTypesManager } from './MovementTypesManager';
 
-const VALID_TABS = ['items', 'lots', 'transactions', 'calculator'] as const;
+const VALID_TABS = ['items', 'lots', 'transactions', 'calculator', 'movement-types'] as const;
 type InventoryTab = (typeof VALID_TABS)[number];
 
 const CATEGORY_OPTIONS = [
@@ -91,14 +95,19 @@ const MATERIAL_KIND_OPTIONS = [
   { value: 'otro', label: 'Otro' },
 ];
 
-const TX_OPTIONS = [
+// Red de seguridad mientras carga (o si falla) useMovementTypes() — la
+// fuente real es la tabla movement_types, editable en la pestaña "Tipos de
+// movimiento" sin tocar código. Ver src/hooks/use-movement-types.ts.
+const FALLBACK_TX_OPTIONS = [
   { value: 'purchase', label: 'Compra (+)' },
   { value: 'consumption', label: 'Consumo (-)' },
   { value: 'adjustment_in', label: 'Ajuste a favor (+)' },
   { value: 'adjustment_out', label: 'Ajuste en contra (-)' },
   { value: 'return_to_stock', label: 'Devolución a bodega (+)' },
 ];
-const TX_TYPE_LABEL: Record<string, string> = Object.fromEntries(TX_OPTIONS.map((o) => [o.value, o.label]));
+const FALLBACK_TX_TYPE_LABEL: Record<string, string> = Object.fromEntries(
+  FALLBACK_TX_OPTIONS.map((o) => [o.value, o.label]),
+);
 
 const getCategoryLabel = (value?: string | null) => {
   const found = CATEGORY_OPTIONS.find((option) => option.value === value);
@@ -235,6 +244,15 @@ const InventoryManagement = () => {
   const { data: lots = [], refetch: refetchLots, isLoading: lotsLoading, isError: lotsError } = useInventoryLots();
   const { data: transactions = [], refetch: refetchTransactions } = useInventoryTransactions();
   const { data: ots = [] } = useOTs();
+  const { role } = useAuth();
+  const isAdmin = role === 'admin';
+  const { data: movementTypes = [] } = useMovementTypes();
+  const txOptions = movementTypes.length > 0
+    ? movementTypes.filter((t) => t.active).map((t) => ({ value: t.code, label: t.label }))
+    : FALLBACK_TX_OPTIONS;
+  const txTypeLabel = movementTypes.length > 0
+    ? Object.fromEntries(movementTypes.map((t) => [t.code, t.label]))
+    : FALLBACK_TX_TYPE_LABEL;
 
   // `?tab=` como fuente de verdad — así /operaciones/lotes puede redirigir
   // acá con la pestaña Lotes ya abierta, en vez de dejar al usuario en
@@ -1124,11 +1142,12 @@ const InventoryManagement = () => {
         </CardHeader>
         <CardContent>
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-4">
+            <TabsList className={cn('grid w-full', isAdmin ? 'grid-cols-5' : 'grid-cols-4')}>
               <TabsTrigger value="items">Ítems</TabsTrigger>
               <TabsTrigger value="lots">Lotes</TabsTrigger>
               <TabsTrigger value="transactions">Movimientos de stock</TabsTrigger>
               <TabsTrigger value="calculator">Estimador de costos</TabsTrigger>
+              {isAdmin && <TabsTrigger value="movement-types">Tipos de movimiento</TabsTrigger>}
             </TabsList>
 
             <TabsContent value="items" className="space-y-4">
@@ -1433,7 +1452,7 @@ const InventoryManagement = () => {
                   {transactions.map((tx: any) => (
                     <TableRow key={tx.id}>
                       <TableCell>{new Date(tx.created_at).toLocaleString('es-CL')}</TableCell>
-                      <TableCell>{TX_TYPE_LABEL[tx.tx_type] ?? tx.tx_type}</TableCell>
+                      <TableCell>{txTypeLabel[tx.tx_type] ?? tx.tx_type}</TableCell>
                       <TableCell>{tx.item_name}</TableCell>
                       <TableCell>{tx.lot_number || '-'}</TableCell>
                       <TableCell className="text-right tabular-nums">{Number(tx.quantity).toFixed(3)} {tx.unit}</TableCell>
@@ -1498,6 +1517,12 @@ const InventoryManagement = () => {
                 </CardContent>
               </Card>
             </TabsContent>
+
+            {isAdmin && (
+              <TabsContent value="movement-types" className="space-y-4">
+                <MovementTypesManager />
+              </TabsContent>
+            )}
           </Tabs>
         </CardContent>
           </Card>
@@ -1943,7 +1968,7 @@ const InventoryManagement = () => {
                 <Select value={txForm.tx_type} onValueChange={(value) => setTxForm({ ...txForm, tx_type: value })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    {TX_OPTIONS.map((option) => (
+                    {txOptions.map((option) => (
                       <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
                     ))}
                   </SelectContent>
