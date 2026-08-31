@@ -517,7 +517,7 @@ export default function MaintenanceChecklistEditor() {
           className="bg-primary hover:bg-primary/90"
         >
           <Plus size={20} className="mr-2" />
-          New Checklist
+          Nueva lista
         </Button>
       </div>
 
@@ -662,7 +662,7 @@ export default function MaintenanceChecklistEditor() {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <Label htmlFor="priority">Priority</Label>
+                    <Label htmlFor="priority">Prioridad</Label>
                     <Select
                       value={newItem.priority || 'medium'}
                       onValueChange={(val) =>
@@ -676,10 +676,10 @@ export default function MaintenanceChecklistEditor() {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="low">Low</SelectItem>
-                        <SelectItem value="medium">Medium</SelectItem>
-                        <SelectItem value="high">High</SelectItem>
-                        <SelectItem value="critical">Critical</SelectItem>
+                        <SelectItem value="low">Baja</SelectItem>
+                        <SelectItem value="medium">Media</SelectItem>
+                        <SelectItem value="high">Alta</SelectItem>
+                        <SelectItem value="critical">Crítica</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -791,22 +791,22 @@ export default function MaintenanceChecklistEditor() {
               <div className="text-center mb-6 pb-6 border-b-2 border-green-200">
                 <h1 className="text-2xl font-bold text-gray-900 mb-2">{selectedChecklist.name}</h1>
                 <p className="text-gray-600 mb-4">
-                  Machine: {selectedChecklist.machineType} | Maintenance: {selectedChecklist.maintenanceType}
+                  Máquina: {selectedChecklist.machineType} | Mantenimiento: {selectedChecklist.maintenanceType}
                 </p>
                 <div className="flex justify-center gap-6 text-sm">
                   <div>
                     <span className="font-semibold text-gray-900">{selectedChecklist.items.length}</span>
-                    <p className="text-gray-600">Steps</p>
+                    <p className="text-gray-600">Pasos</p>
                   </div>
                   <div>
                     <span className="font-semibold text-gray-900">{selectedChecklist.totalEstimatedTime}</span>
-                    <p className="text-gray-600">Minutes</p>
+                    <p className="text-gray-600">Minutos</p>
                   </div>
                   <div>
                     <span className="font-semibold text-gray-900">
-                      {new Date(selectedChecklist.updatedAt).toLocaleDateString()}
+                      {new Date(selectedChecklist.updatedAt).toLocaleDateString('es-CL')}
                     </span>
-                    <p className="text-gray-600">Last Updated</p>
+                    <p className="text-gray-600">Última actualización</p>
                   </div>
                 </div>
               </div>
@@ -926,11 +926,11 @@ export default function MaintenanceChecklistEditor() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="preventive">Preventive</SelectItem>
-                  <SelectItem value="corrective">Corrective</SelectItem>
-                  <SelectItem value="emergency">Emergency</SelectItem>
-                  <SelectItem value="inspection">Inspection</SelectItem>
-                  <SelectItem value="cleaning">Cleaning</SelectItem>
+                  <SelectItem value="preventive">Preventivo</SelectItem>
+                  <SelectItem value="corrective">Correctivo</SelectItem>
+                  <SelectItem value="emergency">Emergencia</SelectItem>
+                  <SelectItem value="inspection">Inspección</SelectItem>
+                  <SelectItem value="cleaning">Limpieza</SelectItem>
                 </SelectContent>
               </Select>
             </div>

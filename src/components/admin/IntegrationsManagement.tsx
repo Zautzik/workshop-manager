@@ -99,7 +99,7 @@ export default function IntegrationsManagement() {
                   <p className="text-xs text-muted-foreground">Estado: {item.status}{item.last_error ? ` - ${item.last_error}` : ''}</p>
                 </div>
                 <div className="flex items-center gap-1">
-                  <Button size="sm" variant="outline" onClick={() => setStatus(item.id, 'inactive')}>Inactive</Button>
+                  <Button size="sm" variant="outline" onClick={() => setStatus(item.id, 'inactive')}>Inactivo</Button>
                   <Button size="sm" variant="outline" onClick={() => setStatus(item.id, 'active')}>Activo</Button>
                   <Button size="sm" variant="outline" onClick={() => setStatus(item.id, 'error')}>Error</Button>
                 </div>

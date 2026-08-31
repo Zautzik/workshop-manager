@@ -151,8 +151,8 @@ export const MachineCostAnalysis = () => {
               <YAxis />
               <Tooltip />
               <Legend />
-              <Bar dataKey="Operating Cost" fill="hsl(var(--primary))" />
-              <Bar dataKey="Outsourcing Cost" fill="hsl(var(--accent))" />
+              <Bar dataKey="Operating Cost" name="Costo operativo" fill="hsl(var(--primary))" />
+              <Bar dataKey="Outsourcing Cost" name="Costo de tercerización" fill="hsl(var(--accent))" />
             </BarChart>
           </ResponsiveContainer>
         </CardContent>
@@ -163,12 +163,12 @@ export const MachineCostAnalysis = () => {
         <DialogTrigger asChild>
           <Button onClick={() => { resetForm(); setIsOpen(true); }}>
             <Plus className="mr-2 h-4 w-4" />
-            Add Machine Cost Data
+            Agregar costo de máquina
           </Button>
         </DialogTrigger>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>{editingId ? 'Edit' : 'Add'} Machine Cost Data</DialogTitle>
+            <DialogTitle>{editingId ? 'Editar' : 'Agregar'} costo de máquina</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             {!editingId && (
@@ -189,7 +189,7 @@ export const MachineCostAnalysis = () => {
                   </select>
                 </div>
                 <div>
-                  <Label>Month</Label>
+                  <Label>Mes</Label>
                   <Input
                     type="month"
                     value={selectedMonth}
@@ -201,7 +201,7 @@ export const MachineCostAnalysis = () => {
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label>Energy Cost ($)</Label>
+                <Label>Costo de energía ($)</Label>
                 <Input
                   type="number"
                   step="0.01"
@@ -210,7 +210,7 @@ export const MachineCostAnalysis = () => {
                 />
               </div>
               <div>
-                <Label>Labor Cost ($)</Label>
+                <Label>Costo de mano de obra ($)</Label>
                 <Input
                   type="number"
                   step="0.01"
@@ -219,7 +219,7 @@ export const MachineCostAnalysis = () => {
                 />
               </div>
               <div>
-                <Label>Maintenance Cost ($)</Label>
+                <Label>Costo de mantenimiento ($)</Label>
                 <Input
                   type="number"
                   step="0.01"
@@ -228,7 +228,7 @@ export const MachineCostAnalysis = () => {
                 />
               </div>
               <div>
-                <Label>Spare Parts Cost ($)</Label>
+                <Label>Costo de repuestos ($)</Label>
                 <Input
                   type="number"
                   step="0.01"
@@ -237,7 +237,7 @@ export const MachineCostAnalysis = () => {
                 />
               </div>
               <div>
-                <Label>Outsourcing Cost ($)</Label>
+                <Label>Costo de tercerización ($)</Label>
                 <Input
                   type="number"
                   step="0.01"
@@ -246,7 +246,7 @@ export const MachineCostAnalysis = () => {
                 />
               </div>
               <div>
-                <Label>Revenue Generated ($)</Label>
+                <Label>Ingreso generado ($)</Label>
                 <Input
                   type="number"
                   step="0.01"
@@ -284,11 +284,11 @@ export const MachineCostAnalysis = () => {
               <thead>
                 <tr className="border-b">
                   <th className="text-left py-2 px-4 font-medium">Máquina</th>
-                  <th className="text-left py-2 px-4 font-medium">Month</th>
+                  <th className="text-left py-2 px-4 font-medium">Mes</th>
                   <th className="text-right py-2 px-4 font-medium">Costo operativo</th>
                   <th className="text-right py-2 px-4 font-medium">Costo de tercerización</th>
-                  <th className="text-right py-2 px-4 font-medium">Difference</th>
-                  <th className="text-center py-2 px-4 font-medium">Recommendation</th>
+                  <th className="text-right py-2 px-4 font-medium">Diferencia</th>
+                  <th className="text-center py-2 px-4 font-medium">Recomendación</th>
                   <th className="text-center py-2 px-4 font-medium">Acciones</th>
                 </tr>
               </thead>
@@ -299,7 +299,7 @@ export const MachineCostAnalysis = () => {
                   return (
                     <tr key={cost.id} className="border-b hover:bg-muted/50">
                       <td className="py-2 px-4">{cost.machines?.name}</td>
-                      <td className="py-2 px-4">{new Date(cost.month).toLocaleDateString('en-US', { year: 'numeric', month: 'short' })}</td>
+                      <td className="py-2 px-4">{new Date(cost.month).toLocaleDateString('es-CL', { year: 'numeric', month: 'short' })}</td>
                       <td className="py-2 px-4 text-right font-semibold text-destructive">
                         ${Math.round(cost.total_operating_cost ?? 0).toLocaleString('es-CL')}
                       </td>
@@ -312,9 +312,9 @@ export const MachineCostAnalysis = () => {
                       </td>
                       <td className="py-2 px-4 text-center">
                         {shouldOutsource ? (
-                          <span className="text-green-500 font-semibold">Keep In-House</span>
+                          <span className="text-green-500 font-semibold">Mantener en el taller</span>
                         ) : (
-                          <span className="text-yellow-500 font-semibold">Consider Outsourcing</span>
+                          <span className="text-yellow-500 font-semibold">Evaluar tercerizar</span>
                         )}
                       </td>
                       <td className="py-2 px-4 text-center">
@@ -336,7 +336,8 @@ export const MachineCostAnalysis = () => {
         <Alert>
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>
-            Some machines show higher operating costs than outsourcing. Review the equipment investment section for replacement options.
+            Algunas máquinas tienen un costo operativo más alto que tercerizarlas. Revisá la sección de
+            inversión en equipos para ver opciones de reemplazo.
           </AlertDescription>
         </Alert>
       )}
