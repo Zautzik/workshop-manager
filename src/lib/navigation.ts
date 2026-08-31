@@ -20,7 +20,7 @@ import {
   Cpu, AlertCircle, BarChart3, PieChart, DollarSign,
   LayoutDashboard, ClipboardCheck, GitMerge,
   Bell, Settings, Activity, BadgeCheck, Receipt, FileCheck, Gauge,
-  Award, FileText, Gift, Truck, Inbox, Cog, QrCode,
+  Award, FileText, Gift, Truck, Inbox, Cog, QrCode, Workflow,
 } from 'lucide-react';
 
 export interface NavLeaf {
@@ -365,6 +365,7 @@ export const MODULES: NavModule[] = [
           { label: 'Config. & APIs', href: '/administracion/settings',      description: 'Parámetros globales, webhooks y conexiones externas', icon: Settings, color: 'bg-orange-500/10 text-orange-400' },
           { label: 'Integraciones',  href: '/administracion/integrations',  description: 'Conectores y servicios externos',                    icon: Network,  color: 'bg-cyan-500/10 text-cyan-400' },
           { label: 'Diagnósticos',   href: '/administracion/diagnostics',   description: 'Salud del sistema, webhooks, seguridad y logs',       icon: Activity, color: 'bg-emerald-500/10 text-emerald-400' },
+          { label: 'Reglas de flujo de OT', href: '/administracion/flujo-ot', description: 'Qué rol puede mover una OT a cada estado del Kanban', icon: Workflow, color: 'bg-blue-500/10 text-blue-400' },
         ],
       },
     ],
