@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { requireAuth, isAuthError } from '@/lib/api-middleware';
 import { supabaseAdmin } from '@/integrations/supabase/server';
 import { buildRateLimitActor, enforceRouteRateLimit } from '@/lib/api-rate-limit';
+import { nextRound, type ApprovalRow } from '@/lib/approval';
 
 const ApprovalActionSchema = z.object({
 	action: z.enum(['approve', 'reject', 'request_revision']),
@@ -115,7 +116,23 @@ export async function POST(
 				return NextResponse.json(data);
 			}
 
-			// Create new approval record with status
+			// This is a distinct event from the client's pre-press visto bueno (a
+			// post-production QC sign-off on the finished deliverable), but it lands
+			// in the same `ot_approvals` table, which enforces UNIQUE(ot_id, round).
+			// The real visto bueno always occupies round 1 by the time an OT reaches
+			// this stage, so the column's own DEFAULT 1 collided with it on every
+			// real OT. `decision` is deliberately left null: this row doesn't carry
+			// the evidentiary fields (confirmed_via, proofed_on) the client approval
+			// requires, so it must not be counted by approvalState()'s visto-bueno logic.
+			const { data: previas, error: previasErr } = await supabaseAdmin
+				.from('ot_approvals')
+				.select('round')
+				.eq('ot_id', id);
+			if (previasErr) {
+				console.error('Error checking approval rounds:', previasErr);
+				return NextResponse.json({ error: 'Failed to create approval' }, { status: 500 });
+			}
+
 			const { data, error } = await supabaseAdmin
 				.from('ot_approvals')
 				.insert([{
@@ -125,13 +142,18 @@ export async function POST(
 					status: statusMap[action],
 					comments: comments || null,
 					resolved_at: action !== 'approve' ? null : new Date().toISOString(),
+					round: nextRound((previas ?? []) as unknown as ApprovalRow[]),
 				}])
 				.select('*')
 				.single();
 
 			if (error) {
 				console.error('Error creating approval:', error);
-				return NextResponse.json({ error: 'Failed to create approval' }, { status: 500 });
+				const conflicto = error.code === '23505';
+				return NextResponse.json(
+					{ error: conflicto ? 'Alguien más registró una decisión justo ahora. Recargá para verla.' : 'Failed to create approval' },
+					{ status: conflicto ? 409 : 500 },
+				);
 			}
 
 			return NextResponse.json(data, { status: 201 });
