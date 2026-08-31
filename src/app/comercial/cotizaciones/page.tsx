@@ -238,10 +238,7 @@ function CotizacionesInner() {
 
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
-  // VB en proceso de firma: pide la imagen aprobada como parte del acto.
-  const [signFlow, setSignFlow] = useState<string | null>(null);
   const [decidiendo, setDecidiendo] = useState<{ id: string; numero: string; cliente: string } | null>(null);
-  const [signing, setSigning] = useState(false);
   // Mismas tarifas que producción: catálogo compartido + costo de material
   // ponderado por compras. Si el vendedor cotiza con otros números, el taller
   // factura una cosa y la cotización prometió otra.
@@ -387,61 +384,6 @@ function CotizacionesInner() {
     qc.invalidateQueries({ queryKey: ['vistosBuenos'] });
     qc.invalidateQueries({ queryKey: ['ots'] });
     router.push('/operaciones/pre-prensa');
-  };
-
-  const setStatus = async (id: string, status: string) => {
-    const res = await fetch(`/api/vistos-buenos/${id}`, {
-      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-      // Ya no se manda `signed_by_name`. Quien firma sale de `ot_approvals` y lo
-      // copia acá un disparador: firmar sin dejar evidencia dejó de ser posible.
-      body: JSON.stringify({ status }),
-    });
-    if (!res.ok) {
-      const b = await res.json().catch(() => null);
-      // Sin imagen no hay firma: el servidor lo exige, la UI abre el paso.
-      if (b?.code === 'VB_SIN_IMAGEN') { setSignFlow(id); return; }
-      toast.error(b?.error ?? 'No se pudo actualizar');
-      return;
-    }
-    toast.success(status === 'signed' ? 'Visto Bueno firmado' : 'Actualizado');
-    setSignFlow(null);
-    qc.invalidateQueries({ queryKey: ['vistosBuenos'] });
-  };
-
-  /**
-   * Firmar = aprobar un visual. El flujo pide la imagen como el acto mismo de
-   * la aprobación: se sube anclada al VB (vb_id) y recién entonces se firma.
-   * Cuando llegue el reclamo de "me imprimieron el pantone equivocado", esto
-   * es lo único que zanja la discusión.
-   */
-  const signWithImage = async (id: string, file: File) => {
-    setSigning(true);
-    try {
-      const fd = new FormData();
-      fd.append('file', file);
-      fd.append('vb_id', id);
-      const up = await fetch('/api/attachments/upload', { method: 'POST', credentials: 'include', body: fd });
-      if (!up.ok) {
-        const b = await up.json().catch(() => null);
-        throw new Error(b?.error ?? 'No se pudo subir la imagen');
-      }
-      await setStatus(id, 'signed');
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'No se pudo firmar');
-    } finally {
-      setSigning(false);
-    }
-  };
-
-  const convert = async (id: string) => {
-    const res = await fetch(`/api/vistos-buenos/${id}/convert`, { method: 'POST' });
-    const b = await res.json().catch(() => null);
-    if (!res.ok) { toast.error(b?.error ?? 'No se pudo generar la OT'); return; }
-    toast.success('OT generada con su estimado en el ledger');
-    qc.invalidateQueries({ queryKey: ['vistosBuenos'] });
-    qc.invalidateQueries({ queryKey: ['ots'] });
-    qc.invalidateQueries({ queryKey: ['otCostSummary'] });
-    router.push('/operaciones/kanban');
   };
 
   /**
