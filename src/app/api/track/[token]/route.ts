@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/integrations/supabase/server';
+import { approvalState, approvalSummary, type ApprovalRow } from '@/lib/approval';
 
 // GET /api/track/[token] — public, no auth required.
 // token = ots.share_token (a dedicated random uuid, NOT the primary key —
@@ -29,12 +30,32 @@ export async function GET(
     return NextResponse.json({ error: 'Pedido no encontrado' }, { status: 404 });
   }
 
-  const { data: history } = await supabaseAdmin
+  // Mejor esfuerzo, con aviso: si esto falla, el pedido igual se puede
+  // mostrar (linea de tiempo vacía es peor pantalla, no pantalla rota) --
+  // pero el error se registra en vez de leerse como "sin historial todavía".
+  const { data: history, error: historyError } = await supabaseAdmin
     .from('ot_status_history')
     .select('to_status, created_at')
     .eq('ot_id', ot.id)
     .eq('rollback', false)
     .order('created_at', { ascending: true });
+  if (historyError) console.error('track: fallo leyendo ot_status_history:', historyError.message);
+
+  // El estado del visto bueno, sólo lo que un cliente puede ver de sí mismo:
+  // si ya decidió, qué decidió y a qué vuelta va -- nada de ids ni de precios.
+  // Sin esto la pantalla no puede saber si mostrar el formulario o el
+  // resultado ya guardado (auditoría 2026-08-31, Fase C). Best-effort por lo
+  // mismo que el historial -- pero acá un fallo silencioso podría mostrar el
+  // formulario a alguien que ya aprobó, así que se registra el error y no se
+  // finge que "sin datos" significa "nada aprobado todavía".
+  const { data: aprobaciones, error: aprobacionesError } = await supabaseAdmin
+    .from('ot_approvals')
+    .select('decision, round, decided_at, reject_reason, proofed_on, confirmed_via, approver_name')
+    .eq('ot_id', ot.id)
+    .order('round', { ascending: true });
+  if (aprobacionesError) console.error('track: fallo leyendo ot_approvals:', aprobacionesError.message);
+
+  const estado = approvalState((aprobaciones ?? []) as unknown as ApprovalRow[]);
 
   return NextResponse.json({
     ot_number: ot.ot_number,
@@ -45,5 +66,15 @@ export async function GET(
     deadline: ot.deadline,
     created_at: ot.created_at,
     history: (history ?? []).map((h) => ({ status: h.to_status, at: h.created_at })),
+    approval: {
+      // Sólo se puede decidir mientras está en visto_bueno Y todavía no hay
+      // un sí registrado -- el mismo par de condiciones que exige la ruta que
+      // guarda la decisión, dichas acá para que la pantalla no ofrezca un
+      // botón que el servidor va a rechazar.
+      puedeDecidir: ot.status === 'visto_bueno' && !estado.approved,
+      aprobado: estado.approved,
+      rondas: estado.rounds,
+      resumen: estado.rounds > 0 ? approvalSummary(estado) : null,
+    },
   });
 }

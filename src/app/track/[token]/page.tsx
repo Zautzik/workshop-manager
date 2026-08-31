@@ -16,6 +16,7 @@ import { es } from 'date-fns/locale';
 import { CheckCircle2, Circle, Loader2, PackageX } from 'lucide-react';
 import WatercolorBackdrop from '@/components/branding/WatercolorBackdrop';
 import { ForgeHexLogo } from '@/components/branding/ForgeHexLogo';
+import { AprobarPrueba } from '@/components/track/AprobarPrueba';
 
 /** Internal status → client-facing phase (0-based). */
 const PHASE_OF: Record<string, number> = {
@@ -46,6 +47,7 @@ interface TrackData {
   deadline: string | null;
   created_at: string;
   history: Array<{ status: string; at: string }>;
+  approval: { puedeDecidir: boolean; aprobado: boolean; rondas: number; resumen: string | null };
 }
 
 export default function TrackPage() {
@@ -54,15 +56,21 @@ export default function TrackPage() {
   const [data, setData] = useState<TrackData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  // El mensaje de la propia decisión ("Aprobación registrada...") tapa el
+  // resumen genérico ("Aprobado por ti") por un momento -- confirma que ESTE
+  // clic fue el que quedó guardado, no sólo que algo ya estaba aprobado.
+  const [mensajeDecision, setMensajeDecision] = useState<string | null>(null);
 
-  useEffect(() => {
+  const cargar = () => {
     if (!token) return;
     fetch(`/api/track/${token}`)
       .then((r) => r.json())
       .then((d) => (d.error ? setError(d.error) : setData(d)))
       .catch(() => setError('No pudimos cargar tu pedido. Intenta de nuevo.'))
       .finally(() => setLoading(false));
-  }, [token]);
+  };
+
+  useEffect(cargar, [token]);
 
   const currentPhase = data ? (PHASE_OF[data.status] ?? 0) : 0;
   const isDone = data?.status === 'completed';
@@ -142,6 +150,25 @@ export default function TrackPage() {
                 </p>
               )}
             </div>
+
+            {/* El visto bueno, desde el mismo enlace -- Fase C de la spec de
+                Pre-Prensa: antes esta pantalla era de sólo lectura y aprobar
+                requería un llamado. */}
+            {mensajeDecision ? (
+              <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-6 text-sm font-medium text-emerald-700 dark:text-emerald-400">
+                {mensajeDecision}
+              </div>
+            ) : data.approval.puedeDecidir ? (
+              <AprobarPrueba
+                token={token}
+                otNumber={data.ot_number}
+                onDecided={(mensaje) => { setMensajeDecision(mensaje); cargar(); }}
+              />
+            ) : data.approval.resumen ? (
+              <div className="rounded-2xl border border-border/60 bg-card/80 p-6 text-sm text-muted-foreground shadow-lg backdrop-blur-sm">
+                {data.approval.resumen}
+              </div>
+            ) : null}
 
             {/* Phase timeline */}
             <div className="rounded-2xl border border-border/60 bg-card/80 p-6 shadow-lg backdrop-blur-sm">
