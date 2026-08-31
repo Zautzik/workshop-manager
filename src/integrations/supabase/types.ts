@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.17"
+    PostgrestVersion: "14.5"
   }
   graphql_public: {
     Tables: {
@@ -586,6 +586,42 @@ export type Database = {
         }
         Relationships: []
       }
+      cost_variance_snapshots: {
+        Row: {
+          computed_at: string
+          id: string
+          ot_count: number
+          period_end: string
+          period_start: string
+          total_actual: number
+          total_estimated: number
+          total_revenue: number
+          variance_pct: number | null
+        }
+        Insert: {
+          computed_at?: string
+          id?: string
+          ot_count?: number
+          period_end: string
+          period_start: string
+          total_actual?: number
+          total_estimated?: number
+          total_revenue?: number
+          variance_pct?: number | null
+        }
+        Update: {
+          computed_at?: string
+          id?: string
+          ot_count?: number
+          period_end?: string
+          period_start?: string
+          total_actual?: number
+          total_estimated?: number
+          total_revenue?: number
+          variance_pct?: number | null
+        }
+        Relationships: []
+      }
       dies: {
         Row: {
           acquired_on: string | null
@@ -754,6 +790,72 @@ export type Database = {
           },
           {
             foreignKeyName: "dispatch_guides_ot_id_fkey"
+            columns: ["ot_id"]
+            isOneToOne: false
+            referencedRelation: "ots"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      domain_events: {
+        Row: {
+          actor_id: string | null
+          actor_role: string | null
+          created_at: string
+          event_type: string
+          id: string
+          ot_id: string | null
+          payload: Json
+        }
+        Insert: {
+          actor_id?: string | null
+          actor_role?: string | null
+          created_at?: string
+          event_type: string
+          id?: string
+          ot_id?: string | null
+          payload?: Json
+        }
+        Update: {
+          actor_id?: string | null
+          actor_role?: string | null
+          created_at?: string
+          event_type?: string
+          id?: string
+          ot_id?: string | null
+          payload?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "domain_events_ot_id_fkey"
+            columns: ["ot_id"]
+            isOneToOne: false
+            referencedRelation: "ot_certificacion"
+            referencedColumns: ["ot_id"]
+          },
+          {
+            foreignKeyName: "domain_events_ot_id_fkey"
+            columns: ["ot_id"]
+            isOneToOne: false
+            referencedRelation: "ot_compras_estado"
+            referencedColumns: ["ot_id"]
+          },
+          {
+            foreignKeyName: "domain_events_ot_id_fkey"
+            columns: ["ot_id"]
+            isOneToOne: false
+            referencedRelation: "ot_cost_summary"
+            referencedColumns: ["ot_id"]
+          },
+          {
+            foreignKeyName: "domain_events_ot_id_fkey"
+            columns: ["ot_id"]
+            isOneToOne: false
+            referencedRelation: "ot_fulfillment"
+            referencedColumns: ["ot_id"]
+          },
+          {
+            foreignKeyName: "domain_events_ot_id_fkey"
             columns: ["ot_id"]
             isOneToOne: false
             referencedRelation: "ots"
@@ -1458,6 +1560,7 @@ export type Database = {
           id: string
           is_active: boolean
           is_certification_required: boolean
+          material_kind: string | null
           min_stock: number
           name: string
           notes: string | null
@@ -1478,6 +1581,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           is_certification_required?: boolean
+          material_kind?: string | null
           min_stock?: number
           name: string
           notes?: string | null
@@ -1498,6 +1602,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           is_certification_required?: boolean
+          material_kind?: string | null
           min_stock?: number
           name?: string
           notes?: string | null
@@ -2859,6 +2964,7 @@ export type Database = {
         Row: {
           brand: string | null
           colors: number | null
+          consumption_mode: string
           created_at: string | null
           depreciation_monthly: number | null
           description: string | null
@@ -2889,6 +2995,7 @@ export type Database = {
         Insert: {
           brand?: string | null
           colors?: number | null
+          consumption_mode?: string
           created_at?: string | null
           depreciation_monthly?: number | null
           description?: string | null
@@ -2919,6 +3026,7 @@ export type Database = {
         Update: {
           brand?: string | null
           colors?: number | null
+          consumption_mode?: string
           created_at?: string | null
           depreciation_monthly?: number | null
           description?: string | null
@@ -3562,6 +3670,33 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      movement_types: {
+        Row: {
+          active: boolean
+          code: Database["public"]["Enums"]["inventory_tx_type"]
+          direction: string
+          label: string
+          requires_ot: boolean
+          sort_order: number
+        }
+        Insert: {
+          active?: boolean
+          code: Database["public"]["Enums"]["inventory_tx_type"]
+          direction: string
+          label: string
+          requires_ot?: boolean
+          sort_order?: number
+        }
+        Update: {
+          active?: boolean
+          code?: Database["public"]["Enums"]["inventory_tx_type"]
+          direction?: string
+          label?: string
+          requires_ot?: boolean
+          sort_order?: number
+        }
+        Relationships: []
       }
       notifications: {
         Row: {
@@ -4475,6 +4610,21 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      ot_role_transitions: {
+        Row: {
+          role: string
+          to_status: string
+        }
+        Insert: {
+          role: string
+          to_status: string
+        }
+        Update: {
+          role?: string
+          to_status?: string
+        }
+        Relationships: []
       }
       ot_stage_reports: {
         Row: {
@@ -7293,6 +7443,7 @@ export type Database = {
           id: string | null
           is_active: boolean | null
           is_certification_required: boolean | null
+          material_kind: string | null
           min_stock: number | null
           name: string | null
           notes: string | null
@@ -8282,6 +8433,27 @@ export type Database = {
         Args: { p_employee_id: string; p_user_id: string }
         Returns: boolean
       }
+      catalogo_para_auditoria: { Args: never; Returns: Json }
+      compute_cost_variance_snapshot: {
+        Args: { p_end: string; p_start: string }
+        Returns: {
+          computed_at: string
+          id: string
+          ot_count: number
+          period_end: string
+          period_start: string
+          total_actual: number
+          total_estimated: number
+          total_revenue: number
+          variance_pct: number | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "cost_variance_snapshots"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       consumir_lote: {
         Args: {
           p_by?: string
@@ -8294,6 +8466,14 @@ export type Database = {
         Returns: Json
       }
       convert_vb_to_ot: { Args: { p_vb_id: string }; Returns: string }
+      cron_status: {
+        Args: never
+        Returns: {
+          extension_installed: boolean
+          job_scheduled: boolean
+          schedule: string
+        }[]
+      }
       emitir_oc: {
         Args: { p_issued_by: string; p_purchase_id: string }
         Returns: {
