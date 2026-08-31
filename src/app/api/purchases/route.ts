@@ -50,7 +50,14 @@ const CreateOCSchema = z.object({
   // ver más abajo — y este valor se ignora, para no tener dos fuentes de la
   // misma plata.
   total_cost: z.coerce.number().min(0).default(0),
-  status: z.enum(['draft', 'sent', 'received', 'invoiced', 'closed', 'cancelled']).default('draft'),
+  // Nace SIEMPRE en borrador. El esquema aceptaba las seis fases de vida de
+  // una OC ('sent'|'received'|...), pero la base exige `oc_number`,
+  // `issued_by` e `issued_at` en cuanto el estado no es 'draft'
+  // (`purchases_emitida_esta_completa`), y esta ruta nunca los completaba: un
+  // 500 garantizado en las cinco variantes distintas de 'draft', encontrado en
+  // vivo (auditoría 2026-08-30). Emitir es POST /api/purchases/[id]/issue, que
+  // sí llena los tres campos dentro de la misma transacción que numera la OC.
+  status: z.literal('draft').default('draft').optional(),
   purchase_date: z.string().optional(),
   expected_date: z.string().optional().nullable(),
   certification_details: z.string().max(2000).optional().nullable(),
@@ -90,7 +97,7 @@ export async function POST(req: NextRequest) {
       supplier_rut: d.supplier_rut ?? null,
       ot_id: d.ot_id ?? null,
       total_cost: totalFromItems ?? d.total_cost,
-      status: d.status,
+      status: 'draft',
       purchase_date: d.purchase_date ?? new Date().toISOString().slice(0, 10),
       expected_date: d.expected_date ?? null,
       certification_details: d.certification_details ?? null,
@@ -99,7 +106,14 @@ export async function POST(req: NextRequest) {
     .select('*')
     .single();
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) {
+    // Traducido por si algo más adelante vuelve a pedir un estado que no sea
+    // 'draft' acá: el nombre crudo de la restricción no le dice nada a nadie.
+    const humano = /purchases_emitida_esta_completa/.test(error.message)
+      ? 'Una OC nace en borrador; para emitirla con número, usá POST /api/purchases/{id}/issue.'
+      : error.message;
+    return NextResponse.json({ error: humano }, { status: 500 });
+  }
   const purchaseId = (data as any).id as string;
 
   if (hasItems) {

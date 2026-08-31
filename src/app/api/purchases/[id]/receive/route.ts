@@ -160,12 +160,33 @@ async function advanceOtOnPaperArrival(purchaseId: string, itemId: string) {
     const patch: Record<string, unknown> = {};
 
     // La pastilla PAP ("papel en bodega") sólo se marcaba a mano. Ahora la marca
-    // el hecho físico.
+    // el hecho físico -- esto es verdad haya o no otros requisitos pendientes,
+    // así que se marca sin condición.
     if (!ot.flag_paper_arrived) patch.flag_paper_arrived = true;
 
     // Sólo avanza desde el casillero donde el papel es lo que falta. Una OT ya
     // en prensa no retrocede a bodega porque llegó una compra tardía.
-    const advances = ot.status === 'paper_purchase';
+    //
+    // Pero "el papel llegó" no es "ya se puede producir": si la OT también
+    // pidió tinta especial o envase y esos siguen pendientes, avanzar a
+    // "En Bodega" bypasea exactamente la compuerta que existe para esto
+    // (REQUISITOS_PENDIENTES en ot-state-machine.ts) -- esa compuerta sólo
+    // corre en la transición manual, y este es un segundo escritor que nunca
+    // la consultaba. Confirmado en vivo (auditoría 2026-08-30): una OT con
+    // tinta Pantone todavía "pendiente" avanzó igual apenas llegó el papel.
+    let requisitosPendientes = false;
+    if (ot.status === 'paper_purchase') {
+      const { data: requisitos, error: reqErr } = await supabaseAdmin
+        .from('ot_requirements')
+        .select('status')
+        .eq('ot_id', otId);
+      if (reqErr) throw reqErr;
+      requisitosPendientes = ((requisitos ?? []) as { status: string }[]).some(
+        (r) => r.status !== 'resuelto' && r.status !== 'no_aplica',
+      );
+    }
+
+    const advances = ot.status === 'paper_purchase' && !requisitosPendientes;
     if (advances) patch.status = 'in_storage';
 
     if (Object.keys(patch).length === 0) return { ot_number: ot.ot_number, changed: false };
@@ -188,6 +209,9 @@ async function advanceOtOnPaperArrival(purchaseId: string, itemId: string) {
       changed: true,
       advanced_to: advances ? 'in_storage' : undefined,
       paper_flagged: patch.flag_paper_arrived === true,
+      // Que quede explícito por qué no avanzó, en vez de una OT que se queda
+      // quieta sin que nadie sepa que le falta otra cosa además del papel.
+      pending_requirements: ot.status === 'paper_purchase' && requisitosPendientes ? true : undefined,
     };
   } catch (err) {
     console.warn('Paper arrival hook failed:', err);
