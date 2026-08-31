@@ -27,13 +27,19 @@ import {
 } from '@/hooks/use-machines';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { Cpu, Zap, Package, DollarSign, Settings, Plus, Trash2, AlertTriangle, Gauge } from 'lucide-react';
+import { Cpu, Zap, Package, DollarSign, Settings, Plus, Trash2, AlertTriangle, Gauge, Scan } from 'lucide-react';
 import {
   MACHINE_USAGE_UNIT_VALUES,
   USAGE_UNIT_LABEL,
   defaultUsageUnitFor,
   type MachineUsageUnit,
 } from '@/types/machine-usage-unit';
+import {
+  MACHINE_CONSUMPTION_MODE_VALUES,
+  MACHINE_CONSUMPTION_MODE_LABEL,
+  MACHINE_CONSUMPTION_MODE_HINT,
+  type MachineConsumptionMode,
+} from '@/types/machine-consumption-mode';
 
 interface Props {
   machine?: Machine | null;
@@ -261,6 +267,27 @@ export function MachineProfileEditor({ machine, onSaved, onCancel }: Props) {
                 ? 'El contador se mueve anotando lecturas en Mecánica → Anotar lectura, no editándolo acá: así queda quién lo anotó y cuándo.'
                 : 'La unidad decide cómo se programa la pauta y cómo se mide la vida de cada repuesto: una offset por impresiones, una Roland o un compresor por horas, un vehículo por kilómetros.'}{' '}
               Por debajo del mínimo de operarios habilitados, el taller depende de una sola persona y la cobertura lo marca en rojo.
+            </p>
+
+            <Separator />
+            <p className="text-xs font-semibold text-foreground flex items-center gap-1">
+              <Scan className="h-3 w-3 text-cyan-500" />Consumo de papel
+            </p>
+            <Field label="Cómo se descuenta el papel" id="consumption_mode">
+              <Select
+                value={watch('consumption_mode') ?? 'scan'}
+                onValueChange={(v) => setValue('consumption_mode', v as MachineConsumptionMode, { shouldDirty: true })}
+              >
+                <SelectTrigger id="consumption_mode"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {MACHINE_CONSUMPTION_MODE_VALUES.map((m) => (
+                    <SelectItem key={m} value={m}>{MACHINE_CONSUMPTION_MODE_LABEL[m]}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </Field>
+            <p className="text-xs text-muted-foreground">
+              {MACHINE_CONSUMPTION_MODE_HINT[watch('consumption_mode') ?? 'scan']}
             </p>
 
             <Separator />

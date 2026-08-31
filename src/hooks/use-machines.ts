@@ -6,6 +6,8 @@ import type { MachineStatus } from '@/types/machine-status';
 export type { MachineStatus } from '@/types/machine-status';
 import type { MachineType } from '@/types/machine-type';
 import type { MachineUsageUnit } from '@/types/machine-usage-unit';
+import type { MachineConsumptionMode } from '@/types/machine-consumption-mode';
+export type { MachineConsumptionMode } from '@/types/machine-consumption-mode';
 export type { MachineType } from '@/types/machine-type';
 
 // ─── Types ────────────────────────────────────────────────────────────────────────────────
@@ -39,6 +41,8 @@ export interface Machine {
   usage_counter_updated_at?: string | null;
   /** Umbral de factor bus: bajo esto, el taller depende de una persona. */
   min_qualified_operators?: number | null;
+  /** Cómo se descuenta el papel cuando una OT pasa por esta máquina. */
+  consumption_mode?: MachineConsumptionMode;
   created_at: string;
   updated_at: string;
   // Relations

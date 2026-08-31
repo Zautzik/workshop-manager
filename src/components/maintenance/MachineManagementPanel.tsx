@@ -277,6 +277,16 @@ function MachineCard({
           {machine.year_manufactured && (
             <Badge variant="outline" className="text-xs">{machine.year_manufactured}</Badge>
           )}
+          {machine.consumption_mode === 'backflush' && (
+            <Badge className="text-xs bg-cyan-500/15 text-cyan-600 dark:text-cyan-400 border-0" title="Descuenta el papel estándar solo, sin escaneo">
+              Backflush
+            </Badge>
+          )}
+          {machine.consumption_mode === 'off' && (
+            <Badge variant="outline" className="text-xs text-muted-foreground" title="No consume papel">
+              Sin papel
+            </Badge>
+          )}
         </div>
 
         {machine.location && (

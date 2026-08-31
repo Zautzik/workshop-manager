@@ -6,6 +6,7 @@ import { supabaseAdmin } from '@/integrations/supabase/server';
 import { MACHINE_STATUS_VALUES } from '@/types/machine-status';
 import { MACHINE_TYPE_VALUES } from '@/types/machine-type';
 import { MACHINE_USAGE_UNIT_VALUES } from '@/types/machine-usage-unit';
+import { MACHINE_CONSUMPTION_MODE_VALUES } from '@/types/machine-consumption-mode';
 
 const nullableString = z.string().max(5000).nullable().optional();
 const nullableNumber = z.number().nullable().optional();
@@ -33,6 +34,7 @@ const UpdateMachineSchema = z.object({
 	is_active: z.boolean().optional(),
 	usage_unit: z.enum(MACHINE_USAGE_UNIT_VALUES).optional(),
 	min_qualified_operators: z.number().int().min(0).max(50).nullable().optional(),
+	consumption_mode: z.enum(MACHINE_CONSUMPTION_MODE_VALUES).optional(),
 	// `usage_counter` NO se acepta acá a propósito: se mueve registrando una
 	// lectura en POST /api/machines/[id]/usage, que deja fecha y autor. Dejarlo
 	// editable acá abriría la segunda puerta al mismo número.

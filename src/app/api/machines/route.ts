@@ -6,6 +6,7 @@ import { supabaseAdmin } from '@/integrations/supabase/server';
 import { MACHINE_STATUS_VALUES } from '@/types/machine-status';
 import { MACHINE_TYPE_VALUES } from '@/types/machine-type';
 import { MACHINE_USAGE_UNIT_VALUES } from '@/types/machine-usage-unit';
+import { MACHINE_CONSUMPTION_MODE_VALUES } from '@/types/machine-consumption-mode';
 
 // ── Segment config ──────────────────────────────────────────────────────────
 // The route handler must be dynamic so auth runs per-request.
@@ -30,6 +31,7 @@ const CreateMachineSchema = z.object({
 	// como primera lectura y el trigger sincroniza. Una sola puerta.
 	usage_counter: z.number().min(0).nullable().optional(),
 	min_qualified_operators: z.number().int().min(0).max(50).nullable().optional(),
+	consumption_mode: z.enum(MACHINE_CONSUMPTION_MODE_VALUES).optional(),
 	brand: nullableString,
 	model: nullableString,
 	serial_number: nullableString,
