@@ -8742,6 +8742,19 @@ export type Database = {
         }
         Returns: Json
       }
+      replace_role_transitions: {
+        Args: { p_rows: Json }
+        Returns: {
+          role: string
+          to_status: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "ot_role_transitions"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       reservar_lote: {
         Args: {
           p_by?: string
