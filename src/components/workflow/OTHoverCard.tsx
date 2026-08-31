@@ -1,7 +1,7 @@
 'use client';
 
 import { useRef, useState } from 'react';
-import { ArrowRight, Calendar, Layers, Package, Ruler, DollarSign, Image as ImageIcon, Scissors, Edit2, Share2, Check } from 'lucide-react';
+import { ArrowRight, Calendar, Layers, Package, Ruler, DollarSign, Image as ImageIcon, Scissors, Edit2, Share2, Check, Puzzle } from 'lucide-react';
 import { formatCLP } from '@/lib/format';
 import { OTStatusSchema } from '@/lib/ot-state-machine';
 import { otStatusLabel, otStatusHex } from '@/lib/status-labels';
@@ -17,10 +17,12 @@ interface OTHoverCardProps {
   onAdvance?: (ot: any, key: string, label: string) => void;
   onSplit?: (ot: any, key: string, label: string) => void;
   onEdit?: (ot: any) => void;
+  /** Abre EditBudgetWizard: montaje, máquina y operaciones para esta OT. */
+  onEditBudget?: (ot: any) => void;
   nextStatuses?: { key: string; labelEs: string }[];
 }
 
-export function OTHoverCard({ ot, anchorRect, onClose, onAdvance, onSplit, onEdit, nextStatuses = [] }: OTHoverCardProps) {
+export function OTHoverCard({ ot, anchorRect, onClose, onAdvance, onSplit, onEdit, onEditBudget, nextStatuses = [] }: OTHoverCardProps) {
   const ref = useRef<HTMLDivElement>(null);
 
   // Position: try right of anchor, fall back to left if near viewport edge
@@ -214,6 +216,22 @@ export function OTHoverCard({ ot, anchorRect, onClose, onAdvance, onSplit, onEdi
               }}
             >
               <Edit2 size={8} /> Editar
+            </button>
+          )}
+          {/* Montaje, máquina y operaciones -- el único lugar donde una OT
+              (nacida de cotización o del asistente) puede cerrar esos tres
+              huecos de nivel 2 después de creada. */}
+          {onEditBudget && (
+            <button
+              onClick={e => { e.stopPropagation(); onEditBudget(ot); onClose(); }}
+              title="Montaje, máquina y operaciones"
+              style={{
+                fontSize: 9, fontWeight: 700, cursor: 'pointer', border: '1px solid #8b5cf666',
+                background: '#8b5cf622', color: '#8b5cf6', borderRadius: 4,
+                padding: '2px 7px', display: 'flex', alignItems: 'center', gap: 3,
+              }}
+            >
+              <Puzzle size={8} /> Montaje/Costos
             </button>
           )}
       </div>

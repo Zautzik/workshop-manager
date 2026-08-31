@@ -309,6 +309,14 @@ export function EditBudgetWizard({ ot, onClose, onSuccess }: Props) {
         color_front: form.color_front,
         color_back: form.color_back,
         pantone_colors: form.pantone_colors.length > 0 ? form.pantone_colors : null,
+        // El paso Máquina ya recoge `form.machine.machine_id` -- lo mismo que
+        // manda el asistente de creación -- pero el PATCH nunca lo incluía:
+        // se guardaba en el bulto `production_detail` y en ningún lado más,
+        // así que "máquina asignada" (`ots.assigned_machine_id`, lo que la
+        // compuerta de Pre-Prensa en verdad mira) nunca se actualizaba desde
+        // acá. Encontrado siguiendo el reclamo de que Cotización no puede
+        // completar la ficha (auditoría 2026-08-31).
+        assigned_machine_id: form.machine.machine_id || null,
         ...Object.fromEntries(
           Object.entries(form.finishes).map(([k, v]) => [k, v])
         ),

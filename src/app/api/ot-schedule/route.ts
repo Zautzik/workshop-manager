@@ -115,5 +115,23 @@ export async function POST(req: NextRequest) {
 		return NextResponse.json({ error: 'Failed to create schedule slot' }, { status: 500 });
 	}
 
+	// Programar la OT en una máquina Y tenerla "asignada" a esa máquina eran dos
+	// hechos separados (`ot_machine_schedule.machine_id` vs
+	// `ots.assigned_machine_id`) que podían desincronizarse -- el mismo patrón
+	// de "dos puertas para el mismo trabajo" que este repositorio viene
+	// cerrando (NOTES.md). La compuerta de Pre-Prensa mira específicamente
+	// `assigned_machine_id`, así que programar sin fijarlo dejaba el hueco
+	// "máquina asignada" abierto aunque la OT ya tuviera una máquina de verdad
+	// (auditoría 2026-08-31). Sólo se fija si estaba vacío: no se pisa una
+	// asignación explícita con la de un slot programado después.
+	const { error: asignarError } = await supabaseAdmin
+		.from('ots')
+		.update({ assigned_machine_id: parsed.data.machine_id })
+		.eq('id', parsed.data.ot_id)
+		.is('assigned_machine_id', null);
+	if (asignarError) {
+		console.warn('No se pudo fijar assigned_machine_id tras programar:', asignarError.message);
+	}
+
 	return NextResponse.json(data, { status: 201 });
 }

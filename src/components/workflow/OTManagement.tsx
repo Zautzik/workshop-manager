@@ -1,5 +1,5 @@
 'use client';
-import { useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from '@tanstack/react-query';
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -123,6 +123,26 @@ export function OTManagement({ onOTSelect }: OTManagementProps) {
   const [showEditDialog,  setShowEditDialog]  = useState(false);
   const [editingOT,       setEditingOT]       = useState<any>(null);
   const [budgetEditOT,    setBudgetEditOT]    = useState<any>(null);
+  // Llegar con `?editar=<otId>` abre EditBudgetWizard (montaje, máquina,
+  // operaciones) para esa OT. Antes no existía ninguna forma de llegar acá:
+  // `EditBudgetWizard` estaba importado y montado pero nada en este archivo
+  // llamaba `setBudgetEditOT` con una OT real -- código huérfano, encontrado
+  // siguiendo el reclamo "una OT de Cotización nunca puede completar montaje
+  // ni operaciones" (auditoría 2026-08-31). `FichaPrePrensa` linkea acá.
+  //
+  // No puede ser un estado inicial como `asistente=1`: la OT hay que
+  // encontrarla en `ots`, que todavía no cargó en el primer render. Un `ref`
+  // evita reabrir el editor si el usuario ya lo cerró y `ots` se revalida.
+  const editarAplicado = useRef(false);
+  const editarParam = searchParams?.get('editar');
+  useEffect(() => {
+    if (!editarParam || editarAplicado.current) return;
+    const target = (ots as any[]).find((o) => o.id === editarParam);
+    if (target) {
+      setBudgetEditOT(target);
+      editarAplicado.current = true;
+    }
+  }, [editarParam, ots]);
   const [compraOT,        setCompraOT]        = useState<any>(null);
   const [costEntryOT,     setCostEntryOT]     = useState<any>(null);
   const [costEntryTarget, setCostEntryTarget] = useState<{ key: string; label: string } | null>(null);
@@ -757,6 +777,7 @@ Faltan horas de: ${debe.map(otStatusLabel).join(', ')}`
           onAdvance={(ot, key, label) => requestAdvance(ot, key, label)}
           onSplit={(ot, key, label) => { setSplitOT(ot); setSplitTarget({ key, label }); }}
           onEdit={(ot) => { setEditingOT(ot); setShowEditDialog(true); }}
+          onEditBudget={(ot) => setBudgetEditOT(ot)}
         />
       )}
       {splitOT && splitTarget && (
