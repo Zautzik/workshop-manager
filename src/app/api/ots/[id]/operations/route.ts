@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { requireAuth, isAuthError } from '@/lib/api-middleware';
 import { supabaseAdmin } from '@/integrations/supabase/server';
+import { OPERATION_MONEY_FIELDS, redactMoney } from '@/lib/money-fields';
 
 /**
  * GET /api/ots/[id]/operations — Fetch all operations for an OT
@@ -31,7 +32,7 @@ export async function GET(
 			return NextResponse.json({ error: 'Failed to fetch operations' }, { status: 500 });
 		}
 
-		return NextResponse.json(data ?? []);
+		return NextResponse.json(redactMoney(data ?? [], auth.role, OPERATION_MONEY_FIELDS));
 	} catch (error) {
 		console.error('Error fetching OT operations:', error);
 		return NextResponse.json({ error: 'Failed to fetch operations' }, { status: 500 });

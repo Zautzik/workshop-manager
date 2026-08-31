@@ -5,6 +5,7 @@ import { supabaseAdmin } from '@/integrations/supabase/server';
 import { resolveSalesScope, scopeFilterId } from '@/lib/sales-scope';
 import { buildRateLimitActor, enforceRouteRateLimit } from '@/lib/api-rate-limit';
 import { ACTIVE_OT_STATUSES, OTStatusSchema } from '@/lib/ot-state-machine';
+import { redactMoney } from '@/lib/money-fields';
 
 // OTs are mutable and auth-gated — never cache at the HTTP layer.
 export const dynamic = 'force-dynamic';
@@ -193,7 +194,7 @@ export async function GET(req: NextRequest) {
 
 		const total = count ?? 0;
 		return NextResponse.json({
-			data: data ?? [],
+			data: redactMoney(data ?? [], auth.role),
 			total,
 			page,
 			limit,

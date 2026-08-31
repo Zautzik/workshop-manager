@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { requireAuth, isAuthError } from '@/lib/api-middleware';
 import { supabaseAdmin } from '@/integrations/supabase/server';
 import { buildRateLimitActor, enforceRouteRateLimit } from '@/lib/api-rate-limit';
+import { OPERATION_MONEY_FIELDS, redactMoney } from '@/lib/money-fields';
 
 const RealCostSchema = z.object({
 	operation_code: z.string().min(1).max(50),
@@ -48,7 +49,7 @@ export async function GET(
 			return NextResponse.json({ error: 'No se pudieron cargar los costos reales' }, { status: 500 });
 		}
 
-		return NextResponse.json(data ?? []);
+		return NextResponse.json(redactMoney(data ?? [], auth.role, OPERATION_MONEY_FIELDS));
 	} catch (error) {
 		console.error('Error fetching real costs:', error);
 		return NextResponse.json({ error: 'No se pudieron cargar los costos reales' }, { status: 500 });

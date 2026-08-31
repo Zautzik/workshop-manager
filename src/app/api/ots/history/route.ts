@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth, isAuthError } from '@/lib/api-middleware';
 import { supabaseAdmin } from '@/integrations/supabase/server';
+import { redactMoney } from '@/lib/money-fields';
 
 /**
  * GET /api/ots/history?client=name&product_type=etiqueta
@@ -35,7 +36,7 @@ export async function GET(req: NextRequest) {
 			return NextResponse.json({ error: 'Failed to fetch history' }, { status: 500 });
 		}
 
-		return NextResponse.json(data ?? []);
+		return NextResponse.json(redactMoney(data ?? [], auth.role, ['subtotal', 'total_price', 'unit_price']));
 	} catch (error) {
 		console.error('Error fetching OT history:', error);
 		return NextResponse.json({ error: 'Failed to fetch history' }, { status: 500 });

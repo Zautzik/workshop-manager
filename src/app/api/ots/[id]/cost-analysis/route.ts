@@ -11,7 +11,10 @@ export async function GET(
 	_req: NextRequest,
 	{ params }: { params: Promise<{ id: string }> }
 ) {
-	const auth = await requireAuth();
+	// Esta ruta ES margen y costo real, no una ficha con algunos campos de
+	// plata mezclados — no hay una forma parcial útil para quien no debe verla,
+	// así que la puerta es el rol y no el redactado campo por campo.
+	const auth = await requireAuth(['admin', 'manager', 'supervisor']);
 	if (isAuthError(auth)) return auth;
 
 	const { id } = await params;
