@@ -75,6 +75,16 @@ export async function POST(req: NextRequest) {
     ink_coverage: b.ink_coverage ?? null,
     finishes: b.finishes ?? null,
     estimate_lines: b.estimate_lines ?? null,
+    // Lo que el motor ya calculó en el diálogo -- pliegos, kilos, planchas,
+    // horas -- viaja con la cotización en vez de perderse. convert_vb_to_ot()
+    // los copia a la OT; antes nacía con los seis en null (auditoría
+    // 2026-09-01, hallazgo F-2).
+    calc_sheets: b.calc_sheets ?? null,
+    calc_substrate_kg: b.calc_substrate_kg ?? null,
+    calc_ink_kg: b.calc_ink_kg ?? null,
+    calc_plates: b.calc_plates ?? null,
+    calc_print_hours: b.calc_print_hours ?? null,
+    calc_finish_hours: b.calc_finish_hours ?? null,
     subtotal_cost: b.subtotal_cost ?? 0,
     margin_pct: b.margin_pct ?? 0,
     markup_pct: b.markup_pct ?? 0,

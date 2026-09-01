@@ -346,6 +346,14 @@ function CotizacionesInner() {
         color_front: String(form.colors_front), color_back: String(form.colors_back),
         ink_coverage: form.coverage,
         estimate_lines: calc.lines, subtotal_cost: calc.subtotal,
+        // Lo que el motor ya calculó acá mismo -- antes se mostraba en el
+        // diálogo y se perdía al crear la OT (auditoría 2026-09-01, F-2).
+        calc_sheets: calc.calcs.calc_sheets,
+        calc_substrate_kg: calc.calcs.calc_substrate_kg,
+        calc_ink_kg: calc.calcs.calc_ink_kg,
+        calc_plates: calc.calcs.calc_plates,
+        calc_print_hours: calc.calcs.calc_print_hours,
+        calc_finish_hours: calc.calcs.calc_finish_hours,
         markup_pct: form.markup, margin_pct: calc.marginPct,
         total_price: calc.total, unit_price: calc.unit, floor_price: calc.floor,
         status: 'draft',
