@@ -6450,6 +6450,12 @@ export type Database = {
       }
       vistos_buenos: {
         Row: {
+          calc_finish_hours: number | null
+          calc_ink_kg: number | null
+          calc_plates: number | null
+          calc_print_hours: number | null
+          calc_sheets: number | null
+          calc_substrate_kg: number | null
           client_id: string | null
           client_name: string | null
           color_back: string | null
@@ -6489,6 +6495,12 @@ export type Database = {
           width_cm: number | null
         }
         Insert: {
+          calc_finish_hours?: number | null
+          calc_ink_kg?: number | null
+          calc_plates?: number | null
+          calc_print_hours?: number | null
+          calc_sheets?: number | null
+          calc_substrate_kg?: number | null
           client_id?: string | null
           client_name?: string | null
           color_back?: string | null
@@ -6528,6 +6540,12 @@ export type Database = {
           width_cm?: number | null
         }
         Update: {
+          calc_finish_hours?: number | null
+          calc_ink_kg?: number | null
+          calc_plates?: number | null
+          calc_print_hours?: number | null
+          calc_sheets?: number | null
+          calc_substrate_kg?: number | null
           client_id?: string | null
           client_name?: string | null
           color_back?: string | null
@@ -8741,6 +8759,94 @@ export type Database = {
           p_visto_en?: string
         }
         Returns: Json
+      }
+      replace_ot_operations: {
+        Args: { p_operations: Json; p_ot_id: string }
+        Returns: {
+          assigned_machine_id: string | null
+          calc_finish_hours: number | null
+          calc_ink_kg: number | null
+          calc_plates: number | null
+          calc_print_hours: number | null
+          calc_sheets: number | null
+          calc_substrate_kg: number | null
+          cliche_code: string | null
+          client_id: string | null
+          client_name: string
+          color_back: Database["public"]["Enums"]["ot_color_mode"] | null
+          color_front: Database["public"]["Enums"]["ot_color_mode"] | null
+          commission_amount: number | null
+          commission_pct: number | null
+          completed_at: string | null
+          created_at: string
+          created_by: string | null
+          deadline: string | null
+          description: string | null
+          die_code: string | null
+          die_id: string | null
+          die_source: string | null
+          finish_barniz: boolean
+          finish_hot_stamping: boolean
+          finish_laminado: boolean
+          finish_numeracion: boolean
+          finish_pegado: boolean
+          finish_perforado: boolean
+          finish_plegado: boolean
+          finish_relieve: boolean
+          finish_troquelado: boolean
+          finish_uv_localizado: boolean
+          flag_ord: boolean
+          flag_paper_arrived: boolean
+          flag_plan: boolean
+          flag_pro: boolean
+          flag_vbp: boolean
+          grammage_gsm: number | null
+          height_cm: number | null
+          id: string
+          increment_amount: number | null
+          increment_pct: number | null
+          ink_coverage: string | null
+          is_partial: boolean
+          lamination_type: string | null
+          margin_amount: number | null
+          margin_pct: number | null
+          notes: string | null
+          ot_number: string
+          pantone_colors: string[] | null
+          priority: number
+          priority_level: Database["public"]["Enums"]["ot_priority_level"]
+          proceso_actual: string | null
+          product_image_url: string | null
+          product_name: string | null
+          product_type: Database["public"]["Enums"]["ot_product_type"] | null
+          production_detail: Json | null
+          quantity: number
+          relieve_matrix_code: string | null
+          salesman_id: string | null
+          share_token: string
+          sin_arte: boolean
+          split_group_id: string | null
+          split_label: string | null
+          status: Database["public"]["Enums"]["ot_status"]
+          substrate_brand: string | null
+          substrate_supplier: string | null
+          substrate_type:
+            | Database["public"]["Enums"]["ot_substrate_type"]
+            | null
+          subtotal: number | null
+          template_id: string | null
+          total_price: number | null
+          unit_price: number | null
+          updated_at: string
+          vb_id: string | null
+          width_cm: number | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "ots"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       replace_role_transitions: {
         Args: { p_rows: Json }
