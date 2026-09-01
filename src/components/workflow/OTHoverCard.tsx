@@ -1,7 +1,7 @@
 'use client';
 
 import { useRef, useState } from 'react';
-import { ArrowRight, Calendar, Layers, Package, Ruler, DollarSign, Image as ImageIcon, Scissors, Edit2, Share2, Check, Puzzle } from 'lucide-react';
+import { ArrowRight, Calendar, Layers, Package, Ruler, DollarSign, Image as ImageIcon, Scissors, Edit2, Share2, Check, Puzzle, AlertTriangle } from 'lucide-react';
 import { formatCLP } from '@/lib/format';
 import { OTStatusSchema } from '@/lib/ot-state-machine';
 import { otStatusLabel, otStatusHex } from '@/lib/status-labels';
@@ -154,7 +154,17 @@ export function OTHoverCard({ ot, anchorRect, onClose, onAdvance, onSplit, onEdi
         <Field icon={<Calendar size={9} />} label="Entrega" value={fmtDate(ot.deadline)} />
         <Field icon={<Ruler size={9} />} label="Medidas" value={ot.width_cm && ot.height_cm ? `${ot.width_cm}×${ot.height_cm} cm` : '—'} />
         <Field icon={<Layers size={9} />} label="Sustrato" value={fmt(ot.substrate_type)} />
-        <Field icon={<DollarSign size={9} />} label="Precio total" value={fmtPrice(ot.total_price)} />
+        <Field
+          icon={<DollarSign size={9} />}
+          label="Precio total"
+          value={fmtPrice(ot.total_price)}
+          // Toda OT nace con un precio real en las dos rutas de creación —
+          // un total_price en $0 es casi siempre un dato roto, no un trabajo
+          // gratis. Sin esta marca, era indistinguible de un precio correcto
+          // (auditoría 2026-09-01, hallazgo F-3 — así viajó sin que nadie lo
+          // notara un precio que se había ido a cero por accidente).
+          warn={ot.total_price === 0 ? 'Precio en $0 — revisar antes de seguir' : undefined}
+        />
         {(ot.color_front || ot.color_back) && (
           <Field icon={<span style={{ fontSize: 8 }}>🎨</span>} label="Colores" value={[ot.color_front, ot.color_back].filter(Boolean).join(' / ')} />
         )}
@@ -239,14 +249,20 @@ export function OTHoverCard({ ot, anchorRect, onClose, onAdvance, onSplit, onEdi
   );
 }
 
-function Field({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
+function Field({ icon, label, value, warn }: { icon: React.ReactNode; label: string; value: string; warn?: string }) {
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }} title={warn}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 3, color: 'hsl(var(--muted-foreground))' }}>
         {icon}
         <span style={{ fontSize: 8, textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>{label}</span>
       </div>
-      <span style={{ fontSize: 10, fontWeight: 600, color: 'hsl(var(--foreground))', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{value}</span>
+      <span style={{
+        display: 'flex', alignItems: 'center', gap: 3,
+        fontSize: 10, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+        color: warn ? '#ef4444' : 'hsl(var(--foreground))',
+      }}>
+        {value}{warn && <AlertTriangle size={9} style={{ flexShrink: 0 }} />}
+      </span>
     </div>
   );
 }

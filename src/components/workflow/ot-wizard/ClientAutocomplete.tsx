@@ -22,6 +22,7 @@ import { Label } from '@/components/ui/label';
 import { Search, Plus, Building2, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { Client } from '@/types/ot';
+import { toast } from 'sonner';
 
 interface Props {
   clientName: string;
@@ -82,15 +83,22 @@ export function ClientAutocomplete({ clientName, clientId, onSelect, onNameChang
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newClient),
       });
-      if (res.ok) {
-        const created = await res.json();
-        onSelect({ id: created.id, name: created.name });
-        setShowNewClient(false);
-        setNewClient({ name: '', rut: '', contact_name: '', phone: '', email: '' });
-        fetchClients('');
+      if (!res.ok) {
+        // Antes esto no hacía nada visible: el diálogo se quedaba abierto sin
+        // decir por qué, y quien cotiza terminaba reintentando a ciegas o
+        // creyendo que el cliente sí se había creado (auditoría 2026-09-01,
+        // hallazgo F-5).
+        const body = await res.json().catch(() => null);
+        toast.error(body?.error ?? 'No se pudo crear el cliente');
+        return;
       }
+      const created = await res.json();
+      onSelect({ id: created.id, name: created.name });
+      setShowNewClient(false);
+      setNewClient({ name: '', rut: '', contact_name: '', phone: '', email: '' });
+      fetchClients('');
     } catch {
-      // ignore
+      toast.error('No se pudo crear el cliente');
     }
   };
 
