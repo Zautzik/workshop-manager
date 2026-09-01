@@ -187,38 +187,44 @@ export async function PATCH(
 			return NextResponse.json({ error: 'No se pudo actualizar la OT' }, { status: 500 });
 		}
 		if (!data) return NextResponse.json({ error: 'OT no encontrada' }, { status: 404 });
-		// If operations were provided, replace them (delete old, insert new)
+
+		let responseData = data;
+		// Reemplazo de operaciones: vía RPC atómica, no un delete + insert como
+		// dos llamadas separadas. Esa versión anterior podía dejar la OT sin
+		// operaciones Y con el precio recalculado en cero si el insert fallaba
+		// después de que el delete ya hubiera corrido -- confirmado en vivo
+		// (auditoría 2026-09-01) -- y encima respondía 200 igual. La función
+		// hace las dos cosas más el recálculo de precio en una sola transacción.
 		if (operations && operations.length > 0) {
-			const { error: delError } = await supabaseAdmin
-				.from('ot_operations')
-				.delete()
-				.eq('ot_id', id);
+			const opsPayload = operations.map((op, idx) => ({
+				category: op.category,
+				name: op.name,
+				unit: op.unit,
+				quantity: op.quantity,
+				unit_cost: op.unit_cost,
+				sort_order: op.sort_order ?? idx,
+			}));
 
-			if (delError) {
-				console.error('Error deleting old operations:', delError);
-				// Non-fatal: OT row was updated, operations replacement failed
-			} else {
-				const opsPayload = operations.map((op, idx) => ({
-					ot_id: id,
-					category: op.category,
-					name: op.name,
-					unit: op.unit,
-					quantity: op.quantity,
-					unit_cost: op.unit_cost,
-					sort_order: op.sort_order ?? idx,
-				}));
+			const { data: replaced, error: replaceError } = await supabaseAdmin.rpc(
+				'replace_ot_operations' as never,
+				{ p_ot_id: id, p_operations: opsPayload } as never,
+			);
 
-				const { error: insError } = await supabaseAdmin
-					.from('ot_operations')
-					.insert(opsPayload);
-
-				if (insError) {
-					console.error('Error inserting operations:', insError);
-				}
+			if (replaceError) {
+				console.error('Error replacing operations:', replaceError);
+				// 500, no 200/207: `res.ok` de fetch() es true para cualquier 2xx, y
+				// EditBudgetWizard sólo revisa `!res.ok` antes de mostrar "guardado" --
+				// un 2xx acá haría creer que el precio cambió cuando en realidad la
+				// transacción de replace_ot_operations se deshizo entera.
+				return NextResponse.json(
+					{ error: 'La OT se actualizó, pero no se pudieron guardar las operaciones ni recalcular el precio. Reintentá.' },
+					{ status: 500 },
+				);
 			}
+			responseData = replaced as typeof data;
 		}
 
-		return NextResponse.json(data);
+		return NextResponse.json(responseData);
 	} catch (error) {
 		console.error('Error updating OT:', error);
 		return NextResponse.json({ error: 'No se pudo actualizar la OT' }, { status: 500 });
