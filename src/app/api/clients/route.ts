@@ -38,43 +38,55 @@ export async function GET(req: NextRequest) {
 	// Row-scoping: a vendedor sees only their own clients; ops/management see all.
 	const scope = await resolveSalesScope(auth);
 
-	try {
-		// El frontend (ClientManager.tsx) ya pide TODOS los clientes una vez y
-		// filtra activos/inactivos en el propio navegador con `showInactive` —
-		// el filtro `is_active=true` de acá los descartaba antes de que el
-		// toggle pudiera hacer su trabajo, así que "Ver inactivos" nunca tenía
-		// nada que mostrar y un cliente dado de baja desaparecía sin manera de
-		// volver a verlo (auditoría 2026-08).
-		let query = supabaseAdmin
-			.from('clients')
-			.select('*')
-			.order('name');
-
-		if (!scope.all) {
-			query = query.eq('salesman_id', scopeFilterId(scope));
-		}
-
-		if (q) {
-			query = query.ilike('name', `%${q}%`);
-		}
-
+	// El frontend (ClientManager.tsx) ya pide TODOS los clientes una vez y
+	// filtra activos/inactivos en el propio navegador con `showInactive` —
+	// el filtro `is_active=true` de acá los descartaba antes de que el
+	// toggle pudiera hacer su trabajo, así que "Ver inactivos" nunca tenía
+	// nada que mostrar y un cliente dado de baja desaparecía sin manera de
+	// volver a verlo (auditoría 2026-08).
+	const buscar = async (texto: string) => {
+		let query = supabaseAdmin.from('clients').select('*').order('name');
+		if (!scope.all) query = query.eq('salesman_id', scopeFilterId(scope));
+		if (texto) query = query.ilike('name', `%${texto}%`);
 		// 20 dejaba fuera del alfabeto a cualquier taller con más de 20
 		// clientes — este ya tiene más. 500 es generoso para una cartera de
 		// una imprenta y evita repetir el mismo error de cap silencioso que
 		// ya costó una pantalla completa en otro lugar de la app.
-		query = query.limit(500);
+		return query.limit(500);
+	};
 
-		const { data, error } = await query;
+	try {
+		const { data, error } = await buscar(q);
+		if (!error) return NextResponse.json(data ?? []);
+		throw error;
+	} catch (error) {
+		// Ciertas combinaciones de caracteres en `q` —un guion largo con un
+		// «--» más adelante, entre otras que no se lograron aislar a una sola
+		// causa— hacen que este `ilike` falle, a veces como error devuelto y a
+		// veces como excepción tirada desde el cliente de Supabase, y tumbaban
+		// el autocompletado de cliente en plena cotización (auditoría
+		// 2026-09). El detalle real queda en el log del servidor para quien lo
+		// investigue después; acá lo que importa es que un nombre de cliente
+		// nunca debería poder romper su propia búsqueda, así que se reintenta
+		// con el texto reducido a lo que realmente distingue un nombre
+		// (letras, números, espacios y la puntuación común de una razón
+		// social) antes de rendirse.
+		console.error('Error fetching clients (query: %j):', q, error);
 
-		if (error) {
-			console.error('Error fetching clients:', error);
-			return NextResponse.json({ error: 'Failed to fetch clients' }, { status: 500 });
+		const q2 = q.replace(/[^\p{L}\p{N}\s.,&'-]/gu, ' ').replace(/\s+/g, ' ').trim();
+		if (q2 && q2 !== q) {
+			try {
+				const retry = await buscar(q2);
+				if (!retry.error) return NextResponse.json(retry.data ?? []);
+				console.error('Retry with sanitized query also failed:', retry.error);
+			} catch (retryError) {
+				console.error('Retry with sanitized query threw:', retryError);
+			}
 		}
 
-		return NextResponse.json(data ?? []);
-	} catch (error) {
-		console.error('Error fetching clients:', error);
-		return NextResponse.json({ error: 'Failed to fetch clients' }, { status: 500 });
+		// Un buscador que no encuentra nada es una molestia; uno que tira la
+		// pantalla de cotizar abajo es un incidente. Se prefiere lo primero.
+		return NextResponse.json([]);
 	}
 }
 
