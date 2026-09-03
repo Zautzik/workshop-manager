@@ -29,6 +29,18 @@ export async function POST(
 
   const { data, error } = await supabaseAdmin.rpc('convert_vb_to_ot' as any, { p_vb_id: id });
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+  if (error) {
+    // El mensaje crudo de Postgres llegaba tal cual a quien cotiza — "numeric
+    // field overflow" no le dice a un vendedor qué corregir (auditoría
+    // 2026-09, cantidades extremas). 22003 es numeric_value_out_of_range: la
+    // única causa real es un número que no entra en la columna. El resto de
+    // errores del RPC quedan igual de opacos que antes — se loguean acá y se
+    // devuelve un mensaje genérico en vez del texto interno de la base.
+    console.error('convert_vb_to_ot failed:', error);
+    const message = error.code === '22003'
+      ? 'Alguno de los montos o cantidades es demasiado grande para guardarse. Revisá la cantidad, las medidas o el precio antes de reintentar.'
+      : 'No se pudo crear la OT a partir de esta cotización. Intentá de nuevo o avisá a soporte.';
+    return NextResponse.json({ error: message }, { status: 400 });
+  }
   return NextResponse.json({ ot_id: data });
 }
