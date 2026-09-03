@@ -589,10 +589,13 @@ export default function MaintenanceChecklistEditor() {
             <div className="flex items-center justify-between">
               <div>
                 <CardTitle>{selectedChecklist.name}</CardTitle>
-                <CardDescription className="mt-2">
-                  <span className="inline-block mr-4">Machine: {selectedChecklist.machineType}</span>
-                  <Badge variant="secondary">{selectedChecklist.maintenanceType}</Badge>
-                </CardDescription>
+                {/* CardDescription renderiza un <p>; Badge renderiza un <div>, que no
+                    puede ser hijo de un <p> (HTML inválido, error de hidratación en
+                    React). El Badge pasa a ser hermano del texto, no hijo suyo. */}
+                <div className="flex items-center mt-2">
+                  <CardDescription>Machine: {selectedChecklist.machineType}</CardDescription>
+                  <Badge variant="secondary" className="ml-4">{selectedChecklist.maintenanceType}</Badge>
+                </div>
               </div>
               <div className="flex gap-2">
                 <Button

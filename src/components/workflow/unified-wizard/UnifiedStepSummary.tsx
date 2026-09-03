@@ -91,13 +91,17 @@ export function UnifiedStepSummary({ form }: Props) {
           <CheckCircle2 className="h-6 w-6 text-emerald-500" />
           Resumen de la OT
         </h2>
-        <p className="text-muted-foreground text-sm mt-1">
+        {/* Un <div> (Badge) no puede vivir dentro de un <p> — HTML inválido
+            que React marcaba como error de hidratación cada vez que se abría
+            este paso (mismo patrón que RealCostEntryDialog, auditoría
+            2026-09). El texto no necesitaba ser un párrafo para empezar. */}
+        <div className="text-muted-foreground text-sm mt-1">
           Revise los datos antes de crear la orden. Entrará en estado
           <Badge variant="outline" className="ml-1 text-amber-500 border-amber-500/40">
             Visto Bueno
           </Badge>{' '}
           (pendiente de aprobación).
-        </p>
+        </div>
       </div>
 
       {warnings.length > 0 && (
