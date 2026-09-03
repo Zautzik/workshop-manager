@@ -40,10 +40,21 @@ export const CIERRE_VACIO: CierreEtapa = {
 	observations: '',
 };
 
-/** Lo que viaja al servidor. `null` cuando la etapa no pide cierre. */
+/**
+ * Lo que viaja al servidor. `null` cuando la etapa no pide cierre.
+ *
+ * `hours: c.hours ?? 0`, no `?? null`, dejaba una pasada sin horas indistinguible
+ * de una de cero horas: el propio schema del servidor (`StageReportSchema`,
+ * transition/route.ts) exige que las horas sean positivas cuando vienen, así
+ * que un 0 no representaba "todavía no se sabe" — representaba un dato
+ * inválido. `null` es justamente la respuesta que ese schema ya declara válida
+ * (auditoría 2026-09-04: reabrir un cierre sin horas mostraba "Las horas
+ * tienen que ser un número mayor que cero. Dejalo vacío si todavía no lo
+ * sabés." sobre un campo que ya estaba vacío).
+ */
 export function cierreToPayload(c: CierreEtapa) {
 	return {
-		hours: c.hours ?? 0,
+		hours: c.hours ?? null,
 		merma_sheets: c.mermaSheets,
 		waste_notes: c.wasteNotes.trim() || null,
 		issues: c.issues.trim() || null,
@@ -54,9 +65,14 @@ export function cierreToPayload(c: CierreEtapa) {
 /** Lo que el servidor recibe en `stage_report`. */
 export type StageReportPayload = ReturnType<typeof cierreToPayload>;
 
+/**
+ * Igual que `cierreToPayload`, `hours` preserva `null` — es lo que
+ * `validateStageReport` necesita para reconocer una pasada abierta (`open`)
+ * en vez de leerla como "cero horas, dato inválido".
+ */
 export function cierreToInput(c: CierreEtapa): StageReportInput {
 	return {
-		hours: c.hours ?? 0,
+		hours: c.hours ?? null,
 		mermaSheets: c.mermaSheets,
 		wasteNotes: c.wasteNotes,
 		issues: c.issues,
