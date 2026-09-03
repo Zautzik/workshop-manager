@@ -49,6 +49,18 @@ interface RealCostLine {
   _est_unit_cost?: number;
   _est_total?: number;
   _is_budgeted?: boolean;
+  /**
+   * La agregó sola esta pantalla al ver merma declarada en el cierre de
+   * etapa — sigue siendo editable y se puede borrar, pero no partió de un
+   * campo vacío. Ver el efecto que la sincroniza más abajo.
+   */
+  _is_merma_auto?: boolean;
+  /**
+   * La línea de merma se agregó, pero esta OT no tiene ninguna línea de
+   * papel presupuestada de la cual sacar un costo por pliego — quedó en $0
+   * porque no hay de dónde tasarla, no porque la pérdida no valga nada.
+   */
+  _merma_sin_costo?: boolean;
 }
 
 interface BudgetedOperation {
@@ -94,6 +106,12 @@ export function RealCostEntryDialog({
 }: RealCostEntryDialogProps) {
   const { toast } = useToast();
   const [lines, setLines] = useState<RealCostLine[]>([]);
+  // El presupuesto ENTERO, sin filtrar por lo ya cobrado — a diferencia de
+  // `lines`, que sólo trae lo pendiente. La línea de papel puede llevar
+  // etapas cerrada cuando ocurre la merma (auditoría 2026-09-03, OT 41242:
+  // el papel se cobró en Bodega y el troquel es tres etapas después), y sin
+  // esto no habría de dónde sacar su costo unitario para tasar la merma.
+  const [allBudgetedOps, setAllBudgetedOps] = useState<BudgetedOperation[]>([]);
   const [saving, setSaving] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [imageFile, setImageFile] = useState<File | null>(null);
@@ -167,25 +185,76 @@ export function RealCostEntryDialog({
           return;
         }
         const ops: BudgetedOperation[] = await res.json();
+        setAllBudgetedOps(ops);
 
-        if (ops.length === 0) {
+        // El presupuesto es del trabajo entero, no de esta pasada — pero cada
+        // línea sólo se cobra una vez en la vida de la OT. Sin este filtro,
+        // las mismas 10 líneas de "Sustrato/Papel", "Tintas", etc. se ofrecían
+        // de nuevo en cada etapa; aceptar los valores por defecto en las nueve
+        // paradas del tablero sumaba el presupuesto completo nueve veces en el
+        // libro de costos reales (auditoría 2026-09: una OT que cerró exacta
+        // en presupuesto terminó reportando -567% de margen).
+        //
+        // Pero "ya se registró" no es lo mismo que "ya se cubrió". Una OT que
+        // retrocede a Visto Bueno, cambia de cantidad y vuelve a pasar por
+        // estas mismas etapas necesita GENUINAMENTE más papel y más máquina la
+        // segunda vez — comparar sólo la descripción dejaba cada línea en cero
+        // ofrecido apenas se había cobrado una vez, aunque el presupuesto
+        // hubiera subido después (mismo caso 41241, tras subir de 8.000 a
+        // 9.000 unidades). Por eso se compara CANTIDAD registrada contra
+        // cantidad presupuestada: lo ya cubierto no vuelve a ofrecerse, y lo
+        // que el presupuesto subió desde entonces se ofrece por la diferencia,
+        // no por el total — así no se vuelve a cobrar lo que ya se cobró.
+        let recordedQtyByDesc = new Map<string, number>();
+        try {
+          const rcRes = await fetch(`/api/ots/${ot.id}/real-costs`);
+          if (rcRes.ok) {
+            const recorded: { description: string; quantity: number }[] = await rcRes.json();
+            for (const r of recorded) {
+              const key = (r.description ?? '').toLowerCase().trim();
+              recordedQtyByDesc.set(key, (recordedQtyByDesc.get(key) ?? 0) + Number(r.quantity ?? 0));
+            }
+          }
+        } catch {
+          // Si no se puede saber qué ya se cobró, mejor no perder líneas de
+          // presupuesto reales por un fetch caído — se pre-llenan todas, como
+          // antes, en vez de arriesgar dejar afuera lo que sí corresponde.
+        }
+
+        const remaining = ops
+          .map((op) => {
+            const key = op.name.toLowerCase().trim();
+            const recordedQty = recordedQtyByDesc.get(key) ?? 0;
+            const pendingQty = Math.max(0, op.quantity - recordedQty);
+            return { op, recordedQty, pendingQty };
+          })
+          .filter(({ recordedQty, pendingQty }) => recordedQty === 0 || pendingQty > 0);
+
+        if (remaining.length === 0) {
           setLines([createEmptyLine(1)]);
         } else {
           setLines(
-            ops.map((op, idx) => ({
-              operation_code: String(idx + 1).padStart(5, '0'),
-              description: op.name,
-              category: (op.category as OTOperationCategory) || 'otros',
-              quantity: op.quantity,
-              unit: op.unit,
-              unit_cost: op.unit_cost,
-              notes: '',
-              _est_qty: op.quantity,
-              _est_unit: op.unit,
-              _est_unit_cost: op.unit_cost,
-              _est_total: op.total_cost,
-              _is_budgeted: true,
-            }))
+            remaining.map(({ op, recordedQty, pendingQty }, idx) => {
+              // Sin nada registrado todavía: se ofrece el presupuesto completo,
+              // como siempre. Con algo ya cubierto: se ofrece sólo lo que falta,
+              // a prorrata del costo unitario presupuestado.
+              const offeredQty = recordedQty > 0 ? pendingQty : op.quantity;
+              const unitPrice = op.quantity > 0 ? op.total_cost / op.quantity : op.unit_cost;
+              return {
+                operation_code: String(idx + 1).padStart(5, '0'),
+                description: recordedQty > 0 ? `${op.name} (adicional)` : op.name,
+                category: (op.category as OTOperationCategory) || 'otros',
+                quantity: offeredQty,
+                unit: op.unit,
+                unit_cost: op.unit_cost,
+                notes: '',
+                _est_qty: offeredQty,
+                _est_unit: op.unit,
+                _est_unit_cost: op.unit_cost,
+                _est_total: Math.round(offeredQty * unitPrice * 100) / 100,
+                _is_budgeted: true,
+              };
+            })
           );
         }
         setLoaded(true);
@@ -203,6 +272,7 @@ export function RealCostEntryDialog({
     if (!open) {
       setLoaded(false);
       setLines([]);
+      setAllBudgetedOps([]);
       setImageFile(null);
       setImagePreview(null);
       // El cierre NO se arrastra a la próxima OT: cuatro horas y media
@@ -217,6 +287,59 @@ export function RealCostEntryDialog({
       setMovedQuantity(totalQuantity);
     }
   }, [open, ot.id, totalQuantity]);
+
+  // ── La merma se convierte en costo sola, no en un "$0" que hay que notar ──
+  //
+  // El cierre de etapa dejaba guardar con "Total Real: $0" aunque la merma se
+  // hubiera declarado y calificado sola de "crítica" — nada conectaba los
+  // pliegos perdidos con ninguna línea de costo (auditoría 2026-09-03, OT
+  // 41242: 500 de 882 pliegos perdidos, Total Real $0 hasta agregar el ítem
+  // a mano). Ahora esta pantalla agrega la línea sola, tasada con el mismo
+  // costo por pliego que ya paga el papel presupuestado de esta OT — no un
+  // lote adivinado: CierreDeEtapa ya explica por qué automatizar CUÁL lote
+  // sale sería adivinar, y esto no lo hace, sólo repite un precio que el
+  // presupuesto ya usa para el mismo papel.
+  //
+  // Sigue siendo una fila más: se ve, se puede editar o borrar antes de
+  // guardar. Si se vuelve a tocar el número de merma, se recalcula desde
+  // cero — no se acumula sobre una corrección que alguien ya haya hecho a
+  // mano en la fila.
+  useEffect(() => {
+    if (!needsClosure) return;
+    const merma = cierre.mermaSheets;
+    setLines((prev) => {
+      const sinAuto = prev.filter((l) => !l._is_merma_auto);
+      if (!merma || merma <= 0) return sinAuto;
+
+      const papelOp = allBudgetedOps.find(
+        (o) => o.category === 'materiales' && /papel|sustrato/i.test(o.name)
+      );
+      // Sin línea de papel presupuestada no hay de dónde sacar un costo por
+      // pliego — no es que la merma valga $0, es que esta OT no tiene
+      // presupuesto del cual derivarlo (auditoría 2026-09-04: pasa en OTs
+      // con precio $0, una anomalía ya señalada aparte en el Tablero). Se
+      // marca la línea en vez de dejarla pasar como un costo real más.
+      const sinCosto = !papelOp || !enteredSheets;
+      const costoPorPliego = sinCosto ? 0 : papelOp!.total_cost / enteredSheets!;
+
+      const linea: RealCostLine = {
+        operation_code: String(sinAuto.length + 1).padStart(5, '0'),
+        description: sinCosto
+          ? `Merma — ${otStatusLabel(ot.status)} (${merma} pliegos, sin presupuesto de papel del cual tasarla)`
+          : `Merma — ${otStatusLabel(ot.status)} (${merma} pliegos, tasada con el costo del papel presupuestado)`,
+        category: 'materiales',
+        quantity: merma,
+        unit: 'pliego',
+        unit_cost: Math.round(costoPorPliego * 100) / 100,
+        notes: '',
+        _is_budgeted: false,
+        _is_merma_auto: true,
+        _merma_sin_costo: sinCosto,
+      };
+      return [...sinAuto, linea];
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cierre.mermaSheets, needsClosure, allBudgetedOps, enteredSheets, ot.status]);
 
   const createEmptyLine = (idx: number): RealCostLine => ({
     operation_code: String(idx).padStart(5, '0'),
@@ -295,48 +418,49 @@ export function RealCostEntryDialog({
     const closure = takeClosure();
     if (!closure.ok) return;
 
-    // Validate that at least one line has a description
+    // Puede no haber nada que guardar acá: si esta OT ya recorrió etapas
+    // anteriores, sus líneas de presupuesto ya se registraron ahí y el
+    // efecto de carga las deja afuera a propósito (ver el filtro más
+    // arriba). Eso ya no es un error — es lo esperado — así que en vez de
+    // bloquear con un toast, se salta el POST de costos y se sigue derecho
+    // al avance. Sólo bloquea si de verdad no hay nada que ofrecer (el
+    // presupuesto nunca cargó) versus una línea a medio llenar por error.
     const validLines = lines.filter((l) => l.description.trim().length > 0);
-    if (validLines.length === 0) {
-      toast({
-        title: 'Se requiere al menos un ítem',
-        description: 'Ingrese al menos una línea de costo o use "Omitir".',
-        variant: 'destructive',
-      });
-      return;
-    }
+    const hasNothingToRecord = validLines.length === 0;
 
     setSaving(true);
 
     try {
-      const payload = {
-        workflow_step: ot.status, // Record costs for the CURRENT step (before advancing)
-        costs: validLines.map((l) => ({
-          operation_code: l.operation_code,
-          description: l.description.trim(),
-          category: l.category,
-          quantity: l.quantity,
-          unit: l.unit,
-          unit_cost: l.unit_cost,
-          notes: l.notes || null,
-        })),
-      };
+      if (!hasNothingToRecord) {
+        const payload = {
+          workflow_step: ot.status, // Record costs for the CURRENT step (before advancing)
+          costs: validLines.map((l) => ({
+            operation_code: l.operation_code,
+            description: l.description.trim(),
+            category: l.category,
+            quantity: l.quantity,
+            unit: l.unit,
+            unit_cost: l.unit_cost,
+            notes: l.notes || null,
+          })),
+        };
 
-      const res = await fetch(`/api/ots/${ot.id}/real-costs`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
+        const res = await fetch(`/api/ots/${ot.id}/real-costs`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
 
-      if (!res.ok) {
-        const errBody = await res.json().catch(() => null);
-        throw new Error(errBody?.error || 'Failed to save costs');
+        if (!res.ok) {
+          const errBody = await res.json().catch(() => null);
+          throw new Error(errBody?.error || 'Failed to save costs');
+        }
+
+        toast({
+          title: 'Costos reales registrados',
+          description: `${validLines.length} ítems guardados para ${ot.ot_number}`,
+        });
       }
-
-      toast({
-        title: 'Costos reales registrados',
-        description: `${validLines.length} ítems guardados para ${ot.ot_number}`,
-      });
 
       // Now advance the OT
       if (movedQuantity < 1 || movedQuantity > totalQuantity) {
@@ -402,9 +526,17 @@ export function RealCostEntryDialog({
             <DollarSign className="h-5 w-5 text-primary" />
             Registro de Costos Reales — {ot.ot_number}
           </DialogTitle>
-          <DialogDescription className="flex items-center gap-4">
-            <span>{ot.client_name}</span>
-            {ot.product_name && <span>• {ot.product_name}</span>}
+          {/* DialogDescription renderiza un <p>, y Badge un <div> — un <div>
+              dentro de un <p> es HTML inválido y React lo marcaba con un
+              error de hidratación cada vez que se abría este diálogo
+              (auditoría 2026-09). El texto sigue siendo la descripción
+              accesible del diálogo; los Badge pasan a ser hermanos suyos
+              dentro del mismo contenedor, no hijos de un párrafo. */}
+          <div className="flex items-center gap-4">
+            <DialogDescription>
+              {ot.client_name}
+              {ot.product_name && <> • {ot.product_name}</>}
+            </DialogDescription>
             <Badge variant="outline" className="ml-2">
               {/* El enum crudo —`pre_press`— llegaba a la pantalla del
                   supervisor. `otStatusLabel` existe desde hace semanas. */}
@@ -412,7 +544,7 @@ export function RealCostEntryDialog({
             </Badge>
             <ArrowRight className="h-4 w-4" />
             <Badge className="bg-primary text-primary-foreground">{targetStatusLabel}</Badge>
-          </DialogDescription>
+          </div>
         </DialogHeader>
 
         <div className="flex items-center gap-2 px-1 py-2 rounded-md bg-amber-500/10 border border-amber-500/30 text-amber-400 text-sm">
@@ -495,7 +627,11 @@ export function RealCostEntryDialog({
               return (
                 <div
                   key={idx}
-                  className="grid grid-cols-[60px_1fr_120px_90px_80px_100px_100px_36px] gap-2 items-end p-2 rounded-md bg-card border border-border"
+                  className={`grid grid-cols-[60px_1fr_120px_90px_80px_100px_100px_36px] gap-2 items-end p-2 rounded-md border ${
+                    line._is_merma_auto
+                      ? 'bg-amber-500/10 border-amber-500/40'
+                      : 'bg-card border-border'
+                  }`}
                 >
                   {/* Code */}
                   <div>
@@ -509,7 +645,26 @@ export function RealCostEntryDialog({
 
                   {/* Description */}
                   <div>
-                    <Label className="text-xs text-muted-foreground">Descripción</Label>
+                    <Label className="text-xs text-muted-foreground flex items-center gap-1">
+                      Descripción
+                      {line._is_merma_auto && (
+                        <Badge
+                          variant="outline"
+                          className={
+                            line._merma_sin_costo
+                              ? 'border-red-500/50 text-red-600 dark:text-red-400 text-[10px] px-1.5 py-0 h-4'
+                              : 'border-amber-500/50 text-amber-600 dark:text-amber-400 text-[10px] px-1.5 py-0 h-4'
+                          }
+                          title={
+                            line._merma_sin_costo
+                              ? 'Se agregó sola al declarar merma, pero esta OT no tiene presupuesto de papel del cual sacar un costo — completalo a mano'
+                              : 'Se agregó sola al declarar merma en el cierre de etapa — revisala'
+                          }
+                        >
+                          {line._merma_sin_costo ? 'merma · sin costo' : 'merma · auto'}
+                        </Badge>
+                      )}
+                    </Label>
                     <Input
                       value={line.description}
                       onChange={(e) => updateLine(idx, 'description', e.target.value)}
@@ -616,6 +771,23 @@ export function RealCostEntryDialog({
             })}
           </div>
         </ScrollArea>
+
+        {/* Aviso de la línea de merma: no bloquea, pero tampoco se calla —
+            justo lo que le faltaba al "Total Real: $0" de antes. Dos casos
+            distintos, dos avisos distintos: uno dice "revisá el número que ya
+            te di", el otro dice "no pude darte un número, ponelo vos". */}
+        {lines.some((l) => l._is_merma_auto && !l._merma_sin_costo) && (
+          <p className="flex items-center gap-1.5 text-[11px] text-amber-700 dark:text-amber-400">
+            <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+            Se agregó una línea de merma automáticamente, tasada con el costo del papel presupuestado — revisala antes de guardar.
+          </p>
+        )}
+        {lines.some((l) => l._merma_sin_costo) && (
+          <p className="flex items-center gap-1.5 text-[11px] text-red-600 dark:text-red-400">
+            <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+            Se agregó la línea de merma, pero esta OT no tiene presupuesto de papel del cual sacarle un costo — quedó en $0. Completá el costo a mano antes de guardar.
+          </p>
+        )}
 
         {/* Add line + Totals */}
         <div className="flex items-center justify-between pt-2 border-t border-border">
