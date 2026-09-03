@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
+import { OT_STATUS_LABELS } from "@/lib/status-labels";
 
 interface EditOTDialogProps {
   ot: any;
@@ -15,22 +16,13 @@ interface EditOTDialogProps {
   onSuccess: () => void;
 }
 
-const STATUS_OPTIONS = [
-  { value: 'pre_press', label: 'Pre-Press (Design)' },
-  { value: 'visto_bueno', label: 'Visto Bueno (Approval)' },
-  { value: 'paper_purchase', label: 'Compras' },
-  { value: 'in_storage', label: 'In Storage' },
-  { value: 'guillotine_first_cut', label: 'First Cut' },
-  { value: 'offset_printing', label: 'Offset Printing' },
-  { value: 'die_cutting', label: 'Die Cutting' },
-  { value: 'guillotine_final_cut', label: 'Final Cut' },
-  { value: 'workshop', label: 'Workshop' },
-  { value: 'outsourced', label: 'Outsourced' },
-  { value: 'workshop_revision', label: 'Workshop Revision' },
-  { value: 'ready_for_delivery', label: 'Ready for Delivery' },
-  { value: 'in_delivery', label: 'In Delivery' },
-  { value: 'completed', label: 'Completed' },
-];
+// Antes esta lista traía sus propias etiquetas a medio traducir —"Workshop",
+// "Die Cutting", "Visto Bueno (Approval)" mezclados con "Compras"— en la
+// única pantalla en español que un jefe de taller usa para destrabar una OT a
+// mano (auditoría 2026-09). `OT_STATUS_LABELS` es la traducción que ya usa el
+// resto de la app; also traía `digital_printing`, que faltaba acá y por eso
+// no se podía elegir a mano para una OT que va por esa vía.
+const STATUS_OPTIONS = Object.entries(OT_STATUS_LABELS).map(([value, label]) => ({ value, label }));
 
 export function EditOTDialog({ ot, open, onOpenChange, onSuccess }: EditOTDialogProps) {
   const [loading, setLoading] = useState(false);
