@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { toast } from 'sonner';
 
 import { VistoBuenoDialog } from '@/components/workflow/VistoBuenoDialog';
-import { Plus, PenLine, ArrowRight, FileSpreadsheet, ShieldCheck } from 'lucide-react';
+import { Plus, PenLine, ArrowRight, FileSpreadsheet, ShieldCheck, AlertTriangle } from 'lucide-react';
 import { useVistosBuenos } from '@/hooks/use-commercial-queries';
 import { useOTs } from '@/hooks/use-operations-queries';
 import { useQuery } from '@tanstack/react-query';
@@ -272,7 +272,20 @@ function CotizacionesInner() {
     const floor = Math.round(subtotal * 1.10);
     const unit = form.quantity > 0 ? total / form.quantity : 0;
     const marginPct = total > 0 ? Math.round(((total - subtotal) / total) * 100) : 0;
-    return { lines, subtotal, total, floor, unit, marginPct, belowFloor: total < floor, calcs, impo };
+    // Techo de sensatez, no un tope duro: 999.999.999 unidades pasaban sin
+    // ningún comentario y calculaban 13.600 horas de prensa para un solo
+    // trabajo — más de un año y medio de máquina continua (auditoría
+    // 2026-09). No se bloquea "Crear OT" por esto, a propósito: un tiraje
+    // gigante pero real puede existir, y la misma regla que usa
+    // `stage-report.ts` ("duro con lo imposible, blando con lo raro") dice
+    // que lo que hace falta es una advertencia visible, no un muro que un
+    // pedido legítimo no pueda cruzar.
+    const horas = calcs.calc_print_hours + calcs.calc_finish_hours;
+    const sanityWarning =
+      horas > 200
+        ? `${Math.round(horas).toLocaleString('es-CL')} horas de máquina para este trabajo — más de cinco semanas de un turno completo. Revisá la cantidad antes de cotizar.`
+        : null;
+    return { lines, subtotal, total, floor, unit, marginPct, belowFloor: total < floor, calcs, impo, sanityWarning };
   }, [form, catalog, materialCost, prensaElegida]);
 
   // Lo que la cotización sabe, en el vocabulario de `ot-spec`. Lo que Pre-Prensa
@@ -322,6 +335,14 @@ function CotizacionesInner() {
   const save = async () => {
     if (!form.client_id || !form.client_name) {
       toast.error('Elegí un cliente de la lista, o creá uno nuevo.');
+      return;
+    }
+    // Un ancho o alto en cero pasaba la calculadora sin que nadie lo notara
+    // -daba un pliego, un costo y un precio "válidos" para una etiqueta que
+    // no existe- y la cantidad y el gramaje tienen el mismo problema
+    // (auditoría 2026-09). Ninguno de los cuatro tiene sentido en cero.
+    if (form.quantity <= 0 || form.width_cm <= 0 || form.height_cm <= 0 || form.grammage_gsm <= 0) {
+      toast.error('Cantidad, ancho, alto y gramaje tienen que ser mayores que cero.');
       return;
     }
     const client = { id: form.client_id, name: form.client_name };
@@ -426,7 +447,12 @@ function CotizacionesInner() {
     router.push('/operaciones/kanban?asistente=1');
   };
 
-  const num = (v: string) => parseFloat(v) || 0;
+  // Negativos entraban sin que nada los frenara: la calculadora en vivo se
+  // quedaba mostrando el último resultado válido mientras el campo mostraba
+  // "-15", así que precio y costo en pantalla ya no correspondían a lo
+  // escrito (auditoría 2026-09). Un ancho, alto, gramaje o cantidad no
+  // pueden ser negativos en la vida real, así que tampoco lo son acá.
+  const num = (v: string) => Math.max(0, parseFloat(v) || 0);
 
   return (
     <div className="space-y-6">
@@ -668,6 +694,15 @@ function CotizacionesInner() {
                   cuando cambia. Es la razón por la que este diálogo recalcula en
                   vivo: que se vea moverse. */}
               <div className="space-y-2.5 md:sticky md:top-0 md:self-start">
+                {/* No bloquea "Crear OT": avisa. Un tiraje gigante pero real
+                    puede existir; lo que no puede pasar en silencio es uno
+                    que nadie miró dos veces. */}
+                {calc.sanityWarning && (
+                  <div className="flex items-start gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-400">
+                    <AlertTriangle className="mt-px h-3.5 w-3.5 shrink-0" />
+                    <span>{calc.sanityWarning}</span>
+                  </div>
+                )}
                 {/* ── El papel, en dos renglones ─────────────────────────
                     Eran seis filas de etiqueta y valor. El vendedor no lee una
                     tabla mientras habla por teléfono: mira si el número le
