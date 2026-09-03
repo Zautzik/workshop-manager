@@ -40,7 +40,15 @@ interface Props {
 	ot: { id: string; ot_number: string; client_name?: string | null } | null;
 	open: boolean;
 	onOpenChange: (v: boolean) => void;
-	onDone?: () => void;
+	/**
+	 * `allResolved` dice si, después de este guardado, ya no queda ningún
+	 * requisito pendiente — es la señal para que quien llama mueva la OT a la
+	 * siguiente etapa. Antes este diálogo guardaba la lista y listo: "Todo
+	 * conseguido" quedaba escrito en pantalla pero la OT se quedaba en Compras
+	 * para siempre, porque nada de acá llamaba a `/transition` (auditoría
+	 * 2026-09, OT 41240 atascada pese al 1 de 1).
+	 */
+	onDone?: (allResolved: boolean) => void;
 }
 
 interface Lote {
@@ -85,6 +93,13 @@ export function ComprasDialog({ ot, open, onOpenChange, onDone }: Props) {
 	/** Lo que se vio al abrir. Vuelve al guardar para detectar la pisada. */
 	const [vistoEn, setVistoEn] = useState<string | null>(null);
 	const [guardando, setGuardando] = useState(false);
+	/**
+	 * Un requisito de papel más, si la OT pide hoy más de lo que ya está
+	 * cargado — típico tras un retroceso que sube la cantidad, o una merma
+	 * que obliga a reponer. Se ofrece, no se agrega sola: sigue siendo
+	 * Compras quien decide de dónde sale y a qué precio.
+	 */
+	const [sugerenciaDescartada, setSugerenciaDescartada] = useState(false);
 
 	const { data, isLoading } = useQuery({
 		queryKey: ['requisitos', ot?.id],
@@ -96,6 +111,7 @@ export function ComprasDialog({ ot, open, onOpenChange, onDone }: Props) {
 				requisitos: Requirement[];
 				propuesta: boolean;
 				visto_en?: string | null;
+				sugerencia?: Requirement | null;
 			}>;
 		},
 	});
@@ -105,8 +121,15 @@ export function ComprasDialog({ ot, open, onOpenChange, onDone }: Props) {
 			setReqs(data.requisitos);
 			setEsPropuesta(data.propuesta);
 			setVistoEn(data.visto_en ?? null);
+			setSugerenciaDescartada(false);
 		}
 	}, [data]);
+
+	const agregarSugerencia = () => {
+		if (!data?.sugerencia) return;
+		setReqs((rs) => [...rs, data.sugerencia as Requirement]);
+		setSugerenciaDescartada(true);
+	};
 
 	// Los lotes con saldo, para el camino de bodega. Se piden una vez y sirven
 	// para todas las filas.
@@ -216,7 +239,9 @@ export function ComprasDialog({ ot, open, onOpenChange, onDone }: Props) {
 		}
 
 		setEsPropuesta(false);
-		onDone?.();
+		// El estado que cuenta es el que confirmó el servidor con este guardado,
+		// no el que ya tenía la pantalla antes de guardar.
+		onDone?.(!!b.estado?.completo);
 	};
 
 	return (
@@ -240,6 +265,31 @@ export function ComprasDialog({ ot, open, onOpenChange, onDone }: Props) {
 						Esto es una propuesta armada con lo que dice la ficha. Revisala, corregila y
 						guardala — todavía no está registrada.
 					</p>
+				)}
+
+				{/* La OT pide hoy más papel del que este requisito ya cubre — sólo se
+				    ofrece, no se agrega sola: sigue siendo Compras quien elige de dónde
+				    sale y a qué precio. */}
+				{data?.sugerencia && !sugerenciaDescartada && (
+					<div className="flex items-center justify-between gap-3 rounded-md border border-amber-500/40 bg-amber-500/5 px-3 py-2 text-xs text-amber-800 dark:text-amber-300">
+						<span>
+							La OT necesita <strong>{data.sugerencia.quantity?.toLocaleString('es-CL')} pliegos</strong> más
+							de los que este requisito ya cubre — probablemente un retroceso o una merma la hizo crecer.
+						</span>
+						<div className="flex shrink-0 gap-1.5">
+							<Button size="sm" variant="outline" className="h-7 text-xs" onClick={agregarSugerencia}>
+								Agregar requisito
+							</Button>
+							<Button
+								size="sm"
+								variant="ghost"
+								className="h-7 text-xs text-muted-foreground"
+								onClick={() => setSugerenciaDescartada(true)}
+							>
+								Descartar
+							</Button>
+						</div>
+					</div>
 				)}
 
 				{isLoading ? (

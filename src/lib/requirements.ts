@@ -22,6 +22,8 @@
  * corrige; no se parte de una hoja en blanco.
  */
 
+import { sheetShortfall } from './spec-delta';
+
 export type ReqKind =
 	| 'papel'
 	| 'tinta_especial'
@@ -186,6 +188,47 @@ export function proposeRequirements(ot: OTShape): Requirement[] {
 	});
 
 	return reqs;
+}
+
+/**
+ * ¿Esta OT necesita más papel del que Compras ya tiene cargado?
+ *
+ * Un requisito de papel resuelto no se vuelve a mirar cuando la OT crece
+ * después — una vuelta a Visto Bueno que sube la cantidad, o una merma que
+ * obliga a reimprimir, dejan el diálogo diciendo "Todo conseguido" con la
+ * cantidad vieja (auditoría 2026-09-03, OT 41242: la merma forzó comprar 500
+ * pliegos más y el requisito original, ya resuelto, no lo reflejaba — hubo
+ * que agregar una fila a mano sin que nada avisara que hacía falta).
+ *
+ * Esto no decide nada por Compras: sólo nombra el faltante, para que la
+ * persona que ya está mirando esta pantalla no tenga que acordarse sola de
+ * ir a buscarlo. Quién provee, a qué precio y de qué lote lo sigue eligiendo
+ * la misma persona de siempre — proponer una compra en firme sin que nadie
+ * la mire sería un problema distinto y peor que el que esto arregla.
+ *
+ * `null` cuando no hay nada que agregar: ni falta papel, ni hay todavía
+ * ningún requisito de papel cargado (ese caso ya lo cubre `proposeRequirements`
+ * al armar la lista desde cero).
+ */
+export function suggestExtraPaper(
+	reqs: readonly Requirement[],
+	calcSheets: number | null | undefined,
+): Requirement | null {
+	const papel = reqs.filter((r) => r.kind === 'papel');
+	if (papel.length === 0) return null;
+
+	const yaCargado = papel.reduce((s, r) => s + (r.quantity ?? 0), 0);
+	const faltante = sheetShortfall(calcSheets, yaCargado);
+	if (faltante <= 0) return null;
+
+	return {
+		kind: 'papel',
+		description: `${papel[0].description} (adicional — la OT creció)`,
+		quantity: faltante,
+		unit: 'pliego',
+		source: 'comprar',
+		status: 'pendiente',
+	};
 }
 
 /* ─── El estado de la etapa ──────────────────────────────────────────────── */

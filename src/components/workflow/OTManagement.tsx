@@ -87,9 +87,24 @@ function getAllNextStatuses(currentStatus: string) {
     .map(getStatusInfo);
 }
 export function OTManagement({ onOTSelect }: OTManagementProps) {
-  const { data: ots = [], refetch: refetchOTs } = useOTs();
+  const { data: otsQuery = [], isFetching: otsFetching, refetch: refetchOTs } = useOTs();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
+  // El Tablero mostraba "0 órdenes" en todas las columnas por unos segundos
+  // después de guardar en Compras (auditoría 2026-09, Corrida 1) — nunca se
+  // pudo reproducir de nuevo con sondeo cronometrado sobre el flujo exacto
+  // (esta sesión, verificación de la Corrida 1), y `updateOTStatus` nunca
+  // vacía la caché: sólo mapea las OT existentes. Aun sin una causa raíz
+  // confirmada, mostrar un tablero vacío mientras HAY una lectura en camino
+  // es el síntoma exacto que se reportó, así que se blinda el render: si una
+  // recarga en curso trae momentáneamente una lista vacía, se sigue
+  // mostrando la última lista con datos hasta que la recarga termine de
+  // verdad. Un tablero genuinamente vacío (0 OT reales) se sigue mostrando
+  // como vacío en cuanto la recarga se asienta.
+  const lastNonEmptyOTs = useRef<any[]>([]);
+  if (otsQuery.length > 0) lastNonEmptyOTs.current = otsQuery;
+  const ots = otsQuery.length === 0 && otsFetching ? lastNonEmptyOTs.current : otsQuery;
 
   // ── Lo que cada OT debe ──────────────────────────────────────────────────
   //
@@ -748,7 +763,21 @@ Faltan horas de: ${debe.map(otStatusLabel).join(', ')}`
         ot={compraOT}
         open={!!compraOT}
         onOpenChange={(v) => { if (!v) setCompraOT(null); }}
-        onDone={() => { setCompraOT(null); refetchOTs(); }}
+        onDone={(allResolved) => {
+          // Guardar la lista de requisitos no es lo mismo que terminar de
+          // conseguirlos. Cuando el guardado deja "Todo conseguido", la OT
+          // tiene que seguir a la siguiente etapa sola — quedarse en Compras
+          // con todo resuelto es exactamente el atasco que encontró la
+          // auditoría de 2026-09 (OT 41240, "1 de 1" sin moverse nunca).
+          const otId = compraOT?.id;
+          const siguiente = compraOT ? naturalNextStatuses(compraOT.status as OTWorkflowStatus)[0] : undefined;
+          setCompraOT(null);
+          if (allResolved && otId && siguiente) {
+            updateOTStatus(otId, siguiente, false, null);
+          } else {
+            refetchOTs();
+          }
+        }}
       />
 
       {costEntryOT && costEntryTarget && (

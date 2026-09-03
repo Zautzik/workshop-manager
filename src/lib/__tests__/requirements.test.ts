@@ -4,6 +4,7 @@ import {
 	proposeRequirements,
 	stageState,
 	stageSummary,
+	suggestExtraPaper,
 	whyNotResolved,
 	type Requirement,
 } from '../requirements';
@@ -147,5 +148,48 @@ describe('whyNotResolved', () => {
 	// marcada a mano y sin registro de nada.
 	it('un servicio puede cerrarse sin documento', () => {
 		expect(whyNotResolved(req({ source: 'tercerizar' }))).toBeNull();
+	});
+});
+
+describe('suggestExtraPaper', () => {
+	// Auditoría 2026-09-03, OT 41242: una merma forzó comprar 500 pliegos más
+	// y el requisito ya resuelto no lo reflejaba — nada avisaba del faltante.
+	it('sugiere la diferencia cuando la OT pide más de lo ya cargado', () => {
+		const reqs = [req({ quantity: 1000, status: 'resuelto', purchaseId: 'oc-1' })];
+		const s = suggestExtraPaper(reqs, 1500);
+		expect(s).not.toBeNull();
+		expect(s?.quantity).toBe(500);
+		expect(s?.kind).toBe('papel');
+		expect(s?.source).toBe('comprar');
+		expect(s?.status).toBe('pendiente');
+	});
+
+	it('no sugiere nada si ya alcanza o sobra', () => {
+		const reqs = [req({ quantity: 1000, status: 'resuelto', purchaseId: 'oc-1' })];
+		expect(suggestExtraPaper(reqs, 1000)).toBeNull();
+		expect(suggestExtraPaper(reqs, 800)).toBeNull();
+	});
+
+	// Sin ningún requisito de papel cargado todavía, esto no es su pregunta —
+	// eso ya lo cubre proposeRequirements al armar la lista desde cero.
+	it('no sugiere nada si todavía no hay ningún requisito de papel', () => {
+		expect(suggestExtraPaper([], 5000)).toBeNull();
+		expect(suggestExtraPaper([req({ kind: 'envase', quantity: 10 })], 5000)).toBeNull();
+	});
+
+	// Dos filas de papel (p.ej. una repartida entre compra y bodega) se suman
+	// antes de comparar — mirar sólo la primera subestimaría lo ya cubierto.
+	it('suma varios requisitos de papel antes de comparar', () => {
+		const reqs = [
+			req({ quantity: 600, status: 'resuelto', purchaseId: 'oc-1' }),
+			req({ quantity: 400, source: 'bodega', status: 'resuelto', lotId: 'lote-1' }),
+		];
+		expect(suggestExtraPaper(reqs, 1000)).toBeNull();
+		expect(suggestExtraPaper(reqs, 1300)?.quantity).toBe(300);
+	});
+
+	it('nombra la descripción a partir del requisito existente', () => {
+		const reqs = [req({ description: 'Couché 200g', quantity: 1000, status: 'resuelto', purchaseId: 'oc-1' })];
+		expect(suggestExtraPaper(reqs, 1500)?.description).toBe('Couché 200g (adicional — la OT creció)');
 	});
 });

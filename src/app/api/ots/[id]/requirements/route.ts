@@ -3,7 +3,7 @@ import { z } from 'zod';
 
 import { isAuthError, requireAuth } from '@/lib/api-middleware';
 import { supabaseAdmin } from '@/integrations/supabase/server';
-import { proposeRequirements, stageState, stageSummary, type Requirement } from '@/lib/requirements';
+import { proposeRequirements, stageState, stageSummary, suggestExtraPaper, type Requirement } from '@/lib/requirements';
 
 export const dynamic = 'force-dynamic';
 
@@ -63,12 +63,25 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
       .map((r) => String(r.updated_at ?? ''))
       .sort()
       .pop() ?? null;
+
+    // ¿La OT pide hoy más papel del que este requisito ya cubre? Se compara
+    // contra `calc_sheets` actual, no contra lo que decía cuando se cargó la
+    // lista — es la misma pregunta que ya se resuelve al armar la propuesta,
+    // hecha de nuevo porque acá el requisito puede llevar etapas resuelto.
+    const { data: otRow } = await supabaseAdmin
+      .from('ots')
+      .select('calc_sheets')
+      .eq('id', id)
+      .maybeSingle();
+    const sugerencia = suggestExtraPaper(guardados, (otRow as { calc_sheets?: number } | null)?.calc_sheets);
+
     return NextResponse.json({
       requisitos: guardados,
       estado,
       resumen: stageSummary(estado),
       propuesta: false,
       visto_en: vistoEn,
+      sugerencia,
     });
   }
 
