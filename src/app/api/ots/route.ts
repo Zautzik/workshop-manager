@@ -47,6 +47,10 @@ const OTOperationSchema = z.object({
 	quantity: z.coerce.number().min(0),
 	unit_cost: z.coerce.number().min(0),
 	sort_order: z.coerce.number().int().min(0).default(0),
+	// true si la línea la escribió o corrigió una persona a mano en el
+	// asistente — decide si un cambio de especificación posterior puede
+	// refrescarla sola (reconcileOperations, ot-calculations.ts).
+	is_manual: z.boolean().default(false),
 });
 
 const CreateOTSchema = z.object({
@@ -328,6 +332,7 @@ export async function POST(req: NextRequest) {
 				category: op.category,
 				name: op.name,
 				unit: op.unit,
+				is_manual: op.is_manual ?? false,
 				quantity: op.quantity,
 				unit_cost: op.unit_cost,
 				sort_order: op.sort_order ?? idx,

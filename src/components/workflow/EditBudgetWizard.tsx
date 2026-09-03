@@ -10,7 +10,7 @@
  *  - Shows a "changes saved" diff summary
  */
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
@@ -33,9 +33,12 @@ import {
   computeImposition,
   generateDefaultOperations,
   computeOTPricing,
+  reconcileOperations,
 } from '@/lib/ot-calculations';
 import { resolveCostOverrides } from '@/lib/costing-resolver';
 import { useCostCatalog, useMaterialCost } from '@/hooks/use-cost-catalog';
+import { useMachines } from '@/hooks/use-machines';
+import { sheetShortfall } from '@/lib/spec-delta';
 import type { OTFormData } from '@/types/ot';
 
 /* ── Step Components (reuse from unified wizard) ──────────────── */
@@ -130,7 +133,23 @@ function hydrateFromOT(ot: any): UnifiedOTForm {
     press_sheet_height: 1000,
 
     /* ─ Machine / Finishing / Admin ─ */
-    machine: production.machine || EMPTY_UNIFIED_FORM.machine,
+    // `ots.assigned_machine_id` es la columna que de verdad manda — la que
+    // mira la compuerta de Pre-Prensa y la que este mismo asistente escribe
+    // al guardar (`handleSubmit`, más abajo). El bulto `production_detail`
+    // guarda SU PROPIA copia de la máquina elegida, y las dos pueden
+    // desalinearse: una OT con `assigned_machine_id` puesto pero un
+    // `production_detail.machine.machine_id` vacío (o de otra máquina)
+    // hidrataba el asistente sin prensa asignada, así que ni la imposición
+    // principal ni "¿Y si lleva más?" recibían el límite de pliego real —
+    // el mismo síntoma del bug que Run 3 creyó haber cerrado, reapareciendo
+    // porque la hidratación nunca miraba la columna que manda (auditoría
+    // 2026-09-03, OT 41224: calc_sheets mostraba 3.315 en el asistente
+    // contra 29.631 guardado en la OT, con `assigned_machine_id` puesto).
+    machine: {
+      ...EMPTY_UNIFIED_FORM.machine,
+      ...(production.machine || {}),
+      machine_id: production.machine?.machine_id || ot.assigned_machine_id || null,
+    },
     finishing: production.finishing || EMPTY_UNIFIED_FORM.finishing,
     admin: production.admin || EMPTY_UNIFIED_FORM.admin,
 
@@ -167,12 +186,57 @@ export function EditBudgetWizard({ ot, onClose, onSuccess }: Props) {
   const [submitting, setSubmitting] = useState(false);
   const [loadingOps, setLoadingOps] = useState(true);
   // Real rates for the estimate: shared DB catalog + purchase-weighted material cost.
-  const { data: catalog = [] } = useCostCatalog();
-  const { data: materialCost = [] } = useMaterialCost();
+  const { data: catalog = [], isLoading: catalogLoading } = useCostCatalog();
+  const { data: materialCost = [], isLoading: materialCostLoading } = useMaterialCost();
   const { toast } = useToast();
+
+  // La prensa asignada decide qué pliego se puede montar. La cotización
+  // original SÍ se lo pasaba al motor (`cotizaciones/page.tsx`); este
+  // asistente no, así que reabrir una OT para cambiarle la cantidad
+  // recalculaba la imposición como si cupiera en un pliego padre entero en
+  // vez del formato real de la máquina — 410 pliegos en vez de ~1.220 para
+  // la misma OT, sin ningún aviso (auditoría 2026-09, OT 41241 tras un
+  // retroceso y un cambio de cantidad).
+  const { data: machines = [], isLoading: machinesLoading } = useMachines();
+  const assignedPress = useMemo(
+    () => (machines as any[]).find((m) => m.id === form.machine.machine_id) ?? null,
+    [machines, form.machine.machine_id],
+  );
+  const pressLimit = assignedPress
+    ? {
+        maxWidthCm: assignedPress.max_print_width_mm ? assignedPress.max_print_width_mm / 10 : 37,
+        maxHeightCm: assignedPress.max_print_height_mm ? assignedPress.max_print_height_mm / 10 : 52,
+      }
+    : null;
+
+  /**
+   * ¿Ya llegó todo lo que hace falta para reconciliar de verdad? Máquinas,
+   * catálogo de costos y el presupuesto guardado son tres pedidos async
+   * independientes — mientras cualquiera siga en camino, "el efecto se
+   * disparó" no significa "la persona cambió algo": puede significar sólo
+   * que uno de los tres acaba de responder.
+   *
+   * Auditoría 2026-09-03: sin esta compuerta, abrir "Modificar Presupuesto"
+   * sin tocar nada mostraba "Precio modificado -69%" — apenas resolvía
+   * `useMachines`, `assignedPress` cambiaba de referencia, el efecto de abajo
+   * se disparaba de nuevo y `reconcileOperations` reemplazaba el presupuesto
+   * real recién cargado por uno recalculado de cero, porque ninguna fila
+   * vieja tenía `is_manual` para saber que no había que tocarla. Peor que el
+   * bug que esto vino a arreglar: ahí el presupuesto quedaba desactualizado,
+   * acá quedaba activamente reescrito sin que nadie lo pidiera.
+   */
+  const dataReady = !loadingOps && !machinesLoading && !catalogLoading && !materialCostLoading;
+  /**
+   * La especificación "de antes", contra la que se compara para decidir si
+   * hubo un cambio de verdad. Se captura la PRIMERA vez que `dataReady` es
+   * true — ese instante es "recién terminó de cargar", no un cambio — y
+   * recién desde la comparación siguiente cuenta como edición real.
+   */
+  const specBaselineRef = useRef<string | null>(null);
 
   /* ── Load existing operations from ot_operations via the OT data ─ */
   useEffect(() => {
+    specBaselineRef.current = null;
     async function loadOps() {
       try {
         // The OT from useOTs() doesn't include operations — fetch them
@@ -225,31 +289,78 @@ export function EditBudgetWizard({ ot, onClose, onSuccess }: Props) {
         extra_quantities: form.extra_quantities,
       };
 
-      const calcs = computeOTCalculations(calcInput);
-      const impo = computeImposition(form.width_cm, form.height_cm, form.quantity);
+      const calcs = computeOTCalculations(calcInput, {
+        pressLimit,
+        pressBodies: assignedPress?.colors,
+        machineSpeedSheetsHr: assignedPress?.optimal_speed_sheets_hr ?? assignedPress?.nominal_speed_sheets_hr,
+      });
+      const impo = computeImposition(form.width_cm, form.height_cm, form.quantity, pressLimit);
       const costOverrides = resolveCostOverrides(catalog, {
         color_front: form.color_front, color_back: form.color_back,
         substrate_type: form.substrate_type, grammage_gsm: form.grammage_gsm,
       }, materialCost);
-      const ops =
-        form.operations.length === 0
-          ? generateDefaultOperations(calcInput, calcs, costOverrides)
-          : form.operations;
-      const pricing = computeOTPricing(
-        ops,
-        form.quantity,
-        form.pricing.margin_pct,
-        form.pricing.increment_pct,
-        form.pricing.commission_pct
-      );
+      const freshOps = generateDefaultOperations(calcInput, calcs, costOverrides);
 
-      setForm((prev) => ({
-        ...prev,
-        calculations: calcs,
-        imposition: impo,
-        operations: prev.operations.length === 0 ? ops : prev.operations,
-        pricing,
-      }));
+      // La decisión de reconciliar vive ACÁ afuera, no adentro del updater de
+      // `setForm` — mutar `specBaselineRef` dentro del updater es impuro, y
+      // React (Strict Mode) invoca los updaters más de una vez para
+      // detectar justo eso: la primera llamada (que se descarta) ya dejaba
+      // la referencia en el valor nuevo, así que la segunda llamada — la que
+      // de verdad se aplica — comparaba contra su propia mutación y nunca
+      // veía el cambio. Encontrado en vivo (auditoría 2026-09-03, OT 41224):
+      // tras editar una línea a mano y subir la cantidad, esa línea quedó
+      // bien preservada, pero NINGUNA otra línea se refrescó tampoco — la
+      // reconciliación entera dejó de correr por completo, no sólo para la
+      // línea manual.
+      let shouldReconcile = false;
+      if (dataReady) {
+        const fingerprint = JSON.stringify([
+          form.width_cm, form.height_cm, form.quantity, form.grammage_gsm,
+          form.color_front, form.color_back, form.substrate_type,
+          assignedPress?.id ?? null, form.finishes,
+        ]);
+        if (specBaselineRef.current === null) {
+          // Primera vez con todo cargado: es el instante en que terminó de
+          // llegar el presupuesto real, no un cambio de especificación. Se
+          // toma como línea de base y no se reconcilia todavía.
+          specBaselineRef.current = fingerprint;
+        } else if (specBaselineRef.current !== fingerprint) {
+          specBaselineRef.current = fingerprint;
+          shouldReconcile = true;
+        }
+      }
+
+      // `prev.operations`, no `form.operations`: este efecto no depende de las
+      // operaciones (si dependiera, cada reconciliación dispararía otra), así
+      // que su clausura puede quedar vieja frente a lo que `loadOps` acaba de
+      // traer de la base. Leerlas desde el updater es lo que garantiza que la
+      // reconciliación siempre parte de lo último, no de lo que había al
+      // montar el componente.
+      setForm((prev) => {
+        if (!dataReady) {
+          // Todavía falta algo real (operaciones guardadas, catálogo,
+          // máquinas): no tocar el presupuesto todavía. Los números de
+          // display (pliegos, kg, horas) sí se refrescan — son informativos,
+          // no lo que se termina guardando.
+          return { ...prev, calculations: calcs, imposition: impo };
+        }
+
+        const ops =
+          prev.operations.length === 0
+            ? freshOps
+            : shouldReconcile
+              ? reconcileOperations(freshOps, prev.operations)
+              : prev.operations;
+
+        const pricing = computeOTPricing(
+          ops,
+          prev.quantity,
+          prev.pricing.margin_pct,
+          prev.pricing.increment_pct,
+          prev.pricing.commission_pct
+        );
+        return { ...prev, calculations: calcs, imposition: impo, operations: ops, pricing };
+      });
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
@@ -260,6 +371,9 @@ export function EditBudgetWizard({ ot, onClose, onSuccess }: Props) {
     form.color_front,
     form.color_back,
     form.substrate_type,
+    form.finishes,
+    assignedPress,
+    dataReady,
   ]);
 
   /* ── Step validation ────────────────────────────────────────── */
@@ -286,6 +400,19 @@ export function EditBudgetWizard({ ot, onClose, onSuccess }: Props) {
   const priceChanged = form.pricing.total_price !== originalPrice;
   const priceDiff = form.pricing.total_price - originalPrice;
   const priceDiffPct = originalPrice > 0 ? (priceDiff / originalPrice) * 100 : 0;
+
+  /**
+   * Cuántas líneas quedaron marcadas por `reconcileOperations` — manuales que
+   * ya no coinciden con lo que el motor calcularía hoy. Se cuenta desde el
+   * estado, no desde el efecto: así el número que se muestra es siempre el
+   * mismo que ve "Costos" al abrirse, nunca uno calculado aparte.
+   */
+  const reconcileSummary = useMemo(() => {
+    const revisar = form.operations.filter((o) => o._stale).length;
+    if (revisar === 0) return null;
+    const pliegosDeMas = sheetShortfall(form.calculations.calc_sheets, ot.calc_sheets);
+    return { revisar, pliegosDeMas };
+  }, [form.operations, form.calculations.calc_sheets, ot.calc_sheets]);
 
   /* ── Submit changes via PATCH ───────────────────────────────── */
   const handleSubmit = async () => {
@@ -342,6 +469,7 @@ export function EditBudgetWizard({ ot, onClose, onSuccess }: Props) {
           quantity: op.quantity,
           unit_cost: op.unit_cost,
           sort_order: op.sort_order,
+          is_manual: op.is_manual ?? false,
         })),
         notes: [
           form.production_detail.production_description,
@@ -492,6 +620,22 @@ export function EditBudgetWizard({ ot, onClose, onSuccess }: Props) {
               <span className={priceDiff > 0 ? 'text-red-400' : 'text-green-400'}>
                 ({priceDiff > 0 ? '+' : ''}{Math.round(priceDiffPct)}%)
               </span>
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* ─── Reconciliación del presupuesto ──────────────────── */}
+      {reconcileSummary && (
+        <div className="bg-indigo-500/10 border-b border-indigo-500/30 px-4 py-2">
+          <div className="max-w-5xl mx-auto flex items-center gap-3">
+            <AlertTriangle className="h-4 w-4 text-indigo-400 shrink-0" />
+            <span className="text-sm text-indigo-300">
+              <strong>Presupuesto actualizado con la especificación nueva</strong>
+              {reconcileSummary.pliegosDeMas > 0 &&
+                ` — necesita ${reconcileSummary.pliegosDeMas.toLocaleString('es-CL')} pliegos más que antes`}
+              . {reconcileSummary.revisar === 1 ? 'Una línea editada a mano no se tocó' : `${reconcileSummary.revisar} líneas editadas a mano no se tocaron`}{' '}
+              — revisala{reconcileSummary.revisar === 1 ? '' : 's'} en «Costos» antes de guardar.
             </span>
           </div>
         </div>

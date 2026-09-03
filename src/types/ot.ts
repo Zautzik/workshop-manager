@@ -249,6 +249,24 @@ export interface OTOperation {
   unit_cost: number;
   total_cost: number;
   sort_order: number;
+  /**
+   * true cuando una persona escribió o corrigió esta línea a mano — falso
+   * cuando la generó el motor. Es lo que permite que un cambio de
+   * especificación refresque el presupuesto SIN pisar una corrección
+   * deliberada (ver `reconcileOperations` en ot-calculations.ts).
+   */
+  is_manual?: boolean;
+  /**
+   * Sólo en memoria, nunca se guarda: la línea es manual y ya no coincide con
+   * lo que el motor calcularía hoy — alguien la editó y después cambió la
+   * especificación.
+   */
+  _stale?: boolean;
+  /**
+   * Sólo en memoria: la línea es manual y el motor ya no propone nada
+   * parecido (p.ej. se destildó el acabado que la justificaba).
+   */
+  _orphaned?: boolean;
 }
 
 export interface OTCalculations {

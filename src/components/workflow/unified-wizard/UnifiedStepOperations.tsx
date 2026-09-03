@@ -43,6 +43,7 @@ import {
 } from '@/lib/ot-calculations';
 import { resolveCostOverrides } from '@/lib/costing-resolver';
 import { useCostCatalog, useMaterialCost } from '@/hooks/use-cost-catalog';
+import { useMachines } from '@/hooks/use-machines';
 import { formatCLP } from '@/lib/format';
 import type { UnifiedOTForm } from '@/types/ot-unified';
 import type { OTFormData } from '@/types/ot';
@@ -58,6 +59,26 @@ export function UnifiedStepOperations({ form, updateForm }: Props) {
   // Real rates for the estimate: shared DB catalog + purchase-weighted material cost.
   const { data: catalog = [] } = useCostCatalog();
   const { data: materialCost = [] } = useMaterialCost();
+  // La prensa asignada, para que "¿Y si lleva más?" respete el mismo límite
+  // de pliego que el resto de la pantalla — ver más abajo por qué hace falta.
+  const { data: machines = [] } = useMachines();
+  const assignedPress = useMemo(
+    () => (machines as any[]).find((m) => m.id === form.machine.machine_id) ?? null,
+    [machines, form.machine.machine_id],
+  );
+  // Memoizado, no un literal recalculado cada render: un objeto nuevo en cada
+  // pasada invalidaría el useMemo de `quantityBreaks` de abajo aunque nada
+  // real hubiera cambiado.
+  const pressLimit = useMemo(
+    () =>
+      assignedPress
+        ? {
+            maxWidthCm: assignedPress.max_print_width_mm ? assignedPress.max_print_width_mm / 10 : 37,
+            maxHeightCm: assignedPress.max_print_height_mm ? assignedPress.max_print_height_mm / 10 : 52,
+          }
+        : null,
+    [assignedPress],
+  );
 
   /* ── Operations grouped by category ─────────────────────────── */
   /**
@@ -97,20 +118,50 @@ export function UnifiedStepOperations({ form, updateForm }: Props) {
       grammage_gsm: form.grammage_gsm,
     }, materialCost);
 
-    return computeMultiQuantityQuotes(
+    const quotes = computeMultiQuantityQuotes(
       calcInput,
       ladder,
       form.pricing.margin_pct,
       form.pricing.increment_pct,
       form.pricing.commission_pct,
-      { inkCoverage: form.ink_coverage },
+      {
+        inkCoverage: form.ink_coverage,
+        // Sin esto, "¿Y si lleva más?" imponía contra el pliego padre sin
+        // restricción en vez del formato real de la prensa asignada — el
+        // mismo bug del Run 3 (calc_sheets colapsando a una fracción de lo
+        // real), pero en esta tabla en vez del cálculo principal: mostraba,
+        // para la MISMA cantidad actual, un total distinto al de "Desglose
+        // de Precios" en la sección de arriba de esta misma pantalla
+        // (auditoría 2026-09-03, OT 41224: $3.004.948 acá contra $7.162.890
+        // en el desglose, ambos para 172.000 unidades).
+        pressLimit,
+        pressBodies: assignedPress?.colors,
+        machineSpeedSheetsHr: assignedPress?.optimal_speed_sheets_hr ?? assignedPress?.nominal_speed_sheets_hr,
+      },
       overrides
+    );
+
+    // La fila "actual" no simula — muestra el presupuesto que de verdad está
+    // guardado. El resto de la escalera SÍ tiene que simular (nadie tiene un
+    // presupuesto real para "el doble" todavía), pero para la cantidad de
+    // hoy ya existe una respuesta real, y hacer que el motor la recalcule
+    // desde cero puede no coincidir con ella — tarifas históricas, líneas
+    // editadas a mano, lo que sea que "Desglose de Precios" refleje y una
+    // simulación fresca no puede reproducir. Mostrar dos números distintos
+    // bajo la misma etiqueta "actual" es peor que mostrar uno solo, aunque
+    // ese uno no venga del mismo motor que las demás filas (auditoría
+    // 2026-09-04).
+    return quotes.map((q) =>
+      q.quantity === base
+        ? { quantity: base, total_price: Math.round(form.pricing.total_price), unit_price: Math.round(form.pricing.unit_price) }
+        : q,
     );
   }, [
     form.quantity, form.width_cm, form.height_cm, form.grammage_gsm,
     form.substrate_type, form.color_front, form.color_back, form.finishes,
     form.ink_coverage, form.pricing.margin_pct, form.pricing.increment_pct,
-    form.pricing.commission_pct, catalog, materialCost,
+    form.pricing.commission_pct, form.pricing.total_price, form.pricing.unit_price,
+    catalog, materialCost, pressLimit, assignedPress,
   ]);
 
   const groupedOps = useMemo(() => {
@@ -214,6 +265,10 @@ export function UnifiedStepOperations({ form, updateForm }: Props) {
       unit_cost: editingOp.unit_cost || 0,
       total_cost: total,
       sort_order: editingOp.sort_order ?? form.operations.length,
+      // Pasa por este diálogo = una persona la escribió o la corrigió. Es lo
+      // que hace que un cambio de especificación más adelante la deje
+      // intacta en vez de pisarla (reconcileOperations, ot-calculations.ts).
+      is_manual: true,
     };
 
     const exists = form.operations.find((o) => o.id === fullOp.id);
@@ -335,11 +390,29 @@ export function UnifiedStepOperations({ form, updateForm }: Props) {
                     {ops.map((op) => (
                       <div
                         key={op.id}
-                        className="flex items-center gap-2 bg-muted/20 rounded-lg px-3 py-2"
+                        className={cn(
+                          'flex items-center gap-2 rounded-lg px-3 py-2',
+                          op._stale
+                            ? 'bg-amber-500/10 border border-amber-500/40'
+                            : 'bg-muted/20'
+                        )}
                       >
                         <div className="flex-1 min-w-0">
-                          <div className="font-medium text-sm truncate">
+                          <div className="font-medium text-sm truncate flex items-center gap-1.5">
                             {op.name}
+                            {op._stale && (
+                              <Badge
+                                variant="outline"
+                                className="border-amber-500/50 text-amber-600 dark:text-amber-400 text-[10px] px-1.5 py-0 h-4"
+                                title={
+                                  op._orphaned
+                                    ? 'Línea manual: la especificación de hoy ya no pide nada parecido'
+                                    : 'Línea manual: no se actualizó sola porque la editaste — revisala'
+                                }
+                              >
+                                {op._orphaned ? 'ya no aplica' : 'revisar'}
+                              </Badge>
+                            )}
                           </div>
                           <div className="text-[10px] text-muted-foreground">
                             {op.quantity} {op.unit} × ${op.unit_cost.toLocaleString()}

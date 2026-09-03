@@ -32,6 +32,12 @@ const OTOperationSchema = z.object({
 	quantity: z.coerce.number().min(0),
 	unit_cost: z.coerce.number().min(0),
 	sort_order: z.coerce.number().int().min(0).default(0),
+	// true cuando una persona escribió o corrigió la línea a mano — es lo que
+	// decide si un futuro cambio de especificación puede refrescarla sola
+	// (ver reconcileOperations en ot-calculations.ts). Ausente = false: antes
+	// de este campo toda línea era "segura de pisar", así que ese es el
+	// default que no sorprende a un llamador viejo.
+	is_manual: z.boolean().default(false),
 });
 
 const UpdateOTSchema = z.object({
@@ -203,6 +209,7 @@ export async function PATCH(
 				quantity: op.quantity,
 				unit_cost: op.unit_cost,
 				sort_order: op.sort_order ?? idx,
+				is_manual: op.is_manual ?? false,
 			}));
 
 			const { data: replaced, error: replaceError } = await supabaseAdmin.rpc(

@@ -546,6 +546,7 @@ export function generateDefaultOperations(
       quantity, unit_cost,
       total_cost: Math.round(quantity * unit_cost),
       sort_order: order++,
+      is_manual: false,
     });
   };
 
@@ -642,7 +643,88 @@ export function generateDefaultOperations(
   return ops;
 }
 
+/* ─── Reconciliar el presupuesto tras un cambio de especificación ── */
+
+/**
+ * Actualiza el presupuesto de una OT cuando cambió la especificación, sin
+ * pisar lo que alguien haya corregido a mano.
+ *
+ * `EditBudgetWizard` sólo generaba operaciones si la lista estaba vacía —
+ * subir la cantidad después de creada la OT recalculaba `calc_sheets` pero
+ * dejaba el presupuesto (y por lo tanto Estimado y Real en Rentabilidad)
+ * congelado en la versión vieja del trabajo (auditoría 2026-09, OT 41241 tras
+ * un retroceso: 29% de margen que en realidad no existía).
+ *
+ * La respuesta no es "regenerar todo de nuevo": un presupuesto con líneas
+ * corregidas a mano (`is_manual`) que se reemplaza entero pierde esa
+ * corrección en silencio, que es un problema distinto pero igual de real.
+ * Por eso este motor RECONCILIA en vez de reemplazar:
+ *
+ *   · Línea nueva que el motor calcula y no existía → se agrega.
+ *   · Línea que el motor sigue generando y NADIE tocó a mano → se refresca
+ *     con el número de hoy (es exactamente lo que hacía antes de que
+ *     alguien la editara, así que seguir haciéndolo no sorprende a nadie).
+ *   · Línea que alguien corrigió a mano → se deja intacta. Si el número que
+ *     el motor calcularía hoy ya no coincide, se marca `_stale` para que
+ *     quien mira el presupuesto sepa que corresponde revisarla — no se
+ *     decide por esa persona.
+ *   · Línea manual que el motor ya no propone nada parecido (se destildó el
+ *     acabado que la justificaba) → se deja, marcada `_orphaned`.
+ *
+ * El cruce es por NOMBRE, no por id: `generateDefaultOperations` asigna un
+ * `crypto.randomUUID()` nuevo cada vez que corre, así que el id nunca
+ * coincide entre una corrida y la siguiente. Es la misma convención que ya
+ * usa `RealCostEntryDialog` para saber qué presupuesto ya se cobró.
+ */
+export function reconcileOperations(
+  freshOps: readonly OTOperation[],
+  existingOps: readonly OTOperation[],
+): OTOperation[] {
+  const key = (name: string) => name.toLowerCase().trim();
+  const existingByName = new Map(existingOps.map((o) => [key(o.name), o]));
+  const freshNames = new Set(freshOps.map((o) => key(o.name)));
+
+  const reconciled: OTOperation[] = freshOps.map((fresh) => {
+    const existing = existingByName.get(key(fresh.name));
+    if (!existing) return fresh;
+
+    if (!existing.is_manual) {
+      // Nadie la tocó: es segura de refrescar, conservando su lugar en la lista.
+      return { ...fresh, id: existing.id, sort_order: existing.sort_order };
+    }
+
+    const changed =
+      existing.quantity !== fresh.quantity || existing.unit_cost !== fresh.unit_cost;
+    return { ...existing, _stale: changed, _orphaned: false };
+  });
+
+  // Líneas manuales que el motor de hoy ya no genera — se conservan igual,
+  // porque borrar una corrección deliberada sin que nadie lo pida es
+  // exactamente el tipo de sorpresa que esta función existe para evitar.
+  for (const existing of existingOps) {
+    if (existing.is_manual && !freshNames.has(key(existing.name))) {
+      reconciled.push({ ...existing, _stale: true, _orphaned: true });
+    }
+  }
+
+  return reconciled;
+}
+
 /* ─── Pricing calculation ───────────────────────────────────── */
+
+/**
+ * `replace_ot_operations` (la función de Postgres que en verdad guarda el
+ * precio) redondea margen/incremento/comisión a 2 decimales y el precio
+ * unitario a 4 — nunca a peso entero. Este motor redondeaba todo a
+ * `Math.round()` (0 decimales), así que el precio que se ve al abrir el
+ * asistente casi nunca era EXACTAMENTE el que ya estaba guardado: una
+ * diferencia de unos centavos alcanzaba para que "Precio modificado" se
+ * encendiera solo, mostrando el mismo peso redondeado a ambos lados de la
+ * flecha (auditoría 2026-09-03, OT 41224: "$7.162.890 → $7.162.890 (+0%)"
+ * con el banner igual encendido — los dos números eran distintos por
+ * fracciones de peso, invisibles al formatear, pero no al comparar).
+ */
+const round4 = (n: number) => Math.round(n * 10000) / 10000;
 
 export function computeOTPricing(
   operations: OTOperation[],
@@ -652,16 +734,16 @@ export function computeOTPricing(
   commissionPct: number = 1
 ): OTPricing {
   const subtotal = operations.reduce((sum, op) => sum + op.total_cost, 0);
-  const marginAmount = Math.round(subtotal * marginPct / 100);
+  const marginAmount = round2(subtotal * marginPct / 100);
   const afterMargin = subtotal + marginAmount;
-  const incrementAmount = Math.round(afterMargin * incrementPct / 100);
+  const incrementAmount = round2(afterMargin * incrementPct / 100);
   const afterIncrement = afterMargin + incrementAmount;
-  const commissionAmount = Math.round(afterIncrement * commissionPct / 100);
+  const commissionAmount = round2(afterIncrement * commissionPct / 100);
   const totalPrice = afterIncrement + commissionAmount;
-  const unitPrice = quantity > 0 ? Math.round(totalPrice / quantity) : 0;
+  const unitPrice = quantity > 0 ? round4(totalPrice / quantity) : 0;
 
   return {
-    subtotal: Math.round(subtotal),
+    subtotal: round2(subtotal),
     margin_pct: marginPct,
     margin_amount: marginAmount,
     increment_pct: incrementPct,
