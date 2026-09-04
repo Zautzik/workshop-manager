@@ -44,3 +44,7 @@ nul
 
 # Capturas de verificación en navegador: son scratch, no fuente.
 vivo/
+.playwright-mcp/
+
+# Salida suelta de herramientas ad hoc — no es un artefacto del build.
+tables.json
