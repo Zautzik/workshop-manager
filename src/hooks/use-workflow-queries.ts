@@ -105,19 +105,39 @@ export function useMachines() {
   });
 }
 
+/**
+ * Las 200 OT más recientes — cubre cualquier tablero de trabajo activo.
+ *
+ * El corte en 200 ya se quedó corto una vez, en silencio: `useOtCostSummary`
+ * (use-financial-queries.ts) existe en parte porque este hook no avisaba
+ * cuando había más de 200 OT (234, en producción) — se le construyó un
+ * camino aparte en vez de arreglar éste. `/api/ots` YA devuelve `total` en
+ * el sobre paginado; antes se descartaba. Ahora `isTruncated` viaja junto a
+ * `data`, aditivo — ninguno de los ~20 consumidores actuales (que
+ * desestructuran `{ data }` como si fuera el arreglo) se rompe, y quien
+ * necesite saber si está viendo todo puede mirar `isTruncated` en vez de
+ * confiar a ciegas en 200 filas (auditoría 2026-09-07).
+ */
 export function useOTs() {
-  return useQuery({
+  const query = useQuery({
     queryKey: queryKeys.ots,
     queryFn: async () => {
-      // Fetch the most recent 200 OTs — covers any active workflow view.
-      // For full history or filtering use a dedicated paginated query.
       const res = await fetch('/api/ots?limit=200');
       if (!res.ok) throw new Error(`Failed to fetch OTs: ${res.status}`);
       const payload = await res.json();
       // Unwrap paginated envelope { data, total, ... }; fall back to plain array.
-      return (Array.isArray(payload) ? payload : (payload?.data ?? [])) as any[];
+      const data = (Array.isArray(payload) ? payload : (payload?.data ?? [])) as any[];
+      const total = Array.isArray(payload) ? data.length : Number(payload?.total ?? data.length);
+      return { rows: data, total, isTruncated: total > data.length };
     },
   });
+
+  return {
+    ...query,
+    data: query.data?.rows,
+    total: query.data?.total,
+    isTruncated: query.data?.isTruncated ?? false,
+  };
 }
 
 export function useActiveOTs() {

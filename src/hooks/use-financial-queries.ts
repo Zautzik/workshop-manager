@@ -2,6 +2,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { fetchAll, truncationNote } from '@/lib/fetch-all';
 
 const queryKeys = {
   machineCosts: ['machineCosts'] as const,
@@ -154,43 +155,61 @@ export function useMonthlyPayroll(year: number, month: number) {
     safeMonth >= 1 &&
     safeMonth <= 12;
 
-  return useQuery({
+  const query = useQuery({
     queryKey: queryKeys.monthlyPayroll(safeYear, safeMonth),
     queryFn: async () => {
-      if (!hasValidParams) return [];
+      if (!hasValidParams) return { rows: [] as any[], truncated: null as string | null };
 
       const monthStart = `${safeYear}-${String(safeMonth).padStart(2, '0')}-01`;
       const monthEnd = new Date(safeYear, safeMonth, 0).toISOString().split('T')[0];
 
-      const [employeesRes, assignmentsRes, compensationRes, incentivesRes] = await Promise.all([
-        supabase.from('employees').select('id, full_name'),
-        supabase
-          .from('worker_assignments')
-          .select('employee_id, date, role, hours_worked, shift:shifts(start_time, end_time)')
-          .gte('date', monthStart)
-          .lte('date', monthEnd),
-        supabase
-          .from('compensation_rates')
-          .select(
-            'employee_id, hourly_rate, overtime_multiplier_50, overtime_multiplier_100, night_shift_multiplier, weekend_multiplier, currency_code, effective_from, effective_to'
-          ),
-        supabase
-          .from('employee_incentives')
-          .select('employee_id, amount, currency_code, status, awarded_date')
-          .gte('awarded_date', monthStart)
-          .lte('awarded_date', monthEnd)
-          .in('status', ['approved', 'paid']),
+      // Sin límite, corridas desde el navegador: expuestas al mismo tope por
+      // defecto de PostgREST (1000 filas) que ya mostró margen 82% en vez de
+      // 22% en /api/ots/cost-summary (ver fetch-all.ts). Acá el resultado
+      // sería una nómina calculada sobre una parte, sin ningún aviso
+      // (auditoría 2026-09-07). `fetchAll` pagina hasta agotar y dice si no
+      // pudo — la misma herramienta que ya se usa ahí.
+      const [employeesR, assignmentsR, compensationR, incentivesR] = await Promise.all([
+        fetchAll<any>((from, to) =>
+          supabase.from('employees').select('id, full_name').range(from, to),
+        ),
+        fetchAll<any>((from, to) =>
+          supabase
+            .from('worker_assignments')
+            .select('employee_id, date, role, hours_worked, shift:shifts(start_time, end_time)')
+            .gte('date', monthStart)
+            .lte('date', monthEnd)
+            .range(from, to),
+        ),
+        fetchAll<any>((from, to) =>
+          supabase
+            .from('compensation_rates')
+            .select(
+              'employee_id, hourly_rate, overtime_multiplier_50, overtime_multiplier_100, night_shift_multiplier, weekend_multiplier, currency_code, effective_from, effective_to'
+            )
+            .range(from, to),
+        ),
+        fetchAll<any>((from, to) =>
+          supabase
+            .from('employee_incentives')
+            .select('employee_id, amount, currency_code, status, awarded_date')
+            .gte('awarded_date', monthStart)
+            .lte('awarded_date', monthEnd)
+            .in('status', ['approved', 'paid'])
+            .range(from, to),
+        ),
       ]);
 
-      if (employeesRes.error) throw employeesRes.error;
-      if (assignmentsRes.error) throw assignmentsRes.error;
-      if (compensationRes.error) throw compensationRes.error;
-      if (incentivesRes.error) throw incentivesRes.error;
+      const truncated =
+        truncationNote(employeesR, 'empleados') ??
+        truncationNote(assignmentsR, 'asignaciones') ??
+        truncationNote(compensationR, 'tarifas de compensación') ??
+        truncationNote(incentivesR, 'incentivos');
 
-      const employees = employeesRes.data ?? [];
-      const assignments = assignmentsRes.data ?? [];
-      const compensationRates = compensationRes.data ?? [];
-      const incentives = incentivesRes.data ?? [];
+      const employees = employeesR.rows;
+      const assignments = assignmentsR.rows;
+      const compensationRates = compensationR.rows;
+      const incentives = incentivesR.rows;
 
       const employeeById = new Map<string, any>();
       employees.forEach((employee: any) => {
@@ -379,12 +398,22 @@ export function useMonthlyPayroll(year: number, month: number) {
         };
       });
 
-      return fallbackRows.sort((a: any, b: any) =>
+      const rows = fallbackRows.sort((a: any, b: any) =>
         String(a.employee_name || '').localeCompare(String(b.employee_name || ''))
       );
+      return { rows, truncated };
     },
     enabled: hasValidParams,
   });
+
+  return {
+    ...query,
+    data: query.data?.rows,
+    // Cadena lista para mostrar cuando la nómina se calculó sobre una parte;
+    // `null` cuando llegó todo. Los dos consumidores actuales desestructuran
+    // `{ data }` como si fuera el arreglo — esto es aditivo, no rompe nada.
+    truncated: query.data?.truncated ?? null,
+  };
 }
 
 export interface EmployeeCostTimelineRow {

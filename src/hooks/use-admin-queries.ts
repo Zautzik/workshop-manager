@@ -2,6 +2,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { fetchAll } from '@/lib/fetch-all';
 
 const queryKeys = {
   adminStats: ['admin', 'stats'] as const,
@@ -88,16 +89,34 @@ export function useInventoryLots(itemId?: string | null) {
   });
 }
 
+/**
+ * Todo el libro de movimientos de inventario, sin fecha de corte.
+ *
+ * `InventoryManagement.tsx` recorta esto a una ventana de 30 días EN EL
+ * NAVEGADOR para calcular consumo y rotación — sin este `fetchAll`, una
+ * consulta sin `.range()` queda expuesta al tope por defecto de PostgREST
+ * (1000 filas), que en este mismo repo ya hizo que un margen leyera 82% en
+ * vez de 22% (ver fetch-all.ts). Acá venía funcionando por casualidad: el
+ * orden descendente hace que el tope corte del lado viejo, que es el que a
+ * la ventana de 30 días no le importa — hasta que otro consumidor de este
+ * mismo hook necesite historia más vieja (auditoría 2026-09-07).
+ *
+ * Esto arregla que no mienta en silencio, no que traiga de más: seguir
+ * bajando el libro entero para mirar 30 días sigue siendo el desperdicio que
+ * era. Paginar la tabla que se muestra es un cambio de UI aparte.
+ */
 export function useInventoryTransactions() {
   return useQuery<any[]>({
     queryKey: queryKeys.inventoryTransactions,
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('inventory_stock_transactions_v')
-        .select('*')
-        .order('created_at', { ascending: false });
-      if (error) throw error;
-      return (data ?? []) as any[];
+      const { rows } = await fetchAll<any>((from, to) =>
+        supabase
+          .from('inventory_stock_transactions_v')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .range(from, to),
+      );
+      return rows;
     },
   });
 }
