@@ -1,13 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { checkRateLimit, retryAfterSeconds } from '@/lib/rate-limiter';
+import { getClientIp } from '@/lib/client-ip';
 
-export function getClientIp(req: NextRequest): string {
-  return (
-    req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ??
-    req.headers.get('x-real-ip') ??
-    'unknown'
-  );
-}
+export { getClientIp };
 
 export function buildRateLimitActor(req: NextRequest, userId?: string | null): string {
   return userId ? `user:${userId}` : `ip:${getClientIp(req)}`;

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { checkRateLimit, retryAfterSeconds } from '@/lib/rate-limiter';
+import { getClientIp } from '@/lib/client-ip';
 
 // ---------------------------------------------------------------------------
 // Supabase CSP sources.
@@ -60,13 +61,6 @@ const RATE_LIMITS = {
 } as const;
 
 type RlTier = keyof typeof RATE_LIMITS;
-
-/** Extract the real client IP, respecting upstream proxy headers. */
-function getClientIp(req: NextRequest): string {
-	const xff = req.headers.get('x-forwarded-for');
-	if (xff) return xff.split(',')[0].trim();
-	return req.headers.get('x-real-ip') ?? 'unknown';
-}
 
 /**
  * NextAuth paths that carry credentials. Sign-in POSTs land on

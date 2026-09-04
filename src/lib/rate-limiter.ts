@@ -18,6 +18,15 @@ interface RateWindow {
 
 const store = new Map<string, RateWindow>();
 
+// Tope duro, independiente del barrido de 5 minutos. Cada key nueva es una
+// entrada que sobrevive hasta el próximo barrido — si alguien encuentra la
+// forma de mandar una key distinta por request (spoofear el actor detrás de
+// la key es el ejemplo real: ver getClientIp en src/lib/client-ip.ts), el
+// Map crece sin freno hasta ese barrido. Este tope no arregla eso —arreglar
+// la key es lo que lo arregla— pero evita que un bug futuro reproduzca la
+// misma forma sin depender de que alguien se acuerde del barrido.
+const MAX_ENTRIES = 50_000;
+
 const SWEEP_INTERVAL_MS = 5 * 60 * 1_000;
 let sweepTimer: ReturnType<typeof setInterval> | undefined;
 
@@ -57,6 +66,14 @@ export function checkRateLimit(
 ): RateLimitResult {
   ensureSweep();
   const now = Date.now();
+
+  if (store.size >= MAX_ENTRIES && !store.has(key)) {
+    // Evict the oldest entry (Map preserves insertion order) rather than
+    // reject the request — a false "not limited" for one caller is safer
+    // than an unbounded Map under sustained key-spoofing.
+    const oldestKey = store.keys().next().value;
+    if (oldestKey !== undefined) store.delete(oldestKey);
+  }
 
   let win = store.get(key);
   if (!win || win.resetAt <= now) {
