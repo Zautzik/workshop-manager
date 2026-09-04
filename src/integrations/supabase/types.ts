@@ -8761,6 +8761,26 @@ export type Database = {
         Args: { p_category: string }
         Returns: Database["public"]["Enums"]["cost_line_category"]
       }
+      ot_cost_rollup: {
+        Args: { p_include_seed?: boolean; p_ot_ids: string[] }
+        Returns: {
+          actual_cost: number
+          committed_cost: number
+          estimate_lines: number
+          estimated_cost: number
+          finishing_actual: number
+          labor_actual: number
+          legacy_lines: number
+          machine_actual: number
+          material_actual: number
+          ot_id: string
+          other_actual: number
+          outsourced_actual: number
+          overhead_actual: number
+          real_lines: number
+          seed_lines: number
+        }[]
+      }
       receive_oc_into_lot: {
         Args: {
           p_cert_code?: string

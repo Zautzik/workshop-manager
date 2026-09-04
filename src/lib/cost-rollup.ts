@@ -167,6 +167,96 @@ export function rollupCosts(
   });
 }
 
+/**
+ * Lo mismo que `rollupCosts`, pero partiendo de sumas y conteos que Postgres
+ * ya hizo — `ot_cost_rollup()` (20260908120000_el_ledger_se_suma_en_postgres.sql).
+ *
+ * `rollupCosts` no se toca ni se retira: la baja una fila de costo por línea
+ * y las suma en JS, que es exactamente el trabajo que este ledger, a 4.256+
+ * filas y creciendo, no debería seguir haciendo en cada carga de la pantalla
+ * (auditoría de rendimiento 2026-09-08). Se agrega esta función al lado para
+ * que /api/ots/cost-summary use la agregada sin que rollupCosts dejara de
+ * existir para quien todavía la necesite (o para los tests que ya la cubren).
+ */
+export interface DbCostAggregate {
+  ot_id: string;
+  estimated_cost: number;
+  actual_cost: number;
+  committed_cost: number;
+  material_actual: number;
+  labor_actual: number;
+  machine_actual: number;
+  finishing_actual: number;
+  outsourced_actual: number;
+  overhead_actual: number;
+  other_actual: number;
+  real_lines: number;
+  legacy_lines: number;
+  seed_lines: number;
+  estimate_lines: number;
+}
+
+const EMPTY_AGGREGATE: Omit<DbCostAggregate, 'ot_id'> = {
+  estimated_cost: 0, actual_cost: 0, committed_cost: 0,
+  material_actual: 0, labor_actual: 0, machine_actual: 0,
+  finishing_actual: 0, outsourced_actual: 0, overhead_actual: 0, other_actual: 0,
+  real_lines: 0, legacy_lines: 0, seed_lines: 0, estimate_lines: 0,
+};
+
+export function rollupFromDbAggregates(
+  aggregates: DbCostAggregate[],
+  revenues: OTRevenue[],
+): OTCostRollup[] {
+  const byOt = new Map(aggregates.map((a) => [a.ot_id, a]));
+
+  return revenues.map((r) => {
+    // Una OT sin ninguna línea de costo no aparece en el resultado del RPC
+    // (GROUP BY sobre filas que no existen) -- EMPTY_AGGREGATE es esa OT,
+    // con todo en cero, igual que `todas = byOt.get(r.ot_id) ?? []` en
+    // rollupCosts cuando el Map no tenía nada para esa OT.
+    const a = byOt.get(r.ot_id) ?? { ot_id: r.ot_id, ...EMPTY_AGGREGATE };
+    const revenue = Number(r.revenue ?? 0);
+    const gross_margin = revenue - a.actual_cost;
+    const actualTotal = a.real_lines + a.legacy_lines;
+    const confidence = actualTotal === 0 ? 0 : Math.round((a.real_lines / actualTotal) * 100);
+
+    return {
+      ot_id: r.ot_id,
+      ot_number: r.ot_number,
+      client_name: r.client_name,
+      revenue,
+      estimated_cost: a.estimated_cost,
+      actual_cost: a.actual_cost,
+      committed_cost: a.committed_cost,
+      by_category: {
+        material: a.material_actual,
+        labor: a.labor_actual,
+        machine: a.machine_actual,
+        finishing: a.finishing_actual,
+        outsourced: a.outsourced_actual,
+        overhead: a.overhead_actual,
+        other: a.other_actual,
+      },
+      gross_margin,
+      margin_pct: revenue > 0 ? Math.round((gross_margin / revenue) * 1000) / 10 : null,
+      provenance: {
+        realLines: a.real_lines,
+        legacyLines: a.legacy_lines,
+        seedLines: a.seed_lines,
+        estimateLines: a.estimate_lines,
+        confidence,
+        label: describeProvenance({
+          realLines: a.real_lines,
+          legacyLines: a.legacy_lines,
+          seedLines: a.seed_lines,
+          estimateLines: a.estimate_lines,
+        }),
+      },
+      unreliable: revenue <= 0 || actualTotal === 0 || a.seed_lines > 0,
+    };
+  });
+}
+
 function describeProvenance(p: Omit<Provenance, 'confidence' | 'label'>): string {
   if (p.seedLines > 0) {
     return 'Datos de demostración: este margen no describe un trabajo real.';
