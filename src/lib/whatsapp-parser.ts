@@ -94,11 +94,44 @@ export function extractOTNumber(raw: string): string | null {
 
 /* ─── Classify Message Type ──────────────────────────────────── */
 
+// Compilados una vez por keyword, no una vez por llamada: classifyMessage()
+// prueba cada keyword de START/END/CANCEL hasta dos veces por mensaje, y
+// bajo una ráfaga de webhooks reconstruir el mismo RegExp cientos de veces
+// por segundo es trabajo de V8 que no compra nada -- el patrón nunca cambia
+// (auditoría de rendimiento 2026-09-08). Sin flag global: se usa sólo con
+// `.test()`, que no depende de `lastIndex`.
+const keywordRegexCache = new Map<string, RegExp>();
+function keywordRegex(keyword: string): RegExp {
+  let re = keywordRegexCache.get(keyword);
+  if (!re) {
+    const escaped = keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    re = new RegExp(`\\b${escaped}\\b`);
+    keywordRegexCache.set(keyword, re);
+  }
+  return re;
+}
+
 /** Word-bounded keyword test: 'entro' must not match inside 'centro',
  * nor 'fin' inside 'finde'. Multi-word keywords ('paso a') work too. */
 function hasKeyword(text: string, keyword: string): boolean {
-  const escaped = keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  return new RegExp(`\\b${escaped}\\b`).test(text);
+  return keywordRegex(keyword).test(text);
+}
+
+// Cache aparte para la variante con flag global que usa parseWhatsAppEvents
+// (necesita `exec` en loop para encontrar TODAS las ocurrencias, no sólo
+// probar si existe una). No se comparte con `keywordRegexCache`: un RegExp
+// global lleva estado (`lastIndex`) entre llamadas, y mezclar `.test()` y
+// `.exec()` sobre el mismo objeto es exactamente la clase de bug sutil que
+// esta separación evita.
+const keywordGlobalRegexCache = new Map<string, RegExp>();
+function keywordGlobalRegex(keyword: string): RegExp {
+  let re = keywordGlobalRegexCache.get(keyword);
+  if (!re) {
+    const escaped = keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    re = new RegExp(`\\b${escaped}\\b`, 'g');
+    keywordGlobalRegexCache.set(keyword, re);
+  }
+  return re;
 }
 
 export function classifyMessage(raw: string): WhatsAppMessageType {
@@ -461,12 +494,15 @@ export function parseWhatsAppEvents(rawMessage: string): ParseResult[] {
   ];
   for (const [keywords, kind] of kwSets) {
     for (const kw of keywords) {
-      const escaped = kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      const re = new RegExp(`\\b${escaped}\\b`, 'g');
+      const re = keywordGlobalRegex(kw);
       let m: RegExpExecArray | null;
       while ((m = re.exec(text)) !== null) {
         anchors.push({ index: m.index, kind });
       }
+      // El loop de arriba siempre corre hasta agotar las coincidencias (sin
+      // `break`), así que `exec` ya dejó `lastIndex` en 0 por su cuenta -- es
+      // justo lo que hace seguro reusar este RegExp con flag global en el
+      // próximo mensaje. Un `break` acá adentro rompería ese supuesto.
     }
   }
   anchors.sort((a, b) => a.index - b.index);

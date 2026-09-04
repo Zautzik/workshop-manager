@@ -46,12 +46,27 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({ status: 'WhatsApp webhook active' });
 }
 
+// Meta's real envelopes run a few KB. This is headroom, not a measured
+// requirement -- the point is that nothing enforced a limit before this: Next
+// 16 Route Handlers expose no body-size config (unlike the old Pages API
+// routes' bodyParser), so the only backstop was whatever the host enforces.
+// JSON.parse on a multi-MB string blocks the event loop for the duration of
+// the parse -- every other request queued behind it waits (auditoría de
+// rendimiento 2026-09-08).
+const MAX_WEBHOOK_BYTES = 256 * 1024;
+
 /* ─── POST: Receive Message ──────────────────────────────────── */
 
 export async function POST(req: NextRequest) {
   try {
     // ── 0. Verify webhook signature ────────────────────────
     const rawBodyText = await req.text();
+    if (rawBodyText.length > MAX_WEBHOOK_BYTES) {
+      // Antes de verificar la firma, no después: el HMAC sobre el cuerpo
+      // entero es trabajo O(tamaño) que no vale la pena gastar en un payload
+      // que ya se va a rechazar.
+      return NextResponse.json({ error: 'Payload too large' }, { status: 413 });
+    }
     if (!verifyWhatsAppSignature(rawBodyText, req.headers)) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
