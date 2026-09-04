@@ -113,6 +113,15 @@ export async function POST(req: NextRequest) {
     if (error) {
       // Traducido por si el trigger rechaza algo que el Zod de arriba no
       // alcanzó a nombrar -- el mismo principio que ya aplica ot_requirements.
+      // El caso de la reserva es un 409 (conflicto con otra OT), no un 500:
+      // no es un error del servidor, es información que el operador puede
+      // actuar -- misma razón que el 409 del pre-chequeo de saldo, arriba.
+      if (/committed to other work orders/i.test(error.message)) {
+        return NextResponse.json(
+          { error: 'Ese lote tiene material reservado para otra OT; este movimiento se llevaría stock comprometido.' },
+          { status: 409 },
+        );
+      }
       const humano = /requires lot_id/i.test(error.message)
         ? 'Este movimiento necesita el lote del que sale, para poder descontarlo.'
         : error.message;
