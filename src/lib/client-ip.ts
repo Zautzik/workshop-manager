@@ -5,7 +5,7 @@ import type { NextRequest } from 'next/server';
  *
  * `X-Forwarded-For` lo puede setear cualquiera que arme el request a mano —
  * `x-forwarded-for.split(',')[0]` (la versión que vivía triplicada en
- * api-middleware.ts, proxy.ts y la ruta de NextAuth) toma exactamente el
+ * api-rate-limit.ts, proxy.ts y la ruta de NextAuth) toma exactamente el
  * extremo equivocado: el primer salto es lo que el cliente escribió: un
  * proxy de confianza APPENDEA el suyo al final, no lo antepone. Con eso, el
  * rate limit de login (`login:${ip}`, 5/60s) se esquivaba mandando un
