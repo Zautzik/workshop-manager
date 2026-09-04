@@ -40,6 +40,9 @@ export const InboundMessageSchema = z.object({
   media_url: z.string().url().max(2000).optional(),
   media_id: z.string().max(100).optional(),
   media_mime: z.string().max(100).optional(),
+  /** El wamid de Meta. Ausente para el simulador y el proveedor genérico —
+   *  esos mensajes no tienen deduplicación, igual que antes. */
+  message_id: z.string().max(100).optional(),
 });
 
 export type InboundMessage = z.infer<typeof InboundMessageSchema>;
@@ -49,6 +52,14 @@ export interface ProcessResult {
   status: number;
   payload: Record<string, unknown>;
   headers?: Record<string, string>;
+  /**
+   * Presente cuando llegó una foto para adjuntar. Descargarla y subirla es
+   * I/O externo (Graph API + Storage) que no tiene por qué demorar la
+   * respuesta a Meta -- el webhook la difiere con `after()`; el simulador,
+   * que no tiene ese apuro, la espera inline para mostrar el resultado en el
+   * momento (ver /api/whatsapp/simulate).
+   */
+  mediaTask?: () => Promise<{ attached: boolean; attachment_id?: string; reason?: string }>;
 }
 
 export function redactPhone(phone: string): string {
@@ -179,6 +190,8 @@ interface EventContext {
   messageTimestamp: string;
   operatorName: string | null;
   operatorEmployeeId: string | null;
+  /** El wamid de Meta, o null para simulador/proveedor genérico. */
+  messageId: string | null;
 }
 
 interface EventOutcome {
@@ -189,7 +202,7 @@ interface EventOutcome {
 }
 
 async function processEvent(event: ParseResult, ctx: EventContext): Promise<EventOutcome> {
-  const { from, rawBody, messageTimestamp, operatorName, operatorEmployeeId } = ctx;
+  const { from, rawBody, messageTimestamp, operatorName, operatorEmployeeId, messageId } = ctx;
 
   if (!event.ot_number) {
     return {
@@ -285,21 +298,23 @@ async function processEvent(event: ParseResult, ctx: EventContext): Promise<Even
 
   // ── START ───────────────────────────────────────────────
   if (event.message_type === 'start') {
-    const { data: log, error } = await supabaseAdmin
-      .from('whatsapp_production_logs')
-      .insert({
-        ot_number: event.ot_number,
-        ot_id: otId,
-        operator_phone: from,
-        operator_name: operatorName,
-        operator_employee_id: operatorEmployeeId,
-        message_type: 'start',
-        raw_message: rawBody,
-        message_timestamp: messageTimestamp,
-        review_status: 'auto_approved', // START messages don't need review
-      })
-      .select('id')
-      .single();
+    // insert_whatsapp_log_idempotent() atrapa la violación de unicidad sobre
+    // external_message_id -- una redelivery del mismo wamid vuelve acá con
+    // `inserted: false` y el id de la fila que ya existía, no un error. Antes
+    // esto no tenía NINGUNA deduplicación: cada reintento de Meta creaba una
+    // fila 'auto_approved' nueva.
+    const { data: rows, error } = await supabaseAdmin.rpc('insert_whatsapp_log_idempotent', {
+      p_external_message_id: messageId,
+      p_ot_number: event.ot_number,
+      p_ot_id: otId,
+      p_operator_phone: from,
+      p_operator_name: operatorName,
+      p_operator_employee_id: operatorEmployeeId,
+      p_message_type: 'start',
+      p_raw_message: rawBody,
+      p_message_timestamp: messageTimestamp,
+      p_review_status: 'auto_approved', // START messages don't need review
+    });
 
     if (error) {
       logger.error(
@@ -309,6 +324,15 @@ async function processEvent(event: ParseResult, ctx: EventContext): Promise<Even
       return { status: 500, otId, payload: { error: 'Failed to log start message' } };
     }
 
+    const row = rows?.[0];
+    if (row && row.inserted === false) {
+      return {
+        status: 200,
+        otId,
+        payload: { status: 'duplicate', type: 'start', ot_number: event.ot_number, existing_log_id: row.id },
+      };
+    }
+
     return {
       status: 200,
       otId,
@@ -316,7 +340,7 @@ async function processEvent(event: ParseResult, ctx: EventContext): Promise<Even
         status: 'ok',
         type: 'start',
         ot_number: event.ot_number,
-        log_id: log?.id,
+        log_id: row?.id,
         message: `✅ Inicio registrado para OT ${event.ot_number}`,
       },
     };
@@ -324,29 +348,6 @@ async function processEvent(event: ParseResult, ctx: EventContext): Promise<Even
 
   // ── END ─────────────────────────────────────────────────
   if (event.message_type === 'end' && event.production_data) {
-    // Deduplication: reject duplicate end messages (same OT + phone within 60s)
-    const { data: recentDup } = await supabaseAdmin
-      .from('whatsapp_production_logs')
-      .select('id')
-      .eq('ot_number', event.ot_number)
-      .eq('operator_phone', from)
-      .eq('message_type', 'end')
-      .gte('message_timestamp', new Date(Date.now() - 60_000).toISOString())
-      .limit(1)
-      .maybeSingle();
-
-    if (recentDup) {
-      return {
-        status: 200,
-        otId,
-        payload: {
-          status: 'duplicate',
-          reason: 'Mensaje duplicado detectado',
-          existing_log_id: recentDup.id,
-        },
-      };
-    }
-
     // Find the matching START log
     let startLogId: string | null = null;
     let elapsedMinutes: number | null = null;
@@ -377,25 +378,28 @@ async function processEvent(event: ParseResult, ctx: EventContext): Promise<Even
 
     const inferredCosts = inferProductionCosts(event.production_data, elapsedMinutes, otContext);
 
-    const { data: log, error } = await supabaseAdmin
-      .from('whatsapp_production_logs')
-      .insert({
-        ot_number: event.ot_number,
-        ot_id: otId,
-        operator_phone: from,
-        operator_name: operatorName,
-        operator_employee_id: operatorEmployeeId,
-        message_type: 'end',
-        raw_message: rawBody,
-        message_timestamp: messageTimestamp,
-        parsed_data: event.production_data as unknown as Json,
-        inferred_costs: inferredCosts as unknown as Json,
-        start_log_id: startLogId,
-        elapsed_minutes: elapsedMinutes,
-        review_status: 'pending', // END messages need supervisor review
-      })
-      .select('id')
-      .single();
+    // Mismo camino atómico que START. Esto es lo que de verdad protege
+    // ot_real_costs: la ventana de 60 segundos que había acá antes sólo
+    // cubría una redelivery RÁPIDA -- una que llega minutos después (un
+    // reintento real de Meta tras un corte) pasaba, creaba una segunda fila
+    // 'pending', y si un supervisor aprobaba las dos el mismo trabajo se
+    // contaba como costo real dos veces.
+    const { data: rows, error } = await supabaseAdmin.rpc('insert_whatsapp_log_idempotent', {
+      p_external_message_id: messageId,
+      p_ot_number: event.ot_number,
+      p_ot_id: otId,
+      p_operator_phone: from,
+      p_operator_name: operatorName,
+      p_operator_employee_id: operatorEmployeeId,
+      p_message_type: 'end',
+      p_raw_message: rawBody,
+      p_message_timestamp: messageTimestamp,
+      p_review_status: 'pending', // END messages need supervisor review
+      p_parsed_data: event.production_data as unknown as Json,
+      p_inferred_costs: inferredCosts as unknown as Json,
+      p_start_log_id: startLogId,
+      p_elapsed_minutes: elapsedMinutes,
+    });
 
     if (error) {
       logger.error(
@@ -405,6 +409,15 @@ async function processEvent(event: ParseResult, ctx: EventContext): Promise<Even
       return { status: 500, otId, payload: { error: 'Failed to log end message' } };
     }
 
+    const row = rows?.[0];
+    if (row && row.inserted === false) {
+      return {
+        status: 200,
+        otId,
+        payload: { status: 'duplicate', reason: 'Mensaje duplicado detectado', existing_log_id: row.id },
+      };
+    }
+
     return {
       status: 200,
       otId,
@@ -412,7 +425,7 @@ async function processEvent(event: ParseResult, ctx: EventContext): Promise<Even
         status: 'ok',
         type: 'end',
         ot_number: event.ot_number,
-        log_id: log?.id,
+        log_id: row?.id,
         elapsed_minutes: elapsedMinutes,
         confidence: event.production_data.confidence,
         inferred_total: inferredCosts.total_inferred_cost,
@@ -504,7 +517,14 @@ export async function processMessage(input: InboundMessage): Promise<ProcessResu
 
   // ── Parse into one or more events and process each ─────
   const events = parseWhatsAppEvents(body);
-  const ctx: EventContext = { from, rawBody: body, messageTimestamp, operatorName, operatorEmployeeId };
+  const ctx: EventContext = {
+    from,
+    rawBody: body,
+    messageTimestamp,
+    operatorName,
+    operatorEmployeeId,
+    messageId: input.message_id ?? null,
+  };
 
   const outcomes: EventOutcome[] = [];
   for (const event of events) {
@@ -512,21 +532,24 @@ export async function processMessage(input: InboundMessage): Promise<ProcessResu
   }
 
   // ── Photo evidence: attach to the first event that hit a real OT ──
-  let media: { attached: boolean; attachment_id?: string; reason?: string } | null = null;
+  //
+  // Diferido, no ejecutado acá: `attachInboundMedia` hace hasta tres llamadas
+  // de red externas (Graph API + descarga + Storage), y nada de eso tiene por
+  // qué demorar el ack a Meta. El webhook la corre con `after()`, después de
+  // responder; el simulador (que no tiene ese apuro y sí quiere ver el
+  // resultado) la espera inline. `processMessage` no sabe cuál es su llamador
+  // -- por eso devuelve la tarea en vez de decidir por quien la use.
+  let mediaTask: ProcessResult['mediaTask'];
   if (input.media_url || input.media_id) {
     const target = outcomes.find((o) => o.otId)?.otId ?? null;
-    media = target
-      ? await attachInboundMedia(target, input)
-      : { attached: false, reason: 'Ninguna OT reconocida para adjuntar la foto' };
+    mediaTask = target
+      ? () => attachInboundMedia(target, input)
+      : async () => ({ attached: false, reason: 'Ninguna OT reconocida para adjuntar la foto' });
   }
 
   // ── Aggregate ───────────────────────────────────────────
   if (outcomes.length === 1) {
-    const single = outcomes[0];
-    return {
-      status: single.status,
-      payload: media ? { ...single.payload, media } : single.payload,
-    };
+    return { status: outcomes[0].status, payload: outcomes[0].payload, mediaTask };
   }
 
   const messages = outcomes
@@ -538,7 +561,7 @@ export async function processMessage(input: InboundMessage): Promise<ProcessResu
       status: 'multi',
       events: outcomes.map((o) => o.payload),
       message: messages.join('\n'),
-      ...(media ? { media } : {}),
     },
+    mediaTask,
   };
 }

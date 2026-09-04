@@ -8,6 +8,12 @@
  * src/lib/whatsapp-ingest.ts and is shared with the in-app simulator
  * (/api/whatsapp/simulate).
  *
+ * Photo evidence (Graph API download + Storage upload) runs via `after()`,
+ * scheduled once the ack below is already on the wire — Meta doesn't wait on
+ * it, and a slow/failed download can't turn into a retried, duplicated
+ * delivery of the message itself. Idempotency for the message itself is
+ * external_message_id (the wamid) — see insert_whatsapp_log_idempotent().
+ *
  * POST /api/whatsapp/webhook
  *   meta:    Meta Cloud API envelope (entry[].changes[].value.messages[])
  *   generic: { from: string, body: string, timestamp?, media_url? }
@@ -17,6 +23,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { after } from 'next/server';
 import {
   whatsappProvider,
   verifyWhatsAppSignature,
@@ -82,6 +89,9 @@ export async function POST(req: NextRequest) {
         }
         const result = await processMessage(parsed.data);
         results.push(result.payload);
+        // Media (Graph API download + Storage upload) happens AFTER Meta gets
+        // its ack, not before -- see the audit note on processMessage.
+        if (result.mediaTask) after(result.mediaTask);
       }
 
       // Always 200 toward Meta: a non-2xx makes the Cloud API retry the whole
@@ -103,6 +113,7 @@ export async function POST(req: NextRequest) {
     }
 
     const result = await processMessage(parsed.data);
+    if (result.mediaTask) after(result.mediaTask);
     return NextResponse.json(result.payload, {
       status: result.status,
       headers: result.headers,

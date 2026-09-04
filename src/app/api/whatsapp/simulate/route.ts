@@ -85,5 +85,11 @@ export async function POST(req: NextRequest) {
     media_url: parsed.data.media_url,
   });
 
-  return NextResponse.json(result.payload, { status: result.status, headers: result.headers });
+  // El simulador no tiene el apuro de Meta: espera la adjunción de la foto acá
+  // mismo (a diferencia del webhook real, que la difiere con after()) para
+  // poder mostrar el resultado en la misma respuesta, como siempre lo hizo.
+  const media = result.mediaTask ? await result.mediaTask() : undefined;
+  const payload = media ? { ...result.payload, media } : result.payload;
+
+  return NextResponse.json(payload, { status: result.status, headers: result.headers });
 }

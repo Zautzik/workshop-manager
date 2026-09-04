@@ -6858,6 +6858,7 @@ export type Database = {
           corrected_data: Json | null
           created_at: string
           elapsed_minutes: number | null
+          external_message_id: string | null
           fed_to_system: boolean
           id: string
           inferred_costs: Json | null
@@ -6882,6 +6883,7 @@ export type Database = {
           corrected_data?: Json | null
           created_at?: string
           elapsed_minutes?: number | null
+          external_message_id?: string | null
           fed_to_system?: boolean
           id?: string
           inferred_costs?: Json | null
@@ -6906,6 +6908,7 @@ export type Database = {
           corrected_data?: Json | null
           created_at?: string
           elapsed_minutes?: number | null
+          external_message_id?: string | null
           fed_to_system?: boolean
           id?: string
           inferred_costs?: Json | null
@@ -8703,6 +8706,28 @@ export type Database = {
       has_role_name: {
         Args: { p_role_name: string; p_user_id: string }
         Returns: boolean
+      }
+      insert_whatsapp_log_idempotent: {
+        Args: {
+          p_elapsed_minutes?: number | null
+          p_external_message_id: string | null
+          p_inferred_costs?: Json
+          p_message_timestamp: string
+          p_message_type: Database["public"]["Enums"]["whatsapp_message_type"]
+          p_operator_employee_id: string | null
+          p_operator_name: string | null
+          p_operator_phone: string
+          p_ot_id: string | null
+          p_ot_number: string
+          p_parsed_data?: Json
+          p_raw_message: string
+          p_review_status: Database["public"]["Enums"]["whatsapp_review_status"]
+          p_start_log_id?: string | null
+        }
+        Returns: {
+          id: string
+          inserted: boolean
+        }[]
       }
       liberar_reserva: {
         Args: { p_lot_id: string; p_motivo: string; p_ot_id: string }

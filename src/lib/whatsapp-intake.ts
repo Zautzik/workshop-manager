@@ -110,6 +110,14 @@ export interface NormalizedInbound {
    * el texto que hay que leer.
    */
   media_only?: boolean;
+  /**
+   * El wamid de Meta. Identifica el mensaje, no la entrega -- WhatsApp
+   * garantiza al-menos-una-vez, así que el mismo wamid puede llegar dos o
+   * tres veces. `MetaMessageSchema` ya lo leía; vive acá para que
+   * `processMessage` pueda deduplicar contra él en vez de una ventana de
+   * tiempo (ver 20260906120000_wamid_es_la_llave_de_idempotencia.sql).
+   */
+  message_id?: string;
 }
 
 const MetaMediaSchema = z
@@ -241,6 +249,7 @@ export function extractMetaInbound(rawJson: unknown): MetaIntakeResult {
           ProfileName: nameByWaId.get(msg.from) ?? nameByWaId.values().next().value,
           ...(media?.id ? { media_id: media.id, media_mime: media.mime_type } : {}),
           ...(soloFoto ? { media_only: true } : {}),
+          ...(msg.id ? { message_id: msg.id } : {}),
         });
       }
     }

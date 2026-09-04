@@ -163,6 +163,7 @@ describe('extractMetaInbound', () => {
         body: 'FIN OT-1234 5000 pliegos',
         timestamp: new Date(1720620000 * 1000).toISOString(),
         ProfileName: 'Juan Pérez',
+        message_id: 'wamid.ABC',
       },
     ]);
     expect(result.ignored).toBe(0);
@@ -265,6 +266,18 @@ describe('extractMetaInbound', () => {
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.messages[0].timestamp).toBeUndefined();
+  });
+
+  it('omits message_id when Meta sends no id (never invents one)', () => {
+    const result = extractMetaInbound(
+      envelope({
+        messages: [{ from: '56912345678', type: 'text', text: { body: 'INICIO OT-1' } }],
+      }),
+    );
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.messages[0].message_id).toBeUndefined();
   });
 
   it('rejects payloads that are not a Cloud API envelope', () => {
