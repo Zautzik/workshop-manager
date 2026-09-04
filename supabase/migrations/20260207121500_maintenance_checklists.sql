@@ -5,13 +5,28 @@
 -- that can be reused and customized for different maintenance tasks
 
 -- Create maintenance_type enum
-CREATE TYPE IF NOT EXISTS public.maintenance_type AS ENUM (
-  'preventive',
-  'corrective',
-  'predictive',
-  'scheduled',
-  'emergency'
-);
+-- `CREATE TYPE ... IF NOT EXISTS` is not valid Postgres syntax (unlike
+-- CREATE TABLE) — this migration could never have run successfully as
+-- written; a from-scratch bootstrap (new environment, `supabase start`)
+-- fails here with "syntax error at or near NOT". Guarded the same way the
+-- rest of this codebase already guards enum creation (see cost_ledger.sql).
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'maintenance_type') THEN
+    CREATE TYPE public.maintenance_type AS ENUM (
+      'preventive',
+      'corrective',
+      'predictive',
+      'scheduled',
+      'emergency'
+    );
+  END IF;
+END $$;
+
+-- Los datos de ejemplo de abajo usan 'inspection', que no está en la lista de
+-- arriba. Sin esto la tercera siembra (Digital Printer Quarterly Inspection)
+-- rechaza con «invalid input value for enum maintenance_type».
+ALTER TYPE public.maintenance_type ADD VALUE IF NOT EXISTS 'inspection';
 
 -- Create maintenance_checklists table
 CREATE TABLE IF NOT EXISTS public.maintenance_checklists (
@@ -25,12 +40,12 @@ CREATE TABLE IF NOT EXISTS public.maintenance_checklists (
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT now()
 );
 
--- Create index for faster lookups
-CREATE INDEX idx_maintenance_checklists_machine_type 
-  ON public.maintenance_checklists(machine_type);
-
-CREATE INDEX idx_maintenance_checklists_maintenance_type 
-  ON public.maintenance_checklists(maintenance_type);
+-- Indexes on machine_type/maintenance_type: moved to
+-- 20260211000000_fix_maintenance_checklists_schema.sql. `maintenance_checklists`
+-- already existed (20251201121439, columns machine_id/name/description/frequency)
+-- by the time this migration runs, so the CREATE TABLE IF NOT EXISTS above is a
+-- no-op and these columns don't exist yet on a fresh bootstrap — that fix
+-- migration is where they're actually added.
 
 -- Enable RLS
 ALTER TABLE public.maintenance_checklists ENABLE ROW LEVEL SECURITY;
@@ -47,161 +62,20 @@ CREATE POLICY "All authenticated users can manage checklists"
   USING (true);
 
 -- Create trigger for updated_at
+-- `maintenance_checklists` already existed (20251201121439) with this same
+-- trigger attached — plain CREATE TRIGGER collides with it on a fresh
+-- bootstrap ("trigger already exists"). DROP IF EXISTS first, same as every
+-- other trigger in this codebase.
+DROP TRIGGER IF EXISTS update_maintenance_checklists_updated_at ON public.maintenance_checklists;
 CREATE TRIGGER update_maintenance_checklists_updated_at
   BEFORE UPDATE ON public.maintenance_checklists
   FOR EACH ROW
   EXECUTE FUNCTION public.update_updated_at_column();
 
--- =====================================================
--- Sample Checklist Templates
--- =====================================================
-
-INSERT INTO public.maintenance_checklists (name, machine_type, maintenance_type, items, total_estimated_time)
-VALUES (
-  'Offset Printer Monthly Maintenance',
-  'Offset Printer',
-  'preventive',
-  jsonb_build_array(
-    jsonb_build_object(
-      'id', '1',
-      'step', 1,
-      'title', 'Clean ink rollers',
-      'description', 'Carefully clean all ink rollers with appropriate solvent. Remove any dried ink or debris.',
-      'estimatedTime', 45,
-      'priority', 'high',
-      'toolsRequired', jsonb_build_array('Cleaning solvent', 'Lint-free cloth', 'Soft brush')
-    ),
-    jsonb_build_object(
-      'id', '2',
-      'step', 2,
-      'title', 'Check and adjust water fountain balance',
-      'description', 'Verify water fountain pH and conductivity. Adjust settings if needed.',
-      'estimatedTime', 30,
-      'priority', 'high',
-      'toolsRequired', jsonb_build_array('pH meter', 'Conductivity meter')
-    ),
-    jsonb_build_object(
-      'id', '3',
-      'step', 3,
-      'title', 'Oil all moving parts',
-      'description', 'Apply light machine oil to all pivot points and moving components.',
-      'estimatedTime', 30,
-      'priority', 'medium',
-      'toolsRequired', jsonb_build_array('Light machine oil', 'Oil can')
-    ),
-    jsonb_build_object(
-      'id', '4',
-      'step', 4,
-      'title', 'Inspect and replace gripper pads if needed',
-      'description', 'Check gripper pads for wear. Replace if showing significant damage.',
-      'estimatedTime', 40,
-      'priority', 'high',
-      'toolsRequired', jsonb_build_array('Replacement gripper pads', 'Wrench set')
-    ),
-    jsonb_build_object(
-      'id', '5',
-      'step', 5,
-      'title', 'Test print quality',
-      'description', 'Run test prints to verify color accuracy and registration.',
-      'estimatedTime', 20,
-      'priority', 'medium',
-      'toolsRequired', jsonb_build_array('Test stock')
-    )
-  ),
-  165
-);
-
-INSERT INTO public.maintenance_checklists (name, machine_type, maintenance_type, items, total_estimated_time)
-VALUES (
-  'Guillotine Safety & Maintenance Check',
-  'Guillotine',
-  'preventive',
-  jsonb_build_array(
-    jsonb_build_object(
-      'id', '1',
-      'step', 1,
-      'title', 'Safety inspection - blade guard',
-      'description', 'Verify blade guard is functioning properly and all safety mechanisms engage correctly.',
-      'estimatedTime', 20,
-      'priority', 'critical',
-      'toolsRequired', jsonb_build_array('Safety test checklist')
-    ),
-    jsonb_build_object(
-      'id', '2',
-      'step', 2,
-      'title', 'Sharpen blade',
-      'description', 'Professionally sharpen the cutting blade. Check for chips or cracks.',
-      'estimatedTime', 90,
-      'priority', 'high',
-      'toolsRequired', jsonb_build_array('Sharpening stone', 'Blade hone', 'Magnifying glass')
-    ),
-    jsonb_build_object(
-      'id', '3',
-      'step', 3,
-      'title', 'Check blade alignment',
-      'description', 'Verify blade is perfectly aligned and parallel to the base.',
-      'estimatedTime', 30,
-      'priority', 'high',
-      'toolsRequired', jsonb_build_array('Alignment gauge', 'Adjustment wrench')
-    ),
-    jsonb_build_object(
-      'id', '4',
-      'step', 4,
-      'title', 'Lubricate moving parts',
-      'description', 'Oil all guide rails and moving components.',
-      'estimatedTime', 15,
-      'priority', 'medium',
-      'toolsRequired', jsonb_build_array('Machine oil', 'Oil can')
-    )
-  ),
-  155
-);
-
-INSERT INTO public.maintenance_checklists (name, machine_type, maintenance_type, items, total_estimated_time)
-VALUES (
-  'Digital Printer Quarterly Inspection',
-  'Digital Printer',
-  'inspection',
-  jsonb_build_array(
-    jsonb_build_object(
-      'id', '1',
-      'step', 1,
-      'title', 'Electrical safety check',
-      'description', 'Inspect all electrical connections. Test ground continuity. Check power cord for damage.',
-      'estimatedTime', 25,
-      'priority', 'critical',
-      'toolsRequired', jsonb_build_array('Multimeter', 'Visual inspection')
-    ),
-    jsonb_build_object(
-      'id', '2',
-      'step', 2,
-      'title', 'Cooling system check',
-      'description', 'Verify cooling fans are working properly and vents are clear of obstruction.',
-      'estimatedTime', 15,
-      'priority', 'high',
-      'toolsRequired', jsonb_build_array('Thermometer', 'Compressed air')
-    ),
-    jsonb_build_object(
-      'id', '3',
-      'step', 3,
-      'title', 'Calibration test',
-      'description', 'Run color calibration and verify output matches standards.',
-      'estimatedTime', 30,
-      'priority', 'high',
-      'toolsRequired', jsonb_build_array('Color reference', 'Test prints')
-    ),
-    jsonb_build_object(
-      'id', '4',
-      'step', 4,
-      'title', 'Document findings',
-      'description', 'Record any issues found and recommend actions.',
-      'estimatedTime', 10,
-      'priority', 'medium',
-      'toolsRequired', jsonb_build_array('Inspection form')
-    )
-  ),
-  80
-);
+-- Sample checklist templates: moved to
+-- 20260211000000_fix_maintenance_checklists_schema.sql, after machine_type
+-- exists. They insert into that column, which (see note above) isn't there
+-- yet at this point in a fresh bootstrap.
 
 -- =====================================================
 -- Summary
@@ -210,7 +84,6 @@ VALUES (
 -- - maintenance_checklists table for storing checklist templates
 -- - JSONB items field for flexible checklist structure
 -- - RLS policies for manager/admin control
--- - 3 sample checklist templates
 --
 -- The component MaintenanceChecklistEditor.tsx uses this table
 -- to persist user-created and customized checklists.
