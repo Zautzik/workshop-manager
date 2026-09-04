@@ -9,7 +9,7 @@ import {
   type OTWorkflowStatus,
   validateTransition,
 } from '@/lib/ot-state-machine';
-import type { OTSpec } from '@/lib/ot-spec';
+import { buildOTSpec, type OTSpec } from '@/lib/ot-spec';
 import { estimatedHoursFor, promptsStageReport } from '@/lib/stage-report';
 import { loadRoleAccess } from '@/lib/transition-rules';
 import { dispatchNotifications, emitDomainEvent } from '@/lib/domain-events';
@@ -154,40 +154,15 @@ export async function POST(
         .is('hours', null),
     ]);
 
-    const spec: OTSpec = {
-      clientId: o.client_id, productName: o.product_name, productType: o.product_type,
-      quantity: o.quantity, widthCm: o.width_cm, heightCm: o.height_cm,
-      substrateType: o.substrate_type, grammageGsm: o.grammage_gsm,
-      colorFront: o.color_front, colorBack: o.color_back, inkCoverage: o.ink_coverage,
-      deadline: o.deadline, pressId: o.assigned_machine_id,
-      substrateBrand: o.substrate_brand, substrateSupplier: o.substrate_supplier,
-      machineId: o.assigned_machine_id,
+    // Las terminaciones REALES vienen de `buildOTSpec` (src/lib/ot-spec.ts) —
+    // compartida con /bulk-transition desde la auditoría 2026-09-06, para que
+    // no existan dos traducciones de columnas de `ots` a `OTSpec` que se
+    // separen la primera vez que alguien agregue un campo.
+    const spec: OTSpec = buildOTSpec(o, {
       impositionConfirmed: (programa.count ?? 0) > 0,
       operationsReviewed: (operaciones.count ?? 0) > 0,
       artAttached: (arte.count ?? 0) > 0,
-      sinArte: o.sin_arte,
-      // Las terminaciones REALES. Estaban en `{}` fijo —el mismo defecto que
-      // tenía la ruta de Pre-Prensa— así que ninguna compuerta de herramental
-      // podía dispararse: una OT troquelada pasaba a Visto Bueno sin que nadie
-      // hubiera confirmado que el troquel existe.
-      finishes: {
-        troquelado: !!o.finish_troquelado,
-        plegado: !!o.finish_plegado,
-        pegado: !!o.finish_pegado,
-        laminado: !!o.finish_laminado,
-        barniz: !!o.finish_barniz,
-        relieve: !!o.finish_relieve,
-        perforado: !!o.finish_perforado,
-        hot_stamping: !!o.finish_hot_stamping,
-        uv_localizado: !!o.finish_uv_localizado,
-        numeracion: !!o.finish_numeracion,
-      },
-      dieSource: o.die_id ? 'existente' : o.die_source,
-      dieCode: o.die_id ? o.die_id : o.die_code,
-      clicheCode: o.cliche_code,
-      relieveMatrixCode: o.relieve_matrix_code,
-      laminationType: o.lamination_type,
-    };
+    });
 
     const transitionCheck = validateTransition({
       fromStatus,

@@ -6,6 +6,7 @@ import { buildRateLimitActor, enforceRouteRateLimit } from '@/lib/api-rate-limit
 import type { Json } from '@/integrations/supabase/types';
 import { isValidStatus, type OTWorkflowStatus, validateTransition } from '@/lib/ot-state-machine';
 import { loadRoleAccess } from '@/lib/transition-rules';
+import { buildOTSpec } from '@/lib/ot-spec';
 
 const BulkTransitionSchema = z.object({
   ot_ids: z.array(z.string().uuid()).min(1).max(200),
@@ -70,36 +71,64 @@ export async function POST(req: NextRequest) {
     let failedCount = 0;
     const failures: Array<{ ot_id: string; error: string }> = [];
 
-    // ── Batch pre-fetch: 3 queries regardless of how many OTs ─────────────
+    // ── Batch pre-fetch: fixed number of queries regardless of how many OTs ──
     // Previously this loop did 3-4 queries per OT (N+1), timing out at ~50+ OTs.
-    const [otsResult, approvalsResult, costsResult, roleAccess] = await Promise.all([
+    //
+    // Auditoría de mensajería 2026-09-06: este bulk llamaba a validateTransition
+    // sin `spec`/`requirements`/`openPasses` -- no porque el caso no importara,
+    // sino porque nadie los había ido a buscar. Esas tres compuertas se apagan
+    // solas cuando su dato no llega (ver ot-state-machine.ts), así que el bulk
+    // podía saltar una OT de pre_press a completed sin que la ficha incompleta,
+    // los requisitos de Compras sin resolver, o una pasada abierta lo frenaran
+    // -- exactamente lo que sí frena a /transition, la ruta de a una OT por vez.
+    const [
+      otsResult, approvalsResult, costsResult, roleAccess,
+      programaResult, operacionesResult, arteResult, requisitosResult, abiertasResult,
+    ] = await Promise.all([
       supabaseAdmin
         .from('ots')
-        .select('id, ot_number, status')
+        .select(
+          'id, ot_number, status, client_id, product_name, product_type, quantity, ' +
+          'width_cm, height_cm, substrate_type, grammage_gsm, color_front, color_back, ' +
+          'ink_coverage, deadline, assigned_machine_id, substrate_brand, substrate_supplier, sin_arte, ' +
+          'finish_troquelado, finish_plegado, finish_pegado, finish_laminado, finish_barniz, ' +
+          'finish_relieve, finish_perforado, finish_hot_stamping, finish_uv_localizado, finish_numeracion, ' +
+          'die_source, die_code, die_id, cliche_code, relieve_matrix_code, lamination_type',
+        )
         .in('id', otIds),
-      supabaseAdmin
-        .from('ot_approvals')
-        .select('ot_id')
-        .in('ot_id', otIds)
-        .eq('status', 'approved'),
-      supabaseAdmin
-        .from('ot_real_costs')
-        .select('ot_id')
-        .in('ot_id', otIds),
+      supabaseAdmin.from('ot_approvals').select('ot_id').in('ot_id', otIds).eq('status', 'approved'),
+      supabaseAdmin.from('ot_real_costs').select('ot_id').in('ot_id', otIds),
       loadRoleAccess(),
+      // Presencia, no conteo: la compuerta de ficha sólo pregunta si existe rastro.
+      supabaseAdmin.from('ot_machine_schedule').select('ot_id').in('ot_id', otIds),
+      supabaseAdmin.from('ot_operations').select('ot_id').in('ot_id', otIds),
+      supabaseAdmin.from('ot_attachments').select('ot_id').in('ot_id', otIds),
+      supabaseAdmin.from('ot_requirements').select('ot_id, description, status').in('ot_id', otIds),
+      supabaseAdmin.from('ot_stage_reports').select('ot_id, workflow_step, created_at').in('ot_id', otIds).is('hours', null),
     ]);
 
     // Index into Maps/Sets for O(1) lookup inside the validation loop.
-    type OTRow = { id: string; ot_number: string; status: string };
+    // La cadena de `select` concatenada no la puede inferir el tipo generado
+    // (mismo defecto que ya tiene /transition) — la fila se lee suelta.
+    type OTRow = { id: string; ot_number: string; status: string } & Record<string, any>;
     const otMap = new Map<string, OTRow>(
-      (otsResult.data ?? []).map((ot) => [ot.id, ot])
+      ((otsResult.data ?? []) as any[]).map((ot) => [ot.id, ot as OTRow])
     );
-    const approvedOtIds = new Set<string>(
-      (approvalsResult.data ?? []).map((a: { ot_id: string }) => a.ot_id)
-    );
-    const costsOtIds = new Set<string>(
-      (costsResult.data ?? []).map((c: { ot_id: string }) => c.ot_id)
-    );
+    const toIdSet = (rows: unknown): Set<string> =>
+      new Set(((rows ?? []) as { ot_id: string | null }[]).map((r) => r.ot_id).filter((id): id is string => !!id));
+    const approvedOtIds = toIdSet(approvalsResult.data);
+    const costsOtIds = toIdSet(costsResult.data);
+    const programaOtIds = toIdSet(programaResult.data);
+    const operacionesOtIds = toIdSet(operacionesResult.data);
+    const arteOtIds = toIdSet(arteResult.data);
+
+    const groupByOt = <T extends { ot_id: string }>(rows: T[] | null): Map<string, T[]> => {
+      const map = new Map<string, T[]>();
+      for (const row of rows ?? []) map.set(row.ot_id, [...(map.get(row.ot_id) ?? []), row]);
+      return map;
+    };
+    const requisitosByOt = groupByOt(requisitosResult.data as ({ ot_id: string; description: string; status: string })[] | null);
+    const abiertasByOt = groupByOt(abiertasResult.data as ({ ot_id: string; workflow_step: string; created_at: string })[] | null);
 
     // ── Validate transitions in JS (no DB calls) ──────────────────────────
     const successIds: string[] = [];
@@ -120,6 +149,18 @@ export async function POST(req: NextRequest) {
         roleAccess,
         hasApprovedApproval: approvedOtIds.has(otId),
         hasAnyRealCosts: costsOtIds.has(otId),
+        spec: buildOTSpec(ot, {
+          impositionConfirmed: programaOtIds.has(otId),
+          operationsReviewed: operacionesOtIds.has(otId),
+          artAttached: arteOtIds.has(otId),
+        }),
+        // `undefined` sólo si la consulta BATCH falló entera -- ahí "no se
+        // sabe" de verdad, y hay que apagar la compuerta para las 200 OT, no
+        // sólo para la que tuvo mala suerte. Si la consulta vino bien, una OT
+        // sin filas es una respuesta real ("no tiene nada pendiente"), igual
+        // que en /transition.
+        requirements: requisitosResult.error ? undefined : (requisitosByOt.get(otId) ?? []),
+        openPasses: abiertasResult.error ? undefined : (abiertasByOt.get(otId) ?? []),
       });
 
       if (!check.ok) {

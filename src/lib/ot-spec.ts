@@ -207,6 +207,55 @@ function lleva(spec: OTSpec, terminacion: string): boolean {
 }
 
 /**
+ * La ficha, armada desde una fila de `ots` — la única traducción de columnas
+ * de base a `OTSpec`, para que no existan dos.
+ *
+ * Vivía sólo dentro de `/api/ots/[id]/transition`, escrita en línea. Cuando
+ * `/api/ots/bulk-transition` necesitó la misma compuerta (auditoría de
+ * mensajería 2026-09-06: el bulk saltaba pre_press → completed sin que la
+ * ficha incompleta lo frenara, porque nunca construía un `OTSpec` para
+ * pasarle a `validateTransition`), copiar el cuerpo de la función hubiera
+ * sido la segunda copia que se separa el día que alguien agregue un campo —
+ * el mismo defecto que ya cerró `naturalNextStatuses` para el recorrido del
+ * Kanban.
+ */
+export function buildOTSpec(
+	o: Record<string, any>,
+	flags: { impositionConfirmed: boolean; operationsReviewed: boolean; artAttached: boolean },
+): OTSpec {
+	return {
+		clientId: o.client_id, productName: o.product_name, productType: o.product_type,
+		quantity: o.quantity, widthCm: o.width_cm, heightCm: o.height_cm,
+		substrateType: o.substrate_type, grammageGsm: o.grammage_gsm,
+		colorFront: o.color_front, colorBack: o.color_back, inkCoverage: o.ink_coverage,
+		deadline: o.deadline, pressId: o.assigned_machine_id,
+		substrateBrand: o.substrate_brand, substrateSupplier: o.substrate_supplier,
+		machineId: o.assigned_machine_id,
+		impositionConfirmed: flags.impositionConfirmed,
+		operationsReviewed: flags.operationsReviewed,
+		artAttached: flags.artAttached,
+		sinArte: o.sin_arte,
+		finishes: {
+			troquelado: !!o.finish_troquelado,
+			plegado: !!o.finish_plegado,
+			pegado: !!o.finish_pegado,
+			laminado: !!o.finish_laminado,
+			barniz: !!o.finish_barniz,
+			relieve: !!o.finish_relieve,
+			perforado: !!o.finish_perforado,
+			hot_stamping: !!o.finish_hot_stamping,
+			uv_localizado: !!o.finish_uv_localizado,
+			numeracion: !!o.finish_numeracion,
+		},
+		dieSource: o.die_id ? 'existente' : o.die_source,
+		dieCode: o.die_id ? o.die_id : o.die_code,
+		clicheCode: o.cliche_code,
+		relieveMatrixCode: o.relieve_matrix_code,
+		laminationType: o.lamination_type,
+	};
+}
+
+/**
  * Qué falta para alcanzar un nivel.
  *
  * Acumulativo: pedir el nivel 2 devuelve también lo que falte del 1. Una ficha
