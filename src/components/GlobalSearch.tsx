@@ -167,6 +167,10 @@ export function GlobalSearch({ onOpenChange }: { onOpenChange?: (open: boolean) 
           onChange={e => { setQuery(e.target.value); setSelected(0); }}
           onKeyDown={handleKeyDown}
           placeholder="Buscar OTs, empleados, equipos…"
+          // Clients and inventory are also searched for roles that can see
+          // them (see use-global-search.ts) but the placeholder stays as-is:
+          // it's already truncated on mobile, and the three domains everyone
+          // gets are what the field advertises.
           tabIndex={open ? 0 : -1}
           aria-hidden={!open}
           className={cn(
