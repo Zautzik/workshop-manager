@@ -4,11 +4,12 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Wallet, TrendingUp } from 'lucide-react';
+import { Wallet, TrendingUp, Scale } from 'lucide-react';
 import { MachineCostAnalysis } from '@/components/financial/MachineCostAnalysis';
 import { EquipmentInvestmentAnalysis } from '@/components/financial/EquipmentInvestmentAnalysis';
+import { MachineEconomicsDrift } from '@/components/financial/MachineEconomicsDrift';
 
-const VALID_TABS = ['costo', 'inversion'] as const;
+const VALID_TABS = ['costo', 'inversion', 'tarifa'] as const;
 type TabKey = (typeof VALID_TABS)[number];
 
 function EconomiaTabs() {
@@ -27,12 +28,15 @@ function EconomiaTabs() {
 
   return (
     <Tabs value={active} onValueChange={onChange} className="w-full">
-      <TabsList className="grid w-full max-w-md grid-cols-2">
+      <TabsList className="grid w-full max-w-lg grid-cols-3">
         <TabsTrigger value="costo" className="gap-2">
           <Wallet className="h-4 w-4" /> Costo Operativo
         </TabsTrigger>
         <TabsTrigger value="inversion" className="gap-2">
           <TrendingUp className="h-4 w-4" /> Inversión / ROI
+        </TabsTrigger>
+        <TabsTrigger value="tarifa" className="gap-2">
+          <Scale className="h-4 w-4" /> Tarifa vs. Catálogo
         </TabsTrigger>
       </TabsList>
 
@@ -41,6 +45,9 @@ function EconomiaTabs() {
       </TabsContent>
       <TabsContent value="inversion" className="mt-6">
         <EquipmentInvestmentAnalysis />
+      </TabsContent>
+      <TabsContent value="tarifa" className="mt-6">
+        <MachineEconomicsDrift />
       </TabsContent>
     </Tabs>
   );
