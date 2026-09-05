@@ -12,6 +12,7 @@ import { es } from 'date-fns/locale';
 import { ClipboardList, Calendar, Cpu, AlertCircle, TriangleAlert, ListChecks, CalendarClock } from 'lucide-react';
 import { VencimientosPanel } from '@/components/maintenance/VencimientosPanel';
 import { PautasPanel } from '@/components/maintenance/PautasPanel';
+import MaintenanceChecklistEditor from '@/components/maintenance/MaintenanceChecklistEditor';
 
 const STATUS_COLOR: Record<string, string> = {
   pending:     'bg-amber-500',
@@ -74,7 +75,7 @@ function OrdersList() {
   );
 }
 
-const VALID_TABS = ['vencimientos', 'ordenes', 'pautas'] as const;
+const VALID_TABS = ['vencimientos', 'ordenes', 'pautas', 'checklists'] as const;
 type TabKey = (typeof VALID_TABS)[number];
 
 function MantencionTabs() {
@@ -93,7 +94,7 @@ function MantencionTabs() {
 
   return (
     <Tabs value={active} onValueChange={onChange} className="w-full">
-      <TabsList className="grid w-full max-w-lg grid-cols-3">
+      <TabsList className="grid w-full max-w-xl grid-cols-4">
         <TabsTrigger value="vencimientos" className="gap-2">
           <TriangleAlert className="h-4 w-4" /> Vencimientos
         </TabsTrigger>
@@ -102,6 +103,9 @@ function MantencionTabs() {
         </TabsTrigger>
         <TabsTrigger value="pautas" className="gap-2">
           <CalendarClock className="h-4 w-4" /> Pautas
+        </TabsTrigger>
+        <TabsTrigger value="checklists" className="gap-2">
+          <ClipboardList className="h-4 w-4" /> Checklists
         </TabsTrigger>
       </TabsList>
 
@@ -113,6 +117,9 @@ function MantencionTabs() {
       </TabsContent>
       <TabsContent value="pautas" className="mt-6">
         <PautasPanel />
+      </TabsContent>
+      <TabsContent value="checklists" className="mt-6">
+        <MaintenanceChecklistEditor />
       </TabsContent>
     </Tabs>
   );
