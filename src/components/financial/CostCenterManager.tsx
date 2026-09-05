@@ -111,8 +111,15 @@ export function CostCenterManager() {
   };
 
   /* ─── Summary stats ───────────────────────────────────────── */
-  const totalActive = items.filter((i) => i.is_active).length;
-  const totalInactive = items.filter((i) => !i.is_active).length;
+  // Memoizado: antes recorría `items` completo (3 filtros + un Set) en cada
+  // render, incluida cada tecla escrita en el buscador de más abajo, pese a
+  // no depender de la búsqueda en absoluto (auditoría de performance 2026-09).
+  const { totalActive, totalInactive, categoryCount, overheadPct } = useMemo(() => ({
+    totalActive: items.filter((i) => i.is_active).length,
+    totalInactive: items.filter((i) => !i.is_active).length,
+    categoryCount: new Set(items.map((i) => i.category)).size,
+    overheadPct: items.find((i) => i.category === 'overhead' && i.is_active)?.unit_cost ?? 0,
+  }), [items]);
 
   return (
     <div className="space-y-6">
@@ -135,7 +142,7 @@ export function CostCenterManager() {
             <CardTitle className="text-sm text-muted-foreground">Categorías</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{new Set(items.map((i) => i.category)).size}</div>
+            <div className="text-2xl font-bold">{categoryCount}</div>
             <p className="text-xs text-muted-foreground">centros de costo</p>
           </CardContent>
         </Card>
@@ -146,7 +153,7 @@ export function CostCenterManager() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {items.find((i) => i.category === 'overhead' && i.is_active)?.unit_cost ?? 0}%
+              {overheadPct}%
             </div>
             <p className="text-xs text-muted-foreground">gastos generales</p>
           </CardContent>
