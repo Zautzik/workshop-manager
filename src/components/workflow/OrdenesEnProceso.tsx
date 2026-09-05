@@ -49,6 +49,47 @@ function isOverdue(deadline?: string | null): boolean {
   return new Date(deadline) < new Date();
 }
 
+// ─── Procesos requeridos ────────────────────────────────────────────────────
+// El reporte de planta en papel resume cada OT en una columna "PROCESOS/AVANCE"
+// (ej. "TROQ/ PEG/ FAJA/ CAJA"): la lista completa de operaciones de
+// terminación que ese trabajo necesita. Esa lista ya existe en la base — se
+// fija al cotizar (finish_troquelado, finish_pegado, etc., ver
+// estimate_ot_hours) — pero nunca se mostraba acá. Sólo lectura: se define al
+// cotizar/crear la OT, no se edita desde el piso.
+const FINISH_FLAGS: { key: string; label: string; name: string }[] = [
+  { key: 'finish_troquelado', label: 'TROQ', name: 'Troquelado' },
+  { key: 'finish_plegado', label: 'PLEG', name: 'Plegado' },
+  { key: 'finish_pegado', label: 'PEG', name: 'Pegado' },
+  { key: 'finish_laminado', label: 'LAM', name: 'Laminado' },
+  { key: 'finish_barniz', label: 'BARN', name: 'Barniz' },
+  { key: 'finish_relieve', label: 'REL', name: 'Relieve' },
+  { key: 'finish_perforado', label: 'PERF', name: 'Perforado' },
+  { key: 'finish_hot_stamping', label: 'HOT', name: 'Hot stamping' },
+  { key: 'finish_uv_localizado', label: 'UV', name: 'UV localizado' },
+  { key: 'finish_numeracion', label: 'NUM', name: 'Numeración' },
+];
+
+function FinishPills({ ot }: { ot: Record<string, unknown> }) {
+  const active = FINISH_FLAGS.filter((f) => !!ot[f.key]);
+  if (active.length === 0) {
+    return <span className="text-xs text-muted-foreground italic">Sin terminaciones</span>;
+  }
+  return (
+    <div className="flex flex-wrap gap-1">
+      {active.map((f) => (
+        <Badge
+          key={f.key}
+          variant="outline"
+          title={f.name}
+          className="px-1.5 py-0 text-[10px] font-semibold tracking-wide border-indigo-600/30 bg-indigo-600/10 text-indigo-700 dark:text-indigo-300"
+        >
+          {f.label}
+        </Badge>
+      ))}
+    </div>
+  );
+}
+
 // ─── Entregado al cliente ───────────────────────────────────────────────────
 
 const STAGE_STYLE: Record<DeliveryProgress['stage'], { bar: string; text: string }> = {
@@ -238,11 +279,11 @@ export function OrdenesEnProceso() {
   const handlePrint = () => window.print();
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 ordenes-print-root">
       {/* ── Toolbar ── */}
       <Card className="bg-card/80 border-border backdrop-blur-sm p-3">
         <div className="flex flex-wrap items-center gap-3">
-          <div className="relative flex-1 min-w-[180px]">
+          <div className="relative flex-1 min-w-[180px] print:hidden">
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Buscar OT, cliente, trabajo…"
@@ -255,7 +296,7 @@ export function OrdenesEnProceso() {
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="h-9 rounded-md border border-input bg-card px-3 text-sm text-foreground"
+            className="h-9 rounded-md border border-input bg-card px-3 text-sm text-foreground print:hidden"
           >
             <option value="">Todos los estados</option>
             {presentStatuses.map((s) => (
@@ -269,7 +310,7 @@ export function OrdenesEnProceso() {
             variant="outline"
             size="sm"
             onClick={() => refetch()}
-            className="border-border bg-card/50 hover:bg-card gap-1.5"
+            className="border-border bg-card/50 hover:bg-card gap-1.5 print:hidden"
           >
             <RefreshCw className="h-4 w-4" />
             Actualizar
@@ -325,7 +366,7 @@ export function OrdenesEnProceso() {
             <table className="w-full text-base border-collapse print:text-xs">
               <thead>
                 <tr className="border-b border-border bg-muted/40 text-muted-foreground text-base uppercase tracking-wide">
-                  <th className="px-2 py-2.5 text-left font-medium w-[210px]" title="Orden confirmada → Prueba lista → Visto Bueno cliente → Programada → Papel en bodega. Debajo, la etapa actual y la nota de avance.">Avance</th>
+                  <th className="px-2 py-2.5 text-left font-medium w-[240px]" title="Procesos de terminación que requiere el trabajo. Debajo, la cadena Orden confirmada → Prueba lista → Visto Bueno cliente → Programada → Papel en bodega, la etapa actual y la nota de avance.">Procesos / Avance</th>
                   <th className="px-3 py-2.5 text-left font-medium w-[90px]">OT</th>
                   <th className="px-3 py-2.5 text-left font-medium">Cliente</th>
                   <th className="px-3 py-2.5 text-left font-medium">Trabajo</th>
@@ -359,6 +400,7 @@ export function OrdenesEnProceso() {
                             cada fila traía dos barras de progreso compitiendo. */}
                         <td className="px-2 py-2 align-top">
                           <div className="flex flex-col gap-1.5">
+                            <FinishPills ot={ot as Record<string, unknown>} />
                             <AdvanceFlags
                               ot={ot as Record<string, unknown>}
                               onAdvance={(key) => patchOT(ot.id, { [key]: true })}
@@ -445,6 +487,7 @@ export function OrdenesEnProceso() {
       {/* Print styles */}
       <style>{`
         @media print {
+          body { background: white !important; }
           body * { visibility: hidden; }
           .ordenes-print-root, .ordenes-print-root * { visibility: visible; }
           .ordenes-print-root { position: absolute; inset: 0; padding: 16px; }

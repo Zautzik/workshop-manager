@@ -271,7 +271,7 @@ export const MODULES: NavModule[] = [
         color: 'from-orange-500/10 to-rose-500/5', border: 'border-orange-500/20', heading: 'text-orange-400',
         items: [
           { label: 'Máquinas',      href: '/equipos/maquinas',  description: 'Registro, ficha técnica y estado de cada equipo',   icon: Cpu,           color: 'bg-orange-500/10 text-orange-400' },
-          { label: 'Plan & Órdenes',href: '/equipos/ordenes',   description: 'OTs de mantenimiento, programa semanal y checklists', icon: ClipboardList, color: 'bg-sky-500/10 text-sky-400' },
+          { label: 'Mantenimiento', href: '/equipos/ordenes',   description: 'Qué está vencido (por calendario o por uso), y el historial completo de órdenes', icon: ClipboardList, color: 'bg-sky-500/10 text-sky-400' },
           { label: 'Ejecución',     href: '/equipos/ejecucion', description: 'Registro de intervenciones y trabajos realizados',    icon: Wrench,        color: 'bg-fuchsia-500/10 text-fuchsia-400' },
           { label: 'Mecánica & Repuestos', href: '/equipos/mecanica', description: 'Piezas por sistema, reposición y quién sabe operar cada máquina', icon: Cog, color: 'bg-rose-500/10 text-rose-400' },
           { label: 'Etiquetas QR',         href: '/equipos/etiquetas', description: 'Imprimir los QR para pegar en cada equipo y anotar lecturas', icon: QrCode, color: 'bg-slate-500/10 text-slate-400' },
@@ -284,7 +284,6 @@ export const MODULES: NavModule[] = [
           { label: 'Historial & KPIs',     href: '/equipos/historial', description: 'Registro histórico, MTBF, MTTR y métricas de flota', icon: BarChart3,   color: 'bg-indigo-500/10 text-indigo-400' },
           { label: 'Carga & Utilización',  href: '/equipos/carga',     description: 'Carga real por máquina desde la producción',          icon: Gauge,       color: 'bg-emerald-500/10 text-emerald-400' },
           { label: 'Economía',             href: '/equipos/economia',  description: 'Costo operativo, depreciación y ROI por máquina',     icon: Wallet,      color: 'bg-teal-500/10 text-teal-400' },
-          { label: 'Alertas & Predictivo', href: '/equipos/alertas',   description: 'Avisos activos y mantenimiento preventivo/predictivo', icon: AlertCircle, color: 'bg-amber-500/10 text-amber-400' },
         ],
       },
     ],
