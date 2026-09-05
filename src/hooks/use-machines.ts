@@ -221,8 +221,18 @@ export function useMachineSupplies(machineId: string | undefined | null) {
   });
 }
 
-/** Cost history for a machine */
-export function useMachineCosts(machineId: string | undefined | null) {
+/**
+ * Cost history for a machine (machine_cost_entries).
+ *
+ * Renamed from `useMachineCosts` -- a SEPARATE `useMachineCosts()` in
+ * use-financial-queries.ts (no args, queries the different `machine_costs`
+ * table, fleet-wide) has always had the exact same name. Different query
+ * keys, so no cache collision like useOTs()/useMachines()/useInventoryItems()
+ * -- but the same name resolving to two unrelated queries depending on which
+ * file autocomplete grabs is its own trap. This name matches what it
+ * actually returns (`MachineCostEntry[]`).
+ */
+export function useMachineCostEntries(machineId: string | undefined | null) {
   return useQuery<MachineCostEntry[]>({
     queryKey: Q.costs(machineId ?? ''),
     enabled: Boolean(machineId),

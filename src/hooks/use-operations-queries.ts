@@ -7,8 +7,8 @@ const queryKeys = {
   workers: (dept?: string) => ['workers', { dept }] as const,
   workerStats: (dept?: string) => ['workerStats', { dept }] as const,
   workerName: (id?: string | null) => ['workerName', { id }] as const,
-  machines: ['machines'] as const,
-  // `ots` vivía acá también -- ver el comentario sobre useOTs() más abajo.
+  // `ots` y `machines` vivían acá también -- ver los comentarios sobre
+  // useOTs() y useMachines() más abajo.
   batchesAvailable: ['batches', 'available'] as const,
 };
 
@@ -71,29 +71,15 @@ export function useWorkerName(workerId?: string | null, enabled = true) {
   });
 }
 
-export function useMachines() {
-  return useQuery<any[]>({
-    queryKey: queryKeys.machines,
-    queryFn: async () => {
-      const response = await fetch('/api/machines', {
-        credentials: 'include',
-      });
-
-      let payload: any = null;
-      try {
-        payload = await response.json();
-      } catch {
-        payload = null;
-      }
-
-      if (!response.ok) {
-        throw new Error(payload?.error || 'Failed to fetch machines');
-      }
-
-      return (payload ?? []) as any[];
-    },
-  });
-}
+/**
+ * Mismo bug de fondo que useOTs() (ver commit 297fd8b): esta función y la de
+ * use-workflow-queries.ts eran dos copias byte-por-byte con el mismo
+ * `queryKey: ['machines']`, compartiendo cache por casualidad de que las dos
+ * definían la misma key sin saber una de la otra. No se había roto todavía
+ * porque las dos devolvían exactamente lo mismo -- pero es el mismo riesgo
+ * esperando el mismo día. Se re-exporta la de use-workflow-queries.ts.
+ */
+export { useMachines } from '@/hooks/use-workflow-queries';
 
 /**
  * Este archivo tenía su PROPIO `useOTs()`, con su propio `queryKeys.ots`

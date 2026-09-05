@@ -17,7 +17,7 @@ import {
   useMachineSupplies,
   useUpsertMachineSupply,
   useDeleteMachineSupply,
-  useMachineCosts,
+  useMachineCostEntries,
   useUpsertMachineCost,
   MACHINE_TYPE_LABELS,
   MACHINE_STATUS_LABELS,
@@ -56,7 +56,7 @@ export function MachineProfileEditor({ machine, onSaved, onCancel }: Props) {
   const { data: supplies = [] } = useMachineSupplies(machine?.id);
   const upsertSupply = useUpsertMachineSupply();
   const deleteSupply = useDeleteMachineSupply();
-  const { data: costEntries = [] } = useMachineCosts(machine?.id);
+  const { data: costEntries = [] } = useMachineCostEntries(machine?.id);
   const upsertCost = useUpsertMachineCost();
 
   // Inventory items for supply selector

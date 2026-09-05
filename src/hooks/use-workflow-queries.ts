@@ -17,7 +17,6 @@ export const queryKeys = {
   workflowCertAlerts: (date?: string) => ['workflowCertAlerts', { date }] as const,
   workflowContracts: (date?: string) => ['workflowContracts', { date }] as const,
   workflowWeeklyHours: (weekStart?: string, weekEnd?: string) => ['workflowWeeklyHours', { weekStart, weekEnd }] as const,
-  inventoryItems: ['inventory', 'items'] as const,
 };
 
 const OT_SELECT = `
@@ -82,7 +81,7 @@ export function useWorkersByRating() {
 }
 
 export function useMachines() {
-  return useQuery({
+  return useQuery<any[]>({
     queryKey: ['machines'],
     queryFn: async () => {
       const response = await fetch('/api/machines', {
@@ -100,7 +99,7 @@ export function useMachines() {
         throw new Error(payload?.error || 'Failed to fetch machines');
       }
 
-      return payload ?? [];
+      return (payload ?? []) as any[];
     },
   });
 }
@@ -643,16 +642,9 @@ export function useWorkflowWeeklyHours(referenceDate?: string) {
   });
 }
 
-export function useInventoryItems() {
-  return useQuery<any[]>({
-    queryKey: queryKeys.inventoryItems,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('inventory_items_stock_v')
-        .select('*')
-        .order('name');
-      if (error) throw error;
-      return (data ?? []) as any[];
-    },
-  });
-}
+// useInventoryItems() vivía acá también, con el mismo queryKey ['inventory',
+// 'items'] que useInventoryItems() en use-admin-queries.ts -- mismo riesgo de
+// colisión de cache que useOTs()/useMachines() (ver commit 297fd8b), salvo
+// que esta copia no tenía ni un solo consumidor: nada la importaba desde
+// acá. Se retira en vez de convertirla en re-export -- no hay a quién
+// redirigir.
