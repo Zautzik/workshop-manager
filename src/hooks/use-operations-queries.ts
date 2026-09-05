@@ -8,7 +8,7 @@ const queryKeys = {
   workerStats: (dept?: string) => ['workerStats', { dept }] as const,
   workerName: (id?: string | null) => ['workerName', { id }] as const,
   machines: ['machines'] as const,
-  ots: ['ots'] as const,
+  // `ots` vivía acá también -- ver el comentario sobre useOTs() más abajo.
   batchesAvailable: ['batches', 'available'] as const,
 };
 
@@ -95,18 +95,24 @@ export function useMachines() {
   });
 }
 
-export function useOTs() {
-  return useQuery({
-    queryKey: queryKeys.ots,
-    queryFn: async () => {
-      // Use the API route so supabaseAdmin bypasses RLS (dev bypass has no JWT).
-      const res = await fetch('/api/ots?limit=200', { credentials: 'include' });
-      if (!res.ok) throw new Error(`Failed to fetch OTs: ${res.status}`);
-      const payload = await res.json();
-      return (Array.isArray(payload) ? payload : (payload?.data ?? [])) as any[];
-    },
-  });
-}
+/**
+ * Este archivo tenía su PROPIO `useOTs()`, con su propio `queryKeys.ots`
+ * local que por casualidad vale lo mismo (`['ots']`) que el de
+ * use-workflow-queries.ts -- React Query compara keys por valor, no por
+ * identidad del array, así que las dos definiciones compartían el mismo
+ * cache sin que ninguna lo supiera. Funcionaba mientras las dos devolvían
+ * un array plano; dejó de funcionar en el momento en que una de las dos
+ * (use-workflow-queries.ts, para exponer `isTruncated`) cambió de forma —
+ * cualquier componente que montara primero decidía qué forma quedaba en el
+ * cache, y el otro grupo de consumidores leía `undefined` donde esperaba un
+ * arreglo (Kanban en blanco, 2026-09-05).
+ *
+ * La corrección no es sincronizar dos copias a mano: es que exista una sola.
+ * Se re-exporta la de use-workflow-queries.ts -- misma `{ data, ... }` que
+ * ya esperan los ~14 consumidores de ESTE archivo (todos desestructuran
+ * `{ data: x = [] }`), más `total`/`isTruncated` de regalo.
+ */
+export { useOTs } from '@/hooks/use-workflow-queries';
 
 export function useBatchesAvailable() {
   return useQuery<any[]>({
