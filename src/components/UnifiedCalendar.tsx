@@ -5,7 +5,7 @@
  * on a monthly/weekly calendar grid. Read-only, color-coded by source.
  */
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   startOfMonth, endOfMonth, eachDayOfInterval, isSameDay,
   format, addMonths, subMonths, getDay, startOfWeek, endOfWeek,
@@ -82,19 +82,36 @@ export function UnifiedCalendar() {
   // `ots` no tiene `due_date` — el campo real es `deadline`. Con el nombre
   // equivocado este filtro siempre daba vacío y ninguna OT aparecía nunca
   // en el calendario, silenciosamente.
-  const otEvents: CalEvent[] = (otsRaw as any[])
+  //
+  // Memoizado: sin esto, cada render (incluida cada navegación de mes)
+  // reconstruía las tres listas y — peor — `eventsOnDay` escaneaba
+  // `allEvents` completo por cada una de las hasta 42 celdas de la grilla,
+  // un O(42×N) que un mapa por día deja en O(42+N) (auditoría de
+  // performance 2026-09).
+  const otEvents: CalEvent[] = useMemo(() => (otsRaw as any[])
     .filter(ot => ot.status !== 'completed' && ot.deadline)
     .map(ot => ({
       date: new Date(ot.deadline),
       label: `OT ${ot.ot_number ?? ot.id}`,
       type: 'ot' as const,
-    }));
+    })), [otsRaw]);
 
-  const allEvents: CalEvent[] = [
+  const allEvents: CalEvent[] = useMemo(() => [
     ...otEvents,
     ...(maintenanceEvents as CalEvent[]),
     ...(leaveEvents as CalEvent[]),
-  ];
+  ], [otEvents, maintenanceEvents, leaveEvents]);
+
+  const eventsByDay = useMemo(() => {
+    const map = new Map<string, CalEvent[]>();
+    for (const event of allEvents) {
+      const key = format(event.date, 'yyyy-MM-dd');
+      const list = map.get(key);
+      if (list) list.push(event);
+      else map.set(key, [event]);
+    }
+    return map;
+  }, [allEvents]);
 
   const monthStart = startOfMonth(current);
   const monthEnd   = endOfMonth(current);
@@ -105,7 +122,7 @@ export function UnifiedCalendar() {
   const days       = eachDay({ start: gridStart, end: gridEnd });
 
   const eventsOnDay = (day: Date) =>
-    allEvents.filter(e => isSameDay(e.date, day));
+    eventsByDay.get(format(day, 'yyyy-MM-dd')) ?? [];
 
   const DOW = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
 
