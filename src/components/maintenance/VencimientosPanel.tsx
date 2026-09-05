@@ -17,7 +17,7 @@
  */
 
 import { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { isPast, parseISO, differenceInDays, format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import {
@@ -28,25 +28,13 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
-import { useMaintenanceWorkOrdersByStatus } from '@/hooks/use-maintenance-queries';
-import { DUE_STATUS_LABEL, type DueStatus, type DueResult } from '@/lib/maintenance-due';
+import {
+  useMaintenanceWorkOrdersByStatus,
+  useMaintenanceSchedules,
+  type MaintenanceScheduleRow as ScheduleRow,
+} from '@/hooks/use-maintenance-queries';
+import { DUE_STATUS_LABEL, type DueStatus } from '@/lib/maintenance-due';
 import { usageUnitShort } from '@/types/machine-usage-unit';
-
-interface ScheduleRow {
-  id: string;
-  machine_id: string;
-  system_id: string | null;
-  checklist_id: string | null;
-  checklist_name: string | null;
-  machine_name: string | null;
-  maintenance_type: string;
-  description: string | null;
-  frequency_days: number | null;
-  frequency_usage: number | null;
-  usage_unit: string;
-  machine_systems: { name: string } | null;
-  due: DueResult;
-}
 
 const STYLE: Record<DueStatus, { badge: string; icon: typeof TriangleAlert }> = {
   vencida:   { badge: 'border-red-500/30 bg-red-500/15 text-red-700 dark:text-red-300', icon: TriangleAlert },
@@ -56,17 +44,6 @@ const STYLE: Record<DueStatus, { badge: string; icon: typeof TriangleAlert }> = 
 };
 
 const nf = new Intl.NumberFormat('es-CL', { maximumFractionDigits: 0 });
-
-function useSchedules() {
-  return useQuery<{ schedules: ScheduleRow[]; summary: Record<string, number> }>({
-    queryKey: ['maintenance-schedules'],
-    queryFn: async () => {
-      const res = await fetch('/api/maintenance/schedules', { credentials: 'include' });
-      if (!res.ok) throw new Error('No se pudieron cargar las pautas');
-      return res.json();
-    },
-  });
-}
 
 function useCreateOrderFromSchedule() {
   const queryClient = useQueryClient();
@@ -89,7 +66,7 @@ function useCreateOrderFromSchedule() {
       return json;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['maintenance-schedules'] });
+      queryClient.invalidateQueries({ queryKey: ['maintenance', 'schedules'] });
       queryClient.invalidateQueries({ queryKey: ['maintenance', 'workOrders'] });
     },
   });
@@ -167,7 +144,7 @@ function ScheduleRowItem({
 }
 
 function SchedulesSection() {
-  const { data, isLoading } = useSchedules();
+  const { data, isLoading } = useMaintenanceSchedules();
   const { toast } = useToast();
   const createOrder = useCreateOrderFromSchedule();
   const [creatingId, setCreatingId] = useState<string | null>(null);

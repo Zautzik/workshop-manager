@@ -96,22 +96,60 @@ const queryKeys = {
   workOrders: ['maintenance', 'workOrders'] as const,
   workOrdersByStatus: (statuses?: string[]) => ['maintenance', 'workOrders', { statuses }] as const,
   maintenanceTaskCompletions: (orderId?: string | null) => ['maintenance', 'taskCompletions', { orderId }] as const,
+  schedules: (machineId?: string | null) => ['maintenance', 'schedules', { machineId }] as const,
 };
 
+export interface MaintenanceScheduleRow {
+  id: string;
+  machine_id: string;
+  system_id: string | null;
+  checklist_id: string | null;
+  checklist_name: string | null;
+  machine_name: string | null;
+  maintenance_type: string;
+  description: string | null;
+  frequency_days: number | null;
+  frequency_usage: number | null;
+  estimated_duration_hours: number | null;
+  usage_unit: string;
+  machine_systems: { id: string; code: string; name: string } | null;
+  due: import('@/lib/maintenance-due').DueResult;
+}
+
+/**
+ * Vía la ruta, no el cliente de Supabase directo: bajo dev-bypass no hay JWT,
+ * así que un fetch directo devolvería vacío en vez de las 12 pautas reales
+ * -- mismo motivo que useWorkers() en use-workflow-queries.ts. Una sola
+ * queryKey acá, compartida por Vencimientos y Pautas, para no repetir el
+ * mismo bug de colisión-por-casualidad que ya rompió el Kanban dos veces
+ * este mes (ver el comentario en useOTs, use-workflow-queries.ts).
+ */
+export function useMaintenanceSchedules(machineId?: string | null) {
+  return useQuery<{ schedules: MaintenanceScheduleRow[]; summary: Record<string, number> }>({
+    queryKey: queryKeys.schedules(machineId),
+    queryFn: async () => {
+      const params = machineId ? `?machine_id=${encodeURIComponent(machineId)}` : '';
+      const res = await fetch(`/api/maintenance/schedules${params}`, { credentials: 'include' });
+      if (!res.ok) throw new Error('No se pudieron cargar las pautas');
+      return res.json();
+    },
+  });
+}
+
+/**
+ * Vía la ruta, no el cliente de Supabase directo -- mismo motivo que
+ * useWorkers()/useMaintenanceSchedules(): bajo dev-bypass no hay JWT, así que
+ * un fetch directo devolvía las 2 checklists de muestra en vez de las reales.
+ * El editor (MaintenanceChecklistEditor) ya escribe por esta misma ruta; esto
+ * sólo hace que la lectura use el mismo camino.
+ */
 export function useMaintenanceChecklists() {
   return useQuery({
     queryKey: queryKeys.checklists,
     queryFn: async () => {
-      if (isDevBypass) {
-        return devChecklists;
-      }
-
-      const { data, error } = await supabase
-        .from('maintenance_checklists')
-        .select('*, machines(name)')
-        .order('created_at', { ascending: false });
-      if (error) throw error;
-      return data ?? [];
+      const res = await fetch('/api/maintenance/checklists', { credentials: 'include' });
+      if (!res.ok) throw new Error('No se pudieron cargar las checklists');
+      return res.json();
     },
   });
 }
