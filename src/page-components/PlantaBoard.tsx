@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 import { supabase } from "@/integrations/supabase/client";
@@ -27,6 +27,12 @@ import { dateToLocalIso, startOfIsoWeek, weekDatesFrom } from "@/lib/week-dates"
 
 type WorkflowTab = 'en_proceso' | 'ots' | 'clients' | 'layout' | 'shifts' | 'production' | 'hoja_prod' | 'plan_semanal' | 'gantt' | 'calendar' | 'whatsapp';
 
+// Un objeto literal `= {}` como default de useQuery crea una identidad nueva
+// en cada render mientras la data no llega — suficiente para invalidar
+// cualquier memo/React.memo río abajo que reciba este valor como prop
+// (auditoría de performance 2026-09, ver WorkstationLayout.tsx).
+const EMPTY_OVERTIME_BY_WORKER: Record<string, { hours: number; shifts: number }> = {};
+
 interface PlantaBoardProps {
   /** Retained for compatibility; the board now renders only the planta layout. */
   initialTab?: WorkflowTab;
@@ -49,7 +55,7 @@ export default function PlantaBoard({ initialTab = 'layout' }: PlantaBoardProps)
   const { data: workstationsData = [] } = useWorkstations();
   const { data: shifts = [] } = useShifts();
   const { data: assignments = [], refetch: refetchAssignments } = useWorkerAssignments(selectedDate);
-  const { data: monthlyOvertimeByWorker = {} } = useWorkerMonthlyOvertime(selectedDate);
+  const { data: monthlyOvertimeByWorker = EMPTY_OVERTIME_BY_WORKER } = useWorkerMonthlyOvertime(selectedDate);
   const { data: stationsUnderMaintenance, isError: maintenanceCheckFailed } = useStationsUnderMaintenance();
   const { data: compensationRates = [] } = useCompensationRatesForDate(selectedDate);
   const { data: workflowLeaveStatuses = [] } = useWorkflowLeaveStatuses(selectedDate);
@@ -210,9 +216,13 @@ export default function PlantaBoard({ initialTab = 'layout' }: PlantaBoardProps)
     }
   }, [selectedShiftId, shifts]);
 
-  const handleWorkerSelect = (worker: any) => {
+  // useCallback con identidad estable: pasa por WorkstationLayout hasta cada
+  // tarjeta de operario, y una identidad nueva en cada render de PlantaBoard
+  // (dos por drag, uno por `activeId`) rompía el React.memo de esas tarjetas
+  // sin que nada relevante hubiera cambiado (auditoría de performance 2026-09).
+  const handleWorkerSelect = useCallback((worker: any) => {
     setSelectedWorker(worker);
-  };
+  }, []);
 
   useEffect(() => {
     try {
@@ -623,7 +633,10 @@ export default function PlantaBoard({ initialTab = 'layout' }: PlantaBoardProps)
     setActiveId(event.active.id);
   };
 
-  const handleUnassignWorker = async (assignmentId?: string, workerName?: string) => {
+  // useCallback por la misma razón que handleWorkerSelect: llega hasta cada
+  // tarjeta de operario vía WorkstationLayout, y sin identidad estable
+  // invalida su memo en cada render de PlantaBoard.
+  const handleUnassignWorker = useCallback(async (assignmentId?: string, workerName?: string) => {
     if (!assignmentId) return;
 
     try {
@@ -649,7 +662,7 @@ export default function PlantaBoard({ initialTab = 'layout' }: PlantaBoardProps)
         variant: "destructive"
       });
     }
-  };
+  }, [toast, refetchAssignments]);
 
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
