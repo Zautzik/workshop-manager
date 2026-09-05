@@ -3333,6 +3333,7 @@ export type Database = {
       }
       maintenance_schedules: {
         Row: {
+          checklist_id: string | null
           created_at: string | null
           description: string | null
           estimated_duration_hours: number | null
@@ -3349,6 +3350,7 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          checklist_id?: string | null
           created_at?: string | null
           description?: string | null
           estimated_duration_hours?: number | null
@@ -3365,6 +3367,7 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          checklist_id?: string | null
           created_at?: string | null
           description?: string | null
           estimated_duration_hours?: number | null
@@ -3381,6 +3384,13 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "maintenance_schedules_checklist_id_fkey"
+            columns: ["checklist_id"]
+            isOneToOne: false
+            referencedRelation: "maintenance_checklists"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "maintenance_schedules_machine_id_fkey"
             columns: ["machine_id"]
@@ -3508,6 +3518,7 @@ export type Database = {
           assigned_to: string | null
           checklist_id: string | null
           completed_at: string | null
+          completed_items: Json | null
           created_at: string | null
           created_by: string | null
           fault_description: string | null
@@ -3517,6 +3528,7 @@ export type Database = {
           ot_id: string | null
           part_id: string | null
           priority: number | null
+          schedule_id: string | null
           scheduled_date: string
           started_at: string | null
           status: string
@@ -3530,6 +3542,7 @@ export type Database = {
           assigned_to?: string | null
           checklist_id?: string | null
           completed_at?: string | null
+          completed_items?: Json | null
           created_at?: string | null
           created_by?: string | null
           fault_description?: string | null
@@ -3539,6 +3552,7 @@ export type Database = {
           ot_id?: string | null
           part_id?: string | null
           priority?: number | null
+          schedule_id?: string | null
           scheduled_date: string
           started_at?: string | null
           status?: string
@@ -3552,6 +3566,7 @@ export type Database = {
           assigned_to?: string | null
           checklist_id?: string | null
           completed_at?: string | null
+          completed_items?: Json | null
           created_at?: string | null
           created_by?: string | null
           fault_description?: string | null
@@ -3561,6 +3576,7 @@ export type Database = {
           ot_id?: string | null
           part_id?: string | null
           priority?: number | null
+          schedule_id?: string | null
           scheduled_date?: string
           started_at?: string | null
           status?: string
@@ -3571,6 +3587,13 @@ export type Database = {
           work_order_type?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "maintenance_work_orders_schedule_id_fkey"
+            columns: ["schedule_id"]
+            isOneToOne: false
+            referencedRelation: "maintenance_schedules"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "maintenance_work_orders_assigned_to_fkey"
             columns: ["assigned_to"]

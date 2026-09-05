@@ -10,6 +10,11 @@ const ChecklistItemSchema = z.object({
 	estimatedTime: z.number().min(0).optional(),
 	priority: z.enum(['low', 'medium', 'high', 'critical']).optional(),
 	tools: z.array(z.string()).optional(),
+	// Opcionales: sólo existen para no perder section/subsection/action_type al
+	// migrar un maintenance_programs (calendario-only, sin pauta de uso) a este
+	// formato. Aditivo -- JSONB no exige que un ítem viejo los tenga.
+	section: z.string().optional(),
+	actionType: z.string().optional(),
 });
 
 const CreateChecklistSchema = z.object({
