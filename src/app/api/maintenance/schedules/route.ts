@@ -84,6 +84,8 @@ const UpsertSchema = z.object({
   frequency_days: z.coerce.number().int().min(0).optional(),
   /** Cada cuánto uso vence, en la unidad de LA máquina. */
   frequency_usage: z.coerce.number().min(0).nullable().optional(),
+  /** Qué hacer cuando esta pauta vence. Sin esto, "Vencimientos" no puede ofrecer "Crear orden". */
+  checklist_id: z.string().uuid().nullable().optional(),
   system_id: z.string().uuid().nullable().optional(),
   estimated_duration_hours: z.coerce.number().min(0).nullable().optional(),
   next_maintenance_date: z.string().optional(),

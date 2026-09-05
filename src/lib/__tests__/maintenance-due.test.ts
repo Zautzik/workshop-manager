@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { evaluateSchedule, compareDue, WARNING_WINDOW_DAYS } from '../maintenance-due';
+import { evaluateSchedule, compareDue, advanceSchedule, WARNING_WINDOW_DAYS } from '../maintenance-due';
 
 const HOY = new Date('2026-08-01T12:00:00Z');
 const enDias = (d: number) => new Date(HOY.getTime() + d * 86_400_000).toISOString();
@@ -133,5 +133,29 @@ describe('los dos programas del taller conviven', () => {
     }, { today: HOY });
     expect(r.driver).toBe('uso');
     expect(r.daysByUsage).toBe(8);  // faltan 50 h a 6 h/día
+  });
+});
+
+describe('completar una orden avanza el reloj de su pauta', () => {
+  it('cuenta desde hoy, no desde el vencimiento anterior', () => {
+    // Vencía hace dos semanas; se completa hoy con frecuencia de 30 días.
+    const r = advanceSchedule({ frequencyDays: 30, completedAt: HOY });
+    expect(r.last_maintenance_date).toBe(HOY.toISOString());
+    expect(r.next_maintenance_date).toBe(enDias(30));
+  });
+
+  it('registra la lectura del contador cuando hay una', () => {
+    const r = advanceSchedule({ frequencyDays: 30, completedAt: HOY, usageAtCompletion: 8_400_000 });
+    expect(r.last_maintenance_usage).toBe(8_400_000);
+  });
+
+  it('no manda last_maintenance_usage cuando la máquina no tiene lectura -- un update parcial no debe borrar el último dato real', () => {
+    const r = advanceSchedule({ frequencyDays: 30, completedAt: HOY });
+    expect('last_maintenance_usage' in r).toBe(false);
+  });
+
+  it('null cuenta igual que ausente: tampoco se manda', () => {
+    const r = advanceSchedule({ frequencyDays: 30, completedAt: HOY, usageAtCompletion: null });
+    expect('last_maintenance_usage' in r).toBe(false);
   });
 });

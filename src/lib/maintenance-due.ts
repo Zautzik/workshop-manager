@@ -166,3 +166,40 @@ export function compareDue(a: DueResult, b: DueResult): number {
 function formatNum(n: number): string {
   return new Intl.NumberFormat('es-CL', { maximumFractionDigits: 0 }).format(n);
 }
+
+export interface AdvanceScheduleInput {
+  /** Siempre presente en la fila (NOT NULL, default 30) -- toda pauta tiene un tope de calendario aunque su lado fuerte sea el uso. */
+  frequencyDays: number;
+  completedAt: Date;
+  /** Lectura del contador al completar. Ausente si la máquina no tiene bitácora de uso. */
+  usageAtCompletion?: number | null;
+}
+
+/**
+ * El reloj de una pauta al completar la orden que la atendió.
+ *
+ * Cuenta desde HOY, no desde el vencimiento anterior: si la pauta llevaba dos
+ * semanas vencida y recién ahora se hizo, la próxima no hereda ese atraso —
+ * arrastrarlo sería castigar la próxima vez por haber llegado tarde esta vez.
+ *
+ * `last_maintenance_usage` se omite del resultado (no se manda null) cuando
+ * no hay lectura: un `.update()` parcial que no lo incluye deja la columna
+ * como estaba, en vez de borrar el último dato real que sí se tenía.
+ */
+export function advanceSchedule(input: AdvanceScheduleInput): {
+  last_maintenance_date: string;
+  last_maintenance_usage?: number;
+  next_maintenance_date: string;
+} {
+  const { frequencyDays, completedAt, usageAtCompletion } = input;
+  const next = new Date(completedAt.getTime() + frequencyDays * 86_400_000);
+
+  const result: { last_maintenance_date: string; last_maintenance_usage?: number; next_maintenance_date: string } = {
+    last_maintenance_date: completedAt.toISOString(),
+    next_maintenance_date: next.toISOString(),
+  };
+  if (usageAtCompletion != null) {
+    result.last_maintenance_usage = usageAtCompletion;
+  }
+  return result;
+}

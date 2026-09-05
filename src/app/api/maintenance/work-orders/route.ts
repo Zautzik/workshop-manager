@@ -83,8 +83,10 @@ export async function GET(req: NextRequest) {
 const CreateSchema = z.object({
   machine_id: z.string().uuid(),
   work_order_type: z.enum(['preventivo', 'correctivo', 'mejora']).default('correctivo'),
-  /** Obligatorio en preventivo: es la pauta que hay que seguir. */
+  /** Obligatorio en preventivo: es la checklist que hay que seguir. */
   checklist_id: z.string().uuid().nullable().optional(),
+  /** De qué pauta (maintenance_schedules) nació esta orden, si nació de una vencida. Null en correctivas. */
+  schedule_id: z.string().uuid().nullable().optional(),
   title: z.string().min(3).max(200).nullable().optional(),
   fault_description: z.string().max(4000).nullable().optional(),
   /** De qué pieza nació. Es el enlace con Mecánica. */
@@ -145,6 +147,27 @@ export async function POST(req: NextRequest) {
 
     if (!machine) {
       return NextResponse.json({ error: 'Máquina no encontrada' }, { status: 404 });
+    }
+
+    // Una pauta de otra máquina no puede generar una orden para ésta -- el
+    // enlace que le permite avanzar el reloj al completarse dejaría de tener
+    // sentido si apuntara a una máquina distinta de la que en verdad se atendió.
+    if (body.schedule_id) {
+      const { data: schedule } = await supabaseAdmin
+        .from('maintenance_schedules')
+        .select('machine_id')
+        .eq('id', body.schedule_id)
+        .maybeSingle();
+
+      if (!schedule) {
+        return NextResponse.json({ error: 'La pauta indicada no existe' }, { status: 404 });
+      }
+      if (schedule.machine_id !== body.machine_id) {
+        return NextResponse.json(
+          { error: 'La pauta pertenece a otra máquina' },
+          { status: 400 }
+        );
+      }
     }
 
     // Si nace de una pieza, el sistema se deduce de ella.
@@ -214,6 +237,7 @@ export async function POST(req: NextRequest) {
         machine_id: body.machine_id,
         work_order_type: body.work_order_type,
         checklist_id: body.checklist_id ?? null,
+        schedule_id: body.schedule_id ?? null,
         title: body.title ?? null,
         fault_description: body.fault_description ?? null,
         part_id: body.part_id ?? null,

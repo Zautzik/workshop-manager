@@ -2,33 +2,51 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { requireAuth, isAuthError } from '@/lib/api-middleware';
 import { supabaseAdmin } from '@/integrations/supabase/server';
+import { advanceSchedule } from '@/lib/maintenance-due';
 
 export const dynamic = 'force-dynamic';
 
 /**
- * Maintenance work-order execution: start / complete, and per-task ticks.
+ * Maintenance work-order execution: start / complete, and the checklist
+ * snapshot ticked along the way.
+ *
  * These were browser-direct from WorkOrderExecution, so under dev-bypass a
- * technician could tick every task and finish the order while nothing persisted.
+ * technician could tick every task and finish the order while nothing
+ * persisted. Now server-side, and `completed_items` replaces the old
+ * `maintenance_task_completions` FK path entirely: that table's `task_id`
+ * pointed at `maintenance_tasks`, a table nothing in the app ever inserted
+ * into, so the FK could never be satisfied and the per-task POST below could
+ * never succeed even before dev-bypass — dead from two directions at once.
+ * `completed_items` is a snapshot on the order itself instead of a live join,
+ * so editing a checklist later can't retroactively change what an
+ * already-completed order appears to have required.
  */
+const CompletedItemSchema = z.object({
+  item_id: z.string(),
+  title: z.string().optional(),
+  description: z.string().optional(),
+  estimated_minutes: z.number().nullable().optional(),
+  completed: z.boolean(),
+  completed_at: z.string().nullable().optional(),
+  completed_by: z.string().nullable().optional(),
+  notes: z.string().nullable().optional(),
+});
+
 const UpdateWorkOrderSchema = z.object({
   status: z.enum(['pending', 'in_progress', 'completed', 'cancelled']).optional(),
   started_at: z.string().datetime().nullable().optional(),
   completed_at: z.string().datetime().nullable().optional(),
   total_time_minutes: z.coerce.number().min(0).nullable().optional(),
   notes: z.string().max(2000).nullable().optional(),
-});
-
-const TaskCompletionSchema = z.object({
-  completion_id: z.string().uuid(),
-  completed: z.boolean(),
-  notes: z.string().max(2000).nullable().optional(),
+  /** Reemplaza el arreglo completo -- el cliente manda su copia local entera en cada tick. */
+  completed_items: z.array(CompletedItemSchema).optional(),
 });
 
 interface RouteParams {
   params: Promise<{ id: string }>;
 }
 
-/** PATCH — update the work order itself (start, complete, annotate). */
+/** PATCH — update the work order itself (start, complete, annotate, ticks). */
 export async function PATCH(req: NextRequest, { params }: RouteParams) {
   const auth = await requireAuth(['admin', 'supervisor', 'manager', 'technician']);
   if (isAuthError(auth)) return auth;
@@ -60,6 +78,12 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
     // same principle as the QR clock. `machine_downtime_logs` existed with zero
     // readers and zero writers, so availability/OEE had no raw material at all.
     await syncDowntime(data, parsed.data.status);
+
+    // Si esta orden nació de una pauta, completarla avanza su reloj -- si no,
+    // la pauta se queda vencida para siempre aunque el trabajo ya se hizo.
+    if (parsed.data.status === 'completed') {
+      await advanceLinkedSchedule(data);
+    }
 
     return NextResponse.json(data);
   } catch {
@@ -130,45 +154,42 @@ async function syncDowntime(
   }
 }
 
-/** POST — tick or untick one task of this work order. */
-export async function POST(req: NextRequest, { params }: RouteParams) {
-  const auth = await requireAuth(['admin', 'supervisor', 'manager', 'technician']);
-  if (isAuthError(auth)) return auth;
-
-  const { id } = await params;
-  if (!id || !z.string().uuid().safeParse(id).success) {
-    return NextResponse.json({ error: 'Se requiere un ID de orden válido' }, { status: 400 });
-  }
-
-  const userId = typeof auth === 'object' && 'id' in auth ? auth.id : null;
+/**
+ * Avanza el reloj de la pauta que generó esta orden (ver advanceSchedule en
+ * maintenance-due.ts). Mismo cuidado que syncDowntime: best-effort, nunca
+ * bloquea el cierre real de la orden por un problema acá.
+ */
+async function advanceLinkedSchedule(order: {
+  schedule_id: string | null;
+  machine_id: string;
+  completed_at: string | null;
+}) {
+  if (!order.schedule_id) return;
 
   try {
-    const parsed = TaskCompletionSchema.safeParse(await req.json());
-    if (!parsed.success) {
-      return NextResponse.json(
-        { error: 'Datos inválidos de la tarea', details: parsed.error.flatten().fieldErrors },
-        { status: 400 }
-      );
-    }
+    const [{ data: schedule }, { data: machine }] = await Promise.all([
+      supabaseAdmin
+        .from('maintenance_schedules')
+        .select('frequency_days')
+        .eq('id', order.schedule_id)
+        .maybeSingle(),
+      supabaseAdmin
+        .from('machines')
+        .select('usage_counter')
+        .eq('id', order.machine_id)
+        .maybeSingle(),
+    ]);
 
-    const { completion_id, completed, notes } = parsed.data;
-    const now = new Date().toISOString();
+    if (!schedule) return;
 
-    const { data, error } = await supabaseAdmin
-      .from('maintenance_task_completions')
-      .update({
-        completed,
-        completed_at: completed ? now : null,
-        completed_by: completed ? userId : null,
-        notes: notes ?? null,
-      })
-      .eq('id', completion_id)
-      .select('*')
-      .single();
+    const patch = advanceSchedule({
+      frequencyDays: schedule.frequency_days,
+      completedAt: order.completed_at ? new Date(order.completed_at) : new Date(),
+      usageAtCompletion: machine?.usage_counter ?? null,
+    });
 
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-    return NextResponse.json(data);
-  } catch {
-    return NextResponse.json({ error: 'No se pudo registrar la tarea' }, { status: 500 });
+    await supabaseAdmin.from('maintenance_schedules').update(patch).eq('id', order.schedule_id);
+  } catch (err) {
+    console.error('No se pudo avanzar la pauta de la orden', order, err);
   }
 }
