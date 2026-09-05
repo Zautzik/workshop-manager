@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ArrowRight, Sparkles } from 'lucide-react';
 import { RepetirOTAnterior } from './RepetirOTAnterior';
+import { UsarPlantilla, type OtTemplateRow } from './UsarPlantilla';
 import type { UnifiedOTForm } from '@/types/ot-unified';
 import {
   WORK_CATEGORIES,
@@ -19,9 +20,11 @@ interface Props {
   onSelect: (cat: WorkCategoryKey) => void;
   /** Cargar las especificaciones de un trabajo anterior. */
   onRepeat?: (patch: Partial<UnifiedOTForm>, otNumber: string) => void;
+  /** Cargar las especificaciones de una plantilla de producto estándar. */
+  onApplyTemplate?: (tpl: OtTemplateRow) => void;
 }
 
-export function UnifiedStepCategory({ selected, onSelect, onRepeat }: Props) {
+export function UnifiedStepCategory({ selected, onSelect, onRepeat, onApplyTemplate }: Props) {
   const [hovering, setHovering] = useState<WorkCategoryKey | null>(null);
   const [chosen, setChosen] = useState<WorkCategoryKey | null>(selected);
 
@@ -34,6 +37,9 @@ export function UnifiedStepCategory({ selected, onSelect, onRepeat }: Props) {
       {/* Lo primero que hace un impresor no es elegir tipo de trabajo: es
           preguntarse si esto ya lo hicimos antes. */}
       {onRepeat && <RepetirOTAnterior onApply={onRepeat} />}
+      {/* Y si no es una repetición para ESTE cliente, puede seguir siendo un
+          producto que el taller ya sabe hacer para cualquiera. */}
+      {onApplyTemplate && <UsarPlantilla onApply={onApplyTemplate} />}
       {/* Header */}
       <div className="text-center space-y-2">
         <div className="flex items-center justify-center gap-2">

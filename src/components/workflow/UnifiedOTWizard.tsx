@@ -24,7 +24,8 @@ import { useToast } from '@/hooks/use-toast';
 import { EMPTY_UNIFIED_FORM, UNIFIED_STEPS, type UnifiedOTForm } from '@/types/ot-unified';
 import { handoffSummary, takeHandoff, toWizardForm } from '@/lib/ot-handoff';
 import { validateStep, validateAllSteps, canJumpToStep } from '@/lib/ot-wizard-validation';
-import { CATEGORY_DEFAULTS, type WorkCategoryKey } from '@/types/work-category';
+import { CATEGORY_DEFAULTS, WORK_CATEGORIES, type WorkCategoryKey } from '@/types/work-category';
+import type { OtTemplateRow } from './unified-wizard/UsarPlantilla';
 import {
   computeOTCalculations,
   computeImposition,
@@ -144,46 +145,93 @@ export function UnifiedOTWizard({ onClose, onSuccess }: Props) {
     setForm((prev) => ({ ...prev, ...patch }));
   }, []);
 
+  /* ── Category → default patch (shared by category click and template pick) */
+  const categoryDefaultsPatch = useCallback((cat: WorkCategoryKey): Partial<UnifiedOTForm> => {
+    const defaults = CATEGORY_DEFAULTS[cat];
+    if (!defaults) return { work_category: cat };
+    return {
+      work_category: cat,
+      substrate_type: (defaults.papel as any) || '',
+      grammage_gsm: defaults.grammage_grs || 150,
+      machine: {
+        ...form.machine,
+        machine_type: (defaults.machine_type as any) || 'offset_4_colores',
+        color_config: defaults.color_config || '4/4',
+      },
+      finishing: {
+        ...form.finishing,
+        corte_resma: defaults.corte_resma ?? false,
+        corte_final: defaults.corte_final ?? false,
+        doblados: defaults.doblados ?? false,
+        corchetes: defaults.corchetes ?? false,
+        cajas: defaults.cajas ?? false,
+      },
+      montaje: {
+        ...form.montaje,
+        montaje_grid: defaults.montaje_grid || '1 x 2',
+        corte_hoja: defaults.corte_hoja || '1/4 Normal',
+      },
+      production_detail: {
+        ...form.production_detail,
+        production_description: defaults.production_description || '',
+        formato: defaults.formato || '',
+        tapas_spec: defaults.tapas_spec || '',
+        interior_spec: defaults.interior_spec || '',
+        acabado: defaults.acabado || '',
+      },
+    };
+  }, [form.machine, form.finishing, form.montaje, form.production_detail]);
+
   /* ── When category is selected, apply defaults ──────────────── */
   const handleCategorySelect = useCallback((cat: WorkCategoryKey) => {
-    const defaults = CATEGORY_DEFAULTS[cat];
-    if (defaults) {
-      updateForm({
-        work_category: cat,
-        substrate_type: (defaults.papel as any) || '',
-        grammage_gsm: defaults.grammage_grs || 150,
-        machine: {
-          ...form.machine,
-          machine_type: (defaults.machine_type as any) || 'offset_4_colores',
-          color_config: defaults.color_config || '4/4',
-        },
-        finishing: {
-          ...form.finishing,
-          corte_resma: defaults.corte_resma ?? false,
-          corte_final: defaults.corte_final ?? false,
-          doblados: defaults.doblados ?? false,
-          corchetes: defaults.corchetes ?? false,
-          cajas: defaults.cajas ?? false,
-        },
-        montaje: {
-          ...form.montaje,
-          montaje_grid: defaults.montaje_grid || '1 x 2',
-          corte_hoja: defaults.corte_hoja || '1/4 Normal',
-        },
-        production_detail: {
-          ...form.production_detail,
-          production_description: defaults.production_description || '',
-          formato: defaults.formato || '',
-          tapas_spec: defaults.tapas_spec || '',
-          interior_spec: defaults.interior_spec || '',
-          acabado: defaults.acabado || '',
-        },
-      });
-    } else {
-      updateForm({ work_category: cat });
-    }
+    updateForm(categoryDefaultsPatch(cat));
     setStep(1);
-  }, [form.machine, form.finishing, form.montaje, form.production_detail, updateForm]);
+  }, [categoryDefaultsPatch, updateForm]);
+
+  /**
+   * Plantilla: además de los defaults de su categoría, trae specs exactas
+   * (papel, gramaje, medidas, colores, terminaciones) y los márgenes con los
+   * que se costeó ese producto la última vez que alguien lo definió. Igual
+   * que "repetir OT anterior", salta directo a Información — pero a
+   * diferencia de esa, sí trae el precio: son márgenes de catálogo, no la
+   * cotización de un cliente específico, así que no hay "precio viejo" que
+   * arrastrar.
+   */
+  const handleApplyTemplate = useCallback((tpl: OtTemplateRow) => {
+    const cat = WORK_CATEGORIES.some((c) => c.key === tpl.product_type)
+      ? (tpl.product_type as WorkCategoryKey)
+      : 'otro';
+    const basePatch = categoryDefaultsPatch(cat);
+
+    updateForm({
+      ...basePatch,
+      template_id: tpl.id,
+      product_type: tpl.product_type || form.product_type,
+      substrate_type: (tpl.substrate_type as any) ?? basePatch.substrate_type ?? form.substrate_type,
+      grammage_gsm: tpl.grammage_gsm || basePatch.grammage_gsm || form.grammage_gsm,
+      width_cm: tpl.width_cm || form.width_cm,
+      height_cm: tpl.height_cm || form.height_cm,
+      color_front: (tpl.color_front as any) || form.color_front,
+      color_back: (tpl.color_back as any) || form.color_back,
+      finishes: { ...form.finishes, ...(tpl.finishes || {}) },
+      pricing: {
+        ...form.pricing,
+        margin_pct: tpl.margin_pct ?? form.pricing.margin_pct,
+        increment_pct: tpl.increment_pct ?? form.pricing.increment_pct,
+        commission_pct: tpl.commission_pct ?? form.pricing.commission_pct,
+      },
+    });
+    setStep(1);
+    toast({
+      title: `Plantilla "${tpl.name}" aplicada`,
+      description: 'Especificaciones y márgenes cargados. El costo se recalcula igual que siempre.',
+    });
+  }, [
+    categoryDefaultsPatch, updateForm, toast,
+    form.product_type, form.substrate_type, form.grammage_gsm,
+    form.width_cm, form.height_cm, form.color_front, form.color_back,
+    form.finishes, form.pricing,
+  ]);
 
   /* ── Auto-calculate when specs change ──────────────────────── */
   useEffect(() => {
@@ -517,6 +565,7 @@ export function UnifiedOTWizard({ onClose, onSuccess }: Props) {
             selected={form.work_category}
             onSelect={handleCategorySelect}
             onRepeat={handleRepeatPrevious}
+            onApplyTemplate={handleApplyTemplate}
           />
         );
       case 1:
