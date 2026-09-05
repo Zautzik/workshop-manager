@@ -16,7 +16,7 @@
  * cuando algo cambia, no solo mirarla.
  */
 
-import { useMemo, useState } from 'react';
+import { memo, useMemo, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { addDays, differenceInDays, format, startOfToday, isValid as isValidDate } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -40,7 +40,11 @@ function toDateInputValue(iso: string | null | undefined) {
   return isValidDate(d) ? format(d, 'yyyy-MM-dd') : '';
 }
 
-function GanttRow({
+// React.memo: guardar un plazo invalida ['ots'] y trae objetos `ot` nuevos
+// para las 60 filas — sin memo, las 59 filas que no cambiaron se
+// reconstruían igual. Las props que sí varían (left/width/overdue/canEdit)
+// son primitivas, así que la comparación superficial de memo funciona sola.
+const GanttRow = memo(function GanttRow({
   ot, left, width, overdue, canEdit,
 }: {
   ot: any; left: number; width: number; overdue: boolean; canEdit: boolean;
@@ -125,7 +129,7 @@ function GanttRow({
       </div>
     </div>
   );
-}
+});
 
 export function OTGanttBoard() {
   const { data: otsRaw = [], isError: otsError } = useOTs();
@@ -136,9 +140,16 @@ export function OTGanttBoard() {
   const today = startOfToday();
   const windowEnd = addDays(today, WINDOW_DAYS - 1);
 
+  // `today`/`windowEnd` son objetos Date nuevos en cada render (startOfToday()
+  // sin memo) — como dependencia de useMemo, un objeto nuevo nunca es
+  // referencialmente igual al anterior, así que esto recalculaba en cada
+  // render pese a la lista de dependencias. Se compara por su valor numérico,
+  // que sí es estable mientras siga siendo el mismo día real (auditoría de
+  // performance 2026-09).
   const days = useMemo(() =>
     Array.from({ length: WINDOW_DAYS }, (_, i) => addDays(today, i)),
-    [today]
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [today.getTime()]
   );
 
   // Activas con plazo — vencidas incluidas: una OT atrasada es justo lo que
@@ -154,7 +165,8 @@ export function OTGanttBoard() {
 
   const overdueCount = useMemo(
     () => ots.filter((ot) => new Date(ot.deadline) < today).length,
-    [ots, today],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [ots, today.getTime()],
   );
 
   const dayPct = (date: Date) => {
@@ -171,6 +183,16 @@ export function OTGanttBoard() {
     const width = Math.max(right - left, 1.5); // min 1.5% so tiny/overdue bars are visible
     return { left, width, overdue };
   };
+
+  // Calculado una vez por lista, no reconstruido inline en cada `.map()` del
+  // render — sin esto, cada render (incluido el de las hasta 60 filas
+  // memoizadas de abajo) recalculaba la geometría de las 60 barras aunque
+  // `ots` no hubiera cambiado.
+  const rowGeometry = useMemo(
+    () => new Map(ots.map((ot) => [ot.id, barGeometry(ot)])),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [ots, today.getTime(), windowEnd.getTime()],
+  );
 
   return (
     <div className="space-y-2">
@@ -228,7 +250,7 @@ export function OTGanttBoard() {
           {/* OT rows */}
           <div className="space-y-1">
             {ots.map((ot) => {
-              const { left, width, overdue } = barGeometry(ot);
+              const { left, width, overdue } = rowGeometry.get(ot.id)!;
               return <GanttRow key={ot.id} ot={ot} left={left} width={width} overdue={overdue} canEdit={canEdit} />;
             })}
           </div>
