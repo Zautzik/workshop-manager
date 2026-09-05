@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Wrench, AlertTriangle, PackageX, ChevronRight, Plus, Gauge,
@@ -642,6 +643,7 @@ function PedirTodoButton({ partIds, onDone }: { partIds: string[]; onDone: () =>
 interface EmpleadoRow { id: string; full_name: string }
 
 function CrearOrdenButton({ part }: { part: PartRow }) {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [falla, setFalla] = useState('');
   const [asignado, setAsignado] = useState('');
@@ -685,7 +687,12 @@ function CrearOrdenButton({ part }: { part: PartRow }) {
       return json;
     },
     onSuccess: () => {
-      toast.success('Orden de trabajo emitida.');
+      // Antes esto era fire-and-forget: la orden quedaba emitida pero nada
+      // llevaba a dónde encontrarla de nuevo. "Ver orden" abre directo en la
+      // pestaña donde ahora se ejecuta.
+      toast.success('Orden de trabajo emitida.', {
+        action: { label: 'Ver orden', onClick: () => router.push('/equipos/ordenes?tab=ordenes') },
+      });
       setOpen(false);
       setFalla(''); setAsignado(''); setAviso(null);
     },

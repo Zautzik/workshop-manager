@@ -38,14 +38,36 @@ export async function GET(req: NextRequest) {
   const statusParam = searchParams.get('status');
   const statuses = statusParam ? statusParam.split(',') : openOnly ? BLOCKING_STATUSES : null;
 
-  let query = supabaseAdmin
-    .from('maintenance_work_orders')
-    .select('id, machine_id, status, scheduled_date, started_at, machines(name)')
-    .order('scheduled_date', { ascending: true });
+  // `?open=1` es lo que consulta Planta para saber qué máquina está bloqueada
+  // -- se mantiene exactamente igual (mismos campos, mismo shape) para no
+  // tocar ese contrato. Cualquier otra llamada (la lista de Órdenes, o
+  // Vencimientos filtrando por status) pide el detalle completo: qué
+  // checklist sigue, sus ítems, y el snapshot de lo ya ejecutado.
+  //
+  // Dos `.select()` literales separados, no uno armado por ternario: el
+  // parser de tipos de Supabase valida el string de `.select()` en tiempo de
+  // compilación, y un string variable con dos formas posibles rompe ese
+  // parser ("Unexpected input") en vez de simplemente perder precisión.
+  const { data, error } = openOnly
+    ? await (async () => {
+        let q = supabaseAdmin
+          .from('maintenance_work_orders')
+          .select('id, machine_id, status, scheduled_date, started_at, machines(name)')
+          .order('scheduled_date', { ascending: true });
+        if (statuses) q = q.in('status', statuses);
+        return q;
+      })()
+    : await (async () => {
+        let q = supabaseAdmin
+          .from('maintenance_work_orders')
+          .select(
+            'id, machine_id, status, scheduled_date, started_at, completed_at, priority, work_order_type, title, fault_description, notes, total_time_minutes, checklist_id, schedule_id, completed_items, machines(name, type), maintenance_checklists(name, frequency, items)'
+          )
+          .order('scheduled_date', { ascending: true });
+        if (statuses) q = q.in('status', statuses);
+        return q;
+      })();
 
-  if (statuses) query = query.in('status', statuses);
-
-  const { data, error } = await query;
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }

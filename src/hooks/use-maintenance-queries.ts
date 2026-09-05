@@ -154,20 +154,21 @@ export function useMaintenanceChecklists() {
   });
 }
 
+/**
+ * Vía /api/maintenance/work-orders (sin `open`/`status`, trae todo con el
+ * detalle completo -- ver el branch de `selectFields` en esa ruta), no el
+ * cliente de Supabase directo -- mismo motivo que useWorkers()/
+ * useMaintenanceChecklists(): bajo dev-bypass no hay JWT, y el fetch directo
+ * devolvía las 3 órdenes de muestra en vez de las reales.
+ */
 export function useMaintenanceWorkOrders() {
-  return useQuery({
+  return useQuery<any[]>({
     queryKey: queryKeys.workOrders,
     queryFn: async () => {
-      if (isDevBypass) {
-        return devWorkOrders;
-      }
-
-      const { data, error } = await supabase
-        .from('maintenance_work_orders')
-        .select('*, machines(name), maintenance_checklists(name, frequency, machine_type)')
-        .order('scheduled_date', { ascending: true });
-      if (error) throw error;
-      return data ?? [];
+      const res = await fetch('/api/maintenance/work-orders', { credentials: 'include' });
+      if (!res.ok) throw new Error('No se pudieron cargar las órdenes de trabajo');
+      const body = await res.json();
+      return body.orders ?? [];
     },
   });
 }
@@ -176,17 +177,12 @@ export function useMaintenanceWorkOrdersByStatus(statuses: string[]) {
   return useQuery<any[]>({
     queryKey: queryKeys.workOrdersByStatus(statuses),
     queryFn: async () => {
-      if (isDevBypass) {
-        return devWorkOrders.filter((wo) => statuses.includes(String(wo.status)));
-      }
-
-      const { data, error } = await supabase
-        .from('maintenance_work_orders')
-        .select('*, machines(name, type), maintenance_checklists(name, frequency, machine_type, items)')
-        .in('status', statuses)
-        .order('scheduled_date', { ascending: true });
-      if (error) throw error;
-      return (data ?? []) as any[];
+      const res = await fetch(`/api/maintenance/work-orders?status=${statuses.map(encodeURIComponent).join(',')}`, {
+        credentials: 'include',
+      });
+      if (!res.ok) throw new Error('No se pudieron cargar las órdenes de trabajo');
+      const body = await res.json();
+      return body.orders ?? [];
     },
   });
 }
