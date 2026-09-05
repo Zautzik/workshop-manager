@@ -4,6 +4,7 @@ import { useMaintenanceStats } from '@/hooks/use-maintenance-queries';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { BarChart3, CheckCircle2, Clock, AlertTriangle, Activity } from 'lucide-react';
+import { FleetAvailability } from '@/components/maintenance/FleetAvailability';
 
 function StatCard({ icon: Icon, label, value, color }: { icon: React.ElementType; label: string; value: number; color: string }) {
   return (
@@ -79,6 +80,8 @@ function StatsContent() {
           )}
         </CardContent>
       </Card>
+
+      <FleetAvailability />
     </div>
   );
 }
