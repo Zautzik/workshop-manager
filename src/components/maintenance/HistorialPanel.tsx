@@ -206,8 +206,12 @@ function DisponibilidadYFallas({ days, setDays }: { days: number; setDays: (d: n
 
 // ── Historial completo, cronológico ─────────────────────────────────────────
 
+/** Cuántos meses se muestran antes de pedir "ver más meses". */
+const VISIBLE_MONTHS = 3;
+
 function HistorialCompleto() {
   const { data: orders = [], isLoading } = useMaintenanceWorkOrdersByStatus(['completed']);
+  const [showAllMonths, setShowAllMonths] = useState(false);
 
   if (isLoading) return (
     <div className="space-y-3">
@@ -221,14 +225,19 @@ function HistorialCompleto() {
     </div>
   );
 
-  const byMonth: Record<string, any[]> = {};
+  const byMonthMap = new Map<string, { sortKey: number; label: string; items: any[] }>();
   for (const o of orders) {
-    const key = o.scheduled_date
-      ? format(parseISO(o.scheduled_date), 'MMMM yyyy', { locale: es })
-      : 'Sin fecha';
-    if (!byMonth[key]) byMonth[key] = [];
-    byMonth[key].push(o);
+    const date = o.scheduled_date ? parseISO(o.scheduled_date) : null;
+    const key = date ? format(date, 'yyyy-MM') : 'sin-fecha';
+    const label = date ? format(date, 'MMMM yyyy', { locale: es }) : 'Sin fecha';
+    const existing = byMonthMap.get(key);
+    if (existing) existing.items.push(o);
+    else byMonthMap.set(key, { sortKey: date ? date.getTime() : -Infinity, label, items: [o] });
   }
+  // La API devuelve scheduled_date ascendente; acá el mes más reciente va
+  // primero -- es un archivo que se consulta de atrás para adelante.
+  const months = Array.from(byMonthMap.values()).sort((a, b) => b.sortKey - a.sortKey);
+  const shownMonths = showAllMonths ? months : months.slice(0, VISIBLE_MONTHS);
 
   const totalMinutes = orders.reduce((s: number, o: any) => s + (o.total_time_minutes ?? 0), 0);
 
@@ -248,10 +257,10 @@ function HistorialCompleto() {
       </div>
 
       <div className="space-y-6 max-w-2xl">
-        {Object.entries(byMonth).map(([month, items]) => (
-          <div key={month} className="space-y-2">
+        {shownMonths.map(({ label, items }) => (
+          <div key={label} className="space-y-2">
             <h3 className="text-xs font-bold tracking-widest text-muted-foreground/70 pl-1 capitalize">
-              {month}
+              {label}
             </h3>
             <div className="space-y-2">
               {items.map((o: any) => (
@@ -301,6 +310,16 @@ function HistorialCompleto() {
           </div>
         ))}
       </div>
+
+      {months.length > VISIBLE_MONTHS && (
+        <button
+          type="button"
+          onClick={() => setShowAllMonths((v) => !v)}
+          className="text-xs font-medium text-primary underline-offset-4 hover:underline"
+        >
+          {showAllMonths ? `Mostrar sólo los últimos ${VISIBLE_MONTHS} meses` : `Ver más meses (${months.length - VISIBLE_MONTHS} más)`}
+        </button>
+      )}
     </div>
   );
 }
