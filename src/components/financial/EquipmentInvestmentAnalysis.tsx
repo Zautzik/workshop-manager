@@ -5,11 +5,11 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Plus, Edit2, TrendingUp, Clock, DollarSign } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
+import { KpiCard } from '@/components/ui/kpi-card';
 import { useEquipmentInvestments } from '@/hooks/use-financial-queries';
 import { useMachines } from '@/hooks/use-operations-queries';
 
@@ -26,6 +26,13 @@ interface Investment {
     name: string;
   } | null;
 }
+
+const STATUS_LABEL: Record<string, string> = {
+  proposal: 'Propuesta',
+  approved: 'Aprobada',
+  rejected: 'Rechazada',
+  completed: 'Completada',
+};
 
 export const EquipmentInvestmentAnalysis = () => {
   const { data: investments = [], refetch: refetchInvestments } = useEquipmentInvestments();
@@ -151,56 +158,38 @@ export const EquipmentInvestmentAnalysis = () => {
 
   return (
     <div className="space-y-6">
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card className="border-blue-500/20">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-              <DollarSign className="h-4 w-4" />
-              Total Proposed Investment
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-blue-500">${Math.round(totalProposed).toLocaleString('es-CL')}</div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-green-500/20">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-              <DollarSign className="h-4 w-4" />
-              Approved Investment
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-green-500">${Math.round(totalApproved).toLocaleString('es-CL')}</div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-primary/20">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-              <TrendingUp className="h-4 w-4" />
-              Est. Annual Savings
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-primary">${Math.round(estimatedAnnualSavings).toLocaleString('es-CL')}</div>
-          </CardContent>
-        </Card>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <KpiCard
+          icon={DollarSign}
+          label="Inversión propuesta"
+          value={`$${Math.round(totalProposed).toLocaleString('es-CL')}`}
+          tone="info"
+        />
+        <KpiCard
+          icon={DollarSign}
+          label="Inversión aprobada"
+          value={`$${Math.round(totalApproved).toLocaleString('es-CL')}`}
+          tone="success"
+        />
+        <KpiCard
+          icon={TrendingUp}
+          label="Ahorro anual estimado"
+          value={`$${Math.round(estimatedAnnualSavings).toLocaleString('es-CL')}`}
+          tone="primary"
+        />
       </div>
 
-      {/* Add/Edit Dialog */}
+      {/* Diálogo de alta/edición */}
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
         <DialogTrigger asChild>
           <Button onClick={() => { resetForm(); setIsOpen(true); }}>
             <Plus className="mr-2 h-4 w-4" />
-            Add Investment Proposal
+            Agregar propuesta de inversión
           </Button>
         </DialogTrigger>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>{editingId ? 'Edit' : 'Add'} Equipment Investment</DialogTitle>
+            <DialogTitle>{editingId ? 'Editar' : 'Agregar'} inversión en equipo</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div>
@@ -230,7 +219,7 @@ export const EquipmentInvestmentAnalysis = () => {
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label>Purchase Cost ($)</Label>
+                <Label>Costo de compra ($)</Label>
                 <Input
                   type="number"
                   step="0.01"
@@ -239,7 +228,7 @@ export const EquipmentInvestmentAnalysis = () => {
                 />
               </div>
               <div>
-                <Label>Est. Annual Savings ($)</Label>
+                <Label>Ahorro anual estimado ($)</Label>
                 <Input
                   type="number"
                   step="0.01"
@@ -251,9 +240,9 @@ export const EquipmentInvestmentAnalysis = () => {
 
             {formData.estimated_annual_savings > 0 && formData.purchase_cost > 0 && (
               <div className="p-3 bg-primary/10 rounded-md">
-                <div className="text-sm font-medium">Estimated Payback Period</div>
+                <div className="text-sm font-medium">Período de recuperación estimado</div>
                 <div className="text-2xl font-bold text-primary">
-                  {Math.ceil((formData.purchase_cost / (formData.estimated_annual_savings / 12)))} months
+                  {Math.ceil((formData.purchase_cost / (formData.estimated_annual_savings / 12)))} meses
                 </div>
               </div>
             )}
@@ -266,9 +255,9 @@ export const EquipmentInvestmentAnalysis = () => {
                 onChange={(e) => setFormData({ ...formData, status: e.target.value })}
               >
                 <option value="proposal">Propuesta</option>
-                <option value="approved">Approved</option>
-                <option value="rejected">Rejected</option>
-                <option value="completed">Completado</option>
+                <option value="approved">Aprobada</option>
+                <option value="rejected">Rechazada</option>
+                <option value="completed">Completada</option>
               </select>
             </div>
 
@@ -289,7 +278,7 @@ export const EquipmentInvestmentAnalysis = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Investment Proposals Table */}
+      {/* Tabla de propuestas */}
       <Card>
         <CardHeader>
           <CardTitle>Propuestas de inversión en equipos</CardTitle>
@@ -300,10 +289,10 @@ export const EquipmentInvestmentAnalysis = () => {
               <thead>
                 <tr className="border-b">
                   <th className="text-left py-2 px-4 font-medium">Equipo</th>
-                  <th className="text-left py-2 px-4 font-medium">Related To</th>
+                  <th className="text-left py-2 px-4 font-medium">Relacionado a</th>
                   <th className="text-right py-2 px-4 font-medium">Costo de compra</th>
-                  <th className="text-right py-2 px-4 font-medium">Annual Savings</th>
-                  <th className="text-right py-2 px-4 font-medium">Payback Period</th>
+                  <th className="text-right py-2 px-4 font-medium">Ahorro anual</th>
+                  <th className="text-right py-2 px-4 font-medium">Recuperación</th>
                   <th className="text-center py-2 px-4 font-medium">Estado</th>
                   <th className="text-center py-2 px-4 font-medium">Acciones</th>
                 </tr>
@@ -312,7 +301,7 @@ export const EquipmentInvestmentAnalysis = () => {
                 {investments.map((investment) => (
                   <tr key={investment.id} className="border-b hover:bg-muted/50">
                     <td className="py-2 px-4 font-semibold">{investment.equipment_name}</td>
-                    <td className="py-2 px-4">{investment.machines?.name || 'New Equipment'}</td>
+                    <td className="py-2 px-4">{investment.machines?.name || 'Equipo nuevo'}</td>
                     <td className="py-2 px-4 text-right font-semibold text-destructive">
                       ${Math.round(investment.purchase_cost).toLocaleString('es-CL')}
                     </td>
@@ -323,7 +312,7 @@ export const EquipmentInvestmentAnalysis = () => {
                       {investment.payback_period_months ? (
                         <div className="flex items-center justify-end gap-1">
                           <Clock className="h-4 w-4" />
-                          {investment.payback_period_months} months
+                          {investment.payback_period_months} meses
                         </div>
                       ) : (
                         '-'
@@ -331,7 +320,7 @@ export const EquipmentInvestmentAnalysis = () => {
                     </td>
                     <td className="py-2 px-4 text-center">
                       <Badge className={getStatusColor(investment.status || 'proposal')}>
-                        {investment.status || 'proposal'}
+                        {STATUS_LABEL[investment.status || 'proposal'] ?? investment.status}
                       </Badge>
                     </td>
                     <td className="py-2 px-4 text-center">
@@ -347,7 +336,7 @@ export const EquipmentInvestmentAnalysis = () => {
                               onClick={() => updateStatus(investment.id, 'approved')}
                               className="text-green-500"
                             >
-                              Approve
+                              Aprobar
                             </Button>
                             <Button
                               variant="ghost"
@@ -355,7 +344,7 @@ export const EquipmentInvestmentAnalysis = () => {
                               onClick={() => updateStatus(investment.id, 'rejected')}
                               className="text-red-500"
                             >
-                              Reject
+                              Rechazar
                             </Button>
                           </>
                         )}

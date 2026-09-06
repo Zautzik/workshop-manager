@@ -12,14 +12,16 @@
  * cobraba a un cliente sin que nadie lo viera.
  */
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { AlertTriangle, TrendingUp, TrendingDown, Minus } from 'lucide-react';
+import { AlertTriangle, TrendingUp, TrendingDown, Minus, CheckCircle2, Gauge } from 'lucide-react';
 import { formatCLP } from '@/lib/format';
+import { KpiCard } from '@/components/ui/kpi-card';
+import { RankedList, type RankedListItem } from '@/components/ui/ranked-list';
 
 interface MachineDriftRow {
   machine_id: string;
@@ -74,6 +76,24 @@ export function MachineEconomicsDrift() {
   const [hours, setHours] = useState(195);
   const { data, isLoading, isError } = useMachineEconomics(hours);
 
+  // Los hooks van antes de cualquier `return` anticipado (loading/error) --
+  // si no, se saltan en algunos renders y React se queja de "more hooks than
+  // during the previous render" apenas la data llega.
+  const rankedUndercharging: RankedListItem[] = useMemo(() => {
+    const undercharging = (data?.machines ?? []).filter((m) => m.data_complete && m.drift.direction === 'under');
+    const sorted = [...undercharging].sort((a, b) => (b.drift.deltaPct ?? 0) - (a.drift.deltaPct ?? 0));
+    const max = Math.max(1, ...sorted.map((m) => m.drift.deltaPct ?? 0));
+    return sorted.map((m) => ({
+      id: m.machine_id,
+      label: m.name,
+      sublabel: m.type,
+      barPct: ((m.drift.deltaPct ?? 0) / max) * 100,
+      barColor: '#ef4444',
+      value: `+${m.drift.deltaPct}%`,
+      title: `Cuesta ${formatCLP(m.derived_hourly)}/hr real vs ${formatCLP(m.drift.catalog)}/hr de catálogo`,
+    }));
+  }, [data?.machines]);
+
   if (isLoading) {
     return <p className="text-sm text-muted-foreground">Calculando economía de máquinas…</p>;
   }
@@ -85,6 +105,27 @@ export function MachineEconomicsDrift() {
 
   return (
     <div className="space-y-6">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <KpiCard icon={TrendingUp} label="Cobrando bajo costo" value={String(data.summary.undercharging)} tone={data.summary.undercharging > 0 ? 'critical' : 'default'} />
+        <KpiCard icon={TrendingDown} label="Cobrando sobre costo" value={String(data.summary.overcharging)} tone={data.summary.overcharging > 0 ? 'warning' : 'default'} />
+        <KpiCard icon={CheckCircle2} label="Alineadas" value={String(data.summary.aligned)} tone="success" />
+        <KpiCard icon={Gauge} label="Con datos completos" value={`${data.summary.with_complete_economics}/${data.summary.total}`} />
+      </div>
+
+      {rankedUndercharging.length > 0 && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm">Máquinas que más se subcobran</CardTitle>
+            <p className="text-xs text-muted-foreground">
+              Cuánto más cuesta la hora real que la hora que el catálogo cobra por ella.
+            </p>
+          </CardHeader>
+          <CardContent>
+            <RankedList items={rankedUndercharging} visibleCount={5} />
+          </CardContent>
+        </Card>
+      )}
+
       <Card>
         <CardHeader className="flex flex-row items-center justify-between gap-4 space-y-0">
           <div>
@@ -110,15 +151,6 @@ export function MachineEconomicsDrift() {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="mb-4 flex flex-wrap items-center gap-x-6 gap-y-1 text-sm">
-            <span className="text-red-500 font-semibold">{data.summary.undercharging} cobrando bajo costo</span>
-            <span className="text-yellow-500 font-semibold">{data.summary.overcharging} sobre costo</span>
-            <span className="text-green-500 font-semibold">{data.summary.aligned} alineadas</span>
-            <span className="text-muted-foreground">
-              {data.summary.with_complete_economics}/{data.summary.total} con datos completos
-            </span>
-          </div>
-
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>

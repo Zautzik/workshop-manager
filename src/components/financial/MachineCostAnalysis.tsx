@@ -11,6 +11,7 @@ import { TrendingUp, TrendingDown, Plus, Edit2, AlertCircle } from 'lucide-react
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { KpiCard } from '@/components/ui/kpi-card';
 import { useMachineCosts } from '@/hooks/use-financial-queries';
 import { useMachines } from '@/hooks/use-operations-queries';
 
@@ -136,8 +137,23 @@ export const MachineCostAnalysis = () => {
     };
   });
 
+  const totalOperativo = chartData.reduce((s, d) => s + d['Operating Cost'], 0);
+  const totalTercerizacion = chartData.reduce((s, d) => s + d['Outsourcing Cost'], 0);
+  const convieneTercerizar = chartData.filter((d) => d.savings > 0).length;
+
   return (
     <div className="space-y-6">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <KpiCard icon={TrendingDown} label="Costo operativo total" value={`$${Math.round(totalOperativo).toLocaleString('es-CL')}`} hint="Promedio mensual, todas las máquinas" />
+        <KpiCard icon={TrendingUp} label="Costo de tercerizar todo" value={`$${Math.round(totalTercerizacion).toLocaleString('es-CL')}`} hint="Si se tercerizara cada máquina" />
+        <KpiCard
+          icon={AlertCircle}
+          label="Máquinas que conviene tercerizar"
+          value={String(convieneTercerizar)}
+          tone={convieneTercerizar > 0 ? 'warning' : 'default'}
+        />
+      </div>
+
       {/* Chart */}
       <Card>
         <CardHeader>
