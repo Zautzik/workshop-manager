@@ -17,10 +17,17 @@
  *
  * V2: mostraba las 39 órdenes -- 32 completadas incluidas -- en una sola
  * lista plana sin KPI ni agrupar, la misma trampa ya corregida en
- * Vencimientos. Se separa lo activo (pending/in_progress, siempre visible
- * completo -- es lo que hay que hacer) de lo completado (capado con "ver
- * todas", igual que el resto del módulo); el archivo cronológico completo
- * ya vive en Historial & KPIs, esto no intenta duplicarlo.
+ * Vencimientos. Se separa lo activo (pending/in_progress) de lo completado
+ * (capado con "ver todas", igual que el resto del módulo); el archivo
+ * cronológico completo ya vive en Historial & KPIs, esto no intenta
+ * duplicarlo.
+ *
+ * V3: la separación en sí no alcanzaba -- cada orden seguía siendo su
+ * propia Card con padding y borde, así que 7 activas + 6 completadas
+ * seguían leyéndose como una lista larga, sólo que partida en dos. Se pasa
+ * al mismo formato de fila compacta (una línea + detalle chico) que ya usan
+ * SchedulesSection/PendingOrdersSection en VencimientosPanel -- un único
+ * Card con divide-y por sección, no una Card por orden.
  */
 
 import { useMemo, useState } from 'react';
@@ -30,7 +37,7 @@ import { es } from 'date-fns/locale';
 import {
   ClipboardList, Calendar, Cpu, AlertCircle, Play, CheckCircle2, Wrench, Info, Clock,
 } from 'lucide-react';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -42,7 +49,8 @@ import { KpiCard } from '@/components/ui/kpi-card';
 import { useToast } from '@/hooks/use-toast';
 import { useMaintenanceWorkOrders } from '@/hooks/use-maintenance-queries';
 
-/** Cuántas órdenes completadas se muestran antes de pedir "ver todas". */
+/** Cuántas filas se muestran por sección antes de pedir "ver todas". */
+const VISIBLE_ACTIVE = 8;
 const VISIBLE_COMPLETED = 6;
 
 const STATUS_COLOR: Record<string, string> = {
@@ -257,26 +265,80 @@ function OrderDetailDialog({ order, onClose }: { order: any; onClose: () => void
   );
 }
 
-function OrderCard({ order, onClick }: { order: any; onClick: () => void }) {
+/** Fila compacta -- una línea de identidad + estado, una línea de detalle chico. */
+function OrderRow({ order, onClick }: { order: any; onClick: () => void }) {
+  const dotColor = STATUS_COLOR[order.status] ?? 'bg-gray-300';
   return (
-    <Card
-      className="cursor-pointer overflow-hidden transition-colors hover:bg-muted/40"
-      onClick={onClick}
-    >
-      <div className={`h-1 w-full ${STATUS_COLOR[order.status] ?? 'bg-gray-300'}`} />
-      <CardContent className="flex flex-col gap-3 p-3 sm:flex-row sm:items-center">
-        <div className="flex-1 space-y-0.5">
+    <li>
+      <button
+        type="button"
+        onClick={onClick}
+        className="flex w-full flex-wrap items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-muted/40"
+      >
+        <span className={`h-2 w-2 shrink-0 rounded-full ${dotColor}`} />
+        <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="text-sm font-semibold">{order.maintenance_checklists?.name ?? order.title ?? 'Sin checklist'}</span>
-            <Badge variant="outline" className="text-xs">{STATUS_LABEL[order.status] ?? order.status}</Badge>
-            {order.priority && <Badge className="bg-orange-500 text-xs text-white">Prioridad {order.priority}</Badge>}
+            <span className="truncate text-sm font-medium">{order.maintenance_checklists?.name ?? order.title ?? 'Sin checklist'}</span>
+            <Badge variant="outline" className="text-[10px]">{STATUS_LABEL[order.status] ?? order.status}</Badge>
+            {order.priority && <Badge className="bg-orange-500 text-[10px] text-white">Prioridad {order.priority}</Badge>}
           </div>
-          <div className="flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
+          <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
             {order.machines?.name && <span className="flex items-center gap-1"><Cpu className="h-3 w-3" />{order.machines.name}</span>}
-            {order.scheduled_date && <span className="flex items-center gap-1"><Calendar className="h-3 w-3" />{format(new Date(order.scheduled_date), 'PPP', { locale: es })}</span>}
-            {order.maintenance_checklists?.frequency && <span className="capitalize">{order.maintenance_checklists.frequency}</span>}
+            {order.scheduled_date && <span className="flex items-center gap-1"><Calendar className="h-3 w-3" />{format(new Date(order.scheduled_date), 'PP', { locale: es })}</span>}
           </div>
         </div>
+      </button>
+    </li>
+  );
+}
+
+function OrderSection({
+  title,
+  orders,
+  visibleCount,
+  emptyMessage,
+  onSelect,
+}: {
+  title: string;
+  orders: any[];
+  visibleCount: number;
+  emptyMessage?: string;
+  onSelect: (id: string) => void;
+}) {
+  const [showAll, setShowAll] = useState(false);
+  const shown = showAll ? orders : orders.slice(0, visibleCount);
+
+  if (orders.length === 0 && !emptyMessage) return null;
+
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-sm">{title}</CardTitle>
+      </CardHeader>
+      <CardContent className="p-0">
+        {orders.length === 0 ? (
+          <p className="flex items-center gap-2 px-4 py-6 text-sm text-muted-foreground">
+            <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-500" />
+            {emptyMessage}
+          </p>
+        ) : (
+          <>
+            <ul className="divide-y">
+              {shown.map((o: any) => (
+                <OrderRow key={o.id} order={o} onClick={() => onSelect(o.id)} />
+              ))}
+            </ul>
+            {orders.length > visibleCount && (
+              <button
+                type="button"
+                onClick={() => setShowAll((v) => !v)}
+                className="w-full border-t px-4 py-2 text-left text-xs font-medium text-primary hover:bg-muted/40"
+              >
+                {showAll ? `Mostrar sólo las primeras ${visibleCount}` : `Ver todas (${orders.length})`}
+              </button>
+            )}
+          </>
+        )}
       </CardContent>
     </Card>
   );
@@ -289,7 +351,6 @@ export function OrdenesPanel() {
   // de cuando se abrió (que decía "Pendiente" para siempre aunque el PATCH
   // ya hubiera cambiado el status en el servidor).
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [showAllCompleted, setShowAllCompleted] = useState(false);
   const selected = orders.find((o: any) => o.id === selectedId) ?? null;
 
   const pending = useMemo(() => orders.filter((o: any) => o.status === 'pending'), [orders]);
@@ -303,7 +364,6 @@ export function OrdenesPanel() {
     [orders],
   );
   const active = useMemo(() => [...inProgress, ...pending], [inProgress, pending]);
-  const shownCompleted = showAllCompleted ? completed : completed.slice(0, VISIBLE_COMPLETED);
   const totalMinutes = useMemo(() => completed.reduce((s: number, o: any) => s + (o.total_time_minutes ?? 0), 0), [completed]);
 
   if (isLoading) {
@@ -340,37 +400,20 @@ export function OrdenesPanel() {
         <KpiCard icon={Clock} label="Horas registradas" value={`${Math.round(totalMinutes / 60)} h`} hint="En órdenes completadas" />
       </div>
 
-      {active.length === 0 ? (
-        <p className="flex items-center gap-2 text-sm text-muted-foreground">
-          <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-500" />
-          Ninguna orden pendiente ni en curso — todo al día.
-        </p>
-      ) : (
-        <div className="space-y-2">
-          <h3 className="text-sm font-semibold text-foreground">Órdenes activas</h3>
-          {active.map((o: any) => (
-            <OrderCard key={o.id} order={o} onClick={() => setSelectedId(o.id)} />
-          ))}
-        </div>
-      )}
+      <OrderSection
+        title="Órdenes activas"
+        orders={active}
+        visibleCount={VISIBLE_ACTIVE}
+        emptyMessage="Ninguna orden pendiente ni en curso — todo al día."
+        onSelect={setSelectedId}
+      />
 
-      {completed.length > 0 && (
-        <div className="space-y-2">
-          <h3 className="text-sm font-semibold text-foreground">Completadas</h3>
-          {shownCompleted.map((o: any) => (
-            <OrderCard key={o.id} order={o} onClick={() => setSelectedId(o.id)} />
-          ))}
-          {completed.length > VISIBLE_COMPLETED && (
-            <button
-              type="button"
-              onClick={() => setShowAllCompleted((v) => !v)}
-              className="text-xs font-medium text-primary underline-offset-4 hover:underline"
-            >
-              {showAllCompleted ? `Mostrar sólo las últimas ${VISIBLE_COMPLETED}` : `Ver todas (${completed.length})`}
-            </button>
-          )}
-        </div>
-      )}
+      <OrderSection
+        title="Completadas"
+        orders={completed}
+        visibleCount={VISIBLE_COMPLETED}
+        onSelect={setSelectedId}
+      />
 
       {selected && <OrderDetailDialog key={selected.id} order={selected} onClose={() => setSelectedId(null)} />}
     </div>
