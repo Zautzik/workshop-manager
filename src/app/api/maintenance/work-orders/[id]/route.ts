@@ -116,6 +116,7 @@ async function syncDowntime(
       if (!existing) {
         await supabaseAdmin.from('machine_downtime_logs').insert({
           machine_id: order.machine_id,
+          work_order_id: order.id,
           reason,
           start_time: order.started_at ?? new Date().toISOString(),
           impact_description: 'Máquina fuera de servicio por mantención',

@@ -32,7 +32,7 @@ export async function GET(req: NextRequest) {
   const [logsRes, machinesRes] = await Promise.all([
     supabaseAdmin
       .from('machine_downtime_logs')
-      .select('id, machine_id, reason, start_time, end_time, duration_hours, impact_description')
+      .select('id, machine_id, reason, start_time, end_time, duration_hours, impact_description, work_order_id')
       .gte('start_time', since.toISOString())
       .order('start_time', { ascending: false }),
     supabaseAdmin.from('machines').select('id, name, type, status').eq('is_active', true),
@@ -45,6 +45,25 @@ export async function GET(req: NextRequest) {
   const logs = logsRes.data ?? [];
   const machines = machinesRes.data ?? [];
 
+  // MTBF/MTTR sólo tienen sentido contados sobre FALLAS — una parada
+  // correctiva. `work_order_id` recién existe (ver migración
+  // 20260910120000): las filas de antes quedan sin atribuir y no entran acá,
+  // pero sí siguen contando para la disponibilidad general de abajo, que
+  // debe incluir toda parada, planificada o no.
+  const workOrderIds = logs
+    .map((l) => l.work_order_id)
+    .filter((id): id is string => !!id);
+  let correctiveOrderIds = new Set<string>();
+  if (workOrderIds.length > 0) {
+    const { data: orders } = await supabaseAdmin
+      .from('maintenance_work_orders')
+      .select('id, work_order_type')
+      .in('id', workOrderIds);
+    correctiveOrderIds = new Set(
+      (orders ?? []).filter((o) => o.work_order_type === 'correctivo').map((o) => o.id)
+    );
+  }
+
   const hoursFor = (log: (typeof logs)[number]) => {
     if (log.duration_hours != null) return Number(log.duration_hours);
     // Still open — count it up to now, don't pretend it hasn't happened.
@@ -53,19 +72,29 @@ export async function GET(req: NextRequest) {
     return Math.max(0, (end - start) / 3_600_000);
   };
 
-  const byMachine = new Map<string, { hours: number; events: number; open: boolean }>();
+  const byMachine = new Map<
+    string,
+    { hours: number; events: number; open: boolean; correctiveHours: number; correctiveEvents: number }
+  >();
   for (const log of logs) {
     if (!log.machine_id) continue;
-    const acc = byMachine.get(log.machine_id) ?? { hours: 0, events: 0, open: false };
-    acc.hours += hoursFor(log);
+    const acc = byMachine.get(log.machine_id) ?? {
+      hours: 0, events: 0, open: false, correctiveHours: 0, correctiveEvents: 0,
+    };
+    const hours = hoursFor(log);
+    acc.hours += hours;
     acc.events += 1;
     if (!log.end_time) acc.open = true;
+    if (log.work_order_id && correctiveOrderIds.has(log.work_order_id)) {
+      acc.correctiveHours += hours;
+      acc.correctiveEvents += 1;
+    }
     byMachine.set(log.machine_id, acc);
   }
 
   const rows = machines
     .map((m) => {
-      const acc = byMachine.get(m.id) ?? { hours: 0, events: 0, open: false };
+      const acc = byMachine.get(m.id) ?? { hours: 0, events: 0, open: false, correctiveHours: 0, correctiveEvents: 0 };
       const downtimeHours = Math.round(acc.hours * 100) / 100;
       const availability = Math.max(0, Math.min(1, 1 - downtimeHours / windowHours));
       return {
@@ -77,11 +106,19 @@ export async function GET(req: NextRequest) {
         downtime_events: acc.events,
         currently_down: acc.open,
         availability_pct: Math.round(availability * 1000) / 10,
+        corrective_events: acc.correctiveEvents,
+        corrective_downtime_hours: Math.round(acc.correctiveHours * 100) / 100,
       };
     })
     .sort((a, b) => b.downtime_hours - a.downtime_hours);
 
   const totalDowntime = rows.reduce((s, r) => s + r.downtime_hours, 0);
+  const totalCorrectiveEvents = rows.reduce((s, r) => s + r.corrective_events, 0);
+  const totalCorrectiveHours = rows.reduce((s, r) => s + r.corrective_downtime_hours, 0);
+  // Tiempo operativo de toda la flota: la ventana de cada máquina menos TODA
+  // su parada (preventiva incluida — mientras se hace mantención tampoco
+  // produce), dividido sólo entre las fallas correctivas.
+  const totalUptimeHours = Math.max(0, windowHours * rows.length - totalDowntime);
 
   return NextResponse.json({
     window_days: days,
@@ -93,6 +130,11 @@ export async function GET(req: NextRequest) {
         rows.length > 0
           ? Math.round((rows.reduce((s, r) => s + r.availability_pct, 0) / rows.length) * 10) / 10
           : 100,
+      corrective_events: totalCorrectiveEvents,
+      // null, nunca 0 ni Infinity: sin fallas correctivas atribuidas todavía
+      // no hay MTBF/MTTR que mostrar, y un cero se leería como "nunca falla".
+      mtbf_hours: totalCorrectiveEvents > 0 ? Math.round((totalUptimeHours / totalCorrectiveEvents) * 10) / 10 : null,
+      mttr_hours: totalCorrectiveEvents > 0 ? Math.round((totalCorrectiveHours / totalCorrectiveEvents) * 10) / 10 : null,
     },
     recent: logs.slice(0, 20),
   });

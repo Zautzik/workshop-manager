@@ -2346,6 +2346,7 @@ export type Database = {
           reason: string
           start_time: string
           updated_at: string | null
+          work_order_id: string | null
         }
         Insert: {
           created_at?: string | null
@@ -2358,6 +2359,7 @@ export type Database = {
           reason: string
           start_time: string
           updated_at?: string | null
+          work_order_id?: string | null
         }
         Update: {
           created_at?: string | null
@@ -2370,6 +2372,7 @@ export type Database = {
           reason?: string
           start_time?: string
           updated_at?: string | null
+          work_order_id?: string | null
         }
         Relationships: [
           {
@@ -2392,6 +2395,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "planta_live"
             referencedColumns: ["workstation_id"]
+          },
+          {
+            foreignKeyName: "machine_downtime_logs_work_order_id_fkey"
+            columns: ["work_order_id"]
+            isOneToOne: false
+            referencedRelation: "maintenance_work_orders"
+            referencedColumns: ["id"]
           },
         ]
       }
