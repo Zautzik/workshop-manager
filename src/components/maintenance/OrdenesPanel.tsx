@@ -14,6 +14,13 @@
  * Acá el detalle de cada ítem vive en completed_items (JSONB) directamente en
  * la orden — un snapshot, no un join en vivo a la checklist, así que editar
  * la checklist después no reescribe lo que esta orden ya hizo.
+ *
+ * V2: mostraba las 39 órdenes -- 32 completadas incluidas -- en una sola
+ * lista plana sin KPI ni agrupar, la misma trampa ya corregida en
+ * Vencimientos. Se separa lo activo (pending/in_progress, siempre visible
+ * completo -- es lo que hay que hacer) de lo completado (capado con "ver
+ * todas", igual que el resto del módulo); el archivo cronológico completo
+ * ya vive en Historial & KPIs, esto no intenta duplicarlo.
  */
 
 import { useMemo, useState } from 'react';
@@ -21,7 +28,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import {
-  ClipboardList, Calendar, Cpu, AlertCircle, Play, CheckCircle2, Wrench, Info,
+  ClipboardList, Calendar, Cpu, AlertCircle, Play, CheckCircle2, Wrench, Info, Clock,
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -31,8 +38,12 @@ import { Progress } from '@/components/ui/progress';
 import { Textarea } from '@/components/ui/textarea';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { KpiCard } from '@/components/ui/kpi-card';
 import { useToast } from '@/hooks/use-toast';
 import { useMaintenanceWorkOrders } from '@/hooks/use-maintenance-queries';
+
+/** Cuántas órdenes completadas se muestran antes de pedir "ver todas". */
+const VISIBLE_COMPLETED = 6;
 
 const STATUS_COLOR: Record<string, string> = {
   pending:     'bg-amber-500',
@@ -246,6 +257,31 @@ function OrderDetailDialog({ order, onClose }: { order: any; onClose: () => void
   );
 }
 
+function OrderCard({ order, onClick }: { order: any; onClick: () => void }) {
+  return (
+    <Card
+      className="cursor-pointer overflow-hidden transition-colors hover:bg-muted/40"
+      onClick={onClick}
+    >
+      <div className={`h-1 w-full ${STATUS_COLOR[order.status] ?? 'bg-gray-300'}`} />
+      <CardContent className="flex flex-col gap-3 p-3 sm:flex-row sm:items-center">
+        <div className="flex-1 space-y-0.5">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-sm font-semibold">{order.maintenance_checklists?.name ?? order.title ?? 'Sin checklist'}</span>
+            <Badge variant="outline" className="text-xs">{STATUS_LABEL[order.status] ?? order.status}</Badge>
+            {order.priority && <Badge className="bg-orange-500 text-xs text-white">Prioridad {order.priority}</Badge>}
+          </div>
+          <div className="flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
+            {order.machines?.name && <span className="flex items-center gap-1"><Cpu className="h-3 w-3" />{order.machines.name}</span>}
+            {order.scheduled_date && <span className="flex items-center gap-1"><Calendar className="h-3 w-3" />{format(new Date(order.scheduled_date), 'PPP', { locale: es })}</span>}
+            {order.maintenance_checklists?.frequency && <span className="capitalize">{order.maintenance_checklists.frequency}</span>}
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 export function OrdenesPanel() {
   const { data: orders = [], isLoading, isError, error } = useMaintenanceWorkOrders();
   // El id, no el objeto: así el diálogo siempre lee el status recién
@@ -253,9 +289,33 @@ export function OrdenesPanel() {
   // de cuando se abrió (que decía "Pendiente" para siempre aunque el PATCH
   // ya hubiera cambiado el status en el servidor).
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [showAllCompleted, setShowAllCompleted] = useState(false);
   const selected = orders.find((o: any) => o.id === selectedId) ?? null;
 
-  if (isLoading) return <div className="space-y-3">{[...Array(5)].map((_, i) => <Skeleton key={i} className="h-20 w-full" />)}</div>;
+  const pending = useMemo(() => orders.filter((o: any) => o.status === 'pending'), [orders]);
+  const inProgress = useMemo(() => orders.filter((o: any) => o.status === 'in_progress'), [orders]);
+  // La API devuelve las órdenes ordenadas por scheduled_date ascendente; acá
+  // interesa la más reciente primero -- "completadas" es un vistazo de
+  // actividad reciente, no el archivo cronológico completo (eso vive en
+  // Historial & KPIs).
+  const completed = useMemo(
+    () => orders.filter((o: any) => o.status === 'completed').slice().reverse(),
+    [orders],
+  );
+  const active = useMemo(() => [...inProgress, ...pending], [inProgress, pending]);
+  const shownCompleted = showAllCompleted ? completed : completed.slice(0, VISIBLE_COMPLETED);
+  const totalMinutes = useMemo(() => completed.reduce((s: number, o: any) => s + (o.total_time_minutes ?? 0), 0), [completed]);
+
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-24 w-full" />)}
+        </div>
+        <div className="space-y-3">{[...Array(4)].map((_, i) => <Skeleton key={i} className="h-16 w-full" />)}</div>
+      </div>
+    );
+  }
   if (isError) return (
     <Card className="border-destructive/30 bg-destructive/5">
       <CardContent className="flex items-center gap-3 p-6">
@@ -272,30 +332,45 @@ export function OrdenesPanel() {
   );
 
   return (
-    <div className="space-y-3">
-      {orders.map((o: any) => (
-        <Card
-          key={o.id}
-          className="cursor-pointer overflow-hidden transition-colors hover:bg-muted/40"
-          onClick={() => setSelectedId(o.id)}
-        >
-          <div className={`h-1 w-full ${STATUS_COLOR[o.status] ?? 'bg-gray-300'}`} />
-          <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center">
-            <div className="flex-1 space-y-1">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="text-sm font-semibold">{o.maintenance_checklists?.name ?? o.title ?? 'Sin checklist'}</span>
-                <Badge variant="outline" className="text-xs">{STATUS_LABEL[o.status] ?? o.status}</Badge>
-                {o.priority && <Badge className="bg-orange-500 text-xs text-white">Prioridad {o.priority}</Badge>}
-              </div>
-              <div className="flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
-                {o.machines?.name && <span className="flex items-center gap-1"><Cpu className="h-3 w-3" />{o.machines.name}</span>}
-                {o.scheduled_date && <span className="flex items-center gap-1"><Calendar className="h-3 w-3" />{format(new Date(o.scheduled_date), 'PPP', { locale: es })}</span>}
-                {o.maintenance_checklists?.frequency && <span className="capitalize">{o.maintenance_checklists.frequency}</span>}
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      ))}
+    <div className="space-y-6">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <KpiCard icon={ClipboardList} label="Pendientes" value={String(pending.length)} tone={pending.length > 0 ? 'warning' : 'default'} />
+        <KpiCard icon={Play} label="En curso" value={String(inProgress.length)} tone={inProgress.length > 0 ? 'info' : 'default'} />
+        <KpiCard icon={CheckCircle2} label="Completadas" value={String(completed.length)} tone="success" />
+        <KpiCard icon={Clock} label="Horas registradas" value={`${Math.round(totalMinutes / 60)} h`} hint="En órdenes completadas" />
+      </div>
+
+      {active.length === 0 ? (
+        <p className="flex items-center gap-2 text-sm text-muted-foreground">
+          <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-500" />
+          Ninguna orden pendiente ni en curso — todo al día.
+        </p>
+      ) : (
+        <div className="space-y-2">
+          <h3 className="text-sm font-semibold text-foreground">Órdenes activas</h3>
+          {active.map((o: any) => (
+            <OrderCard key={o.id} order={o} onClick={() => setSelectedId(o.id)} />
+          ))}
+        </div>
+      )}
+
+      {completed.length > 0 && (
+        <div className="space-y-2">
+          <h3 className="text-sm font-semibold text-foreground">Completadas</h3>
+          {shownCompleted.map((o: any) => (
+            <OrderCard key={o.id} order={o} onClick={() => setSelectedId(o.id)} />
+          ))}
+          {completed.length > VISIBLE_COMPLETED && (
+            <button
+              type="button"
+              onClick={() => setShowAllCompleted((v) => !v)}
+              className="text-xs font-medium text-primary underline-offset-4 hover:underline"
+            >
+              {showAllCompleted ? `Mostrar sólo las últimas ${VISIBLE_COMPLETED}` : `Ver todas (${completed.length})`}
+            </button>
+          )}
+        </div>
+      )}
 
       {selected && <OrderDetailDialog key={selected.id} order={selected} onClose={() => setSelectedId(null)} />}
     </div>
