@@ -14,19 +14,28 @@
  * "Crear orden" es lo que faltaba para que ver una pauta vencida sirviera de
  * algo: antes había que saber que existía /equipos/mecanica y crear la orden
  * a mano, sin que quedara enlazada a la pauta que la originó.
+ *
+ * V2: la lista de pautas mostraba las 29 —incluidas las 11 al día, con la
+ * misma tarjeta de 4 líneas que las vencidas— antes de llegar a las órdenes
+ * pendientes. Era la misma trampa que ya se corrigió en Rentabilidad: "no es
+ * un dashboard de un vistazo, es una tabla larga". Se resuelve igual: una
+ * fila de KPI arriba, filas de una línea (no cuatro), y lo que ya está al
+ * día se guarda detrás de un acordeón en vez de ocupar el mismo lugar que lo
+ * urgente.
  */
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { isPast, parseISO, differenceInDays, format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import {
-  CalendarClock, Gauge, TriangleAlert, CheckCircle2, HelpCircle, Wrench, Cpu, Calendar,
+  CalendarClock, Gauge, TriangleAlert, CheckCircle2, HelpCircle, Wrench, Cpu, Calendar, ChevronDown,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import { KpiCard } from '@/components/ui/kpi-card';
 import { useToast } from '@/hooks/use-toast';
 import {
   useMaintenanceWorkOrdersByStatus,
@@ -44,6 +53,8 @@ const STYLE: Record<DueStatus, { badge: string; icon: typeof TriangleAlert }> = 
 };
 
 const nf = new Intl.NumberFormat('es-CL', { maximumFractionDigits: 0 });
+/** Cuántas pautas accionables se muestran antes de pedir "ver todas". */
+const VISIBLE_SCHEDULES = 8;
 
 function useCreateOrderFromSchedule() {
   const queryClient = useQueryClient();
@@ -72,6 +83,7 @@ function useCreateOrderFromSchedule() {
   });
 }
 
+/** Una línea de nombre + badges, una línea de detalle -- no cuatro. */
 function ScheduleRowItem({
   row,
   onCreateOrder,
@@ -87,67 +99,63 @@ function ScheduleRowItem({
   const canCreate = Boolean(row.checklist_id);
   const showAction = row.due.status === 'vencida' || row.due.status === 'proxima';
 
+  const detailParts = [
+    row.frequency_days ? `cada ${row.frequency_days} días` : null,
+    row.frequency_usage ? `cada ${nf.format(row.frequency_usage)} ${unidad}` : null,
+    row.checklist_name,
+  ].filter(Boolean) as string[];
+
   return (
-    <li className="flex flex-wrap items-start justify-between gap-3 p-4">
+    <li className="flex flex-wrap items-center justify-between gap-3 px-4 py-2.5">
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="font-medium">{row.machine_name ?? 'Sin máquina'}</span>
-          <Badge variant="secondary" className="text-xs">{row.maintenance_type}</Badge>
-          {row.machine_systems?.name && (
-            <span className="text-xs text-muted-foreground">{row.machine_systems.name}</span>
-          )}
-        </div>
-        {row.description && (
-          <p className="mt-0.5 text-sm text-muted-foreground">{row.description}</p>
-        )}
-        <p className="mt-1 text-xs text-muted-foreground">{row.due.reason}</p>
-        <p className="mt-1 flex flex-wrap gap-3 text-xs text-muted-foreground">
-          {row.frequency_days ? <span>cada {row.frequency_days} días</span> : null}
-          {row.frequency_usage ? (
-            <span className="inline-flex items-center gap-1">
-              <Gauge className="h-3 w-3" />
-              cada {nf.format(row.frequency_usage)} {unidad}
-            </span>
-          ) : null}
-          {row.checklist_name && <span>· {row.checklist_name}</span>}
-        </p>
-      </div>
-
-      <div className="flex shrink-0 flex-col items-end gap-2">
-        <div className="flex items-center gap-2">
-          {row.due.driver && (
-            <Badge variant="outline" className="gap-1 text-xs">
-              {row.due.driver === 'uso' ? <Gauge className="h-3 w-3" /> : <CalendarClock className="h-3 w-3" />}
-              por {row.due.driver}
-            </Badge>
-          )}
-          <Badge variant="outline" className={`gap-1 ${st.badge}`}>
+          <span className="text-sm font-medium">{row.machine_name ?? 'Sin máquina'}</span>
+          <Badge variant="outline" className={`gap-1 text-[10px] ${st.badge}`}>
             <Icon className="h-3 w-3" />
             {DUE_STATUS_LABEL[row.due.status]}
           </Badge>
+          {row.due.driver && (
+            <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground">
+              {row.due.driver === 'uso' ? <Gauge className="h-2.5 w-2.5" /> : <CalendarClock className="h-2.5 w-2.5" />}
+              por {row.due.driver}
+            </span>
+          )}
         </div>
-        {showAction && (
-          <Button
-            size="sm"
-            variant={canCreate ? 'default' : 'outline'}
-            disabled={!canCreate || creatingId === row.id}
-            title={canCreate ? undefined : 'Esta pauta no tiene checklist — agrégale una en Pautas antes de crear la orden'}
-            onClick={() => onCreateOrder(row)}
-          >
-            <Wrench className="mr-1.5 h-3.5 w-3.5" />
-            {creatingId === row.id ? 'Creando…' : 'Crear orden'}
-          </Button>
-        )}
+        <p className="mt-0.5 truncate text-xs text-muted-foreground">
+          {row.due.reason}
+          {detailParts.length > 0 ? ` · ${detailParts.join(' · ')}` : ''}
+        </p>
       </div>
+
+      {showAction && (
+        <Button
+          size="sm"
+          variant={canCreate ? 'default' : 'outline'}
+          disabled={!canCreate || creatingId === row.id}
+          title={canCreate ? undefined : 'Esta pauta no tiene checklist — agrégale una en Pautas antes de crear la orden'}
+          onClick={() => onCreateOrder(row)}
+          className="shrink-0"
+        >
+          <Wrench className="mr-1.5 h-3.5 w-3.5" />
+          {creatingId === row.id ? 'Creando…' : 'Crear orden'}
+        </Button>
+      )}
     </li>
   );
 }
 
-function SchedulesSection() {
-  const { data, isLoading } = useMaintenanceSchedules();
+function SchedulesSection({
+  schedules,
+  summary,
+}: {
+  schedules: ScheduleRow[];
+  summary: Record<string, number>;
+}) {
   const { toast } = useToast();
   const createOrder = useCreateOrderFromSchedule();
   const [creatingId, setCreatingId] = useState<string | null>(null);
+  const [showAll, setShowAll] = useState(false);
+  const [showAlDia, setShowAlDia] = useState(false);
 
   const handleCreate = async (row: ScheduleRow) => {
     setCreatingId(row.id);
@@ -161,10 +169,19 @@ function SchedulesSection() {
     }
   };
 
-  if (isLoading) return <Skeleton className="h-64 w-full" />;
+  // Lo accionable primero (vencida, luego próxima); lo que ya está al día se
+  // guarda aparte -- no compite por el mismo espacio que lo urgente.
+  const accionables = useMemo(
+    () => schedules.filter((r) => r.due.status === 'vencida' || r.due.status === 'proxima')
+      .sort((a, b) => (a.due.status === b.due.status ? 0 : a.due.status === 'vencida' ? -1 : 1)),
+    [schedules],
+  );
+  const alDia = useMemo(
+    () => schedules.filter((r) => r.due.status !== 'vencida' && r.due.status !== 'proxima'),
+    [schedules],
+  );
 
-  const schedules = data?.schedules ?? [];
-  const s = data?.summary ?? {};
+  const shownAccionables = showAll ? accionables : accionables.slice(0, VISIBLE_SCHEDULES);
 
   return (
     <Card>
@@ -175,19 +192,19 @@ function SchedulesSection() {
             Pautas de mantenimiento
           </CardTitle>
           <div className="flex flex-wrap gap-2">
-            {Number(s.vencidas ?? 0) > 0 && (
-              <Badge variant="outline" className={STYLE.vencida.badge}>{s.vencidas} vencidas</Badge>
+            {Number(summary.vencidas ?? 0) > 0 && (
+              <Badge variant="outline" className={STYLE.vencida.badge}>{summary.vencidas} vencidas</Badge>
             )}
-            {Number(s.proximas ?? 0) > 0 && (
-              <Badge variant="outline" className={STYLE.proxima.badge}>{s.proximas} próximas</Badge>
+            {Number(summary.proximas ?? 0) > 0 && (
+              <Badge variant="outline" className={STYLE.proxima.badge}>{summary.proximas} próximas</Badge>
             )}
-            <Badge variant="secondary">{s.total ?? 0} en total</Badge>
+            <Badge variant="secondary">{summary.total ?? 0} en total</Badge>
           </div>
         </div>
       </CardHeader>
 
       <CardContent className="p-0">
-        {Number(s.por_uso ?? 0) === 0 && schedules.length > 0 && (
+        {Number(summary.por_uso ?? 0) === 0 && schedules.length > 0 && (
           <p className="mx-4 mb-3 flex items-start gap-2 rounded-lg border border-sky-500/30 bg-sky-500/10 p-3 text-xs text-sky-800 dark:text-sky-200">
             <Gauge className="mt-0.5 h-3.5 w-3.5 shrink-0" />
             Todas las pautas vencen sólo por calendario. Si le pones frecuencia por uso a las
@@ -200,53 +217,82 @@ function SchedulesSection() {
           <p className="py-10 text-center text-sm text-muted-foreground">
             No hay pautas cargadas. Cree una en la pestaña Pautas.
           </p>
+        ) : accionables.length === 0 ? (
+          <p className="flex items-center gap-2 px-4 py-8 text-center text-sm text-muted-foreground">
+            <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-500" />
+            Ninguna pauta vencida ni próxima — todo al día.
+          </p>
         ) : (
-          <ul className="divide-y">
-            {schedules.map((row) => (
-              <ScheduleRowItem key={row.id} row={row} onCreateOrder={handleCreate} creatingId={creatingId} />
-            ))}
-          </ul>
+          <>
+            <ul className="divide-y">
+              {shownAccionables.map((row) => (
+                <ScheduleRowItem key={row.id} row={row} onCreateOrder={handleCreate} creatingId={creatingId} />
+              ))}
+            </ul>
+            {accionables.length > VISIBLE_SCHEDULES && (
+              <button
+                type="button"
+                onClick={() => setShowAll((v) => !v)}
+                className="w-full border-t px-4 py-2 text-left text-xs font-medium text-primary hover:bg-muted/40"
+              >
+                {showAll ? `Mostrar sólo las primeras ${VISIBLE_SCHEDULES}` : `Ver todas (${accionables.length})`}
+              </button>
+            )}
+          </>
+        )}
+
+        {alDia.length > 0 && (
+          <div className="border-t">
+            <button
+              type="button"
+              onClick={() => setShowAlDia((v) => !v)}
+              className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-xs font-medium text-muted-foreground hover:bg-muted/40"
+            >
+              <ChevronDown className={`h-3.5 w-3.5 transition-transform ${showAlDia ? 'rotate-180' : ''}`} />
+              {alDia.length} al día — sin acción pendiente
+            </button>
+            {showAlDia && (
+              <ul className="divide-y border-t">
+                {alDia.map((row) => (
+                  <ScheduleRowItem key={row.id} row={row} onCreateOrder={handleCreate} creatingId={creatingId} />
+                ))}
+              </ul>
+            )}
+          </div>
         )}
       </CardContent>
     </Card>
   );
 }
 
-function PendingOrdersSection() {
-  const { data: orders = [], isLoading } = useMaintenanceWorkOrdersByStatus(['pending']);
-
-  if (isLoading) return <Skeleton className="h-40 w-full" />;
-
-  const overdue = orders.filter((o: any) => o.scheduled_date && isPast(parseISO(o.scheduled_date)));
-  const upcoming = orders.filter((o: any) => o.scheduled_date && !isPast(parseISO(o.scheduled_date)));
-
+function PendingOrdersSection({ overdue, upcoming }: { overdue: any[]; upcoming: any[] }) {
   if (overdue.length === 0 && upcoming.length === 0) return null;
 
   const Row = ({ o, overdue: isOverdue }: { o: any; overdue: boolean }) => {
     const daysOverdue = o.scheduled_date ? differenceInDays(new Date(), parseISO(o.scheduled_date)) : null;
     return (
-      <li className={`flex flex-wrap items-center justify-between gap-3 p-4 ${isOverdue ? 'bg-destructive/5' : ''}`}>
+      <li className={`flex flex-wrap items-center justify-between gap-3 px-4 py-2.5 ${isOverdue ? 'bg-destructive/5' : ''}`}>
         <div className="min-w-0 flex-1">
-          <p className="font-medium text-sm truncate">{o.maintenance_checklists?.name ?? o.title ?? 'Orden pendiente'}</p>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="truncate text-sm font-medium">{o.maintenance_checklists?.name ?? o.title ?? 'Orden pendiente'}</span>
+            <Badge className={isOverdue ? 'bg-destructive/90 text-white border-0 text-[10px] font-bold' : 'bg-amber-500/15 text-amber-600 border-amber-500/30 text-[10px] font-bold'}>
+              {isOverdue ? 'Vencida' : 'Próxima'}
+            </Badge>
+            {isOverdue && daysOverdue !== null && daysOverdue > 0 && (
+              <span className="text-[10px] font-semibold text-destructive/80">{daysOverdue}d atraso</span>
+            )}
+          </div>
           <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
             {o.machines?.name && (
               <span className="flex items-center gap-1"><Cpu className="h-3 w-3" />{o.machines.name}</span>
             )}
             {o.scheduled_date && (
-              <span className={`flex items-center gap-1 ${isOverdue ? 'text-destructive/80' : ''}`}>
+              <span className="flex items-center gap-1">
                 <Calendar className="h-3 w-3" />
                 {format(parseISO(o.scheduled_date), 'PP', { locale: es })}
               </span>
             )}
           </div>
-        </div>
-        <div className="flex shrink-0 flex-col items-end gap-1">
-          <Badge className={isOverdue ? 'bg-destructive/90 text-white border-0 text-[10px] font-bold' : 'bg-amber-500/15 text-amber-600 border-amber-500/30 text-[10px] font-bold'}>
-            {isOverdue ? 'Vencida' : 'Próxima'}
-          </Badge>
-          {isOverdue && daysOverdue !== null && daysOverdue > 0 && (
-            <span className="text-[10px] text-destructive/80 font-semibold">{daysOverdue}d atraso</span>
-          )}
         </div>
       </li>
     );
@@ -280,10 +326,35 @@ function PendingOrdersSection() {
 }
 
 export function VencimientosPanel() {
+  const { data: schedulesData, isLoading: loadingSchedules } = useMaintenanceSchedules();
+  const { data: orders = [], isLoading: loadingOrders } = useMaintenanceWorkOrdersByStatus(['pending']);
+
+  if (loadingSchedules || loadingOrders) {
+    return (
+      <div className="space-y-6">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-24 w-full" />)}
+        </div>
+        <Skeleton className="h-64 w-full" />
+      </div>
+    );
+  }
+
+  const schedules = schedulesData?.schedules ?? [];
+  const summary = (schedulesData?.summary ?? {}) as Record<string, number>;
+  const overdueOrders = orders.filter((o: any) => o.scheduled_date && isPast(parseISO(o.scheduled_date)));
+  const upcomingOrders = orders.filter((o: any) => o.scheduled_date && !isPast(parseISO(o.scheduled_date)));
+
   return (
     <div className="space-y-6">
-      <SchedulesSection />
-      <PendingOrdersSection />
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <KpiCard icon={TriangleAlert} label="Pautas vencidas" value={String(summary.vencidas ?? 0)} tone={Number(summary.vencidas ?? 0) > 0 ? 'critical' : 'default'} />
+        <KpiCard icon={CalendarClock} label="Pautas próximas" value={String(summary.proximas ?? 0)} tone={Number(summary.proximas ?? 0) > 0 ? 'warning' : 'default'} />
+        <KpiCard icon={TriangleAlert} label="Órdenes vencidas" value={String(overdueOrders.length)} tone={overdueOrders.length > 0 ? 'critical' : 'default'} hint="Emitidas, sin iniciar" />
+        <KpiCard icon={CalendarClock} label="Órdenes próximas" value={String(upcomingOrders.length)} tone={upcomingOrders.length > 0 ? 'warning' : 'default'} hint="Emitidas, sin iniciar" />
+      </div>
+      <SchedulesSection schedules={schedules} summary={summary} />
+      <PendingOrdersSection overdue={overdueOrders} upcoming={upcomingOrders} />
     </div>
   );
 }
