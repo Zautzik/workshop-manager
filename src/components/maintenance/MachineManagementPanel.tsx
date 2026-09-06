@@ -13,7 +13,6 @@ import {
   useDeleteMachine,
   useUpdateMachineStatus,
   MACHINE_TYPE_LABELS,
-  MACHINE_STATUS_LABELS,
   MACHINE_STATUS_COLOR,
   type Machine,
   type MachineStatus,
@@ -32,8 +31,11 @@ import {
   MapPin,
   Activity,
   ChevronRight,
+  Wrench,
+  PowerOff,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { KpiCard } from '@/components/ui/kpi-card';
 
 const STATUS_OPTIONS: { value: MachineStatus; label: string }[] = [
   { value: 'idle',        label: 'En espera' },
@@ -68,6 +70,16 @@ export function MachineManagementPanel() {
   // tipo de máquina: quien mira la flota está siguiendo el recorrido de un
   // trabajo, no un inventario alfabético.
   const grouped = useMemo(() => groupMachinesByPhase(filtered), [filtered]);
+
+  // Tres cubetas que responden la pregunta real ("¿la flota está sana?"),
+  // no los seis estados crudos del enum —la fila de pills que reemplaza esto
+  // ni siquiera cubría 'offline'/'setup'.
+  const fleetCounts = useMemo(() => {
+    const operativas = machines.filter(m => m.status === 'running' || m.status === 'idle' || m.status === 'setup').length;
+    const enMantencion = machines.filter(m => m.status === 'maintenance').length;
+    const fueraDeServicio = machines.filter(m => m.status === 'offline' || m.status === 'breakdown').length;
+    return { total: machines.length, operativas, enMantencion, fueraDeServicio };
+  }, [machines]);
 
   const openCreate = () => { setEditTarget(null); setDialogOpen(true); };
   const openEdit   = (m: Machine) => { setEditTarget(m); setDialogOpen(true); };
@@ -133,19 +145,14 @@ export function MachineManagementPanel() {
         </Button>
       </div>
 
-      {/* Summary bar */}
-      <div className="flex gap-3 flex-wrap text-sm">
-        {(['idle','running','maintenance','breakdown'] as MachineStatus[]).map(s => {
-          const count = machines.filter(m => m.status === s).length;
-          if (!count) return null;
-          return (
-            <div key={s} className={cn('flex items-center gap-1.5 px-3 py-1 rounded-full text-white text-xs font-medium', MACHINE_STATUS_COLOR[s])}>
-              <Activity className="h-3 w-3" />{MACHINE_STATUS_LABELS[s]}: {count}
-            </div>
-          );
-        })}
-        <span className="text-muted-foreground text-xs ml-auto self-center">{filtered.length} / {machines.length} máquinas</span>
+      {/* Resumen de la flota */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <KpiCard icon={Cpu} label="Total" value={String(fleetCounts.total)} tone="default" />
+        <KpiCard icon={Activity} label="Operativas" value={String(fleetCounts.operativas)} tone="success" />
+        <KpiCard icon={Wrench} label="En mantención" value={String(fleetCounts.enMantencion)} tone={fleetCounts.enMantencion > 0 ? 'warning' : 'default'} />
+        <KpiCard icon={PowerOff} label="Fuera de servicio" value={String(fleetCounts.fueraDeServicio)} tone={fleetCounts.fueraDeServicio > 0 ? 'critical' : 'default'} />
       </div>
+      <p className="text-xs text-muted-foreground">{filtered.length} / {machines.length} máquinas coinciden con el filtro</p>
 
       {/* Machine cards grid */}
       {filtered.length === 0 ? (
