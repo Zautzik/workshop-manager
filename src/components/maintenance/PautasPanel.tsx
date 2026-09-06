@@ -25,7 +25,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Plus, Pencil, Gauge, CalendarClock, ClipboardList } from 'lucide-react';
+import { Plus, Pencil, Gauge, CalendarClock, ClipboardList, ChevronDown, ChevronRight, Cpu } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useMaintenanceSchedules, useMaintenanceChecklists, type MaintenanceScheduleRow } from '@/hooks/use-maintenance-queries';
 import { usageUnitInline } from '@/types/machine-usage-unit';
@@ -301,17 +301,112 @@ function PautaDialog({
   );
 }
 
+interface MachineGroup {
+  machineId: string;
+  machineName: string;
+  rows: MaintenanceScheduleRow[];
+  needsAttention: boolean;
+}
+
+function groupByMachine(schedules: MaintenanceScheduleRow[]): MachineGroup[] {
+  const map = new Map<string, MachineGroup>();
+  for (const row of schedules) {
+    const key = row.machine_id;
+    const existing = map.get(key);
+    const attention = row.due.status === 'vencida' || row.due.status === 'proxima' || !row.checklist_id;
+    if (existing) {
+      existing.rows.push(row);
+      existing.needsAttention = existing.needsAttention || attention;
+    } else {
+      map.set(key, { machineId: key, machineName: row.machine_name ?? 'Sin máquina', rows: [row], needsAttention: attention });
+    }
+  }
+  return Array.from(map.values()).sort((a, b) => a.machineName.localeCompare(b.machineName));
+}
+
+function PautaRow({ row, onEdit }: { row: MaintenanceScheduleRow; onEdit: (row: MaintenanceScheduleRow) => void }) {
+  return (
+    <li className="flex flex-wrap items-center justify-between gap-3 p-3 pl-4">
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge variant="secondary" className="text-xs">{row.maintenance_type}</Badge>
+          {row.checklist_name ? (
+            <Badge variant="outline" className="text-xs">{row.checklist_name}</Badge>
+          ) : (
+            <Badge variant="outline" className="text-xs text-amber-600 border-amber-500/30">sin checklist</Badge>
+          )}
+        </div>
+        {row.description && <p className="mt-0.5 text-sm text-muted-foreground">{row.description}</p>}
+        <p className="mt-1 flex flex-wrap gap-3 text-xs text-muted-foreground">
+          {row.frequency_days ? <span>cada {row.frequency_days} días</span> : null}
+          {row.frequency_usage ? (
+            <span className="inline-flex items-center gap-1">
+              <Gauge className="h-3 w-3" />
+              cada {row.frequency_usage.toLocaleString('es-CL')} {row.usage_unit}
+            </span>
+          ) : null}
+        </p>
+      </div>
+      <Button variant="ghost" size="sm" onClick={() => onEdit(row)}>
+        <Pencil className="mr-1.5 h-3.5 w-3.5" /> Editar
+      </Button>
+    </li>
+  );
+}
+
+function MachineSection({
+  group,
+  defaultOpen,
+  onEdit,
+  onNewFor,
+}: {
+  group: MachineGroup;
+  defaultOpen: boolean;
+  onEdit: (row: MaintenanceScheduleRow) => void;
+  onNewFor: (machineId: string) => void;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <div className="border-b border-border/50 last:border-b-0">
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className="flex w-full items-center justify-between gap-2 bg-muted/20 px-4 py-2.5 text-left transition-colors hover:bg-muted/40"
+      >
+        <span className="flex items-center gap-2">
+          {open ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
+          <Cpu className="h-3.5 w-3.5 text-muted-foreground" />
+          <span className="font-medium text-sm">{group.machineName}</span>
+          {group.needsAttention && <Badge variant="outline" className="border-amber-500/30 text-amber-600 text-[10px]">necesita atención</Badge>}
+        </span>
+        <span className="text-xs text-muted-foreground">{group.rows.length} pauta{group.rows.length === 1 ? '' : 's'}</span>
+      </button>
+      {open && (
+        <ul className="divide-y">
+          {group.rows.map((row) => <PautaRow key={row.id} row={row} onEdit={onEdit} />)}
+          <li className="p-2">
+            <Button variant="ghost" size="sm" className="w-full text-muted-foreground hover:text-foreground" onClick={() => onNewFor(group.machineId)}>
+              <Plus className="mr-1.5 h-3.5 w-3.5" /> Nueva pauta para {group.machineName}
+            </Button>
+          </li>
+        </ul>
+      )}
+    </div>
+  );
+}
+
 export function PautasPanel() {
   const { data, isLoading } = useMaintenanceSchedules();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [draft, setDraft] = useState<PautaDraft>(emptyDraft());
 
   const openNew = () => { setDraft(emptyDraft()); setDialogOpen(true); };
+  const openNewFor = (machineId: string) => { setDraft({ ...emptyDraft(), machine_id: machineId }); setDialogOpen(true); };
   const openEdit = (row: MaintenanceScheduleRow) => { setDraft(toDraft(row)); setDialogOpen(true); };
 
   if (isLoading) return <Skeleton className="h-64 w-full" />;
 
   const schedules = data?.schedules ?? [];
+  const groups = groupByMachine(schedules);
 
   return (
     <Card>
@@ -322,41 +417,20 @@ export function PautasPanel() {
         </Button>
       </CardHeader>
       <CardContent className="p-0">
-        {schedules.length === 0 ? (
+        {groups.length === 0 ? (
           <p className="py-10 text-center text-sm text-muted-foreground">
             No hay pautas cargadas. Crea la primera con el botón de arriba.
           </p>
         ) : (
-          <ul className="divide-y">
-            {schedules.map((row) => (
-              <li key={row.id} className="flex flex-wrap items-center justify-between gap-3 p-4">
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-medium">{row.machine_name ?? 'Sin máquina'}</span>
-                    <Badge variant="secondary" className="text-xs">{row.maintenance_type}</Badge>
-                    {row.checklist_name ? (
-                      <Badge variant="outline" className="text-xs">{row.checklist_name}</Badge>
-                    ) : (
-                      <Badge variant="outline" className="text-xs text-amber-600 border-amber-500/30">sin checklist</Badge>
-                    )}
-                  </div>
-                  {row.description && <p className="mt-0.5 text-sm text-muted-foreground">{row.description}</p>}
-                  <p className="mt-1 flex flex-wrap gap-3 text-xs text-muted-foreground">
-                    {row.frequency_days ? <span>cada {row.frequency_days} días</span> : null}
-                    {row.frequency_usage ? (
-                      <span className="inline-flex items-center gap-1">
-                        <Gauge className="h-3 w-3" />
-                        cada {row.frequency_usage.toLocaleString('es-CL')} {row.usage_unit}
-                      </span>
-                    ) : null}
-                  </p>
-                </div>
-                <Button variant="ghost" size="sm" onClick={() => openEdit(row)}>
-                  <Pencil className="mr-1.5 h-3.5 w-3.5" /> Editar
-                </Button>
-              </li>
-            ))}
-          </ul>
+          groups.map((group) => (
+            <MachineSection
+              key={group.machineId}
+              group={group}
+              defaultOpen={group.needsAttention}
+              onEdit={openEdit}
+              onNewFor={openNewFor}
+            />
+          ))
         )}
       </CardContent>
 
