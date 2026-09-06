@@ -188,9 +188,11 @@ const DraggableChecklistItem = ({
   );
 };
 
+const EMPTY_CHECKLISTS: any[] = [];
+
 export default function MaintenanceChecklistEditor() {
   const { t } = useLanguage();
-  
+
   const [checklists, setChecklists] = useState<MaintenanceChecklist[]>([]);
   const [selectedChecklist, setSelectedChecklist] = useState<MaintenanceChecklist | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -198,7 +200,7 @@ export default function MaintenanceChecklistEditor() {
   const [editingItem, setEditingItem] = useState<ChecklistItem | null>(null);
   const [isPreviewMode, setIsPreviewMode] = useState(false);
 
-  const { data: rawChecklists = [], isError } = useMaintenanceChecklists();
+  const { data: rawChecklists = EMPTY_CHECKLISTS, isError } = useMaintenanceChecklists();
 
   useEffect(() => {
     if (isError) {
