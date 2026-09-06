@@ -39,6 +39,10 @@ const MAINTENANCE_TYPES = [
   { value: 'cleaning', label: 'Limpieza' },
 ];
 
+const MAINTENANCE_TYPE_LABEL: Record<string, string> = Object.fromEntries(
+  MAINTENANCE_TYPES.map((t) => [t.value, t.label])
+);
+
 interface MachineOption {
   id: string;
   name: string;
@@ -330,7 +334,7 @@ function PautaRow({ row, onEdit }: { row: MaintenanceScheduleRow; onEdit: (row: 
     <li className="flex flex-wrap items-center justify-between gap-3 p-3 pl-4">
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2">
-          <Badge variant="secondary" className="text-xs">{row.maintenance_type}</Badge>
+          <Badge variant="secondary" className="text-xs">{MAINTENANCE_TYPE_LABEL[row.maintenance_type] ?? row.maintenance_type}</Badge>
           {row.checklist_name ? (
             <Badge variant="outline" className="text-xs">{row.checklist_name}</Badge>
           ) : (

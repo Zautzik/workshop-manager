@@ -92,6 +92,14 @@ const priorityLabel: Record<ChecklistItem['priority'], string> = {
   critical: 'Crítica',
 };
 
+const maintenanceTypeLabel: Record<MaintenanceChecklist['maintenanceType'], string> = {
+  preventive: 'Preventivo',
+  corrective: 'Correctivo',
+  emergency: 'Emergencia',
+  inspection: 'Inspección',
+  cleaning: 'Limpieza',
+};
+
 /**
  * Los ítems reales conviven en al menos tres formas -- creados en este
  * editor (`{id, step, title, description, estimatedTime, priority,
@@ -554,7 +562,7 @@ export default function MaintenanceChecklistEditor() {
               <CardContent className="space-y-3">
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-muted-foreground">{checklist.items.length} ítems</span>
-                  <Badge variant="secondary">{checklist.maintenanceType}</Badge>
+                  <Badge variant="secondary">{maintenanceTypeLabel[checklist.maintenanceType] ?? checklist.maintenanceType}</Badge>
                 </div>
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <Clock size={16} />
@@ -611,7 +619,7 @@ export default function MaintenanceChecklistEditor() {
                     React). El Badge pasa a ser hermano del texto, no hijo suyo. */}
                 <div className="flex items-center mt-2">
                   <CardDescription>Máquina: {selectedChecklist.machineType}</CardDescription>
-                  <Badge variant="secondary" className="ml-4">{selectedChecklist.maintenanceType}</Badge>
+                  <Badge variant="secondary" className="ml-4">{maintenanceTypeLabel[selectedChecklist.maintenanceType] ?? selectedChecklist.maintenanceType}</Badge>
                 </div>
               </div>
               <div className="flex gap-2">
@@ -797,7 +805,7 @@ export default function MaintenanceChecklistEditor() {
               <div>
                 <CardTitle>{selectedChecklist.name} - Vista previa</CardTitle>
                 <CardDescription className="mt-2">
-                  Máquina: {selectedChecklist.machineType} | Tipo: {selectedChecklist.maintenanceType}
+                  Máquina: {selectedChecklist.machineType} | Tipo: {maintenanceTypeLabel[selectedChecklist.maintenanceType] ?? selectedChecklist.maintenanceType}
                 </CardDescription>
               </div>
               <Button onClick={() => setIsPreviewMode(false)} variant="outline">
@@ -811,7 +819,7 @@ export default function MaintenanceChecklistEditor() {
               <div className="text-center mb-6 pb-6 border-b-2 border-emerald-500/30">
                 <h1 className="text-2xl font-bold text-foreground mb-2">{selectedChecklist.name}</h1>
                 <p className="text-muted-foreground mb-4">
-                  Máquina: {selectedChecklist.machineType} | Mantenimiento: {selectedChecklist.maintenanceType}
+                  Máquina: {selectedChecklist.machineType} | Mantenimiento: {maintenanceTypeLabel[selectedChecklist.maintenanceType] ?? selectedChecklist.maintenanceType}
                 </p>
                 <div className="flex justify-center gap-6 text-sm">
                   <div>
