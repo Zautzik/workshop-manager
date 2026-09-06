@@ -25,7 +25,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Plus, Pencil, Gauge, CalendarClock, ClipboardList, ChevronDown, ChevronRight, Cpu } from 'lucide-react';
+import { Plus, Pencil, Gauge, CalendarClock, ClipboardList, ChevronDown, ChevronRight, Cpu, TriangleAlert, CheckCircle2 } from 'lucide-react';
+import { KpiCard } from '@/components/ui/kpi-card';
 import { useToast } from '@/hooks/use-toast';
 import { useMaintenanceSchedules, useMaintenanceChecklists, type MaintenanceScheduleRow } from '@/hooks/use-maintenance-queries';
 import { usageUnitInline } from '@/types/machine-usage-unit';
@@ -356,20 +357,21 @@ function PautaRow({ row, onEdit }: { row: MaintenanceScheduleRow; onEdit: (row: 
 
 function MachineSection({
   group,
-  defaultOpen,
+  open,
+  onToggle,
   onEdit,
   onNewFor,
 }: {
   group: MachineGroup;
-  defaultOpen: boolean;
+  open: boolean;
+  onToggle: () => void;
   onEdit: (row: MaintenanceScheduleRow) => void;
   onNewFor: (machineId: string) => void;
 }) {
-  const [open, setOpen] = useState(defaultOpen);
   return (
     <div className="border-b border-border/50 last:border-b-0">
       <button
-        onClick={() => setOpen((o) => !o)}
+        onClick={onToggle}
         className="flex w-full items-center justify-between gap-2 bg-muted/20 px-4 py-2.5 text-left transition-colors hover:bg-muted/40"
       >
         <span className="flex items-center gap-2">
@@ -398,6 +400,9 @@ export function PautasPanel() {
   const { data, isLoading } = useMaintenanceSchedules();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [draft, setDraft] = useState<PautaDraft>(emptyDraft());
+  // Se inicializa una sola vez cuando llegan los grupos -- después el
+  // usuario manda, no el estado de las pautas en cada refetch.
+  const [openMachines, setOpenMachines] = useState<Set<string> | null>(null);
 
   const openNew = () => { setDraft(emptyDraft()); setDialogOpen(true); };
   const openNewFor = (machineId: string) => { setDraft({ ...emptyDraft(), machine_id: machineId }); setDialogOpen(true); };
@@ -406,36 +411,67 @@ export function PautasPanel() {
   if (isLoading) return <Skeleton className="h-64 w-full" />;
 
   const schedules = data?.schedules ?? [];
+  const summary = (data?.summary ?? {}) as Record<string, number>;
+  const alDia = schedules.filter((s) => s.due.status === 'al_dia').length;
   const groups = groupByMachine(schedules);
 
+  const effectiveOpen = openMachines ?? new Set(groups.filter((g) => g.needsAttention).map((g) => g.machineId));
+  const toggleMachine = (id: string) => {
+    const next = new Set(effectiveOpen);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    setOpenMachines(next);
+  };
+  const allOpen = groups.length > 0 && groups.every((g) => effectiveOpen.has(g.machineId));
+
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between gap-3 space-y-0">
-        <CardTitle className="text-base">Pautas de mantenimiento</CardTitle>
-        <Button size="sm" onClick={openNew}>
-          <Plus className="mr-1.5 h-4 w-4" /> Nueva pauta
-        </Button>
-      </CardHeader>
-      <CardContent className="p-0">
-        {groups.length === 0 ? (
-          <p className="py-10 text-center text-sm text-muted-foreground">
-            No hay pautas cargadas. Crea la primera con el botón de arriba.
-          </p>
-        ) : (
-          groups.map((group) => (
-            <MachineSection
-              key={group.machineId}
-              group={group}
-              defaultOpen={group.needsAttention}
-              onEdit={openEdit}
-              onNewFor={openNewFor}
-            />
-          ))
-        )}
-      </CardContent>
+    <div className="space-y-6">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <KpiCard icon={TriangleAlert} label="Vencidas" value={String(summary.vencidas ?? 0)} tone={Number(summary.vencidas ?? 0) > 0 ? 'critical' : 'default'} />
+        <KpiCard icon={CalendarClock} label="Próximas" value={String(summary.proximas ?? 0)} tone={Number(summary.proximas ?? 0) > 0 ? 'warning' : 'default'} />
+        <KpiCard icon={CheckCircle2} label="Al día" value={String(alDia)} tone="success" />
+        <KpiCard icon={ClipboardList} label="Total pautas" value={String(summary.total ?? 0)} />
+      </div>
+
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between gap-3 space-y-0">
+          <CardTitle className="text-base">Pautas de mantenimiento</CardTitle>
+          <div className="flex items-center gap-2">
+            {groups.length > 0 && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setOpenMachines(allOpen ? new Set() : new Set(groups.map((g) => g.machineId)))}
+              >
+                {allOpen ? 'Colapsar todo' : 'Expandir todo'}
+              </Button>
+            )}
+            <Button size="sm" onClick={openNew}>
+              <Plus className="mr-1.5 h-4 w-4" /> Nueva pauta
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent className="p-0">
+          {groups.length === 0 ? (
+            <p className="py-10 text-center text-sm text-muted-foreground">
+              No hay pautas cargadas. Crea la primera con el botón de arriba.
+            </p>
+          ) : (
+            groups.map((group) => (
+              <MachineSection
+                key={group.machineId}
+                group={group}
+                open={effectiveOpen.has(group.machineId)}
+                onToggle={() => toggleMachine(group.machineId)}
+                onEdit={openEdit}
+                onNewFor={openNewFor}
+              />
+            ))
+          )}
+        </CardContent>
+      </Card>
 
       <PautaDialog open={dialogOpen} onClose={() => setDialogOpen(false)} draft={draft} />
-    </Card>
+    </div>
   );
 }
 
