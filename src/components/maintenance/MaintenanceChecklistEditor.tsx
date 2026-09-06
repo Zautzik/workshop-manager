@@ -1,20 +1,6 @@
 /**
- * @fileoverview Maintenance Checklist Editor Component
- * 
- * SYSTEM ROLE: Interactive Maintenance Task Creator & Manager
- * 
- * Features:
- * - âœ… Drag-and-drop reordering of checklist items
- * - ðŸ“ Rich text input for detailed instructions
- * - â±ï¸ Time estimates for each task
- * - ðŸŽ¯ Priority levels and tool requirements
- * - ðŸ”„ Duplicate checklist templates
- * - ðŸ’¾ Save/preview functionality
- * - ðŸ“± Fully responsive and mobile-friendly
- * 
- * Used by maintenance technicians and managers to plan equipment maintenance work.
- * 
- * Build: v1.0.1 - Fixed PointerSensor configuration
+ * Editor de checklists de mantenimiento: crear listas, agregar/editar/
+ * reordenar sus ítems por arrastrar y soltar, y una vista previa imprimible.
  */
 'use client';
 
@@ -68,7 +54,6 @@ import {
   Eye,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { useLanguage } from '@/contexts/LanguageContext';
 import { useMaintenanceChecklists } from '@/hooks/use-maintenance-queries';
 
 interface ChecklistItem {
@@ -76,7 +61,7 @@ interface ChecklistItem {
   step: number;
   title: string;
   description: string;
-  estimatedTime: number; // in minutes
+  estimatedTime: number; // en minutos
   priority: 'low' | 'medium' | 'high' | 'critical';
   toolsRequired: string[];
   completed?: boolean;
@@ -93,12 +78,44 @@ interface MaintenanceChecklist {
   updatedAt: Date;
 }
 
-const priorityColors = {
-  low: 'bg-blue-100 text-blue-800 border-blue-300',
-  medium: 'bg-yellow-100 text-yellow-800 border-yellow-300',
-  high: 'bg-orange-100 text-orange-800 border-orange-300',
-  critical: 'bg-red-100 text-red-800 border-red-300',
+const priorityColors: Record<ChecklistItem['priority'], string> = {
+  low: 'border-blue-500/30 bg-blue-500/15 text-blue-700 dark:text-blue-300',
+  medium: 'border-amber-500/30 bg-amber-500/15 text-amber-700 dark:text-amber-300',
+  high: 'border-orange-500/30 bg-orange-500/15 text-orange-700 dark:text-orange-300',
+  critical: 'border-red-500/30 bg-red-500/15 text-red-700 dark:text-red-300',
 };
+
+const priorityLabel: Record<ChecklistItem['priority'], string> = {
+  low: 'Baja',
+  medium: 'Media',
+  high: 'Alta',
+  critical: 'Crítica',
+};
+
+/**
+ * Los ítems reales conviven en al menos tres formas -- creados en este
+ * editor (`{id, step, title, description, estimatedTime, priority,
+ * toolsRequired}`), migrados desde manuales técnicos (`{id, title, section,
+ * actionType, estimatedTime}`, sin priority ni toolsRequired) y sembrados
+ * originalmente (`{order, description, estimated_minutes}`, sin id ni
+ * title siquiera). Sin normalizar acá, DraggableChecklistItem revienta
+ * leyendo `.toolsRequired.length` de un ítem migrado.
+ */
+function normalizeItem(raw: any, index: number): ChecklistItem {
+  // `...raw` primero: `section`/`actionType` (y cualquier otro campo de un
+  // ítem migrado) viajan aunque ChecklistItem no los tipe, así que abrir y
+  // guardar sin tocar nada no los borra.
+  return {
+    ...raw,
+    id: raw.id ?? `seed-${index}`,
+    step: raw.step ?? raw.order ?? index + 1,
+    title: raw.title ?? raw.description ?? `Paso ${index + 1}`,
+    description: raw.title ? (raw.description ?? '') : '',
+    estimatedTime: raw.estimatedTime ?? raw.estimated_minutes ?? 0,
+    priority: raw.priority ?? 'medium',
+    toolsRequired: Array.isArray(raw.toolsRequired) ? raw.toolsRequired : [],
+  };
+}
 
 const DraggableChecklistItem = ({
   item,
@@ -122,12 +139,12 @@ const DraggableChecklistItem = ({
     <div
       ref={setNodeRef}
       style={style}
-      className="flex items-start gap-3 p-4 bg-white border border-gray-200 rounded-lg hover:shadow-md transition-shadow"
+      className="flex items-start gap-3 p-4 bg-card border border-border rounded-lg hover:shadow-md transition-shadow"
     >
       <div
         {...attributes}
         {...listeners}
-        className="flex-shrink-0 mt-1 cursor-grab active:cursor-grabbing text-gray-400 hover:text-gray-600"
+        className="flex-shrink-0 mt-1 cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground"
       >
         <GripVertical size={20} />
       </div>
@@ -137,23 +154,23 @@ const DraggableChecklistItem = ({
           <span className="inline-flex items-center justify-center w-6 h-6 bg-primary text-primary-foreground rounded-full text-xs font-bold">
             {item.step}
           </span>
-          <h4 className="font-semibold text-gray-900 break-words">{item.title}</h4>
+          <h4 className="font-semibold text-foreground break-words">{item.title}</h4>
           <Badge className={priorityColors[item.priority]} variant="outline">
-            {item.priority}
+            {priorityLabel[item.priority]}
           </Badge>
         </div>
 
-        <p className="text-sm text-gray-600 mb-2 break-words">{item.description}</p>
+        <p className="text-sm text-muted-foreground mb-2 break-words">{item.description}</p>
 
         <div className="flex flex-wrap items-center gap-4 text-sm">
-          <div className="flex items-center gap-1 text-gray-500">
+          <div className="flex items-center gap-1 text-muted-foreground">
             <Clock size={16} />
             <span>{item.estimatedTime} min</span>
           </div>
 
           {item.toolsRequired.length > 0 && (
             <div className="flex items-center gap-2">
-              <span className="text-gray-500">Tools:</span>
+              <span className="text-muted-foreground">Herramientas:</span>
               <div className="flex flex-wrap gap-1">
                 {item.toolsRequired.map((tool, idx) => (
                   <Badge key={idx} variant="secondary" className="text-xs">
@@ -171,15 +188,15 @@ const DraggableChecklistItem = ({
           variant="outline"
           size="sm"
           onClick={() => onEdit(item)}
-          className="text-blue-600 hover:text-blue-700"
+          className="text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
         >
-          Edit
+          Editar
         </Button>
         <Button
           variant="outline"
           size="sm"
           onClick={() => onDelete(item.id)}
-          className="text-red-600 hover:text-red-700"
+          className="text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
         >
           <Trash2 size={16} />
         </Button>
@@ -191,8 +208,6 @@ const DraggableChecklistItem = ({
 const EMPTY_CHECKLISTS: any[] = [];
 
 export default function MaintenanceChecklistEditor() {
-  const { t } = useLanguage();
-
   const [checklists, setChecklists] = useState<MaintenanceChecklist[]>([]);
   const [selectedChecklist, setSelectedChecklist] = useState<MaintenanceChecklist | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -214,7 +229,7 @@ export default function MaintenanceChecklistEditor() {
       name: row.name,
       machineType: row.machine_type || row.machineType || '',
       maintenanceType: row.maintenance_type || row.maintenanceType || 'preventive',
-      items: Array.isArray(row.items) ? row.items : [],
+      items: Array.isArray(row.items) ? row.items.map(normalizeItem) : [],
       totalEstimatedTime: row.total_estimated_time ?? row.totalEstimatedTime ?? 0,
       createdAt: row.created_at ? new Date(row.created_at) : new Date(),
       updatedAt: row.updated_at ? new Date(row.updated_at) : new Date(),
@@ -465,7 +480,7 @@ export default function MaintenanceChecklistEditor() {
     const newChecklist = {
       ...checklist,
       id: `temp-${Date.now()}`,
-      name: `${checklist.name} (Copy)`,
+      name: `${checklist.name} (copia)`,
       createdAt: new Date(),
       updatedAt: new Date(),
     };
@@ -478,13 +493,13 @@ export default function MaintenanceChecklistEditor() {
     try {
       // Remove from local state immediately for UX
       setChecklists((prev) => prev.filter((c) => c.id !== checklistId));
-      
+
       // If it's a temp checklist, no need to delete from DB
       if (checklistId.startsWith('temp-')) {
         toast.success('Checklist eliminado');
         return;
       }
-      
+
       const res = await fetch(`/api/maintenance/checklists?id=${encodeURIComponent(checklistId)}`, {
         method: 'DELETE',
         credentials: 'include',
@@ -511,8 +526,8 @@ export default function MaintenanceChecklistEditor() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Listas de verificación de mantenimiento</h1>
-          <p className="text-gray-600 mt-1">Cree y administre procedimientos de mantenimiento detallados</p>
+          <h1 className="text-3xl font-bold text-foreground">Listas de verificación de mantenimiento</h1>
+          <p className="text-muted-foreground mt-1">Cree y administre procedimientos de mantenimiento detallados</p>
         </div>
         <Button
           onClick={() => setIsDialogOpen(true)}
@@ -538,10 +553,10 @@ export default function MaintenanceChecklistEditor() {
               </CardHeader>
               <CardContent className="space-y-3">
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-gray-600">{checklist.items.length} items</span>
+                  <span className="text-muted-foreground">{checklist.items.length} ítems</span>
                   <Badge variant="secondary">{checklist.maintenanceType}</Badge>
                 </div>
-                <div className="flex items-center gap-2 text-sm text-gray-600">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <Clock size={16} />
                   <span>{checklist.totalEstimatedTime} min total</span>
                 </div>
@@ -556,12 +571,12 @@ export default function MaintenanceChecklistEditor() {
                     }}
                   >
                     <Copy size={14} className="mr-1" />
-                    Duplicate
+                    Duplicar
                   </Button>
                   <Button
                     variant="outline"
                     size="sm"
-                    className="flex-1 text-red-600 hover:text-red-700"
+                    className="flex-1 text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
                     onClick={(e) => {
                       e.stopPropagation();
                       handleDeleteChecklist(checklist.id);
@@ -576,8 +591,8 @@ export default function MaintenanceChecklistEditor() {
 
           {checklists.length === 0 && (
             <div className="col-span-full flex flex-col items-center justify-center p-12 text-center">
-              <CheckCircle2 size={48} className="text-gray-300 mb-4" />
-              <p className="text-gray-500 text-lg mb-4">Aún no hay listas de verificación</p>
+              <CheckCircle2 size={48} className="text-muted-foreground opacity-30 mb-4" />
+              <p className="text-muted-foreground text-lg mb-4">Aún no hay listas de verificación</p>
               <Button onClick={() => setIsDialogOpen(true)}>Cree su primera lista de verificación</Button>
             </div>
           )}
@@ -595,7 +610,7 @@ export default function MaintenanceChecklistEditor() {
                     puede ser hijo de un <p> (HTML inválido, error de hidratación en
                     React). El Badge pasa a ser hermano del texto, no hijo suyo. */}
                 <div className="flex items-center mt-2">
-                  <CardDescription>Machine: {selectedChecklist.machineType}</CardDescription>
+                  <CardDescription>Máquina: {selectedChecklist.machineType}</CardDescription>
                   <Badge variant="secondary" className="ml-4">{selectedChecklist.maintenanceType}</Badge>
                 </div>
               </div>
@@ -605,17 +620,17 @@ export default function MaintenanceChecklistEditor() {
                   onClick={() => setIsPreviewMode(true)}
                 >
                   <Eye size={16} className="mr-2" />
-                  Preview
+                  Vista previa
                 </Button>
                 <Button
                   onClick={() => setSelectedChecklist(null)}
                   variant="outline"
                 >
-                  Back
+                  Volver
                 </Button>
                 <Button onClick={handleSaveChecklist} className="bg-green-600 hover:bg-green-700">
                   <Save size={16} className="mr-2" />
-                  Save Checklist
+                  Guardar checklist
                 </Button>
               </div>
             </div>
@@ -623,16 +638,16 @@ export default function MaintenanceChecklistEditor() {
 
           <CardContent className="pt-6 space-y-6">
             {/* Add Item Form */}
-            <Card className="bg-blue-50 border-blue-200">
+            <Card className="bg-primary/5 border-primary/20">
               <CardHeader>
                 <CardTitle className="text-base">
-                  {isEditingItem ? 'âœï¸ Edit Checklist Item' : 'âž• Add New Item'}
+                  {isEditingItem ? '✏️ Editar ítem' : '➕ Agregar ítem nuevo'}
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <Label htmlFor="title">Item Title *</Label>
+                    <Label htmlFor="title">Título del ítem *</Label>
                     <Input
                       id="title"
                       placeholder="ej., Limpiar rodillos de tinta"
@@ -641,7 +656,7 @@ export default function MaintenanceChecklistEditor() {
                     />
                   </div>
                   <div>
-                    <Label htmlFor="time">Estimated Time (minutes) *</Label>
+                    <Label htmlFor="time">Tiempo estimado (minutos) *</Label>
                     <Input
                       id="time"
                       type="number"
@@ -700,7 +715,7 @@ export default function MaintenanceChecklistEditor() {
                         onKeyPress={(e) => e.key === 'Enter' && handleAddTool()}
                       />
                       <Button variant="outline" onClick={handleAddTool}>
-                        Add
+                        Agregar
                       </Button>
                     </div>
                   </div>
@@ -715,7 +730,7 @@ export default function MaintenanceChecklistEditor() {
                         className="cursor-pointer"
                         onClick={() => handleRemoveTool(tool)}
                       >
-                        {tool} âœ•
+                        {tool} ✕
                       </Badge>
                     ))}
                   </div>
@@ -725,7 +740,7 @@ export default function MaintenanceChecklistEditor() {
                   onClick={handleAddItem}
                   className="w-full bg-blue-600 hover:bg-blue-700"
                 >
-                  {isEditingItem ? 'Update Item' : 'Add Item'}
+                  {isEditingItem ? 'Actualizar ítem' : 'Agregar ítem'}
                 </Button>
               </CardContent>
             </Card>
@@ -734,10 +749,10 @@ export default function MaintenanceChecklistEditor() {
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <h3 className="text-lg font-semibold">
-                  Checklist Items ({selectedChecklist.items.length})
+                  Ítems del checklist ({selectedChecklist.items.length})
                 </h3>
-                <div className="text-sm text-gray-600">
-                  Total Time: <span className="font-semibold">{selectedChecklist.totalEstimatedTime} min</span>
+                <div className="text-sm text-muted-foreground">
+                  Tiempo total: <span className="font-semibold">{selectedChecklist.totalEstimatedTime} min</span>
                 </div>
               </div>
 
@@ -764,9 +779,9 @@ export default function MaintenanceChecklistEditor() {
                   </SortableContext>
                 </DndContext>
               ) : (
-                <div className="flex flex-col items-center justify-center p-8 text-center border-2 border-dashed border-gray-300 rounded-lg">
-                  <AlertCircle size={32} className="text-gray-300 mb-2" />
-                  <p className="text-gray-500">No items yet. Add your first maintenance step above.</p>
+                <div className="flex flex-col items-center justify-center p-8 text-center border-2 border-dashed border-border rounded-lg">
+                  <AlertCircle size={32} className="text-muted-foreground opacity-30 mb-2" />
+                  <p className="text-muted-foreground">Sin ítems todavía. Agrega el primer paso de mantención arriba.</p>
                 </div>
               )}
             </div>
@@ -776,42 +791,42 @@ export default function MaintenanceChecklistEditor() {
 
       {/* Preview Mode */}
       {selectedChecklist && isPreviewMode && (
-        <Card className="border-2 border-green-500">
-          <CardHeader className="bg-green-50">
+        <Card className="border-2 border-emerald-500/50">
+          <CardHeader className="bg-emerald-500/10">
             <div className="flex items-center justify-between">
               <div>
-                <CardTitle>{selectedChecklist.name} - Preview</CardTitle>
+                <CardTitle>{selectedChecklist.name} - Vista previa</CardTitle>
                 <CardDescription className="mt-2">
-                  Machine: {selectedChecklist.machineType} | Type: {selectedChecklist.maintenanceType}
+                  Máquina: {selectedChecklist.machineType} | Tipo: {selectedChecklist.maintenanceType}
                 </CardDescription>
               </div>
               <Button onClick={() => setIsPreviewMode(false)} variant="outline">
-                Back to Edit
+                Volver a editar
               </Button>
             </div>
           </CardHeader>
 
           <CardContent className="pt-6">
-            <div className="bg-green-50 p-6 rounded-lg space-y-4 print:bg-white">
-              <div className="text-center mb-6 pb-6 border-b-2 border-green-200">
-                <h1 className="text-2xl font-bold text-gray-900 mb-2">{selectedChecklist.name}</h1>
-                <p className="text-gray-600 mb-4">
+            <div className="bg-emerald-500/10 p-6 rounded-lg space-y-4 print:bg-white">
+              <div className="text-center mb-6 pb-6 border-b-2 border-emerald-500/30">
+                <h1 className="text-2xl font-bold text-foreground mb-2">{selectedChecklist.name}</h1>
+                <p className="text-muted-foreground mb-4">
                   Máquina: {selectedChecklist.machineType} | Mantenimiento: {selectedChecklist.maintenanceType}
                 </p>
                 <div className="flex justify-center gap-6 text-sm">
                   <div>
-                    <span className="font-semibold text-gray-900">{selectedChecklist.items.length}</span>
-                    <p className="text-gray-600">Pasos</p>
+                    <span className="font-semibold text-foreground">{selectedChecklist.items.length}</span>
+                    <p className="text-muted-foreground">Pasos</p>
                   </div>
                   <div>
-                    <span className="font-semibold text-gray-900">{selectedChecklist.totalEstimatedTime}</span>
-                    <p className="text-gray-600">Minutos</p>
+                    <span className="font-semibold text-foreground">{selectedChecklist.totalEstimatedTime}</span>
+                    <p className="text-muted-foreground">Minutos</p>
                   </div>
                   <div>
-                    <span className="font-semibold text-gray-900">
+                    <span className="font-semibold text-foreground">
                       {new Date(selectedChecklist.updatedAt).toLocaleDateString('es-CL')}
                     </span>
-                    <p className="text-gray-600">Última actualización</p>
+                    <p className="text-muted-foreground">Última actualización</p>
                   </div>
                 </div>
               </div>
@@ -824,45 +839,45 @@ export default function MaintenanceChecklistEditor() {
                         <div className="flex items-center justify-center w-8 h-8 bg-primary text-primary-foreground rounded-full font-bold text-sm">
                           {item.step}
                         </div>
-                        <h3 className="font-bold text-gray-900">{item.title}</h3>
+                        <h3 className="font-bold text-foreground">{item.title}</h3>
                       </div>
                       <Badge className={priorityColors[item.priority]} variant="outline">
-                        {item.priority.toUpperCase()}
+                        {priorityLabel[item.priority].toUpperCase()}
                       </Badge>
                     </div>
 
                     {item.description && (
-                      <p className="text-gray-700 mb-2 ml-11 whitespace-pre-wrap">{item.description}</p>
+                      <p className="text-foreground/90 mb-2 ml-11 whitespace-pre-wrap">{item.description}</p>
                     )}
 
                     <div className="flex flex-wrap gap-4 ml-11 text-sm">
-                      <div className="flex items-center gap-1 text-gray-600">
+                      <div className="flex items-center gap-1 text-muted-foreground">
                         <Clock size={14} />
                         {item.estimatedTime} min
                       </div>
 
                       {item.toolsRequired.length > 0 && (
                         <div className="flex items-center gap-2">
-                          <span className="text-gray-600">Tools:</span>
-                          <span className="text-gray-900 font-medium">
+                          <span className="text-muted-foreground">Herramientas:</span>
+                          <span className="text-foreground font-medium">
                             {item.toolsRequired.join(', ')}
                           </span>
                         </div>
                       )}
                     </div>
 
-                    <div className="mt-3 ml-11 flex items-center gap-2 p-2 bg-gray-100 rounded">
+                    <div className="mt-3 ml-11 flex items-center gap-2 p-2 bg-muted rounded">
                       <input type="checkbox" className="w-4 h-4 cursor-pointer" />
-                      <span className="text-sm text-gray-600">Completado</span>
+                      <span className="text-sm text-muted-foreground">Completado</span>
                     </div>
                   </div>
                 ))}
               </div>
 
-              <div className="mt-6 pt-6 border-t-2 border-gray-300 text-sm text-gray-600">
-                <p>Technician: _________________________</p>
-                <p>Date: _________________________</p>
-                <p>Notes: ___________________________________</p>
+              <div className="mt-6 pt-6 border-t-2 border-border text-sm text-muted-foreground">
+                <p>Técnico: _________________________</p>
+                <p>Fecha: _________________________</p>
+                <p>Notas: ___________________________________</p>
               </div>
             </div>
 
@@ -871,14 +886,14 @@ export default function MaintenanceChecklistEditor() {
                 onClick={() => window.print()}
                 className="bg-blue-600 hover:bg-blue-700"
               >
-                ðŸ–¨ï¸ Print Checklist
+                🖨️ Imprimir checklist
               </Button>
               <Button
                 onClick={() => handleSaveChecklist()}
                 className="bg-green-600 hover:bg-green-700"
               >
                 <Save size={16} className="mr-2" />
-                Save & Close
+                Guardar y cerrar
               </Button>
             </div>
           </CardContent>
@@ -891,13 +906,13 @@ export default function MaintenanceChecklistEditor() {
           <DialogHeader>
             <DialogTitle>Crear nueva lista de verificación de mantenimiento</DialogTitle>
             <DialogDescription>
-              Set up a new maintenance checklist for equipment or machines
+              Configura un checklist nuevo para un equipo o máquina
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4">
             <div>
-              <Label htmlFor="checklist-name">Checklist Name *</Label>
+              <Label htmlFor="checklist-name">Nombre del checklist *</Label>
               <Input
                 id="checklist-name"
                 placeholder="ej., Mantenimiento mensual de impresora offset"
@@ -907,7 +922,7 @@ export default function MaintenanceChecklistEditor() {
             </div>
 
             <div>
-              <Label htmlFor="machine-type">Machine/Equipment Type *</Label>
+              <Label htmlFor="machine-type">Tipo de máquina o equipo *</Label>
               <Input
                 id="machine-type"
                 placeholder="ej., Impresora offset, guillotina, troqueladora"
@@ -943,10 +958,10 @@ export default function MaintenanceChecklistEditor() {
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
-              Cancel
+              Cancelar
             </Button>
             <Button onClick={handleCreateChecklist} className="bg-primary hover:bg-primary/90">
-              Create Checklist
+              Crear checklist
             </Button>
           </DialogFooter>
         </DialogContent>
