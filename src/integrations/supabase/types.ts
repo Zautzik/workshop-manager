@@ -6885,6 +6885,39 @@ export type Database = {
         }
         Relationships: []
       }
+      whatsapp_outbound_log: {
+        Row: {
+          body: string
+          context: string | null
+          created_at: string
+          error: string | null
+          id: string
+          ok: boolean
+          provider: string
+          to_phone: string
+        }
+        Insert: {
+          body: string
+          context?: string | null
+          created_at?: string
+          error?: string | null
+          id?: string
+          ok: boolean
+          provider: string
+          to_phone: string
+        }
+        Update: {
+          body?: string
+          context?: string | null
+          created_at?: string
+          error?: string | null
+          id?: string
+          ok?: boolean
+          provider?: string
+          to_phone?: string
+        }
+        Relationships: []
+      }
       whatsapp_production_logs: {
         Row: {
           corrected_costs: Json | null
@@ -9091,6 +9124,7 @@ export type Database = {
         | "ot_rejected"
         | "report_ready"
         | "system_alert"
+        | "maintenance_schedule_due"
       oc_status:
         | "draft"
         | "sent"
@@ -9469,6 +9503,7 @@ export const Constants = {
         "ot_rejected",
         "report_ready",
         "system_alert",
+        "maintenance_schedule_due",
       ],
       oc_status: [
         "draft",
