@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { evaluateSchedule, compareDue, advanceSchedule, WARNING_WINDOW_DAYS } from '../maintenance-due';
+import { evaluateSchedule, compareDue, advanceSchedule, decideCronOrderAction, WARNING_WINDOW_DAYS } from '../maintenance-due';
 
 const HOY = new Date('2026-08-01T12:00:00Z');
 const enDias = (d: number) => new Date(HOY.getTime() + d * 86_400_000).toISOString();
@@ -157,5 +157,22 @@ describe('completar una orden avanza el reloj de su pauta', () => {
   it('null cuenta igual que ausente: tampoco se manda', () => {
     const r = advanceSchedule({ frequencyDays: 30, completedAt: HOY, usageAtCompletion: null });
     expect('last_maintenance_usage' in r).toBe(false);
+  });
+});
+
+describe('el cron de pautas vencidas decide crear, reintentar el aviso, o no hacer nada', () => {
+  it('sin orden todavía: crear', () => {
+    expect(decideCronOrderAction(null)).toBe('create');
+  });
+
+  it('orden existente ya avisada: no hacer nada', () => {
+    expect(decideCronOrderAction({ id: 'o1', notified_at: '2026-08-01T00:00:00Z' })).toBe('skip');
+  });
+
+  it('orden existente SIN avisar (el intento anterior falló a mitad de camino): reintentar el aviso, no crear otra', () => {
+    // Regresión: antes "ya existe la orden" y "ya se avisó" eran el mismo
+    // chequeo, así que un fallo de red durante notifyScheduleDue perdía el
+    // aviso para siempre -- ninguna corrida futura lo reintentaba.
+    expect(decideCronOrderAction({ id: 'o1', notified_at: null })).toBe('retry_notify');
   });
 });

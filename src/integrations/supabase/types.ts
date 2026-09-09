@@ -3535,6 +3535,7 @@ export type Database = {
           id: string
           machine_id: string
           notes: string | null
+          notified_at: string | null
           ot_id: string | null
           part_id: string | null
           priority: number | null
@@ -3559,6 +3560,7 @@ export type Database = {
           id?: string
           machine_id: string
           notes?: string | null
+          notified_at?: string | null
           ot_id?: string | null
           part_id?: string | null
           priority?: number | null
@@ -3583,6 +3585,7 @@ export type Database = {
           id?: string
           machine_id?: string
           notes?: string | null
+          notified_at?: string | null
           ot_id?: string | null
           part_id?: string | null
           priority?: number | null

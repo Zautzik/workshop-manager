@@ -203,3 +203,24 @@ export function advanceSchedule(input: AdvanceScheduleInput): {
   }
   return result;
 }
+
+export type CronOrderAction =
+  /** No hay orden abierta todavía para esta pauta: crear una nueva. */
+  | 'create'
+  /** Ya existe, pero el aviso anterior no se pudo mandar (notified_at nulo): reintentar el aviso, no crear otra orden. */
+  | 'retry_notify'
+  /** Ya existe y ya se avisó: nada que hacer. */
+  | 'skip';
+
+/**
+ * Extraída de la ruta del cron para poder testear la decisión sin invocar
+ * notifyScheduleDue de verdad -- eso manda WhatsApp/notificaciones reales a
+ * personas reales, así que no es algo que un test (ni una verificación en
+ * vivo) deba disparar sólo para confirmar la rama que toma.
+ */
+export function decideCronOrderAction(
+  existing: { id: string; notified_at: string | null } | null,
+): CronOrderAction {
+  if (!existing) return 'create';
+  return existing.notified_at ? 'skip' : 'retry_notify';
+}

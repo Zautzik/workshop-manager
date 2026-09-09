@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/integrations/supabase/server';
-import { evaluateSchedule } from '@/lib/maintenance-due';
+import { evaluateSchedule, decideCronOrderAction } from '@/lib/maintenance-due';
 import { notifyScheduleDue } from '@/lib/maintenance-notify';
 import logger from '@/lib/logger';
 
@@ -17,10 +17,17 @@ export const dynamic = 'force-dynamic';
  * el botón "Crear orden" de VencimientosPanel) y avisa -- in-app y WhatsApp,
  * ver maintenance-notify.ts.
  *
- * Idempotente por construcción, no por fecha: no hace falta llevar "¿ya
- * avisé hoy?" porque el filtro real es "¿ya existe una orden pending/
- * in_progress para esta pauta?" -- una vez creada, las corridas siguientes
- * la encuentran y no duplican ni la orden ni el aviso.
+ * Idempotente para la CREACIÓN de la orden, no por fecha: el filtro es "¿ya
+ * existe una orden pending/in_progress para esta pauta?" -- una vez creada,
+ * las corridas siguientes la encuentran y no duplican la orden.
+ *
+ * El AVISO es una pregunta aparte (`notified_at`, ver la migración
+ * 20260913120000): si el primer intento de avisar falla a mitad de camino
+ * (una corrida anterior sufrió justo esto -- un corte real de conectividad a
+ * Supabase durante la verificación de esta misma fase), la orden ya existe
+ * pero nadie se enteró. Antes eso se perdía para siempre porque "ya existe
+ * la orden" y "ya se avisó" eran el mismo chequeo; ahora una orden con
+ * `notified_at` nulo se reintenta en la corrida siguiente en vez de saltarse.
  */
 export async function GET(req: NextRequest) {
   // Vercel manda `Authorization: Bearer $CRON_SECRET` en las invocaciones de
@@ -53,6 +60,7 @@ export async function GET(req: NextRequest) {
 
   let created = 0;
   let notified = 0;
+  let retriedNotify = 0;
   let skippedAlreadyOpen = 0;
   let skippedSinChecklist = 0;
   const errors: string[] = [];
@@ -81,55 +89,80 @@ export async function GET(req: NextRequest) {
 
     const { data: existing } = await supabaseAdmin
       .from('maintenance_work_orders')
-      .select('id')
+      .select('id, notified_at')
       .eq('schedule_id', s.id)
       .in('status', ['pending', 'in_progress'])
       .limit(1)
       .maybeSingle();
 
-    if (existing) {
+    const action = decideCronOrderAction(existing ?? null);
+
+    if (action === 'skip') {
       skippedAlreadyOpen++;
       continue;
     }
 
-    const { data: order, error: insertError } = await supabaseAdmin
-      .from('maintenance_work_orders')
-      .insert({
-        machine_id: s.machine_id,
-        work_order_type: 'preventivo',
-        checklist_id: s.checklist_id,
-        schedule_id: s.id,
-        system_id: s.system_id,
-        scheduled_date: new Date().toISOString().slice(0, 10),
-        priority: 2,
-        status: 'pending',
-        usage_at_creation: machine.usage_counter ?? null,
-      })
-      .select('id')
-      .single();
+    let orderId = existing?.id ?? null;
 
-    if (insertError || !order) {
-      errors.push(`schedule ${s.id}: ${insertError?.message ?? 'insert falló'}`);
+    if (action === 'create') {
+      const { data: order, error: insertError } = await supabaseAdmin
+        .from('maintenance_work_orders')
+        .insert({
+          machine_id: s.machine_id,
+          work_order_type: 'preventivo',
+          checklist_id: s.checklist_id,
+          schedule_id: s.id,
+          system_id: s.system_id,
+          scheduled_date: new Date().toISOString().slice(0, 10),
+          priority: 2,
+          status: 'pending',
+          usage_at_creation: machine.usage_counter ?? null,
+        })
+        .select('id')
+        .single();
+
+      if (insertError || !order) {
+        errors.push(`schedule ${s.id}: ${insertError?.message ?? 'insert falló'}`);
+        continue;
+      }
+      orderId = order.id;
+      created++;
+    } else {
+      retriedNotify++;
+    }
+
+    if (!orderId) {
+      // Inalcanzable en la práctica -- decideCronOrderAction sólo devuelve
+      // 'retry_notify' cuando `existing` es no nulo -- pero el compilador no
+      // puede probarlo a través de la función, y "explota en silencio con un
+      // undefined" es peor que un mensaje de error claro acá.
+      errors.push(`schedule ${s.id}: orderId inesperadamente nulo`);
       continue;
     }
-    created++;
 
     try {
       await notifyScheduleDue({
         scheduleId: s.id,
-        workOrderId: order.id,
+        workOrderId: orderId,
         machineName: machine.name,
         reason: due.reason,
       });
+      await supabaseAdmin
+        .from('maintenance_work_orders')
+        .update({ notified_at: new Date().toISOString() })
+        .eq('id', orderId);
       notified++;
     } catch (err) {
-      errors.push(`notify ${order.id}: ${err instanceof Error ? err.message : 'error desconocido'}`);
+      // notified_at se queda null a propósito -- la corrida de mañana
+      // reintenta el aviso para esta misma orden en vez de darla por avisada.
+      errors.push(`notify ${orderId}: ${err instanceof Error ? err.message : 'error desconocido'}`);
     }
   }
 
   return NextResponse.json({
     created,
     notified,
+    retried_notify: retriedNotify,
     skipped_already_open: skippedAlreadyOpen,
     skipped_sin_checklist: skippedSinChecklist,
     errors,
