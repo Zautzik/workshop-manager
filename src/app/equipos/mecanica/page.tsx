@@ -5,12 +5,13 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Wrench, Users, Droplets } from 'lucide-react';
+import { Wrench, Users, Droplets, Gauge } from 'lucide-react';
 import { MecanicaPanel } from '@/components/maintenance/MecanicaPanel';
 import { CompetenciasPanel } from '@/components/maintenance/CompetenciasPanel';
 import { ConsumiblesPanel } from '@/components/maintenance/ConsumiblesPanel';
+import { PartCalibrationPanel } from '@/components/maintenance/PartCalibrationPanel';
 
-const VALID_TABS = ['piezas', 'consumibles', 'competencias'] as const;
+const VALID_TABS = ['piezas', 'consumibles', 'competencias', 'calibracion'] as const;
 type TabKey = (typeof VALID_TABS)[number];
 
 function MecanicaTabs() {
@@ -29,7 +30,7 @@ function MecanicaTabs() {
 
   return (
     <Tabs value={active} onValueChange={onChange} className="w-full">
-      <TabsList className="grid w-full max-w-2xl grid-cols-3">
+      <TabsList className="grid w-full max-w-3xl grid-cols-4">
         <TabsTrigger value="piezas" className="gap-2">
           <Wrench className="h-4 w-4" /> Piezas y repuestos
         </TabsTrigger>
@@ -38,6 +39,9 @@ function MecanicaTabs() {
         </TabsTrigger>
         <TabsTrigger value="competencias" className="gap-2">
           <Users className="h-4 w-4" /> Quién la opera
+        </TabsTrigger>
+        <TabsTrigger value="calibracion" className="gap-2">
+          <Gauge className="h-4 w-4" /> Calibración
         </TabsTrigger>
       </TabsList>
 
@@ -49,6 +53,9 @@ function MecanicaTabs() {
       </TabsContent>
       <TabsContent value="competencias" className="mt-6">
         <CompetenciasPanel />
+      </TabsContent>
+      <TabsContent value="calibracion" className="mt-6">
+        <PartCalibrationPanel />
       </TabsContent>
     </Tabs>
   );
