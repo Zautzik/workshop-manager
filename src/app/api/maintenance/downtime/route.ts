@@ -4,55 +4,72 @@ import { supabaseAdmin } from '@/integrations/supabase/server';
 
 export const dynamic = 'force-dynamic';
 
+interface MachineRow {
+  id: string;
+  name: string;
+  type: string;
+  status: string;
+}
+
+interface DowntimeWindowResult {
+  machines: {
+    machine_id: string;
+    name: string;
+    type: string;
+    status: string;
+    downtime_hours: number;
+    downtime_events: number;
+    currently_down: boolean;
+    availability_pct: number;
+    corrective_events: number;
+    corrective_downtime_hours: number;
+  }[];
+  totals: {
+    downtime_hours: number;
+    machines_down_now: number;
+    fleet_availability_pct: number;
+    corrective_events: number;
+    mtbf_hours: number | null;
+    mttr_hours: number | null;
+  };
+  recent: unknown[];
+}
+
 /**
- * GET /api/maintenance/downtime?days=30
+ * Un intervalo [since, until) evaluado por su cuenta. Extraído para poder
+ * pedir dos ventanas -- la actual y la inmediatamente anterior de igual
+ * largo -- y comparar el MTBF por máquina entre las dos (ver `compare=1`
+ * más abajo), sin duplicar la aritmética.
  *
- * Availability per machine, derived from `machine_downtime_logs`. That table
- * existed since the beginning with zero writers and zero readers, so the plant's
- * most basic operating number — is this press actually available? — had no raw
- * material. Work orders now open and close those rows automatically, and this
- * is where the number comes out.
- *
- * Availability = 1 − downtime hours ÷ calendar hours in the window. A machine
- * with an open downtime row is counted up to now, so a press that has been
- * apart for three days shows it immediately instead of only after someone
- * remembers to close the order.
+ * `until` acota tanto la búsqueda (una parada que arrancó en la ventana de
+ * ANTES no debe contarse en la de ahora) como el downtime de una fila
+ * todavía abierta -- contarla hasta "ahora" real inflaría cualquier ventana
+ * pasada que la parada atraviese.
  */
-export async function GET(req: NextRequest) {
-  const auth = await requireAuth();
-  if (isAuthError(auth)) return auth;
+async function computeDowntimeWindow(
+  since: Date,
+  until: Date,
+  machines: MachineRow[],
+): Promise<DowntimeWindowResult | { error: string }> {
+  const windowHours = (until.getTime() - since.getTime()) / 3_600_000;
 
-  const { searchParams } = new URL(req.url);
-  const days = Math.min(Math.max(Number(searchParams.get('days') ?? 30) || 30, 1), 365);
+  const { data: logs, error } = await supabaseAdmin
+    .from('machine_downtime_logs')
+    .select('id, machine_id, reason, start_time, end_time, duration_hours, impact_description, work_order_id')
+    .gte('start_time', since.toISOString())
+    .lt('start_time', until.toISOString())
+    .order('start_time', { ascending: false });
 
-  const now = new Date();
-  const since = new Date(now.getTime() - days * 24 * 3_600_000);
-  const windowHours = days * 24;
+  if (error) return { error: error.message };
 
-  const [logsRes, machinesRes] = await Promise.all([
-    supabaseAdmin
-      .from('machine_downtime_logs')
-      .select('id, machine_id, reason, start_time, end_time, duration_hours, impact_description, work_order_id')
-      .gte('start_time', since.toISOString())
-      .order('start_time', { ascending: false }),
-    supabaseAdmin.from('machines').select('id, name, type, status').eq('is_active', true),
-  ]);
-
-  if (logsRes.error) {
-    return NextResponse.json({ error: logsRes.error.message }, { status: 500 });
-  }
-
-  const logs = logsRes.data ?? [];
-  const machines = machinesRes.data ?? [];
+  const rows_ = logs ?? [];
 
   // MTBF/MTTR sólo tienen sentido contados sobre FALLAS — una parada
   // correctiva. `work_order_id` recién existe (ver migración
   // 20260910120000): las filas de antes quedan sin atribuir y no entran acá,
   // pero sí siguen contando para la disponibilidad general de abajo, que
   // debe incluir toda parada, planificada o no.
-  const workOrderIds = logs
-    .map((l) => l.work_order_id)
-    .filter((id): id is string => !!id);
+  const workOrderIds = rows_.map((l) => l.work_order_id).filter((id): id is string => !!id);
   let correctiveOrderIds = new Set<string>();
   if (workOrderIds.length > 0) {
     const { data: orders } = await supabaseAdmin
@@ -64,11 +81,13 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  const hoursFor = (log: (typeof logs)[number]) => {
+  const hoursFor = (log: (typeof rows_)[number]) => {
     if (log.duration_hours != null) return Number(log.duration_hours);
-    // Still open — count it up to now, don't pretend it hasn't happened.
+    // Todavía abierta -- se cuenta hasta el borde de ESTA ventana, no hasta
+    // el momento real: una parada que sigue abierta hoy no puede inflar el
+    // downtime de una ventana que ya terminó.
     const start = new Date(log.start_time).getTime();
-    const end = log.end_time ? new Date(log.end_time).getTime() : now.getTime();
+    const end = log.end_time ? new Date(log.end_time).getTime() : until.getTime();
     return Math.max(0, (end - start) / 3_600_000);
   };
 
@@ -76,7 +95,7 @@ export async function GET(req: NextRequest) {
     string,
     { hours: number; events: number; open: boolean; correctiveHours: number; correctiveEvents: number }
   >();
-  for (const log of logs) {
+  for (const log of rows_) {
     if (!log.machine_id) continue;
     const acc = byMachine.get(log.machine_id) ?? {
       hours: 0, events: 0, open: false, correctiveHours: 0, correctiveEvents: 0,
@@ -120,8 +139,7 @@ export async function GET(req: NextRequest) {
   // produce), dividido sólo entre las fallas correctivas.
   const totalUptimeHours = Math.max(0, windowHours * rows.length - totalDowntime);
 
-  return NextResponse.json({
-    window_days: days,
+  return {
     machines: rows,
     totals: {
       downtime_hours: Math.round(totalDowntime * 100) / 100,
@@ -136,6 +154,95 @@ export async function GET(req: NextRequest) {
       mtbf_hours: totalCorrectiveEvents > 0 ? Math.round((totalUptimeHours / totalCorrectiveEvents) * 10) / 10 : null,
       mttr_hours: totalCorrectiveEvents > 0 ? Math.round((totalCorrectiveHours / totalCorrectiveEvents) * 10) / 10 : null,
     },
-    recent: logs.slice(0, 20),
+    recent: rows_.slice(0, 20),
+  };
+}
+
+/**
+ * GET /api/maintenance/downtime?days=30[&compare=1]
+ *
+ * Availability per machine, derived from `machine_downtime_logs`. That table
+ * existed since the beginning with zero writers and zero readers, so the plant's
+ * most basic operating number — is this press actually available? — had no raw
+ * material. Work orders now open and close those rows automatically, and this
+ * is where the number comes out.
+ *
+ * Availability = 1 − downtime hours ÷ calendar hours in the window. A machine
+ * with an open downtime row is counted up to now, so a press that has been
+ * apart for three days shows it immediately instead of only after someone
+ * remembers to close the order.
+ *
+ * `compare=1` adds a second evaluation over the immediately preceding window
+ * of equal length, and a per-machine MTBF delta -- a single window only says
+ * "this machine failed N times," never whether that's getting worse. Sin
+ * fallas correctivas en NINGUNA de las dos ventanas, el delta es null, no 0:
+ * no hay tendencia que afirmar todavía.
+ */
+export async function GET(req: NextRequest) {
+  const auth = await requireAuth();
+  if (isAuthError(auth)) return auth;
+
+  const { searchParams } = new URL(req.url);
+  const days = Math.min(Math.max(Number(searchParams.get('days') ?? 30) || 30, 1), 365);
+  const compare = searchParams.get('compare') === '1';
+
+  const now = new Date();
+  const since = new Date(now.getTime() - days * 24 * 3_600_000);
+
+  const { data: machines, error: machinesError } = await supabaseAdmin
+    .from('machines')
+    .select('id, name, type, status')
+    .eq('is_active', true);
+
+  if (machinesError) {
+    return NextResponse.json({ error: machinesError.message }, { status: 500 });
+  }
+
+  const current = await computeDowntimeWindow(since, now, machines ?? []);
+  if ('error' in current) {
+    return NextResponse.json({ error: current.error }, { status: 500 });
+  }
+
+  if (!compare) {
+    return NextResponse.json({ window_days: days, ...current });
+  }
+
+  const previousSince = new Date(since.getTime() - days * 24 * 3_600_000);
+  const previous = await computeDowntimeWindow(previousSince, since, machines ?? []);
+  if ('error' in previous) {
+    return NextResponse.json({ error: previous.error }, { status: 500 });
+  }
+
+  const previousByMachine = new Map(previous.machines.map((m) => [m.machine_id, m]));
+
+  // MTBF por máquina, no sólo la flota entera: horas operativas de ESA
+  // máquina en la ventana, divididas por sus fallas correctivas.
+  const machineMtbf = (m: DowntimeWindowResult['machines'][number], windowH: number) =>
+    m.corrective_events > 0 ? (windowH - m.downtime_hours) / m.corrective_events : null;
+
+  const trend = current.machines.map((m) => {
+    const prev = previousByMachine.get(m.machine_id);
+    const currentMtbf = machineMtbf(m, days * 24);
+    const previousMtbf = prev ? machineMtbf(prev, days * 24) : null;
+    const delta =
+      currentMtbf != null && previousMtbf != null
+        ? Math.round((currentMtbf - previousMtbf) * 10) / 10
+        : null;
+    return {
+      machine_id: m.machine_id,
+      name: m.name,
+      current_mtbf_hours: currentMtbf != null ? Math.round(currentMtbf * 10) / 10 : null,
+      previous_mtbf_hours: previousMtbf != null ? Math.round(previousMtbf * 10) / 10 : null,
+      // Negativo = empeoró (falla más seguido que antes).
+      mtbf_delta_hours: delta,
+      current_corrective_events: m.corrective_events,
+      previous_corrective_events: prev?.corrective_events ?? 0,
+    };
+  });
+
+  return NextResponse.json({
+    window_days: days,
+    ...current,
+    trend,
   });
 }

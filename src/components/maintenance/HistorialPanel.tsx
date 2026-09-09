@@ -51,6 +51,17 @@ interface DowntimeLog {
   duration_hours: number | null;
 }
 
+interface MtbfTrendRow {
+  machine_id: string;
+  name: string;
+  current_mtbf_hours: number | null;
+  previous_mtbf_hours: number | null;
+  /** Negativo = empeoró (falla más seguido que en la ventana anterior). */
+  mtbf_delta_hours: number | null;
+  current_corrective_events: number;
+  previous_corrective_events: number;
+}
+
 interface DowntimeResponse {
   window_days: number;
   machines: DowntimeMachineRow[];
@@ -63,13 +74,15 @@ interface DowntimeResponse {
     mttr_hours: number | null;
   };
   recent: DowntimeLog[];
+  /** Sólo viene con compare=1 -- ver /api/maintenance/downtime. */
+  trend?: MtbfTrendRow[];
 }
 
 function useFleetDowntime(days: number) {
   return useQuery<DowntimeResponse>({
-    queryKey: ['maintenance', 'downtime', days],
+    queryKey: ['maintenance', 'downtime', days, 'compare'],
     queryFn: async () => {
-      const res = await fetch(`/api/maintenance/downtime?days=${days}`, { credentials: 'include' });
+      const res = await fetch(`/api/maintenance/downtime?days=${days}&compare=1`, { credentials: 'include' });
       if (!res.ok) throw new Error('No se pudo calcular la disponibilidad de la flota');
       return res.json();
     },
@@ -107,6 +120,26 @@ function DisponibilidadYFallas({ days, setDays }: { days: number; setDays: (d: n
       title: `${m.downtime_hours}h de downtime en ${m.downtime_events} evento(s), ${m.availability_pct}% disponible`,
     }));
   }, [data?.machines]);
+
+  // Sólo las que EMPEORARON (delta negativo) y con datos reales en las dos
+  // ventanas -- una máquina sin fallas correctivas en ninguna de las dos no
+  // tiene un delta que afirmar, no es "estable".
+  const rankedReliabilityDrop: RankedListItem[] = useMemo(() => {
+    const worsened = (data?.trend ?? []).filter(
+      (t) => t.mtbf_delta_hours !== null && t.mtbf_delta_hours < 0
+    );
+    worsened.sort((a, b) => (a.mtbf_delta_hours ?? 0) - (b.mtbf_delta_hours ?? 0));
+    const max = Math.max(1, ...worsened.map((t) => Math.abs(t.mtbf_delta_hours ?? 0)));
+    return worsened.map((t) => ({
+      id: t.machine_id,
+      label: t.name,
+      sublabel: `${t.current_corrective_events} falla${t.current_corrective_events !== 1 ? 's' : ''} esta ventana`,
+      barPct: (Math.abs(t.mtbf_delta_hours ?? 0) / max) * 100,
+      barColor: '#d03b3b',
+      value: `${formatHours(t.previous_mtbf_hours ?? 0)} → ${formatHours(t.current_mtbf_hours ?? 0)}`,
+      title: `MTBF bajó de ${formatHours(t.previous_mtbf_hours ?? 0)} a ${formatHours(t.current_mtbf_hours ?? 0)} respecto a la ventana anterior`,
+    }));
+  }, [data?.trend]);
 
   return (
     <div className="space-y-4">
@@ -195,6 +228,26 @@ function DisponibilidadYFallas({ days, setDays }: { days: number; setDays: (d: n
                 </p>
               ) : (
                 <RankedList items={rankedDowntime} visibleCount={5} />
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm">Confiabilidad en baja</CardTitle>
+              <p className="text-xs text-muted-foreground">
+                MTBF de esta ventana contra la anterior de igual largo — una máquina que falla
+                más seguido que antes, no sólo la que más falla hoy.
+              </p>
+            </CardHeader>
+            <CardContent>
+              {rankedReliabilityDrop.length === 0 ? (
+                <p className="flex items-center gap-2 py-4 text-center text-sm text-muted-foreground">
+                  <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-500" />
+                  Ninguna máquina con MTBF peor que la ventana anterior.
+                </p>
+              ) : (
+                <RankedList items={rankedReliabilityDrop} visibleCount={5} />
               )}
             </CardContent>
           </Card>
