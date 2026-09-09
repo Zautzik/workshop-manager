@@ -25,6 +25,12 @@ export async function GET(req: NextRequest) {
   const type = url.searchParams.get('type');           // start, end
   const limit = parseInt(url.searchParams.get('limit') || '100');
   const offset = parseInt(url.searchParams.get('offset') || '0');
+  // "Mis reportes" (OperatorWhatsAppView) pedía esto sin filtro -- con
+  // review_status legible para cualquier autenticado, mostraba los últimos
+  // 30 mensajes de TODO el taller, no los del operador que abrió la
+  // pantalla. `mine=1` resuelve el teléfono de quien pide vía su ficha de
+  // empleado (employees.user_id = auth.id) y filtra por operator_phone.
+  const mineOnly = url.searchParams.get('mine') === '1';
 
   try {
     let query = supabaseAdmin
@@ -36,6 +42,21 @@ export async function GET(req: NextRequest) {
     if (status) query = query.eq('review_status', status as any);
     if (otNumber) query = query.eq('ot_number', otNumber);
     if (type) query = query.eq('message_type', type as any);
+
+    if (mineOnly) {
+      const { data: employee } = await supabaseAdmin
+        .from('employees')
+        .select('phone')
+        .eq('user_id', auth.id)
+        .maybeSingle();
+
+      // Sin teléfono en la ficha no hay nada que buscar -- una lista vacía
+      // es la respuesta honesta, no "todos los mensajes" ni un error.
+      if (!employee?.phone) {
+        return NextResponse.json({ data: [], total: 0 });
+      }
+      query = query.eq('operator_phone', employee.phone);
+    }
 
     const { data, error, count } = await query;
 

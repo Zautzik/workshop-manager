@@ -41,6 +41,8 @@ export function useWhatsAppLogs(filters?: {
   type?: string;
   limit?: number;
   offset?: number;
+  /** Sólo los mensajes del teléfono del usuario que pide -- ver OperatorWhatsAppView. */
+  mine?: boolean;
 }) {
   const params = new URLSearchParams();
   if (filters?.status) params.set('status', filters.status);
@@ -48,6 +50,7 @@ export function useWhatsAppLogs(filters?: {
   if (filters?.type) params.set('type', filters.type);
   if (filters?.limit) params.set('limit', String(filters.limit));
   if (filters?.offset) params.set('offset', String(filters.offset));
+  if (filters?.mine) params.set('mine', '1');
 
   const filterObj = Object.fromEntries(params);
 

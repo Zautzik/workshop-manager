@@ -96,7 +96,7 @@ function LogEntry({ log }: { log: WhatsAppProductionLog }) {
 }
 
 export default function OperatorWhatsAppView() {
-  const { data, isLoading } = useWhatsAppLogs({ limit: 30 });
+  const { data, isLoading } = useWhatsAppLogs({ limit: 30, mine: true });
   const logs = data?.data ?? [];
 
   return (
