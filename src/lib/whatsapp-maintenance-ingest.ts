@@ -15,11 +15,20 @@
  * que usa el PATCH de /api/maintenance/work-orders/[id]), no por un UPDATE
  * paralelo -- así el avance de la pauta vencida (advanceLinkedSchedule) y el
  * registro de downtime (syncDowntime) pasan igual sin importar el canal.
+ *
+ * A diferencia de ese PATCH (protegido por requireAuth), este camino no
+ * tiene sesión -- por eso identifica al remitente por teléfono
+ * (findEmployeeByPhone) antes de aplicar cualquier cambio, y se niega en
+ * seco si el número no es de un empleado conocido. Cerrar una orden acá es
+ * inmediato y sin cola de revisión (a diferencia de producción, que sí tiene
+ * un umbral de confianza -- CONFIANZA_PARA_APLICAR_SOLO en whatsapp-flow.ts),
+ * así que la identidad del remitente es la única guarda que queda.
  */
 
 import { supabaseAdmin } from '@/integrations/supabase/server';
 import { extractMaintenanceCode, classifyMaintenanceReply } from '@/lib/whatsapp-maintenance-parser';
 import { applyWorkOrderUpdate } from '@/app/api/maintenance/work-orders/[id]/route';
+import { findEmployeeByPhone } from '@/lib/whatsapp-ingest';
 import logger from '@/lib/logger';
 import type { ProcessResult } from '@/lib/whatsapp-ingest';
 
@@ -68,9 +77,30 @@ export async function tryProcessMaintenanceMessage(
   const code = extractMaintenanceCode(input.body);
   if (!code) return null;
 
+  // A diferencia de producción (donde un remitente no identificado igual se
+  // procesa, porque cada evento pasa por un umbral de confianza antes de
+  // aplicarse de verdad -- ver CONFIANZA_PARA_APLICAR_SOLO en
+  // whatsapp-flow.ts), cerrar una orden de mantención es inmediato y sin
+  // revisión posterior. Sin este filtro, cualquier número que adivinara o
+  // reenviara el código de 8 hex podía cerrar la orden de otra persona. Acá
+  // sí es obligatorio identificar a quien escribe -- cualquier empleado
+  // conocido, no sólo técnicos: un supervisor que hizo la reparación él
+  // mismo también puede cerrarla.
+  const employee = await findEmployeeByPhone(input.from);
+  if (!employee) {
+    logger.warn({ from: input.from }, 'Respuesta de mantención de un número no identificado, ignorada');
+    return {
+      status: 200,
+      payload: {
+        status: 'unidentified',
+        message: 'No reconozco este número en la ficha de empleados. Pídele a un supervisor que lo registre antes de responder pautas.',
+      },
+    };
+  }
+
   const { data: openOrders, error } = await supabaseAdmin
     .from('maintenance_work_orders')
-    .select('id, machine_id, completed_items, machines(name), maintenance_checklists(items)')
+    .select('id, machine_id, notes, completed_items, machines(name), maintenance_checklists(items)')
     .in('status', ['pending', 'in_progress']);
 
   if (error) {
@@ -99,9 +129,15 @@ export async function tryProcessMaintenanceMessage(
     // Se queda abierta a propósito: un "no pude, falta repuesto" no cierra
     // nada, sólo dice por qué no -- Órdenes ya la muestra como pendiente,
     // esto sólo deja la nota para quien la revise.
+    //
+    // Se AGREGA a las notas existentes, no las reemplaza -- un segundo
+    // "sigue sin repuesto" no debe borrar el primer reporte, ni las notas
+    // que ya tuviera la orden desde que se creó.
+    const stamp = `[WhatsApp, ${employee.full_name}] ${input.body}`;
+    const newNotes = order.notes ? `${order.notes}\n${stamp}` : stamp;
     const { error: noteError } = await supabaseAdmin
       .from('maintenance_work_orders')
-      .update({ notes: input.body })
+      .update({ notes: newNotes })
       .eq('id', order.id);
     if (noteError) {
       logger.error({ err: noteError }, 'No se pudo guardar la nota de problema reportado por WhatsApp');
@@ -121,6 +157,7 @@ export async function tryProcessMaintenanceMessage(
     ...item,
     completed: true,
     completed_at: input.messageTimestamp,
+    completed_by: employee.id,
   }));
   const totalMinutes = completedItems.reduce((sum, it) => sum + (it.estimated_minutes ?? 0), 0);
 

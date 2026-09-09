@@ -449,6 +449,60 @@ async function processEvent(event: ParseResult, ctx: EventContext): Promise<Even
 
 /* ─── Main entry ─────────────────────────────────────────────── */
 
+export interface EmployeeMatch {
+  id: string;
+  full_name: string;
+  phone: string | null;
+}
+
+/**
+ * Busca el empleado dueño de un número -- exacto primero, por sufijo después
+ * (los números llegan de Meta con y sin código de país/9). Extraída de
+ * processMessage para que whatsapp-maintenance-ingest.ts identifique al
+ * remitente con la misma lógica exacta, no una reimplementación aparte que
+ * pueda desalinearse.
+ */
+export async function findEmployeeByPhone(from: string): Promise<EmployeeMatch | null> {
+  const cleanPhone = from.replace(/\D/g, '');
+  if (cleanPhone.length < 7) return null;
+  const phoneSuffix = cleanPhone.slice(-9);
+
+  const { data: exactEmployee, error: exactEmployeeError } = await supabaseAdmin
+    .from('employees')
+    .select('id, full_name, phone')
+    .eq('phone', from)
+    .limit(1)
+    .maybeSingle();
+
+  if (exactEmployeeError) {
+    logger.warn(
+      { err: exactEmployeeError, phone: redactPhone(from) },
+      'Exact employee lookup failed during webhook processing',
+    );
+  }
+
+  if (exactEmployee) return exactEmployee;
+
+  const { data: suffixEmployees, error: suffixEmployeeError } = await supabaseAdmin
+    .from('employees')
+    .select('id, full_name, phone')
+    .ilike('phone', `%${phoneSuffix}`)
+    .limit(10);
+
+  if (suffixEmployeeError) {
+    logger.warn(
+      { err: suffixEmployeeError, phone: redactPhone(from) },
+      'Suffix employee lookup failed during webhook processing',
+    );
+  }
+
+  return (
+    suffixEmployees?.find((e) => e.phone?.replace(/\D/g, '').endsWith(phoneSuffix))
+    ?? suffixEmployees?.[0]
+    ?? null
+  );
+}
+
 export async function processMessage(input: InboundMessage): Promise<ProcessResult> {
   const { from, body, timestamp } = input;
 
@@ -467,8 +521,8 @@ export async function processMessage(input: InboundMessage): Promise<ProcessResu
   const messageTimestamp = timestamp || new Date().toISOString();
 
   // ── ¿Es una respuesta de mantención? ───────────────────
-  // Se decide por construcción (¿trae el código de 8 hex del aviso de pauta
-  // vencida?), no por vocabulario -- ver el header de
+  // Se decide por construcción (¿trae la palabra "pauta" y el código de 8
+  // hex del aviso de pauta vencida?), no por vocabulario -- ver el header de
   // whatsapp-maintenance-parser.ts. `null` significa "no es de mantención",
   // y el pipeline de producción de abajo sigue exactamente igual que antes.
   const maintenanceResult = await tryProcessMaintenanceMessage({ from, body, messageTimestamp });
@@ -478,50 +532,10 @@ export async function processMessage(input: InboundMessage): Promise<ProcessResu
   let operatorName: string | null = input.ProfileName ?? null;
   let operatorEmployeeId: string | null = null;
 
-  const cleanPhone = from.replace(/\D/g, '');
-  if (cleanPhone.length >= 7) {
-    const phoneSuffix = cleanPhone.slice(-9);
-
-    const { data: exactEmployee, error: exactEmployeeError } = await supabaseAdmin
-      .from('employees')
-      .select('id, full_name, phone')
-      .eq('phone', from)
-      .limit(1)
-      .maybeSingle();
-
-    if (exactEmployeeError) {
-      logger.warn(
-        { err: exactEmployeeError, phone: redactPhone(from) },
-        'Exact employee lookup failed during webhook processing',
-      );
-    }
-
-    let employee = exactEmployee;
-
-    if (!employee) {
-      const { data: suffixEmployees, error: suffixEmployeeError } = await supabaseAdmin
-        .from('employees')
-        .select('id, full_name, phone')
-        .ilike('phone', `%${phoneSuffix}`)
-        .limit(10);
-
-      if (suffixEmployeeError) {
-        logger.warn(
-          { err: suffixEmployeeError, phone: redactPhone(from) },
-          'Suffix employee lookup failed during webhook processing',
-        );
-      }
-
-      employee =
-        suffixEmployees?.find((e) => e.phone?.replace(/\D/g, '').endsWith(phoneSuffix))
-        ?? suffixEmployees?.[0]
-        ?? null;
-    }
-
-    if (employee) {
-      operatorName = employee.full_name;
-      operatorEmployeeId = employee.id;
-    }
+  const employee = await findEmployeeByPhone(from);
+  if (employee) {
+    operatorName = employee.full_name;
+    operatorEmployeeId = employee.id;
   }
 
   // ── Parse into one or more events and process each ─────

@@ -43,7 +43,11 @@ export function shortOrderCode(workOrderId: string): string {
 
 function buildMessage(notice: DueScheduleNotice): string {
   const code = shortOrderCode(notice.workOrderId);
-  return `🔧 Pauta vencida: ${notice.machineName}. ${notice.reason}\nResponde "LISTO ${code}" cuando termines, o cuéntanos qué pasó.`;
+  // La palabra "PAUTA" es parte del formato, no adorno: whatsapp-maintenance-parser.ts
+  // sólo reconoce este canal si el mensaje la trae junto al código -- sin
+  // eso, un número de 8 cifras cualquiera (una fecha, un folio) en un chat
+  // de producción normal se colaría por error a este pipeline.
+  return `🔧 Pauta vencida: ${notice.machineName}. ${notice.reason}\nResponde "PAUTA ${code} LISTO" cuando termines, o cuéntanos qué pasó.`;
 }
 
 /**

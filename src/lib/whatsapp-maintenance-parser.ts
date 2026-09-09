@@ -5,20 +5,39 @@
  * vocabularios chocan a propósito -- "empecé", "listo", "terminé" aparecen
  * en los dos oficios. Resolver eso con más reglas de clasificación sería
  * agrandar un clasificador que ya es delicado; se resuelve por construcción
- * en cambio: el aviso de pauta vencida (maintenance-notify.ts) le pide al
- * técnico un código corto de 8 caracteres hex (las primeras 8 posiciones
- * del uuid de la orden, ver shortOrderCode) -- un token que una charla de
- * producción normal no genera por azar. Si el mensaje trae ese código, es
- * de mantención; si no, no lo es, y el pipeline de producción sigue
- * exactamente igual que antes.
+ * en cambio.
+ *
+ * Revisión (post-lanzamiento): la primera versión de este archivo exigía
+ * SÓLO el código de 8 hex, sin la palabra "pauta" -- el plan original pedía
+ * las dos cosas, pero se perdió en la implementación. Eso era un agujero
+ * real: como 0-9 son dígitos hex válidos, cualquier número de 8 cifras en un
+ * mensaje de producción normal (una fecha "20260909", un folio, una
+ * cantidad) se enrutaba por error a este pipeline y desaparecía sin llegar
+ * nunca al parser de producción. `extractMaintenanceCode` ahora exige las
+ * dos señales -- la palabra "pauta" Y el código -- igual que
+ * maintenance-notify.ts ya enseña en el mensaje saliente ("PAUTA {code}
+ * LISTO"), así que un técnico real sigue funcionando exactamente igual y un
+ * mensaje de producción normal (que casi nunca dice "pauta") deja de chocar.
  */
 
+const PAUTA_KEYWORD = /\bpauta\b/;
 const CODE_PATTERN = /\b([a-f0-9]{8})\b/i;
 
+// "ok"/"okay" se sacaron a propósito: son el acuse de recibo más común de
+// WhatsApp ("ok, ya voy a mirar") y no confirman que el trabajo esté hecho --
+// tratarlos como cierre habría cerrado órdenes que un técnico apenas empezó
+// a atender.
 const LISTO_KEYWORDS = [
   'listo', 'lista', 'terminado', 'terminada', 'completado', 'completada',
-  'hecho', 'hecha', 'ok', 'okay', 'realizado', 'realizada', 'finalizado', 'finalizada',
+  'realizado', 'realizada', 'finalizado', 'finalizada',
 ];
+
+// Negación simple: "no está listo", "todavía no", "no pude dejarla lista" --
+// cualquiera de estas contiene una palabra de cierre como substring, pero
+// significa exactamente lo contrario. Ante la duda, se falla para el lado
+// seguro (problema, la orden se queda abierta) en vez de cerrar una orden
+// que en realidad no se terminó.
+const NEGATION_PATTERN = /\b(no|nunca|tampoco)\b/;
 
 function normalize(text: string): string {
   // Strip combining diacritics after NFD decomposition (U+0300-U+036F),
@@ -35,8 +54,13 @@ function normalize(text: string): string {
     .trim();
 }
 
-/** El código de 8 hex que identifica la orden, si el mensaje trae uno. */
+/**
+ * El código de 8 hex que identifica la orden, sólo si el mensaje TAMBIÉN
+ * dice "pauta" -- el código solo no alcanza, ver el header de este archivo.
+ */
 export function extractMaintenanceCode(rawMessage: string): string | null {
+  const normalized = normalize(rawMessage);
+  if (!PAUTA_KEYWORD.test(normalized)) return null;
   const match = rawMessage.match(CODE_PATTERN);
   return match ? match[1].toUpperCase() : null;
 }
@@ -44,13 +68,15 @@ export function extractMaintenanceCode(rawMessage: string): string | null {
 export type MaintenanceOutcome = 'listo' | 'problema';
 
 /**
- * "LISTO A1B2C3D4" es la respuesta esperada, pero cualquier variante con una
- * palabra de cierre cuenta. Cualquier otra cosa ("no pude, falta repuesto",
- * "la cuchilla está mala") es un problema reportado, no un cierre -- la
- * orden se queda abierta para que un supervisor la vea en Órdenes.
+ * "PAUTA A1B2C3D4 LISTO" es la respuesta esperada, pero cualquier variante
+ * con una palabra de cierre cuenta -- salvo que el mensaje también niegue
+ * ("no", "nunca", "tampoco"), en cuyo caso se trata como problema sin mirar
+ * más: cerrar una orden que no se cerró de verdad es el error caro acá, no
+ * dejarla abierta un rato más de lo necesario.
  */
 export function classifyMaintenanceReply(rawMessage: string): MaintenanceOutcome {
   const normalized = normalize(rawMessage);
+  if (NEGATION_PATTERN.test(normalized)) return 'problema';
   const isListo = LISTO_KEYWORDS.some((kw) => new RegExp(`\\b${kw}\\b`).test(normalized));
   return isListo ? 'listo' : 'problema';
 }
