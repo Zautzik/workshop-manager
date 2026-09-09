@@ -42,8 +42,40 @@ const UpdateWorkOrderSchema = z.object({
   completed_items: z.array(CompletedItemSchema).optional(),
 });
 
+export type WorkOrderUpdateInput = z.infer<typeof UpdateWorkOrderSchema>;
+
 interface RouteParams {
   params: Promise<{ id: string }>;
+}
+
+/**
+ * El update en sí, más sus dos efectos secundarios (downtime, avance de
+ * pauta) -- extraído del handler PATCH para que whatsapp-maintenance-ingest.ts
+ * pueda cerrar una orden por el mismo camino exacto que este endpoint, no uno
+ * paralelo que se olvide de alguno de los dos.
+ */
+export async function applyWorkOrderUpdate(id: string, patch: WorkOrderUpdateInput) {
+  const { data, error } = await supabaseAdmin
+    .from('maintenance_work_orders')
+    .update(patch)
+    .eq('id', id)
+    .select('*')
+    .single();
+
+  if (error || !data) return { data: null, error };
+
+  // Downtime is captured from the act of working, not from a second form —
+  // same principle as the QR clock. `machine_downtime_logs` existed with zero
+  // readers and zero writers, so availability/OEE had no raw material at all.
+  await syncDowntime(data, patch.status);
+
+  // Si esta orden nació de una pauta, completarla avanza su reloj -- si no,
+  // la pauta se queda vencida para siempre aunque el trabajo ya se hizo.
+  if (patch.status === 'completed') {
+    await advanceLinkedSchedule(data);
+  }
+
+  return { data, error: null };
 }
 
 /** PATCH — update the work order itself (start, complete, annotate, ticks). */
@@ -65,25 +97,8 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
       );
     }
 
-    const { data, error } = await supabaseAdmin
-      .from('maintenance_work_orders')
-      .update(parsed.data)
-      .eq('id', id)
-      .select('*')
-      .single();
-
+    const { data, error } = await applyWorkOrderUpdate(id, parsed.data);
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-
-    // Downtime is captured from the act of working, not from a second form —
-    // same principle as the QR clock. `machine_downtime_logs` existed with zero
-    // readers and zero writers, so availability/OEE had no raw material at all.
-    await syncDowntime(data, parsed.data.status);
-
-    // Si esta orden nació de una pauta, completarla avanza su reloj -- si no,
-    // la pauta se queda vencida para siempre aunque el trabajo ya se hizo.
-    if (parsed.data.status === 'completed') {
-      await advanceLinkedSchedule(data);
-    }
 
     return NextResponse.json(data);
   } catch {

@@ -22,6 +22,7 @@ import { supabaseAdmin } from '@/integrations/supabase/server';
 import { parseWhatsAppEvents, type ParseResult } from '@/lib/whatsapp-parser';
 import { inferProductionCosts, type OTContext } from '@/lib/whatsapp-cost-inference';
 import { checkRateLimit, retryAfterSeconds } from '@/lib/rate-limiter';
+import { tryProcessMaintenanceMessage } from '@/lib/whatsapp-maintenance-ingest';
 import logger from '@/lib/logger';
 import type { Json } from '@/integrations/supabase/types';
 
@@ -464,6 +465,14 @@ export async function processMessage(input: InboundMessage): Promise<ProcessResu
   }
 
   const messageTimestamp = timestamp || new Date().toISOString();
+
+  // ── ¿Es una respuesta de mantención? ───────────────────
+  // Se decide por construcción (¿trae el código de 8 hex del aviso de pauta
+  // vencida?), no por vocabulario -- ver el header de
+  // whatsapp-maintenance-parser.ts. `null` significa "no es de mantención",
+  // y el pipeline de producción de abajo sigue exactamente igual que antes.
+  const maintenanceResult = await tryProcessMaintenanceMessage({ from, body, messageTimestamp });
+  if (maintenanceResult) return maintenanceResult;
 
   // ── Operator lookup (once per message, shared by all events) ──
   let operatorName: string | null = input.ProfileName ?? null;
