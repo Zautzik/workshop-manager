@@ -28,6 +28,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { KpiCard } from '@/components/ui/kpi-card';
 import { RankedList, type RankedListItem } from '@/components/ui/ranked-list';
 import { useMaintenanceWorkOrdersByStatus } from '@/hooks/use-maintenance-queries';
+import { frequencyLabel } from '@/lib/maintenance-checklist-meta';
 
 interface DowntimeMachineRow {
   machine_id: string;
@@ -347,9 +348,9 @@ function HistorialCompleto() {
                         </span>
                       )}
                       {o.maintenance_checklists?.frequency && (
-                        <span className="flex items-center gap-1 capitalize">
+                        <span className="flex items-center gap-1">
                           <Wrench className="h-3 w-3" />
-                          {o.maintenance_checklists.frequency}
+                          {frequencyLabel(o.maintenance_checklists.frequency)}
                         </span>
                       )}
                     </div>

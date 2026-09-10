@@ -55,6 +55,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useMaintenanceChecklists } from '@/hooks/use-maintenance-queries';
+import { actionTypeMeta, frequencyLabel, ACTION_TYPE_META } from '@/lib/maintenance-checklist-meta';
 
 interface ChecklistItem {
   id: string;
@@ -65,6 +66,10 @@ interface ChecklistItem {
   priority: 'low' | 'medium' | 'high' | 'critical';
   toolsRequired: string[];
   completed?: boolean;
+  /** Migrado de manuales técnicos -- "Alimentador — Cabezal aspirador". Ausente en checklists sembrados originalmente. */
+  section?: string;
+  /** Migrado de manuales técnicos -- inspect/clean/lubricate/replace/check/adjust/service/fill. Ver maintenance-checklist-meta.ts. */
+  actionType?: string;
 }
 
 interface MaintenanceChecklist {
@@ -72,6 +77,8 @@ interface MaintenanceChecklist {
   name: string;
   machineType: string;
   maintenanceType: 'preventive' | 'corrective' | 'emergency' | 'inspection' | 'cleaning';
+  /** daily/weekly/monthly/... -- ver frequencyLabel en maintenance-checklist-meta.ts. Sólo lectura acá: el editor no la cambia, sólo la muestra. */
+  frequency: string;
   items: ChecklistItem[];
   totalEstimatedTime: number;
   createdAt: Date;
@@ -125,6 +132,23 @@ function normalizeItem(raw: any, index: number): ChecklistItem {
   };
 }
 
+const SIN_SECCION = 'Sin sección';
+
+/** Agrupa preservando el primer orden de aparición -- no reordena a algo distinto de cómo el manual original presentaba sus pasos. */
+function groupItemsBySection(items: ChecklistItem[]): { section: string; items: ChecklistItem[] }[] {
+  const order: string[] = [];
+  const map = new Map<string, ChecklistItem[]>();
+  for (const item of items) {
+    const key = item.section || SIN_SECCION;
+    if (!map.has(key)) {
+      map.set(key, []);
+      order.push(key);
+    }
+    map.get(key)!.push(item);
+  }
+  return order.map((section) => ({ section, items: map.get(section)! }));
+}
+
 const DraggableChecklistItem = ({
   item,
   onDelete,
@@ -158,11 +182,25 @@ const DraggableChecklistItem = ({
       </div>
 
       <div className="flex-grow min-w-0">
-        <div className="flex items-center gap-2 mb-1">
+        {/* No repite item.section acá -- el grupo que lo contiene (ver
+            groupItemsBySection en el listado y en Vista previa) ya lo muestra
+            una vez como encabezado; casi todas las secciones migradas traen
+            un solo ítem, así que repetirlo por ítem sólo duplicaba el texto. */}
+        <div className="flex flex-wrap items-center gap-2 mb-1">
           <span className="inline-flex items-center justify-center w-6 h-6 bg-primary text-primary-foreground rounded-full text-xs font-bold">
             {item.step}
           </span>
           <h4 className="font-semibold text-foreground break-words">{item.title}</h4>
+          {item.actionType && (() => {
+            const meta = actionTypeMeta(item.actionType);
+            const Icon = meta.icon;
+            return (
+              <Badge className={meta.className} variant="outline">
+                <Icon className="mr-1 h-3 w-3" />
+                {meta.label}
+              </Badge>
+            );
+          })()}
           <Badge className={priorityColors[item.priority]} variant="outline">
             {priorityLabel[item.priority]}
           </Badge>
@@ -237,6 +275,7 @@ export default function MaintenanceChecklistEditor() {
       name: row.name,
       machineType: row.machine_type || row.machineType || '',
       maintenanceType: row.maintenance_type || row.maintenanceType || 'preventive',
+      frequency: row.frequency ?? 'as_needed',
       items: Array.isArray(row.items) ? row.items.map(normalizeItem) : [],
       totalEstimatedTime: row.total_estimated_time ?? row.totalEstimatedTime ?? 0,
       createdAt: row.created_at ? new Date(row.created_at) : new Date(),
@@ -405,6 +444,7 @@ export default function MaintenanceChecklistEditor() {
       name: newChecklist.name,
       machineType: newChecklist.machineType,
       maintenanceType: newChecklist.maintenanceType as any,
+      frequency: 'as_needed',
       items: [],
       totalEstimatedTime: 0,
       createdAt: new Date(),
@@ -557,7 +597,10 @@ export default function MaintenanceChecklistEditor() {
             >
               <CardHeader>
                 <CardTitle className="text-lg">{checklist.name}</CardTitle>
-                <CardDescription>{checklist.machineType}</CardDescription>
+                <div className="flex items-center gap-2">
+                  <CardDescription>{checklist.machineType}</CardDescription>
+                  <Badge variant="outline" className="text-[10px]">{frequencyLabel(checklist.frequency)}</Badge>
+                </div>
               </CardHeader>
               <CardContent className="space-y-3">
                 <div className="flex items-center justify-between text-sm">
@@ -568,6 +611,25 @@ export default function MaintenanceChecklistEditor() {
                   <Clock size={16} />
                   <span>{checklist.totalEstimatedTime} min total</span>
                 </div>
+                {/* Huella de tipos de acción -- un vistazo a de qué está hecho el
+                    checklist sin abrirlo (¿es sobre todo limpieza? ¿lubricación?). */}
+                {(() => {
+                  const present = [...new Set(checklist.items.map((i) => i.actionType).filter(Boolean))] as string[];
+                  if (present.length === 0) return null;
+                  return (
+                    <div className="flex flex-wrap gap-1">
+                      {present.map((at) => {
+                        const meta = actionTypeMeta(at);
+                        const Icon = meta.icon;
+                        return (
+                          <span key={at} title={meta.label} className={`inline-flex h-5 w-5 items-center justify-center rounded-full border ${meta.className}`}>
+                            <Icon className="h-3 w-3" />
+                          </span>
+                        );
+                      })}
+                    </div>
+                  );
+                })()}
                 <div className="flex gap-2 pt-2">
                   <Button
                     variant="outline"
@@ -774,14 +836,27 @@ export default function MaintenanceChecklistEditor() {
                     items={selectedChecklist.items.map((i) => i.id)}
                     strategy={verticalListSortingStrategy}
                   >
+                    {/* Encabezados de sección intercalados, no un SortableContext por
+                        grupo -- reordenar sigue siendo un solo arrastre lineal (el
+                        orden real de los pasos), la sección sólo se muestra como
+                        referencia de dónde está parado cada uno. */}
                     <div className="space-y-2">
-                      {selectedChecklist.items.map((item) => (
-                        <DraggableChecklistItem
-                          key={item.id}
-                          item={item}
-                          onDelete={handleDeleteItem}
-                          onEdit={handleEditItem}
-                        />
+                      {groupItemsBySection(selectedChecklist.items).map((group) => (
+                        <div key={group.section} className="space-y-2">
+                          {group.section !== SIN_SECCION && (
+                            <p className="pt-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground first:pt-0">
+                              {group.section}
+                            </p>
+                          )}
+                          {group.items.map((item) => (
+                            <DraggableChecklistItem
+                              key={item.id}
+                              item={item}
+                              onDelete={handleDeleteItem}
+                              onEdit={handleEditItem}
+                            />
+                          ))}
+                        </div>
                       ))}
                     </div>
                   </SortableContext>
@@ -805,7 +880,7 @@ export default function MaintenanceChecklistEditor() {
               <div>
                 <CardTitle>{selectedChecklist.name} - Vista previa</CardTitle>
                 <CardDescription className="mt-2">
-                  Máquina: {selectedChecklist.machineType} | Tipo: {maintenanceTypeLabel[selectedChecklist.maintenanceType] ?? selectedChecklist.maintenanceType}
+                  Máquina: {selectedChecklist.machineType} | Tipo: {maintenanceTypeLabel[selectedChecklist.maintenanceType] ?? selectedChecklist.maintenanceType} | Frecuencia: {frequencyLabel(selectedChecklist.frequency)}
                 </CardDescription>
               </div>
               <Button onClick={() => setIsPreviewMode(false)} variant="outline">
@@ -819,7 +894,7 @@ export default function MaintenanceChecklistEditor() {
               <div className="text-center mb-6 pb-6 border-b-2 border-emerald-500/30">
                 <h1 className="text-2xl font-bold text-foreground mb-2">{selectedChecklist.name}</h1>
                 <p className="text-muted-foreground mb-4">
-                  Máquina: {selectedChecklist.machineType} | Mantenimiento: {maintenanceTypeLabel[selectedChecklist.maintenanceType] ?? selectedChecklist.maintenanceType}
+                  Máquina: {selectedChecklist.machineType} | Mantenimiento: {maintenanceTypeLabel[selectedChecklist.maintenanceType] ?? selectedChecklist.maintenanceType} | Frecuencia: {frequencyLabel(selectedChecklist.frequency)}
                 </p>
                 <div className="flex justify-center gap-6 text-sm">
                   <div>
@@ -839,45 +914,66 @@ export default function MaintenanceChecklistEditor() {
                 </div>
               </div>
 
-              <div className="space-y-4">
-                {selectedChecklist.items.map((item) => (
-                  <div key={item.id} className="border-l-4 border-primary pl-4 py-3 page-break-inside-avoid">
-                    <div className="flex items-start justify-between mb-2">
-                      <div className="flex items-center gap-3">
-                        <div className="flex items-center justify-center w-8 h-8 bg-primary text-primary-foreground rounded-full font-bold text-sm">
-                          {item.step}
-                        </div>
-                        <h3 className="font-bold text-foreground">{item.title}</h3>
-                      </div>
-                      <Badge className={priorityColors[item.priority]} variant="outline">
-                        {priorityLabel[item.priority].toUpperCase()}
-                      </Badge>
-                    </div>
-
-                    {item.description && (
-                      <p className="text-foreground/90 mb-2 ml-11 whitespace-pre-wrap">{item.description}</p>
+              <div className="space-y-6">
+                {groupItemsBySection(selectedChecklist.items).map((group) => (
+                  <div key={group.section} className="space-y-4 page-break-inside-avoid">
+                    {group.section !== SIN_SECCION && (
+                      <h2 className="border-b border-border pb-1 text-sm font-bold uppercase tracking-wide text-foreground">
+                        {group.section}
+                      </h2>
                     )}
-
-                    <div className="flex flex-wrap gap-4 ml-11 text-sm">
-                      <div className="flex items-center gap-1 text-muted-foreground">
-                        <Clock size={14} />
-                        {item.estimatedTime} min
-                      </div>
-
-                      {item.toolsRequired.length > 0 && (
-                        <div className="flex items-center gap-2">
-                          <span className="text-muted-foreground">Herramientas:</span>
-                          <span className="text-foreground font-medium">
-                            {item.toolsRequired.join(', ')}
-                          </span>
+                    {group.items.map((item) => (
+                      <div key={item.id} className="border-l-4 border-primary pl-4 py-3 page-break-inside-avoid">
+                        <div className="flex items-start justify-between mb-2">
+                          <div className="flex items-center gap-3">
+                            <div className="flex items-center justify-center w-8 h-8 bg-primary text-primary-foreground rounded-full font-bold text-sm">
+                              {item.step}
+                            </div>
+                            <h3 className="font-bold text-foreground">{item.title}</h3>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {item.actionType && (() => {
+                              const meta = actionTypeMeta(item.actionType);
+                              const Icon = meta.icon;
+                              return (
+                                <Badge className={meta.className} variant="outline">
+                                  <Icon className="mr-1 h-3 w-3" />
+                                  {meta.label.toUpperCase()}
+                                </Badge>
+                              );
+                            })()}
+                            <Badge className={priorityColors[item.priority]} variant="outline">
+                              {priorityLabel[item.priority].toUpperCase()}
+                            </Badge>
+                          </div>
                         </div>
-                      )}
-                    </div>
 
-                    <div className="mt-3 ml-11 flex items-center gap-2 p-2 bg-muted rounded">
-                      <input type="checkbox" className="w-4 h-4 cursor-pointer" />
-                      <span className="text-sm text-muted-foreground">Completado</span>
-                    </div>
+                        {item.description && (
+                          <p className="text-foreground/90 mb-2 ml-11 whitespace-pre-wrap">{item.description}</p>
+                        )}
+
+                        <div className="flex flex-wrap gap-4 ml-11 text-sm">
+                          <div className="flex items-center gap-1 text-muted-foreground">
+                            <Clock size={14} />
+                            {item.estimatedTime} min
+                          </div>
+
+                          {item.toolsRequired.length > 0 && (
+                            <div className="flex items-center gap-2">
+                              <span className="text-muted-foreground">Herramientas:</span>
+                              <span className="text-foreground font-medium">
+                                {item.toolsRequired.join(', ')}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="mt-3 ml-11 flex items-center gap-2 p-2 bg-muted rounded">
+                          <input type="checkbox" className="w-4 h-4 cursor-pointer" />
+                          <span className="text-sm text-muted-foreground">Completado</span>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 ))}
               </div>
