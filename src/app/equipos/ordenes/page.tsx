@@ -4,13 +4,14 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ClipboardList, TriangleAlert, ListChecks, CalendarClock } from 'lucide-react';
+import { ClipboardList, TriangleAlert, ListChecks, CalendarClock, LayoutGrid } from 'lucide-react';
 import { VencimientosPanel } from '@/components/maintenance/VencimientosPanel';
 import { PautasPanel } from '@/components/maintenance/PautasPanel';
 import { OrdenesPanel } from '@/components/maintenance/OrdenesPanel';
 import MaintenanceChecklistEditor from '@/components/maintenance/MaintenanceChecklistEditor';
+import { MachineMaintenanceMatrix } from '@/components/maintenance/MachineMaintenanceMatrix';
 
-const VALID_TABS = ['vencimientos', 'ordenes', 'pautas', 'checklists'] as const;
+const VALID_TABS = ['vencimientos', 'ordenes', 'pautas', 'checklists', 'matriz'] as const;
 type TabKey = (typeof VALID_TABS)[number];
 
 function MantencionTabs() {
@@ -29,7 +30,7 @@ function MantencionTabs() {
 
   return (
     <Tabs value={active} onValueChange={onChange} className="w-full">
-      <TabsList className="grid w-full max-w-xl grid-cols-4">
+      <TabsList className="grid w-full max-w-2xl grid-cols-5">
         <TabsTrigger value="vencimientos" className="gap-2">
           <TriangleAlert className="h-4 w-4" /> Vencimientos
         </TabsTrigger>
@@ -41,6 +42,9 @@ function MantencionTabs() {
         </TabsTrigger>
         <TabsTrigger value="checklists" className="gap-2">
           <ClipboardList className="h-4 w-4" /> Checklists
+        </TabsTrigger>
+        <TabsTrigger value="matriz" className="gap-2">
+          <LayoutGrid className="h-4 w-4" /> Matriz
         </TabsTrigger>
       </TabsList>
 
@@ -55,6 +59,9 @@ function MantencionTabs() {
       </TabsContent>
       <TabsContent value="checklists" className="mt-6">
         <MaintenanceChecklistEditor />
+      </TabsContent>
+      <TabsContent value="matriz" className="mt-6">
+        <MachineMaintenanceMatrix />
       </TabsContent>
     </Tabs>
   );
