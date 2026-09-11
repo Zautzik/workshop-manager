@@ -1,16 +1,17 @@
 # Masterclass
 
-The science, the techniques and the tools behind this project — compiled so the
-reasoning survives the code.
+The science, the techniques, and the tools behind this project — compiled so the
+reasoning outlives the incident that taught it.
 
-A print shop is a good teacher. It has physics you cannot argue with, money that moves
-in the wrong direction when you get the units wrong, and people wearing gloves who will
-not use your software if it asks them to type. Almost everything below was learned by
-being wrong first.
+A print shop makes an unforgiving teacher. It has physics you cannot argue with, money
+that quietly runs in the wrong direction the moment you get a unit wrong, and people in
+ink-stained gloves who will simply not use software that asks them to type. Nearly
+everything below was learned the hard way: ship the wrong number, watch what it costs,
+then go find out why.
 
-`README.md` says what the system does. `NOTES.md` is the log of what broke and how it
-was diagnosed. **This file is the middle layer: the durable knowledge, separated from
-the incident that produced it.**
+`README.md` says what the system does. `NOTES.md` is the incident log — what broke, and
+how it was diagnosed. **This file is the layer in between: the lesson, kept long after
+the incident that taught it has been forgotten.**
 
 ```
 158 migrations · 153 API routes · 72 domain libraries · 76 pages · 912 tests
@@ -20,13 +21,14 @@ the incident that produced it.**
 
 # Part I · The science of the shop
 
-The domain is not "orders and statuses". It is sheets, passes, make-ready, spoilage and
-machine hours, and every one of them has a unit you can get wrong.
+Forget "orders and statuses" — that's the UI, not the domain. The real domain is sheets,
+passes, make-ready, spoilage and machine-hours, and every one of them is carrying a unit
+just waiting to be gotten wrong.
 
 ## 1 · Everything converges on the sheet
 
-The **pliego** — the press sheet — is the join between geometry, weight, cost and
-traceability. Four questions that look unrelated resolve to it:
+The **pliego** — the press sheet — is where geometry, weight, cost and traceability quietly
+turn out to be the same problem wearing four different hats:
 
 | Question | Resolves to |
 |---|---|
@@ -35,69 +37,80 @@ traceability. Four questions that look unrelated resolve to it:
 | What does the run cost? | Sheets × cost per sheet |
 | Which lot did this box come from? | The sheets consumed from that lot |
 
-Get the sheet wrong and all four are wrong together, in the same direction, silently.
-This is why `ot-calculations.ts` computes imposition **once** and both the cost engine
-and the visual preview read the same result. They used to compute it separately and
-disagree — the audit filed that as OF-14.
+Get the sheet wrong and all four answers go wrong together, in the same direction,
+without so much as a warning light. That is exactly what was happening before
+`ot-calculations.ts` was made to compute imposition **once**, with the cost engine and
+the visual preview both reading that same single result. They used to compute it
+separately. They disagreed. The audit wrote the disagreement up as OF-14.
 
-Imposition is not `floor(sheet_area / piece_area)`. It needs the **gripper margin** (the
-strip the press grabs, unusable), **bleed**, and both rotations of the piece tried
-against both orientations of the sheet. The naive division overstates yield by 10–20%,
-which understates paper cost by the same amount.
+Imposition itself is more than `floor(sheet_area / piece_area)` — a division that clean
+never survives contact with a real press. It has to account for the **gripper margin**
+(the strip the press physically grabs and can never print on), **bleed**, and both
+rotations of the piece against both orientations of the sheet. Skip any of that and the
+naive division overstates yield by 10–20%, which understates paper cost by exactly the
+same amount — a quiet, symmetrical way of being wrong.
 
 ## 2 · A press pass is not a colour
 
-The single most expensive unit error this project had.
+The single most expensive unit error this project ever shipped.
 
 A 4-colour-front job on a **4-body press is one pass**, not four. The sheet goes through
-once and four units lay down ink in sequence. Costing it per colour overestimated press
-hours by up to **4×** (audit OF-15).
+the press exactly once, and four units lay down ink in sequence during that single trip.
+Cost it per colour instead of per pass, and press hours get overestimated by up to
+**4×** (audit OF-15) — a rounding habit the size of an entire extra shift, invoiced to
+every job that used it.
 
 ```
 passes = ceil(colours_front / bodies) + ceil(colours_back / bodies)
 ```
 
-A 4/4 job on a 4-body press is two passes — one per side. A 6-colour job on a 4-body
-press is two passes for the front alone. `pressPasses()` in `ot-calculations.ts` owns
-this, and `stage-report.ts` reuses it to know how much make-ready a fragment carries.
+A 4/4 job on a 4-body press is two passes — one per side. A 6-colour job on that same
+4-body press is *also* two passes for the front alone, because the sixth colour has to
+wait for the sheet to come back around. `pressPasses()` in `ot-calculations.ts` is the
+one place that gets to know this, and `stage-report.ts` borrows its answer to work out
+how much make-ready a fragment of the job is carrying.
 
 ## 3 · Make-ready is a fixed cost, and it does not divide
 
-Before a single saleable sheet comes off the press, the operator burns sheets getting
-registration and colour right. Same for a die-cut setup. That cost is **per pass**, not
-per unit — and it is the reason two intuitive calculations are both wrong:
+Before a single saleable sheet leaves the press, the operator has already burned a stack
+of sheets just getting registration and colour right. A die-cut setup costs the same way.
+That cost is **per pass**, not per unit — which is precisely why two calculations that
+each sound reasonable are both wrong:
 
-**Wrong per-run:** a flat "5% + 50 sheets" waste allowance. It underestimates short runs
-badly, where make-ready dominates, and overestimates long ones.
+**Wrong per-run:** a flat "5% + 50 sheets" waste allowance. It starves short runs, where
+make-ready is most of the cost, and pads long ones where it barely registers.
 
-**Wrong per-fragment:** when half an order advances to the next process, splitting the
-make-ready proportionally. `partial-advance.ts` exists for exactly this:
+**Wrong per-fragment:** when half an order moves on to the next process, splitting the
+make-ready proportionally sounds fair and isn't. `partial-advance.ts` exists for exactly
+this case:
 
-> If a 6,000-unit job carries 300 make-ready sheets and half is moved, the first
-> fragment does not take 150. It takes all 300 plus its half of the run. The second
-> fragment does not set the machine up again.
+> If a 6,000-unit job carries 300 make-ready sheets and half of it advances, the first
+> fragment does not take 150. It takes all 300, plus its half of the run. The second
+> fragment does not set the machine up a second time — it already happened once.
 
-Splitting it proportionally leaves the first fragment short of paper with the job
-already mounted on the press.
+Split the make-ready proportionally instead, and the first fragment leaves the press
+short of paper with the job already mounted and running.
 
-## 4 · Merma is judged against the run, never as a percentage
+## 4 · Merma is judged against the run, never as a bare percentage
 
-**Merma** — the paper that entered the machine and did not come out saleable — is the
-largest controllable cost in offset. A ruined sheet was bought, printed, and occupied
-the press: it is paid for three times and sold zero times.
+**Merma** — the paper that went into the machine and did not come out saleable — is the
+single largest controllable cost in offset. A ruined sheet was bought, printed, and held
+the press hostage for the duration: paid for three times over and sold exactly zero.
 
-Two rules, both in `merma.ts`:
+Two rules, both living in `merma.ts`:
 
-**The rate divides by paper *entered*, not by good output.**
+**The rate divides by paper *entered*, never by good output.**
 
 ```
 merma % = merma ÷ (buenos + merma)
 ```
 
-Dividing by good sheets yields >100% when a job is lost entirely — which is precisely
-the case you need to be able to express.
+Divide by good sheets instead and a job that was lost *entirely* reports over 100% —
+which sounds like nonsense until you realise that's exactly the case the number needs to
+be able to say out loud.
 
-**The band depends on run length**, because make-ready is a fixed cost:
+**The tolerance band moves with run length**, because make-ready is a fixed cost hiding
+inside a percentage:
 
 | Run | Normal | High |
 |---|---|---|
@@ -105,56 +118,66 @@ the case you need to be able to express.
 | Medium (≤ 20,000) | 5% | 10% |
 | Long (> 20,000) | 2.5% | 5% |
 
-8% on 500 sheets is forty sheets of setup — normal. 8% on 100,000 sheets is a machine
-with a problem. A single global threshold would flag every short run and miss every real
-fault. Aggregation weights by paper, never by averaging rates: averaging gives a 500-sheet
-job and a 100,000-sheet job equal say.
+8% spoilage on 500 sheets is forty sheets of ordinary setup waste — nothing to see here.
+8% on 100,000 sheets is a machine with a real problem. One global threshold would flag
+every short run in the shop and miss every genuine fault hiding in the long ones.
+Aggregating always weights by paper, never by averaging the rates themselves — averaging
+would let a 500-sheet job and a 100,000-sheet job outvote each other equally, which is
+not how a print shop's economics actually work.
 
 ## 5 · Cost per thousand, and margin per press hour
 
-Two numbers run a print shop, and neither is "total cost".
+Two numbers actually run a print shop, and "total cost" is neither of them.
 
-**Cost per thousand** is the unit the industry quotes in. Total cost cannot be compared
-across a 5,000 and a 150,000 run — the second is always larger and that tells you
-nothing.
+**Cost per thousand** is the unit the industry quotes in, for good reason: total cost
+can't be compared across a 5,000-unit run and a 150,000-unit run — the bigger one is
+always more expensive, and that fact alone tells you nothing useful.
 
-**Margin per press hour** is the one that decides Monday's schedule, and the one nobody
-computes:
+**Margin per press hour** is the number that decides what actually runs on Monday
+morning, and — tellingly — the one nobody was computing:
 
 ```
 $400,000 over 8 hours  =  $50,000/hour
 $200,000 over 2 hours  = $100,000/hour   ← take this one
 ```
 
-When the press is the bottleneck — and in a print shop it is — the job worth taking is
-not the one with the highest margin but the one that pays best per hour of the scarce
-resource. Scheduling by absolute margin fills the press with big slow work and crowds
-out the jobs that pay better. `print-economics.ts` owns both.
+When the press is the bottleneck — and in a print shop it always is — the job worth
+taking is not the one with the fattest margin, it's the one that pays best per hour of
+the one resource you can't get more of. Schedule by absolute margin instead, and the
+press fills up with big, slow, comfortable-looking jobs while the ones that actually pay
+get quietly crowded out. `print-economics.ts` owns both numbers, on purpose, side by
+side.
 
 ## 6 · A machine hour has a derivable price
 
-The plant carried two answers and never compared them: `machines` knows
-`energy_cost_per_hr`, `maintenance_cost_monthly`, `depreciation_monthly`; the costing
-catalog carried an hourly rate somebody typed once.
+The plant was carrying two different answers to "what does an hour on this machine
+cost?" and had simply never put them next to each other. `machines` already knew
+`energy_cost_per_hr`, `maintenance_cost_monthly`, and `depreciation_monthly`; the costing
+catalog, meanwhile, was quoting an hourly rate somebody had typed in once, some time ago,
+for reasons nobody could now reconstruct.
 
-`machine-economics.ts` derives the rate from the iron's own numbers and reports the drift
-against the catalog, so the difference becomes visible instead of silent:
+`machine-economics.ts` derives the rate honestly from the iron's own numbers and reports
+the drift against whatever the catalog says — so the gap becomes something you can see,
+instead of something quietly eating margin in the dark:
 
 ```
 hourly = energy + (maintenance_monthly + depreciation_monthly) / monthly_hours
 ```
 
-`DEFAULT_MONTHLY_PRODUCTIVE_HOURS = 195` — one shift, five days, 4.33 weeks — chosen
-**deliberately low**. Spreading fixed cost over fewer hours makes the hour look more
-expensive, and under-quoting is the failure that actually hurts a print shop.
+`DEFAULT_MONTHLY_PRODUCTIVE_HOURS = 195` — one shift, five days, 4.33 weeks — was chosen
+**deliberately low**. Spread a fixed cost over fewer hours and the hour looks more
+expensive, not less; and in a print shop, under-quoting is the mistake that actually
+draws blood, so the default leans toward the safer kind of wrong.
 
-This is the multiplicand that had nothing to multiply until stage closures started
-recording real hours (`stage-report.ts`).
+This was also the multiplicand with nothing to multiply — until stage closures started
+recording real hours worked (`stage-report.ts`), and the formula finally had something
+true to chew on.
 
 ## 7 · Labour is clock events, not a number someone types
 
-`labor-attribution.ts` is the last weld in the chain **person → wage → machine → OT**.
-Every rail already existed:
+`labor-attribution.ts` is the last weld in a chain that runs **person → wage → machine →
+OT**. Every rail it needs already existed in the schema; nothing was wiring them
+together:
 
 ```
 attendance_events   clock_in/out per employee per station (QR kiosk)
@@ -163,38 +186,40 @@ compensation_rates  hourly_rate + overtime multiplier, effective-dated
 ot_real_costs       the destination
 ```
 
-The module is the pure function in the middle, so the plant's real edge cases —
-an operator who forgets to clock out, a double punch, a night shift crossing midnight,
-one station running several OTs in a day — get decided in testable code rather than
-inside a route.
+The module itself is a pure function sitting in the middle, so the plant's actual edge
+cases — an operator who forgets to clock out, a double punch, a night shift that crosses
+midnight, one station juggling several OTs in a single day — get settled once, in
+testable code, instead of being improvised fresh inside a route every time one shows up.
 
-Rates are **effective-dated**: payroll for March must use March's rate, not today's. A
-join on "the current rate" silently rewrites history every time someone gets a raise.
+Rates are **effective-dated** on purpose: payroll for March has to use March's rate, not
+today's. A join that just grabs "the current rate" quietly rewrites history the moment
+anyone gets a raise.
 
 ## 8 · Paper is bought by weight and consumed by the sheet
 
-`paper-units.ts` exists because the invoice and the machine speak different units.
-Suppliers quote by the kilogram or the ream; the press eats sheets. Converting requires
-the sheet's geometry and the grammage:
+`paper-units.ts` exists because the invoice and the machine are speaking two different
+languages. Suppliers quote by the kilogram or the ream; the press only ever eats sheets.
+Translating between them needs the sheet's geometry and its grammage:
 
 ```
 kg = (width_m × height_m) × gsm/1000 × sheets
 ```
 
-The conversion has to be exact and shared, because it is the hinge between the purchase
-order and the production estimate. `50.000` in a Chilean invoice is fifty thousand, not
-fifty — a migration is named after that bug
+That conversion has to be exact and shared everywhere, because it's the hinge the
+purchase order and the production estimate swing on. `50.000` in a Chilean invoice reads
+as fifty thousand, not fifty-point-zero — and one migration is named directly after the
+bug that assumed otherwise
 (`20260817140000_50_000_no_son_cincuenta_mil`).
 
 ## 9 · Traceability is a physical chain, not a log
 
-Food-packaging certification (FSSC 22000) does not ask for an audit log. It asks a
-question: *given this box on a supermarket shelf, show me the paper it came from, the
-purchase order that bought it, the certificate that was valid on the day it was used,
-and the photograph of what shipped.*
+Food-packaging certification (FSSC 22000) doesn't ask for an audit log. It asks a
+question, and expects an answer on the spot: *given this box on a supermarket shelf, show
+me the paper it came from, the purchase order that bought it, the certificate that was
+valid on the day it was used, and the photograph of what actually shipped.*
 
-That forces a chain of **physical** links, each of which must be recorded at the moment
-it happens:
+Answering that on demand forces a chain of **physical** links, each one recorded at the
+exact moment it happens, not reconstructed afterward:
 
 ```
 lote → OC → proveedor → certificado
@@ -204,32 +229,36 @@ consumo (fecha, OT, cantidad, quién)
 OT → guía de despacho → factura
 ```
 
-`consumir_lote()` is the single door in that chain. It checks retention, balance,
-competing reservations and certificate validity **in one transaction**, because a path
-that can write a consumption without those checks makes the whole chain unprovable. Two
-things follow:
+`consumir_lote()` is the single door in that entire chain. It checks retention, balance,
+competing reservations and certificate validity **in one transaction**, because a second
+path that can write a consumption without those same checks makes the whole chain
+unprovable — one honest door and one side door is the same as no door. Two things follow
+from that:
 
 - **Every capture channel routes through it** — the scan station, and now a photo sent
-  from a phone. The photo replaces the keyboard, not a single rule.
-- **A deviation is data, not a bypass.** Using a lot with an expired certificate is
-  sometimes the right call; it requires a written authorisation which is stored on the
-  transaction (`authorized_deviation`, `deviation_reason`). A rule with no legitimate
-  exception gets routed around.
+  from a phone. The photo replaces the keyboard; it does not get to skip a single rule.
+- **A deviation is data, not a bypass.** Using a lot whose certificate has expired is
+  sometimes the right call to make — it just requires a written authorisation, stored
+  directly on the transaction (`authorized_deviation`, `deviation_reason`). A rule with
+  no legitimate exception is a rule people learn to quietly route around instead.
 
-Reserving is separate from consuming. A reservation does not touch the physical balance
-— it constrains what can be *promised*, and it expires on its own, so a job that falls
-through releases its paper without anyone remembering to.
+Reserving is kept separate from consuming. A reservation never touches the physical
+balance — it only constrains what can honestly be *promised* — and it expires on its own,
+so a job that falls through releases its paper without anyone having to remember to let
+it go.
 
 ## 10 · The guillotine cuts by the lift — and is still costed wrong
 
-Kept here because it is unfinished and instructive. A guillotine does not cut sheet by
-sheet; it cuts a **lift** of roughly 500 sheets per stroke. Costing it continuously
-priced a 25,770-sheet cut at 8.9 hours against 1–2 on the machine.
+Kept here on purpose, because it is unfinished and instructive in equal measure. A
+guillotine does not cut sheet by sheet; it cuts a **lift** of roughly 500 sheets in one
+stroke. Cost it as a continuous process instead, and a 25,770-sheet cut prices out at 8.9
+hours against the 1–2 it actually takes on the floor.
 
-The rate now carries lifts-per-hour *expressed* in sheets/hour so the shape of
-`FINISH_RATES` survives — but `machines.optimal_speed_sheets_hr` has the same defect
-underneath and needs a sheets-per-lift column to be fixed honestly. **A workaround that
-preserves the wrong unit is a debt, and it belongs in writing.**
+The rate now carries lifts-per-hour *expressed* in sheets/hour, so the shape of
+`FINISH_RATES` survives intact — but `machines.optimal_speed_sheets_hr` still carries the
+same defect underneath, and needs a sheets-per-lift column before it can be called fixed
+honestly rather than papered over. **A workaround that preserves the wrong unit is still
+a debt — it just belongs in writing, so nobody mistakes it for paid off.**
 
 ---
 
@@ -237,8 +266,8 @@ preserves the wrong unit is a debt, and it belongs in writing.**
 
 ## 1 · A gate names what is missing
 
-Every workflow gate in `ot-state-machine.ts` refuses with the specific thing that is
-absent, never with a category:
+Every workflow gate in `ot-state-machine.ts` refuses with the specific thing that's
+absent — never with a vague category standing in for it:
 
 ```
 ✗  "Ficha incompleta"
@@ -251,58 +280,64 @@ absent, never with a category:
     operario lo manda por WhatsApp."
 ```
 
-A message that names the gap can be acted on; a category forces the reader to go
-looking. The second one also names *where* to fix it, which is the difference between a
-rule and a trap.
+A message that names the gap can be acted on immediately; a category just sends the
+reader off to go looking for it themselves. The second version also names *where* to fix
+it — which is the actual difference between a rule and a trap wearing a rule's clothes.
 
 ## 2 · Absent data does not block; wrong data does
 
-The hardest design call in the system, and it generalises far past this project.
+The hardest design call in the whole system, and one that generalises well past this
+project.
 
-A gate that stops work until a field is filled does not produce the field. It produces
-work that happens outside the system — the shop keeps running, only the record stops.
-So:
+A gate that stops all work until a field gets filled in does not, in fact, produce the
+field. It produces work that now happens *outside* the system instead — the shop keeps
+running regardless, only the record grinds to a halt. So the rule became:
 
 > **Moving a card is never blocked. Finishing an order is.**
 
-Any door may advance an OT with nothing but a destination. What it does not carry is left
-**open** and visible (an amber ring on the card). The gate that already demanded real
-costs before dispatch gained one more condition: no open passes.
+Any door may advance an OT carrying nothing but a destination. Whatever it doesn't carry
+stays **open** and visible — an amber ring on the card, impossible to miss. The gate that
+already demanded real costs before dispatch simply gained one more condition to check: no
+open passes left behind.
 
-The same validator is hard where it counts. `480` in an hours field is a typo for
-minutes, and it is rejected — not because hours are mandatory, but because a wrong number
-enters the order's cost and the machine's historical average *looking true*. A blank is
-visible and fixable; a wrong value has to be discovered first.
+The same validator turns hard exactly where it should. `480` typed into an hours field is
+almost certainly a typo for minutes, and it gets rejected outright — not because hours are
+mandatory, but because a wrong number quietly enters the order's cost and the machine's
+historical average *looking completely true*. A blank is visible and easy to fix; a wrong
+value first has to be caught in the act.
 
 **Hard on the impossible, soft on the absent.**
 
-And when a gate does fire, there must be a door: `PasadasPendientes` exists because
-telling someone "close the die-cutting pass" without giving them anywhere to do it is a
-trap wearing a rule's clothes.
+And whenever a gate does fire, there has to be a door on the other side of it:
+`PasadasPendientes` exists because telling someone "go close the die-cutting pass"
+without showing them anywhere to actually do that is a trap dressed up as a rule.
 
 ## 3 · Derive; do not store the same truth twice
 
-At one point this system had **seven** stored answers to "where is this OT?":
-`status`, five `flag_*` columns, `proceso_actual`, the machine schedule, the WhatsApp
-start/end session, `worker_assignments`, and stage passes. None derived from another, so
-they drifted — and when they disagreed, nothing detected it.
+At one point this system had **seven** separately stored answers to the single question
+"where is this OT right now?": `status`, five different `flag_*` columns,
+`proceso_actual`, the machine schedule, the WhatsApp start/end session, `worker_assignments`,
+and stage passes. None of them derived from any other, so naturally they drifted apart —
+and when they disagreed with each other, nothing was watching closely enough to notice.
 
-The rule: if B is computable from A, compute it. `ot_stage_reports` has no `estado`
-column because "open" *is* `hours IS NULL`; a second place to say it is a second place
-to contradict it.
+The rule that followed: if B can be computed from A, compute it, full stop.
+`ot_stage_reports` has no `estado` column at all, because "open" *is* simply
+`hours IS NULL` — a second place to say the same thing is just a second place for it to
+quietly start lying.
 
-The corollary is knowing when **not** to derive. Hours are stored separately from money
-because hours × rate is money and the rate changes; storing the fact apart from its
-valuation lets cost be recomputed without rewriting shop history.
+The corollary matters just as much: knowing when **not** to derive. Hours are stored
+separately from money, because hours × rate *is* money and the rate changes over time —
+keeping the raw fact apart from its valuation is what lets cost be recomputed later
+without having to rewrite the shop's actual history.
 
 ## 4 · Ask the catalog, not the grep
 
-`DROP COLUMN` does not validate plpgsql bodies. Postgres resolves a function's
-references when it **runs**, not when it is created, so a dropped column leaves broken
-functions that pass every deploy, every type check and every test, and fail the first
-time a person uses them.
+`DROP COLUMN` does not validate plpgsql function bodies. Postgres only resolves a
+function's references when it **runs**, not when it's created — so a dropped column
+quietly leaves broken functions behind that sail through every deploy, every type check
+and every test, right up until the first time a real person actually calls them.
 
-A TypeScript grep cannot see this. The database can:
+A TypeScript grep is structurally blind to this. The database, asked nicely, is not:
 
 ```sql
 SELECT p.proname FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
@@ -310,82 +345,93 @@ SELECT p.proname FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
    AND pg_get_functiondef(p.oid) ILIKE '%dropped_column%';
 ```
 
-The same blindness applies in the other direction: a dead column inside a PostgREST
-`.select('a, b, c')` string is **just text**. `tsc` stays green; production returns 400.
+The same blind spot shows up in the opposite direction, too: a dead column sitting inside
+a PostgREST `.select('a, b, c')` string is, as far as the compiler is concerned, **just
+text**. `tsc` stays cheerfully green while production quietly returns 400.
 
 ## 5 · A tripwire beats a fix, and a ritual is not a control
 
-Fixing thirty instances of two patterns leaves the patterns. This repository's response
-to an audit was three tripwires rather than thirty edits:
+Fixing thirty instances of the same two patterns leaves the patterns fully intact,
+waiting for instance thirty-one. This repository's actual response to an audit was three
+tripwires instead of thirty individual edits:
 
-- an **ESLint rule** for `const { data } = await supabase…` with `error` unread;
-- a global **`QueryCache` `onError`** floor under components that never check `isError`;
-- **`npm run check:migrations`**, listing every function more than one migration defines.
+- an **ESLint rule** catching `const { data } = await supabase…` with `error` left
+  unread;
+- a global **`QueryCache` `onError`** floor underneath components that never bother
+  checking `isError`;
+- **`npm run check:migrations`**, which lists every function defined more than once
+  across migrations.
 
-And then the lesson that cost a fourth incident: the `pg_proc` query above had been
-written down, saved, and quoted inside a migration — and the same defect happened again,
-because **a check that depends on remembering is not a control**. It is
-`npm run check:functions` now.
+And then came the lesson that took a fourth incident to actually land: the `pg_proc`
+query above had already been written down once, saved, and even quoted verbatim inside a
+migration comment — and the exact same defect happened again anyway, because **a check
+that depends on someone remembering to run it is not a control**. It's a script now:
+`npm run check:functions`.
 
 > A lesson is not learned until something other than a person is responsible for
 > remembering it.
 
 ## 6 · A control that cries wolf gets switched off
 
-`check:functions` reports only references it can resolve to a **concrete table**: a
-`%ROWTYPE` variable's fields, `NEW`/`OLD` in a trigger, an `INSERT` column list, an
-`UPDATE … SET` target, an aliased `FROM`. Anything it cannot tie to a table, it stays
-quiet about.
+`check:functions` only reports references it can resolve to a **concrete table**: a
+`%ROWTYPE` variable's fields, `NEW`/`OLD` inside a trigger, an `INSERT` column list, an
+`UPDATE … SET` target, an aliased `FROM`. Anything it cannot tie back to an actual table,
+it stays quiet about — on purpose.
 
-The easy version — flag any word that is not a known column — finds every real case and
-roughly two hundred false ones. Its first run still lied twelve times, and the fix was
-not to tune a threshold but to model reality better: one trigger function can hang off
-two tables and branch on `TG_TABLE_NAME`, so a field is only wrong if it exists in
-*neither*.
+The easy version of this check — flag any word that isn't a known column — catches every
+real case and also roughly two hundred fictional ones. Even the careful version lied
+twelve times on its first run, and the fix wasn't to tune a threshold, it was to model
+reality more honestly: one trigger function can hang off two different tables and branch
+on `TG_TABLE_NAME`, so a field only counts as wrong if it exists in *neither* of them.
 
-**Precision over recall, for anything meant to be trusted.** A check that narrows the
-hole and never lies survives; one that closes it and cries wolf gets disabled and then
-the hole is fully open again.
+**Precision over recall, for anything meant to actually be trusted.** A check that
+narrows the hole and never lies survives. One that closes the hole but cries wolf gets
+disabled within a month, and then the hole is wide open again — just with a false sense
+of safety bolted on top.
 
-The same logic applies to a finding you cannot fix today. One genuinely broken function
-remained, and repairing it required a business answer rather than a rename — which would
-have left the check permanently red, and permanently red is a synonym for deleted. Its
-references are **named individually** in an allowlist: printed on every run, excluded
-from the exit code, and anything not on the list turns the check red. An allowlist that
-must spell out what it forgives is documentation; a global threshold that hides the same
-thing is amnesia.
+The same logic applies to a finding you genuinely cannot fix today. One function stayed
+truly broken, because repairing it needed a business decision rather than a rename — and
+leaving it flagged would have left the check permanently red, and permanently red is just
+a slower way of saying deleted. Its references are instead **named individually** in an
+allowlist: printed on every single run, excluded from the exit code, and anything not
+already on that list still turns the check red. An allowlist that has to spell out
+exactly what it forgives is documentation. A global threshold that quietly hides the same
+thing is amnesia with extra steps.
 
 ## 7 · Replace by inserting first, then deleting
 
-The obvious order for "replace this step's rows" is delete-then-insert. It loses the old
-rows whenever the insert fails.
+The obvious order for "replace this step's rows" is delete-then-insert. It also happily
+loses the old rows forever the moment the insert fails halfway through.
 
 ```
 insert new rows  →  delete the previously-captured ids
 ```
 
-A failed insert now leaves the old data intact. The worst case of a failed cleanup is
-**visible duplicates, not loss** — and duplicates can be reconciled, while loss cannot.
-Choose the failure mode you can recover from.
+Flip the order, and a failed insert now leaves the old data completely intact. The worst
+case of a failed cleanup becomes **visible duplicates, never silent loss** — and
+duplicates can always be reconciled later, while loss simply cannot. Choose the failure
+mode you can actually recover from.
 
 ## 8 · Guard writes with the state you validated against
 
-Between reading a row and writing it, someone else can move it. Scope the update by the
-value you checked:
+Between the moment you read a row and the moment you write it back, someone else can
+walk in and move it. Scope the update by the exact value you already checked:
 
 ```ts
 .eq('id', id)
 .eq('status', fromStatus)   // ← the guard
 ```
 
-Zero rows matched means someone else got there first: report a 409, do not clobber. The
-same trick closes a race on completing a pass — `.is('hours', null)` on the `UPDATE`, not
-only on the read, so a supervisor at the board and an operator's WhatsApp message cannot
-overwrite each other.
+Zero rows matched means someone else got there first — report a 409 and back off, don't
+clobber their work. The same trick closes a race on completing a pass —
+`.is('hours', null)` on the `UPDATE` itself, not only on the earlier read — so a
+supervisor standing at the board and an operator texting from the floor can't silently
+overwrite each other's version of events.
 
 ## 9 · Optimistic UI needs a snapshot, not a guess
 
-The kanban moves cards at 0 ms perceived latency, which requires being able to *undo*:
+The kanban moves cards at 0 ms of perceived latency, and that trick only works if it can
+*undo* itself cleanly when the server disagrees:
 
 ```
 1. snapshot the query cache
@@ -394,72 +440,84 @@ The kanban moves cards at 0 ms perceived latency, which requires being able to *
 4. on failure, restore the snapshot verbatim and say why
 ```
 
-Step 1 is the one people skip. Reconstructing the previous state from the new one is
-guessing; keeping the actual previous value is not.
+Step 1 is the one people skip, every time. Reconstructing the previous state by working
+backward from the new one is guessing dressed up as engineering; keeping the actual
+previous value around is just remembering.
 
 ## 10 · Paginate, or lie
 
-PostgREST returns at most **1,000 rows and does not say so**. No error, no flag — an
-array of a thousand items looks exactly like a complete one. A query that works in
-development works for the first month and starts lying once the shop has history.
+PostgREST returns at most **1,000 rows, and does not tell you that it did**. No error, no
+flag, nothing — an array of exactly a thousand items looks identical to a complete one in
+every way that matters, right up until it very much isn't. A query that works perfectly
+in development keeps working for the first month in production, then starts quietly
+lying the moment the shop actually accumulates some history.
 
-It cost this project a profitability screen that summed 1,000 of 4,256 cost lines:
+It cost this project a profitability screen that confidently summed 1,000 of 4,256 real
+cost lines and reported it as the whole picture:
 
 ```
 COSTO REAL  $809,388,087        actual: ~$3,283,000,000
 MARGEN      82%                 actual: 22%
 ```
 
-`fetch-all.ts` paginates to exhaustion and — critically — returns `truncated` when it
-hits its ceiling. That flag is the difference between "your shop earned 22%" and "this
-is part of the answer and I don't know which part."
+`fetch-all.ts` now paginates to exhaustion and — this is the part that actually matters —
+returns `truncated` the moment it hits its own ceiling. That one flag is the entire
+difference between "your shop earned 22%" and "this is part of the answer, and I genuinely
+don't know which part."
 
 ## 11 · Errors in the flattering direction are the dangerous ones
 
-Note the sign in the example above: dropping cost lines makes margin go **up**. Nobody
-files a bug about a number that is pleasant.
+Look again at the sign of that example: dropping cost lines makes margin go **up**.
+Nobody, anywhere, ever files a bug report about a number that made their day better.
 
-A 100% margin is not a triumph, it is an unfinished account. Screens should say *"59 OTs
-have no recorded cost"* rather than average them in as free. Build the habit of asking of
-every metric: **which way does this fail, and would anyone notice?**
+A 100% margin is not a triumph to celebrate — it's an unfinished account waiting to be
+noticed. Screens should say *"59 OTs have no recorded cost"* out loud, rather than quietly
+averaging them in as if they were free. Build the habit of asking of every single metric:
+**which way does this fail, and would anyone actually notice if it did?**
 
 ## 12 · One event, many doors
 
-An OT can be moved from the kanban, the planning screens, the scan station, or a WhatsApp
-message. Four doors is correct — the plant will not stop and use one. What is wrong is
-four doors writing to four different places.
+An OT can be moved from the kanban, the planning screens, the scan station, or a
+WhatsApp message. Four doors is exactly correct — the plant is not going to stop and
+gather around one screen just because the software would prefer it. What's wrong is four
+doors each quietly writing to four different places.
 
 ```
 puerta  →  capture_events  →  applier  →  system of record
 ```
 
-The corollaries matter more than the diagram:
+The corollaries end up mattering more than the diagram itself:
 
-- **No door may demand data another door owns.** The kanban blocking on a pallet scan was
-  wrong precisely because `/operaciones/escanear` exists for that, at the machine, with
-  gloves on.
-- **Every door leaves the same trace**, including the failures. A photo that could not be
-  applied is exactly the one a supervisor needs to see; if only successes were recorded,
-  the problem would stay in the sender's phone.
-- **Reuse the validated path.** A WhatsApp message moves an OT through the same
-  `validateTransition` as a supervisor's drag. A path that writes `status` directly makes
-  every rule conditional on which door you came through.
+- **No door may demand data that another door owns.** The kanban blocking on a pallet
+  scan was wrong for exactly this reason — `/operaciones/escanear` already exists for
+  that, at the machine, with gloves on and no patience for a modal.
+- **Every door leaves the same trace, including its failures.** A photo that couldn't be
+  applied is precisely the one a supervisor most needs to see; record only the successes,
+  and the problem just quietly stays trapped in the sender's phone forever.
+- **Reuse the validated path, don't parallel it.** A WhatsApp message moves an OT through
+  the exact same `validateTransition` a supervisor's drag-and-drop does. A path that
+  writes `status` directly makes every rule in the system conditional on which door
+  happened to be used.
 
 ## 13 · Confidence is a routing decision
 
-The message parser has scored its own confidence 0–100 since it was written, and nothing
-read it. That score is exactly the input for deciding **apply automatically or queue for
-review**, and it lets a single pipeline serve both.
+The message parser has been scoring its own confidence from 0–100 since the day it was
+written, and for a long time nothing actually read that number. It turns out to be
+exactly the input needed to decide **apply automatically, or queue for human review** —
+and reading it lets one single pipeline serve both cases without forking in two.
 
-The threshold is set by asymmetry, not by taste. Moving an OT is reversible with a
-rollback; closing a pass with the wrong hours contaminates the job's cost and the
-machine's historical average. So the whole proposal is gated together, at 70.
+The threshold itself comes from asymmetry, not from taste. Moving an OT is cheaply
+reversible with a rollback; closing a pass with the wrong hours contaminates both the
+job's cost *and* the machine's historical average going forward. So the whole proposal
+gets gated together, at 70 — because the expensive mistake sets the bar for the cheap one
+too.
 
 ## 14 · Resolve ambiguity from what is already written, and ask when you cannot
 
-The warehouse photo tells you *which pallet*, not *for which order*. Asking by text puts
-you back where you started. But the system usually already knows — so climb a ladder,
-most explicit first:
+A warehouse photo tells you *which pallet* — it does not tell you *for which order*.
+Asking by text just puts a human back where the system started. But most of the time the
+system already knows the answer somewhere, so it climbs a ladder, most explicit rung
+first:
 
 ```
 1. the OT written into the label
@@ -468,66 +526,75 @@ most explicit first:
 4. the only OT waiting in storage
 ```
 
-The moment a rung returns two answers, **ask** — listing candidates so the reply is five
-digits. Guessing would be worse than asking: consuming against the wrong OT makes the
-traceability confidently point at the wrong lot, and confident wrong is the only kind a
+The instant a rung returns two possible answers, the system **asks** — listing the
+candidates so the reply back is just five digits, not a paragraph. Guessing would be
+strictly worse than asking: consuming against the wrong OT makes the traceability chain
+confidently point at the wrong lot, and a confident wrong answer is the one kind a real
 recall cannot survive.
 
 ## 15 · Pure core, I/O at the edge
 
-Every rule that matters lives in a pure module with no database access:
+Every rule that actually matters lives in a pure module with zero database access:
 `merma`, `partial-advance`, `stage-report`, `whatsapp-flow`, `machine-economics`,
-`labor-attribution`, `print-economics`. Routes gather data and call them.
+`labor-attribution`, `print-economics`. Routes exist only to gather data and call them.
 
-Three payoffs: the rule is testable without fixtures; the **same** rule runs in the
-browser form and the server gate, so they cannot disagree; and the edge cases get decided
-in one readable place instead of inside a query.
+Three payoffs fall out of that split for free: the rule is testable without a single
+fixture; the **same** rule runs inside the browser form and the server-side gate, so the
+two of them are structurally incapable of disagreeing; and the genuinely gnarly edge
+cases get decided once, in one readable place, instead of getting reinvented inside
+whichever query happened to need them this week.
 
-The tell that a module is in the wrong place: `stage-report.ts` takes a label function as
-a parameter rather than importing `status-labels`, because it is shared with the server
-and a dependency on the presentation layer would tie it to one side.
+The tell that a module has drifted into the wrong place: `stage-report.ts` takes a label
+function *as a parameter* rather than importing `status-labels` directly, because it's
+shared with the server, and a hard dependency on the presentation layer would tie a pure
+rule to one particular side of the fence.
 
 ## 16 · Measure before choosing a limit
 
-A QR decoder needs a size cap. The guessed value (64 MB) rejected real photos while
-reporting *"the code isn't visible"* — a wrong answer to the wrong question. Measured:
+A QR decoder needs a size cap somewhere. The first guess (64 MB) rejected perfectly real
+phone photos while confidently reporting *"the code isn't visible"* — a wrong answer to
+an entirely different question than the one being asked. So it got measured instead of
+guessed:
 
 ```
 2000 px → 128 MB      3000 px → 192 MB      4000 px → 384 MB
 ```
 
-384 MB transient in a serverless function is how the process dies. So the limit became 9
-megapixels, checked by **reading the image header before allocating anything**, and the
-rejection says something the person can act on: *"send it as a photo, not as a file —
-WhatsApp will shrink it."*
+384 MB transient inside a serverless function is exactly how that process dies mid-request.
+So the real limit became 9 megapixels, enforced by **reading the image header before
+allocating a single byte**, and the rejection message says something a person can
+actually act on: *"send it as a photo, not as a file — WhatsApp will shrink it for you."*
 
-Three separate lessons: measure rather than guess; check cheaply before committing
-resources; and make the error message map to a choice the user actually has.
+Three separate lessons stacked in one fix: measure rather than guess; check cheaply
+*before* committing real resources; and make the error message map onto a choice the user
+genuinely has.
 
 ## 17 · Comments carry the *why*, and name the scar
 
-The convention throughout: a comment does not restate the code, it records the decision
-and what happens if it is reversed.
+The convention throughout the codebase: a comment never restates what the code already
+says — it records the decision, and what happens the day someone reverses it.
 
 ```ts
 // `?? undefined` y no `?? []`: una lista vacía significaría «no falta nada»
 // y dejaría pasar cualquier OT. Sin dato, la compuerta no corre.
 ```
 
-Every migration opens with the problem it solves, in the shop's language. This is not
-decoration — it is what stops the next person from "simplifying" a guard back into the
-bug it was written for.
+Every migration opens with the problem it solves, written in the shop's own language.
+That is not decoration for its own sake — it's the thing that stops the next person from
+"simplifying" a guard straight back into the exact bug it was written to prevent.
 
 ## 18 · A seed that cannot lie
 
-Demo data is a test of the schema, not a fixture. Seeding four months, ~260 orders and
-1,700 shifts found eight real constraints — because writing rows the honest way makes the
-database object.
+Demo data is a test of the schema, not a convenient fixture to hand-wave past. Seeding
+four months, roughly 260 orders, and 1,700 shifts turned up eight real constraints —
+purely because writing rows the honest way makes the database object loudly when
+something doesn't actually add up.
 
-The best of them: reading `validate_worker_assignment_compliance` *before* writing
-revealed it sums the **shift's** duration, not `hours_worked`, so a person accepts
-exactly one assignment per day. Writing first and reading after would have meant a
-half-seeded database and a Postgres error with no obvious cause.
+The best of the eight: reading `validate_worker_assignment_compliance` *before* writing a
+single row revealed that it sums the **shift's** duration, not `hours_worked` — meaning a
+person can only ever accept exactly one assignment per day. Write first and read the
+function afterward, and the same discovery arrives as a half-seeded database and a
+cryptic Postgres error with no obvious cause attached to it.
 
 ---
 
@@ -535,7 +602,7 @@ half-seeded database and a Postgres error with no obvious cause.
 
 ## Postgres
 
-The most opinionated teacher in the stack.
+The most opinionated teacher in the whole stack.
 
 | Behaviour | Consequence |
 |---|---|
@@ -547,51 +614,57 @@ The most opinionated teacher in the stack.
 | `%ROWTYPE` copies the shape at **execution** | Convenient, and the reason a stale field reference survives a deploy |
 
 Also used deliberately: `SECURITY DEFINER` with `EXECUTE` revoked from `anon`/
-`authenticated` for anything the service role alone should run; `SELECT … FOR UPDATE` to
-serialise split-label generation; partial indexes (`WHERE hours IS NULL`) for the small
-hot set a gate queries; `CHECK` constraints mirroring the TypeScript validator so a rule
-cannot be written around by another path; enums for statuses so a typo is a database
-error rather than a silent no-match.
+`authenticated` for anything only the service role should ever run; `SELECT … FOR UPDATE`
+to serialise split-label generation so two requests can't both think they went first;
+partial indexes (`WHERE hours IS NULL`) for the small hot set a gate actually queries;
+`CHECK` constraints mirroring the TypeScript validator so a rule can't simply be written
+around through another path; enums for statuses, so a typo turns into a loud database
+error instead of a silent no-match nobody notices.
 
-**Immutability by omission**: `ot_status_history` and `ot_stage_reports` have RLS
-`SELECT` policies and no `UPDATE`/`DELETE` policies at all. Evidence you can quietly edit
-is not evidence.
+**Immutability by omission**: `ot_status_history` and `ot_stage_reports` carry RLS
+`SELECT` policies and *no* `UPDATE`/`DELETE` policies at all. Evidence that can be
+quietly edited later isn't really evidence — it's a diary with an eraser built in.
 
 ## Supabase
 
-PostgREST, storage and auth. The two things worth internalising: the **1,000-row cap**
-(§Part II.10), and that `select()` strings are opaque to the type system — the generated
-`types.ts` is regenerated after every migration precisely so that drift becomes a
-compile error wherever it *can* be one.
+PostgREST, storage and auth, bundled together. Two things worth carrying around for
+life: the **1,000-row cap** (§Part II.10), and the fact that `select()` strings are
+completely opaque to the type system — the generated `types.ts` gets regenerated after
+every single migration for exactly this reason, so that drift becomes a compile error
+everywhere it's actually possible to catch it as one.
 
 ## Next.js 16 · React 18 · TypeScript
 
-App Router, server routes under `src/app/api`. Type checking catches shape errors and is
-blind to everything expressed as a string — which is most of the interesting failures.
-`output: 'standalone'` once broke the Vercel build while the site kept serving the last
-good deploy, hiding every push since; CI green on a build configuration production does
-not use is worse than no CI.
+App Router, server routes under `src/app/api`. Type checking is excellent at catching
+shape errors and completely blind to anything expressed as a plain string — which turns
+out to be most of the genuinely interesting failures. `output: 'standalone'` once broke
+the Vercel build outright while the site kept right on serving the last good deploy,
+quietly hiding every single push made since; a green CI on a build configuration
+production doesn't even use is worse than having no CI at all, because it actively lies
+about being one.
 
 ## TanStack Query
 
-Server cache with explicit keys. Used for optimistic transitions with snapshot rollback
-(§Part II.9) and a global `QueryCache.onError` floor under components that never branch
-on `isError`.
+Server cache with explicit keys. Used here for optimistic transitions with snapshot
+rollback (§Part II.9), plus a global `QueryCache.onError` floor underneath components
+that never got around to branching on `isError` themselves.
 
 ## Zod
 
-Validation at the boundary, and a distinction worth stating: **Zod checks shape; the
-domain module checks meaning.** The hours field caps at 999,999 in Zod purely to protect
-the column, while `validateStageReport` owns the real 400-hour limit — because a Zod
-rejection says *"Number must be less than or equal to 400"* in English and does not tell
-anyone that they typed minutes.
+Validation at the boundary — and a distinction worth stating plainly: **Zod checks
+shape; the domain module checks meaning.** The hours field caps at 999,999 in Zod purely
+to protect the column from absurdity, while `validateStageReport` owns the real 400-hour
+limit that actually matters — because a Zod rejection says *"Number must be less than or
+equal to 400"* in flat, generic English, and never once tells anyone that what they
+actually typed was minutes.
 
 ## Vitest
 
-912 tests across 50 files, almost all against pure domain modules. They are fast because
-nothing mocks a database — the modules that matter do not touch one.
+912 tests spread across 50 files, almost all of them aimed squarely at pure domain
+modules. They run fast for a simple reason: nothing mocks a database, because the modules
+that matter most never touch one in the first place.
 
-Test names carry the reasoning, in the shop's language:
+Test names carry the reasoning itself, written in the shop's own language:
 
 ```
 ✓ el arreglo de un tiraje corto no dispara nada
@@ -599,31 +672,34 @@ Test names carry the reasoning, in the shop's language:
 ✓ nadie tiene dos turnos el mismo día
 ```
 
-For the QR decoder — the one module whose correctness cannot be reasoned about, only
-measured — tests generate real images (`qrcode` → PNG → JPEG at quality 45, a small label
-inside a 3000 px photo) and decode them. **A decoder with no round-trip test is a decoder
-nobody has run.**
+For the QR decoder — the one module whose correctness can't be reasoned about from first
+principles, only measured — the tests generate real images (`qrcode` → PNG → JPEG at
+quality 45, a small label buried inside a 3000 px photo) and then actually decode them.
+**A decoder with no round-trip test is a decoder nobody has actually run.**
 
 ## WhatsApp Cloud API (Meta, direct)
 
-The zero-cost path, chosen after Twilio rejected the account. Things it teaches:
+The zero-cost path, chosen only after Twilio rejected the account outright. What it
+teaches, in order of how expensive the lesson was:
 
-- **Always answer 200.** A non-2xx makes Meta retry the whole envelope, re-running
-  messages that already succeeded.
-- Media arrives as an **id**, exchanged for a short-lived URL that needs the same bearer
-  token.
-- A captionless photo has no text body — and the intake dropped it for exactly that
-  reason, discarding the most natural gesture the warehouse has.
+- **Always answer 200.** A non-2xx response makes Meta retry the entire envelope,
+  cheerfully re-running messages that had already succeeded the first time.
+- Media arrives as an **id**, which then has to be exchanged for a short-lived URL using
+  the same bearer token all over again.
+- A captionless photo has no text body at all — and the intake used to drop it for
+  exactly that reason, discarding the single most natural gesture anyone in the
+  warehouse actually makes.
 
 ## Image and QR decoding
 
-`jsqr` + `jpeg-js` + `pngjs`, pure JavaScript, no native build. `sharp` sits in
-`node_modules` because Next drags it in — using an undeclared transitive dependency means
-the day Next stops shipping it, production breaks and no test notices.
+`jsqr` + `jpeg-js` + `pngjs`, pure JavaScript, no native build to fight with. `sharp`
+still sits in `node_modules` because Next drags it in on its own — depending on an
+undeclared transitive package like that means the day Next stops shipping it, production
+breaks with no warning and no test anywhere notices.
 
-One counter-intuitive detail: downscaling uses **nearest-neighbour**, not averaging.
-Averaging produces a prettier image and a worse code — it blurs precisely the
-black/white module edge the reader is looking for.
+One genuinely counter-intuitive detail: downscaling uses **nearest-neighbour**, not
+averaging. Averaging makes a visibly prettier image and a measurably worse code — it
+blurs precisely the black/white module edge the reader is straining to find.
 
 ## The scripts
 
@@ -635,15 +711,16 @@ npm run test:smoke         the app actually boots and serves
 npm run seed:demo          rehearsal by default; --write to apply
 ```
 
-`seed:demo` printing its plan and writing nothing unless asked is the same instinct as
-`fetch-all`'s `truncated` flag: **make the dangerous thing require a sentence.**
+`seed:demo` printing its plan and writing absolutely nothing unless explicitly told to is
+the same instinct as `fetch-all`'s `truncated` flag: **make the dangerous thing require a
+full sentence, not a single keystroke.**
 
 ---
 
 # Part IV · The failure taxonomy
 
-Every one of these happened here. Grouped by what would have caught it, because that is
-the useful axis.
+Every one of these actually happened, here, on this project. Grouped by what would have
+caught it, because that turns out to be the only axis worth sorting by.
 
 | Failure | Caught by | Missed by |
 |---|---|---|
@@ -657,20 +734,21 @@ the useful axis.
 | Build failing while the site works | Reading the deploy log | The working site |
 | A number wrong in the flattering direction | Suspicion | Human review |
 
-The uncomfortable summary from the 2026-07 audit still stands:
+The uncomfortable summary from the 2026-07 audit still stands, word for word:
 
 > Every bug in that pass was invisible to every automated check the project had, and
 > visible within seconds to anyone who opened the screen and asked what the numbers
 > meant.
 
-Checks are worth keeping and more were added. But the thing that found them was a person
-reading a screen and refusing to accept that the shop had no work today.
+The checks below were worth keeping, and more got added since. But the thing that
+actually found every one of these was a person reading a screen, and simply refusing to
+believe that the shop genuinely had no work today.
 
 ---
 
 # Part V · The working rules
 
-Condensed, in the order they tend to matter.
+Condensed, roughly in the order they tend to bite.
 
 1. **Ask what breaks when this lands**, not whether it compiles.
 2. **Name what is missing.** A gate that says "incomplete" makes someone go looking.
