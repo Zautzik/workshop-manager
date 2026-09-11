@@ -1,6 +1,6 @@
 'use client';
 
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
 const isDevBypass =
@@ -100,6 +100,39 @@ export function useMaintenanceSchedules(machineId?: string | null) {
       const res = await fetch(`/api/maintenance/schedules${params}`, { credentials: 'include' });
       if (!res.ok) throw new Error('No se pudieron cargar las pautas');
       return res.json();
+    },
+  });
+}
+
+/**
+ * Crea la orden que le falta a una pauta vencida -- extraída de
+ * VencimientosPanel.tsx (mismo botón "Crear orden") para que
+ * MachinePendingMaintenance.tsx (pantalla móvil, escaneada por QR) ofrezca
+ * la misma acción sin reimplementar el POST.
+ */
+export function useCreateOrderFromSchedule() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (schedule: MaintenanceScheduleRow) => {
+      const res = await fetch('/api/maintenance/work-orders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          machine_id: schedule.machine_id,
+          work_order_type: 'preventivo',
+          checklist_id: schedule.checklist_id,
+          schedule_id: schedule.id,
+          system_id: schedule.system_id,
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error ?? 'No se pudo crear la orden');
+      return json;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['maintenance', 'schedules'] });
+      queryClient.invalidateQueries({ queryKey: ['maintenance', 'workOrders'] });
     },
   });
 }

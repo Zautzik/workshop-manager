@@ -25,7 +25,6 @@
  */
 
 import { useMemo, useState } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { isPast, parseISO, differenceInDays, format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import {
@@ -40,6 +39,7 @@ import { useToast } from '@/hooks/use-toast';
 import {
   useMaintenanceWorkOrdersByStatus,
   useMaintenanceSchedules,
+  useCreateOrderFromSchedule,
   type MaintenanceScheduleRow as ScheduleRow,
 } from '@/hooks/use-maintenance-queries';
 import { DUE_STATUS_LABEL, type DueStatus } from '@/lib/maintenance-due';
@@ -55,33 +55,6 @@ const STYLE: Record<DueStatus, { badge: string; icon: typeof TriangleAlert }> = 
 const nf = new Intl.NumberFormat('es-CL', { maximumFractionDigits: 0 });
 /** Cuántas pautas accionables se muestran antes de pedir "ver todas". */
 const VISIBLE_SCHEDULES = 8;
-
-function useCreateOrderFromSchedule() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async (schedule: ScheduleRow) => {
-      const res = await fetch('/api/maintenance/work-orders', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({
-          machine_id: schedule.machine_id,
-          work_order_type: 'preventivo',
-          checklist_id: schedule.checklist_id,
-          schedule_id: schedule.id,
-          system_id: schedule.system_id,
-        }),
-      });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error ?? 'No se pudo crear la orden');
-      return json;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['maintenance', 'schedules'] });
-      queryClient.invalidateQueries({ queryKey: ['maintenance', 'workOrders'] });
-    },
-  });
-}
 
 /** Una línea de nombre + badges, una línea de detalle -- no cuatro. */
 function ScheduleRowItem({

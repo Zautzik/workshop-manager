@@ -44,8 +44,8 @@ function Etiquetas() {
           <h1 className="text-2xl font-bold">Etiquetas QR de las máquinas</h1>
           <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
             Imprime, recorta y pega una en cada equipo, a la altura del contador. Quien pase
-            por ahí escanea y anota la lectura desde el teléfono — que es lo que convierte la
-            vida de un repuesto en una fecha de compra.
+            por ahí escanea y elige: anotar la lectura, o revisar qué mantención tiene
+            pendiente esa máquina ahora mismo.
           </p>
         </div>
         <Button onClick={() => window.print()} className="gap-2">
@@ -67,7 +67,7 @@ function Etiquetas() {
               {machineTypeLabel(m.type)} · se mide en {usageUnitInline(m.usage_unit)}
             </p>
             <p className="text-center text-[10px] text-muted-foreground print:text-black/60">
-              Escanear para anotar la lectura
+              Escanear para anotar lectura o ver mantenciones
             </p>
           </div>
         ))}
