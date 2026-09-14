@@ -42,7 +42,8 @@ import {
   useCreateOrderFromSchedule,
   type MaintenanceScheduleRow as ScheduleRow,
 } from '@/hooks/use-maintenance-queries';
-import { DUE_STATUS_LABEL, type DueStatus } from '@/lib/maintenance-due';
+import { DUE_STATUS_LABEL, groupDueSchedulesByFrequency, type DueStatus } from '@/lib/maintenance-due';
+import { frequencyLabel } from '@/lib/maintenance-checklist-meta';
 import { usageUnitShort } from '@/types/machine-usage-unit';
 
 const STYLE: Record<DueStatus, { badge: string; icon: typeof TriangleAlert }> = {
@@ -238,6 +239,58 @@ function SchedulesSection({
   );
 }
 
+/**
+ * "Qué toca esta semana", agrupado por cadencia -- la misma idea que la
+ * hoja de mantención en papel (Semanal / Quincenal / Mensual / ...) sin
+ * copiar su mecanismo de casillero por día. Es una segunda lectura de los
+ * mismos datos que ya muestra SchedulesSection arriba, no una acción nueva
+ * -- por eso no repite el botón "Crear orden": eso ya vive en la fila de
+ * arriba, esto es sólo para ver de un vistazo si el jueves va a estar
+ * cargado antes de que llegue.
+ */
+function EstaSemanaPorFrecuencia({ schedules }: { schedules: ScheduleRow[] }) {
+  const buckets = useMemo(() => groupDueSchedulesByFrequency(schedules), [schedules]);
+  if (buckets.length === 0) return null;
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="flex items-center gap-2 text-base">
+          <Calendar className="h-4 w-4" />
+          Esta semana, por frecuencia
+        </CardTitle>
+        <p className="text-xs text-muted-foreground">
+          Las mismas pautas vencidas o próximas de arriba, agrupadas por la cadencia de su
+          checklist -- para ver de un vistazo qué tipo de mantención se concentra esta semana.
+        </p>
+      </CardHeader>
+      <CardContent className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {buckets.map((bucket) => (
+          <div key={bucket.frequency} className="rounded-lg border">
+            <div className="flex items-center justify-between border-b bg-muted/20 px-3 py-1.5">
+              <span className="text-xs font-semibold">{frequencyLabel(bucket.frequency)}</span>
+              <Badge variant="secondary" className="text-[10px]">{bucket.schedules.length}</Badge>
+            </div>
+            <ul className="divide-y">
+              {bucket.schedules.map((row) => {
+                const st = STYLE[row.due.status];
+                return (
+                  <li key={row.id} className="flex items-center justify-between gap-2 px-3 py-1.5 text-xs">
+                    <span className="min-w-0 truncate">{row.machine_name ?? 'Sin máquina'}</span>
+                    <Badge variant="outline" className={`shrink-0 text-[10px] ${st.badge}`}>
+                      {DUE_STATUS_LABEL[row.due.status]}
+                    </Badge>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        ))}
+      </CardContent>
+    </Card>
+  );
+}
+
 function PendingOrdersSection({ overdue, upcoming }: { overdue: any[]; upcoming: any[] }) {
   if (overdue.length === 0 && upcoming.length === 0) return null;
 
@@ -327,6 +380,7 @@ export function VencimientosPanel() {
         <KpiCard icon={CalendarClock} label="Órdenes próximas" value={String(upcomingOrders.length)} tone={upcomingOrders.length > 0 ? 'warning' : 'default'} hint="Emitidas, sin iniciar" />
       </div>
       <SchedulesSection schedules={schedules} summary={summary} />
+      <EstaSemanaPorFrecuencia schedules={schedules} />
       <PendingOrdersSection overdue={overdueOrders} upcoming={upcomingOrders} />
     </div>
   );

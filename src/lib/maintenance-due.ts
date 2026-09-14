@@ -16,6 +16,8 @@
  * Puro y testeable, como el resto de la lógica de negocio del proyecto.
  */
 
+import { compareFrequency } from './maintenance-checklist-meta';
+
 export type DueStatus =
   /** Ya se pasó, por calendario o por uso. */
   | 'vencida'
@@ -223,4 +225,50 @@ export function decideCronOrderAction(
 ): CronOrderAction {
   if (!existing) return 'create';
   return existing.notified_at ? 'skip' : 'retry_notify';
+}
+
+export interface ScheduleForFrequencyGrouping {
+  checklist_frequency: string | null;
+  due: { status: DueStatus };
+}
+
+export interface DueFrequencyBucket<T> {
+  frequency: string;
+  schedules: T[];
+}
+
+/**
+ * La hoja de mantención en papel agrupa por cadencia -- semanal, quincenal,
+ * mensual -- para que alguien vea de un vistazo qué le toca esta semana sin
+ * leer máquina por máquina. Esto traduce esa intención sin copiar su
+ * mecanismo (un casillero por día de la semana): agrupa las pautas ya
+ * vencidas o próximas por la frecuencia de SU checklist -- no por
+ * frequency_days/frequency_usage, que son números, no una cadencia con
+ * nombre -- usando FREQUENCY_ORDER (maintenance-checklist-meta.ts) para el
+ * orden de las columnas.
+ *
+ * Una pauta sin checklist no tiene cadencia que mostrar acá -- ya aparece en
+ * la lista plana de Vencimientos con su propio aviso de "sin checklist".
+ */
+export function groupDueSchedulesByFrequency<T extends ScheduleForFrequencyGrouping>(
+  schedules: T[],
+): DueFrequencyBucket<T>[] {
+  const due = schedules.filter(
+    (s) => (s.due.status === 'vencida' || s.due.status === 'proxima') && s.checklist_frequency,
+  );
+
+  const order: string[] = [];
+  const byFrequency = new Map<string, T[]>();
+  for (const s of due) {
+    const freq = s.checklist_frequency!;
+    if (!byFrequency.has(freq)) {
+      byFrequency.set(freq, []);
+      order.push(freq);
+    }
+    byFrequency.get(freq)!.push(s);
+  }
+
+  return order
+    .sort(compareFrequency)
+    .map((frequency) => ({ frequency, schedules: byFrequency.get(frequency)! }));
 }

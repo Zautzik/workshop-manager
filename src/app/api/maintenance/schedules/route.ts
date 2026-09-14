@@ -30,7 +30,7 @@ export async function GET(req: NextRequest) {
       *,
       machines ( id, name, type, usage_unit, usage_counter ),
       machine_systems ( id, code, name ),
-      maintenance_checklists ( id, name )
+      maintenance_checklists ( id, name, frequency )
     `);
 
   if (machineId) query = query.eq('machine_id', machineId);
@@ -45,12 +45,13 @@ export async function GET(req: NextRequest) {
     const machine = s.machines as {
       id: string; name: string; usage_unit: string; usage_counter: number | null;
     } | null;
-    const checklist = s.maintenance_checklists as { id: string; name: string } | null;
+    const checklist = s.maintenance_checklists as { id: string; name: string; frequency: string } | null;
 
     return {
       ...s,
       machine_name: machine?.name ?? null,
       checklist_name: checklist?.name ?? null,
+      checklist_frequency: checklist?.frequency ?? null,
       usage_unit: machine?.usage_unit ?? 'hours',
       due: evaluateSchedule({
         frequencyDays: s.frequency_days,

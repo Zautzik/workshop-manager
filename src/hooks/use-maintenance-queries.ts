@@ -73,6 +73,8 @@ export interface MaintenanceScheduleRow {
   system_id: string | null;
   checklist_id: string | null;
   checklist_name: string | null;
+  /** daily/weekly/monthly/... del checklist enlazado -- ver frequencyLabel en maintenance-checklist-meta.ts. Null si la pauta no tiene checklist todavía. */
+  checklist_frequency: string | null;
   machine_name: string | null;
   maintenance_type: string;
   description: string | null;

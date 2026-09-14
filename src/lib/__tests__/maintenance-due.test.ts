@@ -1,5 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import { evaluateSchedule, compareDue, advanceSchedule, decideCronOrderAction, WARNING_WINDOW_DAYS } from '../maintenance-due';
+import {
+  evaluateSchedule, compareDue, advanceSchedule, decideCronOrderAction,
+  groupDueSchedulesByFrequency, WARNING_WINDOW_DAYS,
+} from '../maintenance-due';
 
 const HOY = new Date('2026-08-01T12:00:00Z');
 const enDias = (d: number) => new Date(HOY.getTime() + d * 86_400_000).toISOString();
@@ -174,5 +177,53 @@ describe('el cron de pautas vencidas decide crear, reintentar el aviso, o no hac
     // chequeo, así que un fallo de red durante notifyScheduleDue perdía el
     // aviso para siempre -- ninguna corrida futura lo reintentaba.
     expect(decideCronOrderAction({ id: 'o1', notified_at: null })).toBe('retry_notify');
+  });
+});
+
+describe('agrupar pautas vencidas/próximas por la frecuencia de su checklist', () => {
+  const sched = (opts: { checklist_frequency?: string | null; status?: 'vencida' | 'proxima' | 'al_dia' | 'sin_datos' } = {}) => ({
+    checklist_frequency: opts.checklist_frequency ?? 'weekly',
+    due: { status: opts.status ?? 'vencida' },
+  });
+
+  it('sin pautas, sin buckets', () => {
+    expect(groupDueSchedulesByFrequency([])).toEqual([]);
+  });
+
+  it('agrupa por frecuencia del checklist, en orden canónico (no alfabético)', () => {
+    const result = groupDueSchedulesByFrequency([
+      sched({ checklist_frequency: 'monthly' }),
+      sched({ checklist_frequency: 'daily' }),
+      sched({ checklist_frequency: 'weekly' }),
+    ]);
+    expect(result.map((b) => b.frequency)).toEqual(['daily', 'weekly', 'monthly']);
+  });
+
+  it('al día y sin_datos no cuentan como "esta semana" -- sólo vencida y próxima', () => {
+    const result = groupDueSchedulesByFrequency([
+      sched({ status: 'al_dia' }),
+      sched({ status: 'sin_datos' }),
+      sched({ status: 'proxima' }),
+    ]);
+    expect(result).toHaveLength(1);
+    expect(result[0].schedules).toHaveLength(1);
+  });
+
+  it('una pauta sin checklist no tiene cadencia que mostrar -- se omite, no cae en un bucket "sin checklist"', () => {
+    const result = groupDueSchedulesByFrequency([
+      sched({ checklist_frequency: null }),
+      sched({ checklist_frequency: 'weekly' }),
+    ]);
+    expect(result).toHaveLength(1);
+    expect(result[0].frequency).toBe('weekly');
+  });
+
+  it('varias pautas de la misma frecuencia caen en el mismo bucket', () => {
+    const result = groupDueSchedulesByFrequency([
+      sched({ checklist_frequency: 'monthly' }),
+      sched({ checklist_frequency: 'monthly' }),
+    ]);
+    expect(result).toHaveLength(1);
+    expect(result[0].schedules).toHaveLength(2);
   });
 });
