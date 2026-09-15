@@ -33,9 +33,13 @@ import {
 } from '@/components/ui/select';
 import { computeOTCalculations, CALIBRATION } from '@/lib/ot-calculations';
 import type { OTFormData } from '@/types/ot';
-import { Target, Plus, Trash2, TrendingUp, TrendingDown, Check, RefreshCw } from 'lucide-react';
+import { Target, Plus, Trash2, TrendingUp, TrendingDown, Check, RefreshCw, ClipboardList } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
+import {
+  useCalibrationProposals, useCreateCalibrationProposal, useResolveCalibrationProposal,
+  type CalibrationProposal,
+} from '@/hooks/use-calibration-proposals';
 
 /** Tolerance the calibration gate is measured against. */
 const TOLERANCE_PCT = 10;
@@ -333,6 +337,151 @@ function DesvioAutomatico() {
   );
 }
 
+/** Las constantes de CALIBRATION que tiene sentido proponer ajustar, leídas
+ *  del objeto real y no copiadas a mano — para que esta lista nunca quede
+ *  desalineada de lo que el motor realmente usa. */
+function calibrationPaths(): { path: string; current: number }[] {
+  const scalars: Array<keyof typeof CALIBRATION> = [
+    'BASE_WASTE_PCT', 'MAKEREADY_SHEETS_PER_PASS', 'MAKEREADY_HOURS_PER_PASS',
+    'DIE_SETUP_SHEETS', 'HOTSTAMP_SETUP_SHEETS', 'DEFAULT_SHEETS_PER_HOUR',
+    'DEFAULT_DIGITAL_SHEETS_PER_HOUR', 'GRIPPER_CM', 'BLEED_CM',
+  ];
+  const scalarPaths = scalars.map((k) => ({ path: k as string, current: Number(CALIBRATION[k]) }));
+  const finishPaths = Object.entries(CALIBRATION.FINISH_RATES).flatMap(([key, rate]) => [
+    { path: `FINISH_RATES.${key}.setupH`, current: rate.setupH },
+    { path: `FINISH_RATES.${key}.sheetsPerHour`, current: rate.sheetsPerHour },
+  ]);
+  return [...scalarPaths, ...finishPaths];
+}
+
+/**
+ * Cierra la brecha verificada: hasta ahora, ajustar CALIBRATION era un edit de
+ * código sin rastro de quién lo pidió ni por qué. Esto no vuelve la constante
+ * dinámica — sigue habiendo un paso manual, editar el código y desplegar —
+ * pero esa decisión ya no desaparece: queda con nombre, motivo y la evidencia
+ * que la justificó, antes de que el código cambie.
+ */
+function PropuestasCalibracion({ evidencia }: { evidencia: unknown }) {
+  const { data: proposals = [] } = useCalibrationProposals();
+  const create = useCreateCalibrationProposal();
+  const resolve = useResolveCalibrationProposal();
+
+  const paths = useMemo(calibrationPaths, []);
+  const [path, setPath] = useState(paths[0]?.path ?? '');
+  const [nuevoValor, setNuevoValor] = useState<number | null>(null);
+  const [motivo, setMotivo] = useState('');
+
+  const actual = paths.find((p) => p.path === path)?.current ?? 0;
+
+  const proponer = async () => {
+    const valor = nuevoValor ?? actual;
+    if (!motivo.trim()) { toast.error('Indica por qué se propone este ajuste'); return; }
+    if (valor === actual) { toast.error('El valor propuesto es igual al actual'); return; }
+    try {
+      await create.mutateAsync({
+        changes: [{ path, current_value: actual, proposed_value: valor }],
+        reason: motivo.trim(),
+        based_on: evidencia,
+      });
+      toast.success('Propuesta registrada');
+      setMotivo(''); setNuevoValor(null);
+    } catch (e: any) { toast.error(e?.message ?? 'Error'); }
+  };
+
+  const resolver = async (p: CalibrationProposal, status: 'applied' | 'rejected') => {
+    let applied_note: string | undefined;
+    if (status === 'applied') {
+      const n = window.prompt('¿Dónde quedó el cambio? (commit, PR, o cómo se aplicó)');
+      if (!n?.trim()) return;
+      applied_note = n.trim();
+    }
+    try {
+      await resolve.mutateAsync({ id: p.id, status, applied_note });
+      toast.success(status === 'applied' ? 'Marcada como aplicada' : 'Rechazada');
+    } catch (e: any) { toast.error(e?.message ?? 'Error'); }
+  };
+
+  const pendientes = proposals.filter((p) => p.status === 'pending');
+  const resueltas = proposals.filter((p) => p.status !== 'pending');
+
+  return (
+    <Card className="border-border">
+      <CardHeader className="pb-3">
+        <CardTitle className="flex items-center gap-2 text-base">
+          <ClipboardList className="h-4 w-4 text-muted-foreground" />
+          Propuestas de ajuste
+        </CardTitle>
+        <p className="text-xs text-muted-foreground">
+          Editar <span className="font-mono">CALIBRATION</span> en el código sigue siendo aparte —
+          esto deja escrito qué se quiere cambiar y por qué, antes de que eso pase.
+        </p>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="grid grid-cols-1 items-end gap-2 rounded-md border p-3 sm:grid-cols-[1fr_auto_auto]">
+          <div className="space-y-1">
+            <Label className="text-xs text-muted-foreground">Constante</Label>
+            <Select value={path} onValueChange={(v) => { setPath(v); setNuevoValor(null); }}>
+              <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+              <SelectContent className="max-h-72">
+                {paths.map((p) => (
+                  <SelectItem key={p.path} value={p.path} className="font-mono text-xs">{p.path}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <NumField label={`Nuevo (actual: ${actual})`} value={nuevoValor ?? actual} step="0.01" onChange={setNuevoValor} />
+          <Button size="sm" onClick={proponer} disabled={create.isPending}>Proponer</Button>
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs text-muted-foreground">Motivo (qué trabajos, qué desvío)</Label>
+          <Input
+            value={motivo}
+            onChange={(e) => setMotivo(e.target.value)}
+            placeholder="Ej: 3 etiquetas de julio salieron 14% sobre el alistamiento estimado…"
+            className="h-8 text-sm"
+          />
+        </div>
+
+        {pendientes.length > 0 && (
+          <div className="space-y-1.5">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Pendientes</p>
+            {pendientes.map((p) => (
+              <div key={p.id} className="flex items-start justify-between gap-3 rounded-md border p-2 text-xs">
+                <div className="min-w-0">
+                  {p.changes.map((c, i) => (
+                    <div key={i} className="font-mono">{c.path}: {c.current_value} → {c.proposed_value}</div>
+                  ))}
+                  <p className="mt-0.5 text-muted-foreground">{p.reason}</p>
+                </div>
+                <div className="flex shrink-0 gap-1">
+                  <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => resolver(p, 'applied')}>Marcar aplicada</Button>
+                  <Button size="sm" variant="ghost" className="h-7 text-xs text-red-600" onClick={() => resolver(p, 'rejected')}>Rechazar</Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {resueltas.length > 0 && (
+          <div className="space-y-1.5">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Resueltas</p>
+            {resueltas.slice(0, 10).map((p) => (
+              <div key={p.id} className="flex items-center justify-between gap-3 rounded-md border border-border/50 p-2 text-xs text-muted-foreground">
+                <div className="min-w-0 truncate font-mono">
+                  {p.changes.map((c) => `${c.path}: ${c.current_value}→${c.proposed_value}`).join(' · ')}
+                </div>
+                <Badge variant="outline" className={p.status === 'applied' ? 'border-emerald-500/40 text-emerald-600' : 'text-muted-foreground'}>
+                  {p.status === 'applied' ? 'Aplicada' : 'Rechazada'}
+                </Badge>
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 export function CalibracionMotor() {
   const [jobs, setJobs] = useState<HistoricalJob[]>(seedJobs);
   const { data: completedOTs = [] } = useCompletedOTs();
@@ -379,6 +528,18 @@ export function CalibracionMotor() {
   const withinTolerance = measured.filter((d) => Math.abs(d) <= TOLERANCE_PCT).length;
   const gatePassed = measured.length > 0 && withinTolerance === measured.length;
 
+  // La evidencia que viaja con cualquier propuesta hecha desde esta sesión:
+  // qué trabajos se midieron y por cuánto se desvió el motor en cada uno.
+  const evidencia = useMemo(
+    () => rows
+      .filter((r) => r.devSheets !== null || r.devPrint !== null || r.devFinish !== null)
+      .map((r) => ({
+        job: r.job.label || '(sin nombre)',
+        devSheets: r.devSheets, devPrint: r.devPrint, devFinish: r.devFinish,
+      })),
+    [rows]
+  );
+
   return (
     <div className="space-y-4">
       <Card className="border-primary/20">
@@ -392,7 +553,9 @@ export function CalibracionMotor() {
             consumieron, horas de prensa, horas de terminación — y compara contra lo que el motor
             habría estimado. Ajusta <span className="font-mono text-xs">CALIBRATION</span> en{' '}
             <span className="font-mono text-xs">src/lib/ot-calculations.ts</span> hasta que todo
-            quede dentro de ±{TOLERANCE_PCT}%. Nada de esto se guarda: es un instrumento de medición.
+            quede dentro de ±{TOLERANCE_PCT}%. La medición en sí no se guarda — es un banco de
+            pruebas, no el motor real — pero la decisión de ajustar una constante ya no desaparece:
+            se propone más abajo, con motivo y evidencia, antes de tocar el código.
           </p>
         </CardHeader>
         <CardContent>
@@ -430,6 +593,8 @@ export function CalibracionMotor() {
       </Card>
 
       <DesvioAutomatico />
+
+      <PropuestasCalibracion evidencia={evidencia} />
 
       {rows.map(({ job, calc, devSheets, devPrint, devFinish }) => (
         <Card key={job.id} className="border-border">
