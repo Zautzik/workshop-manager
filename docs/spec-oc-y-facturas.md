@@ -1,7 +1,17 @@
 # Órdenes de compra y facturas
 
-**Estado:** propuesta · 15 de agosto de 2026
-**Por qué ahora:** entre Compra de Papel y En Bodega la aplicación pide «registro
+**Estado:** mayormente construido · propuesta original del 15 de agosto de 2026,
+§6 pasos 1–3 en producción desde el 16 de agosto (`PurchasesManagement.tsx` +
+seis endpoints, calce a tres bandas en `oc_conciliacion`/`purchasing.ts`, cert
+vencido bloqueado al recibir **y** al consumir). La §1 de abajo describe el
+estado de agosto — "nadie lo consulta" ya no es cierto — y se deja tal cual
+porque documenta el diagnóstico, no el presente. De la §3, los puntos 1, 2, 4 y
+5 están resueltos; el punto 3 (proveedor aprobado al emitir) se cerró el 15 de
+septiembre. De la §7, sigue sin responder el taller: tolerancia de recepción
+(hoy `TOLERANCIA_RECEPCION = 0.02` en el código, sin confirmar), monto máximo
+por emisor, y si se trabaja con órdenes abiertas.
+
+**Por qué ahora (agosto):** entre Compra de Papel y En Bodega la aplicación pide «registro
 de costos reales». Lo que realmente ocurre ahí es que **se emite un documento y
 se recibe otro**, y los dos tienen valor legal y valor de certificación.
 

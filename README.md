@@ -38,6 +38,36 @@ Each link only exists because the previous one does. That constraint is what mak
 cost reconstructible: you can open any order and walk back to the WhatsApp message the
 operator typed and the supplier invoice the paper came on.
 
+Two links in that chain are themselves three-lane ledgers, not single numbers — a
+purchase order is a match between what you ordered, what arrived, and what you were
+billed; a job's cost is a comparison between what it was quoted at and what it actually
+took. Both report their gap instead of collapsing it, because a single "variance" figure
+can net two real problems to zero:
+
+```mermaid
+flowchart LR
+  subgraph OC["Purchase order — oc_conciliacion"]
+    direction LR
+    P["ordered"] --> R["received"] --> F["invoiced"]
+  end
+  P -. "warehouse gap" .-> R
+  R -. "accounts-payable gap" .-> F
+
+  subgraph OT["Job cost — ot_cost_lines"]
+    direction LR
+    E["estimate"] --> C2["committed"] --> A["actual"]
+  end
+  A --> S["cost_variance_snapshots"]
+  S -. "today: a source edit, by hand" .-> M["CALIBRATION constants"]
+  S == "proposed + audited, then applied" ==> V["estimator_calibration_proposals"]
+```
+
+The purchase-order match is load-bearing today: [`purchasing.ts`](src/lib/purchasing.ts)
+computes it, the API refuses to let an invoice self-report as paid over a real
+overcharge, and the UI shows both gaps side by side. The job-cost side measures its own
+drift monthly but still turns a measured gap into a corrected estimate by hand — the
+last mile of that loop is proposed, audited, and applied, not yet automatic.
+
 ---
 
 ## What's actually inside
@@ -53,6 +83,7 @@ logic lives as a pure, tested module — never inside a component.
 | [`material-price-sanity.ts`](src/lib/material-price-sanity.ts) | Sanity bands per unit. A substrate priced per kilo never costs cents |
 | [`print-economics.ts`](src/lib/print-economics.ts) | Cost per thousand; make-ready versus run split; **margin per press-hour**, and the ranking that follows from it |
 | [`merma.ts`](src/lib/merma.ts) | Waste as a share of paper **entered**, judged against run length — 8% on 500 sheets is normal, 8% on 100,000 is a broken machine |
+| [`purchasing.ts`](src/lib/purchasing.ts) | The three-way match — ordered vs. received vs. invoiced, with the two gaps (warehouse, accounts payable) reported separately so they can't cancel out to zero |
 | [`margin-confidence.ts`](src/lib/margin-confidence.ts) | Zero cost is not 100% margin. It is an unfinished account, and the screen says so |
 | [`whatsapp-parser.ts`](src/lib/whatsapp-parser.ts) | Free-form Spanish from the shop floor into structured production data |
 | [`assignment-rules.ts`](src/lib/assignment-rules.ts) | A shift on a production machine must name the order it served |
