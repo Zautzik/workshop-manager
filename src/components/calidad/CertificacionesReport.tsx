@@ -3,11 +3,13 @@ import { useMemo, useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Search, ShieldCheck, ShieldAlert, Clock, AlertTriangle, Boxes } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Search, ShieldCheck, ShieldAlert, Clock, AlertTriangle, Boxes, Scale } from 'lucide-react';
 import { format, parseISO, isValid } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { useCertifications, type CertState } from '@/hooks/use-certifications';
+import { useInventoryReconciliation, useRunInventoryReconciliation } from '@/hooks/use-inventory-reconciliation';
 
 const fmtDate = (s: string | null | undefined) =>
   s && isValid(parseISO(s)) ? format(parseISO(s), 'PP', { locale: es }) : '—';
@@ -38,6 +40,8 @@ function Stat({ icon: Icon, label, value, tone, active, onClick }: {
 
 export default function CertificacionesReport() {
   const { data, isLoading } = useCertifications();
+  const { data: recon } = useInventoryReconciliation();
+  const runRecon = useRunInventoryReconciliation();
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<CertState | null>(null);
 
@@ -74,6 +78,24 @@ export default function CertificacionesReport() {
               <span className="font-semibold text-rose-600 dark:text-rose-400">{s.at_risk} lote(s) en riesgo</span>{' '}
               <span className="text-muted-foreground">en stock con certificado vencido o faltante — no deben consumirse.</span>
             </p>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Saldo de inventario que no cuadra contra su propio libro de
+          movimientos — un problema distinto al certificado: acá lo que falla
+          no es el material, es la cuenta. */}
+      {!!recon?.count && (
+        <Card className="border-amber-500/40 bg-amber-500/5">
+          <CardContent className="p-4 flex items-center gap-3">
+            <Scale className="h-5 w-5 text-amber-500 shrink-0" />
+            <p className="text-sm flex-1">
+              <span className="font-semibold text-amber-600 dark:text-amber-400">{recon.count} lote(s) con saldo que no cuadra</span>{' '}
+              <span className="text-muted-foreground">contra su libro de movimientos — revisar antes de confiar en el stock disponible.</span>
+            </p>
+            <Button size="sm" variant="outline" onClick={() => runRecon.mutate()} disabled={runRecon.isPending}>
+              {runRecon.isPending ? 'Revisando…' : 'Revisar ahora'}
+            </Button>
           </CardContent>
         </Card>
       )}
