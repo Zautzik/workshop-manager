@@ -5,6 +5,7 @@
 	"version": "0.0.0",
 	"scripts": {
 		"dev": "next dev",
+		"prebuild": "node scripts/verify-node-env.cjs",
 		"build": "next build",
 		"start": "next start",
 		"start:standalone": "node .next/standalone/server.js",
