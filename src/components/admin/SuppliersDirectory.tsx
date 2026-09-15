@@ -10,7 +10,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
-import { Truck, Building2, Pencil, Plus, ShieldCheck, ShieldAlert, X, BadgeCheck, Trash2 } from 'lucide-react';
+import { Truck, Building2, Pencil, Plus, ShieldCheck, ShieldAlert, X, BadgeCheck, Trash2, Ban, Lock } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatCLP } from '@/lib/format';
 import {
@@ -34,14 +34,35 @@ export function SuppliersDirectory() {
   const suppliers = data?.data ?? [];
   const totals = data?.totals;
   const [dialog, setDialog] = useState<DialogState>(null);
+  const saveProfileQuick = useSaveSupplierProfile();
+
+  // Bloquear exige motivo — un bloqueo sin motivo es un cartel, no un control.
+  // Desbloquear no lo exige: levantar una restricción no necesita la misma
+  // justificación que ponerla.
+  const toggleBlock = async (s: Supplier) => {
+    if (s.status === 'blocked') {
+      try {
+        await saveProfileQuick.mutateAsync({ current_name: s.supplier, supplier_name: s.supplier, status: 'active', status_reason: null });
+        toast.success(`${s.supplier} desbloqueado`);
+      } catch (e: any) { toast.error(e?.message ?? 'Error'); }
+      return;
+    }
+    const motivo = window.prompt(`Bloquear a ${s.supplier}. Ninguna OC nueva se podrá emitir sin autorización.\n\n¿Por qué se bloquea?`);
+    if (!motivo?.trim()) return;
+    try {
+      await saveProfileQuick.mutateAsync({ current_name: s.supplier, supplier_name: s.supplier, status: 'blocked', status_reason: motivo.trim() });
+      toast.success(`${s.supplier} bloqueado`);
+    } catch (e: any) { toast.error(e?.message ?? 'Error'); }
+  };
 
   return (
     <div className="space-y-5">
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
         <KpiCard label="Proveedores" value={String(totals?.count ?? 0)} hint="en el directorio" tone="default" />
         <KpiCard label="Comprado (histórico)" value={formatCLP(totals?.spend ?? 0)} hint="suma de OCs" tone="warning" />
         <KpiCard label="PEFC certificados" value={String(totals?.pefc ?? 0)} hint="cadena de custodia" tone="success" />
         <KpiCard label="OCs abiertas" value={String(totals?.open ?? 0)} hint="sin cerrar/anular" tone="info" />
+        <KpiCard label="Bloqueados" value={String(totals?.blocked ?? 0)} hint="no emiten sin autorización" tone={totals?.blocked > 0 ? 'critical' : 'default'} />
       </div>
 
       <Card>
@@ -78,9 +99,16 @@ export function SuppliersDirectory() {
                   </td></tr>
                 )}
                 {suppliers.map((s) => (
-                  <tr key={s.supplier} className="border-b hover:bg-muted/40 align-top">
+                  <tr key={s.supplier} className={`border-b hover:bg-muted/40 align-top ${s.status === 'blocked' ? 'bg-red-500/5' : ''}`}>
                     <td className="py-2.5 px-2">
-                      <div className="font-medium">{s.supplier}</div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-medium">{s.supplier}</span>
+                        {s.status === 'blocked' && (
+                          <Badge title={s.status_reason ?? undefined} className="bg-red-500/15 text-red-600 text-[10px] gap-1">
+                            <Lock className="h-3 w-3" /> Bloqueado
+                          </Badge>
+                        )}
+                      </div>
                       <div className="text-[11px] text-muted-foreground">
                         {[s.supplier_rut, s.phone, s.email].filter(Boolean).join(' · ') || '—'}
                       </div>
@@ -110,7 +138,16 @@ export function SuppliersDirectory() {
                     <td className="py-2.5 px-2 text-center">{s.oc_count}</td>
                     <td className="py-2.5 px-2 text-right tabular-nums font-semibold">{formatCLP(s.total_spend)}</td>
                     <td className="py-2.5 px-2 text-right">
-                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setDialog({ mode: 'edit', supplier: s })}><Pencil className="h-3.5 w-3.5" /></Button>
+                      <div className="flex justify-end gap-0.5">
+                        <Button
+                          variant="ghost" size="icon" className={`h-7 w-7 ${s.status === 'blocked' ? 'text-green-600' : 'text-muted-foreground hover:text-red-600'}`}
+                          title={s.status === 'blocked' ? 'Desbloquear' : 'Bloquear (no podrá emitir OCs sin autorización)'}
+                          onClick={() => toggleBlock(s)}
+                        >
+                          <Ban className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setDialog({ mode: 'edit', supplier: s })}><Pencil className="h-3.5 w-3.5" /></Button>
+                      </div>
                     </td>
                   </tr>
                 ))}

@@ -17,15 +17,22 @@ export const dynamic = 'force-dynamic';
  * dos pestañas abiertas emitirían el mismo número, y una numeración con
  * duplicados es tan indefendible frente a una auditoría como una con huecos.
  */
-export async function POST(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
 	// Emitir compromete plata con un tercero. No es una acción de operario.
 	const auth = await requireAuth(['admin', 'manager', 'supervisor']);
 	if (isAuthError(auth)) return auth;
 	const { id } = await params;
 
+	// Sólo importa si el proveedor está bloqueado — en ese caso, la base exige
+	// este motivo para dejar pasar la emisión igual. Cuerpo vacío es el caso
+	// normal y no rompe nada.
+	const body = await req.json().catch(() => ({}));
+	const overrideReason = typeof body?.override_reason === 'string' ? body.override_reason : null;
+
 	const { data, error } = await supabaseAdmin.rpc('emitir_oc' as never, {
 		p_purchase_id: id,
 		p_issued_by: auth.id,
+		p_supplier_override_reason: overrideReason,
 	} as never);
 
 	if (error) {

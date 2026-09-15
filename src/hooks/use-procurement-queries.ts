@@ -47,6 +47,12 @@ export interface FacturaCompra {
   status: 'received' | 'matched' | 'disputed' | 'paid';
   matched_at: string | null;
   notes: string | null;
+  /** El calce a tres bandas al momento de crear o cerrar la factura. */
+  match_status: 'ok' | 'en_revision' | 'con_diferencia' | null;
+  match_notes: string | null;
+  approved_by: string | null;
+  approved_at: string | null;
+  closure_reason: string | null;
 }
 
 async function postJSON(url: string, body: unknown, method = 'POST') {
@@ -201,6 +207,8 @@ export interface Supplier {
   categories: string[];
   certifications: SupplierCertification[];
   has_profile: boolean;
+  status: 'active' | 'blocked';
+  status_reason: string | null;
 }
 
 export interface SupplierCategory {
@@ -211,7 +219,7 @@ export interface SupplierCategory {
 
 /** Supplier directory derived from purchases (OCs) + profile overlay. */
 export function useSuppliers() {
-  return useQuery<{ data: Supplier[]; totals: { count: number; spend: number; open: number; pefc: number } }>({
+  return useQuery<{ data: Supplier[]; totals: { count: number; spend: number; open: number; pefc: number; blocked: number } }>({
     queryKey: ['suppliers'],
     queryFn: async () => {
       const res = await fetch('/api/suppliers');

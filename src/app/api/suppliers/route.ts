@@ -27,6 +27,8 @@ interface Supplier {
   categories: string[];
   certifications: SupplierCertification[];
   has_profile: boolean;
+  status: 'active' | 'blocked';
+  status_reason: string | null;
 }
 
 function blank(name: string): Supplier {
@@ -34,6 +36,7 @@ function blank(name: string): Supplier {
     supplier: name, supplier_rut: null, supplier_giro: null, email: null, phone: null,
     oc_count: 0, total_spend: 0, open_count: 0, last_purchase_date: null,
     category_ids: [], categories: [], certifications: [], has_profile: false,
+    status: 'active', status_reason: null,
   };
 }
 
@@ -56,6 +59,7 @@ export async function GET(_req: NextRequest) {
   const profiles = (profs ?? []) as unknown as Array<{
     supplier_name: string; rut: string | null; giro: string | null; email: string | null; phone: string | null;
     category_ids: string[]; certifications: SupplierCertification[];
+    status: 'active' | 'blocked' | null; status_reason: string | null;
   }>;
   const catName = new Map((cats ?? [] as any[]).map((c: any) => [c.id, c.name]));
 
@@ -83,6 +87,8 @@ export async function GET(_req: NextRequest) {
     if (p.giro) s.supplier_giro = p.giro;
     s.email = p.email ?? null;
     s.phone = p.phone ?? null;
+    s.status = p.status ?? 'active';
+    s.status_reason = p.status_reason ?? null;
     byName.set(p.supplier_name, s);
   }
 
@@ -92,6 +98,7 @@ export async function GET(_req: NextRequest) {
     spend: suppliers.reduce((a, s) => a + s.total_spend, 0),
     open: suppliers.reduce((a, s) => a + s.open_count, 0),
     pefc: suppliers.filter((s) => s.certifications.some((c) => /pefc/i.test(c.name))).length,
+    blocked: suppliers.filter((s) => s.status === 'blocked').length,
   };
   return NextResponse.json({ data: suppliers, totals });
 }
@@ -107,6 +114,8 @@ const ProfileFields = {
     code: z.string().max(100).optional().nullable(),
     expires_on: z.string().optional().nullable(),
   })).optional(),
+  status: z.enum(['active', 'blocked']).optional(),
+  status_reason: z.string().max(2000).optional().nullable(),
 };
 
 const CreateSchema = z.object({ supplier_name: z.string().min(1).max(255), ...ProfileFields });
@@ -118,7 +127,7 @@ const UpdateSchema = z.object({
 
 function cleanProfile(d: Record<string, any>) {
   const out: Record<string, unknown> = {};
-  for (const k of ['rut', 'giro', 'email', 'phone', 'category_ids', 'certifications']) {
+  for (const k of ['rut', 'giro', 'email', 'phone', 'category_ids', 'certifications', 'status', 'status_reason']) {
     if (d[k] !== undefined) out[k] = d[k] === '' ? null : d[k];
   }
   return out;
@@ -155,15 +164,24 @@ export async function PATCH(req: NextRequest) {
   if (!parsed.success) return NextResponse.json({ error: 'Datos inválidos', details: parsed.error.flatten().fieldErrors }, { status: 400 });
   const d = parsed.data;
 
+  // Bloquear sin decir por qué es un cartel, no un control.
+  if (d.status === 'blocked' && !d.status_reason?.trim()) {
+    return NextResponse.json({ error: 'Indica por qué se bloquea al proveedor.' }, { status: 422 });
+  }
+
   if (d.current_name !== d.supplier_name) {
     // Propagate the rename to OC history + move any existing profile row.
     await supabaseAdmin.from('purchases' as any).update({ supplier: d.supplier_name } as any).eq('supplier', d.current_name);
     await supabaseAdmin.from('supplier_profiles' as any).update({ supplier_name: d.supplier_name } as any).eq('supplier_name', d.current_name);
   }
 
+  const statusStamp = d.status !== undefined
+    ? { status_updated_by: auth.id, status_updated_at: new Date().toISOString() }
+    : {};
+
   const { data, error } = await supabaseAdmin
     .from('supplier_profiles' as any)
-    .upsert({ supplier_name: d.supplier_name, ...cleanProfile(d) } as any, { onConflict: 'supplier_name' })
+    .upsert({ supplier_name: d.supplier_name, ...cleanProfile(d), ...statusStamp } as any, { onConflict: 'supplier_name' })
     .select('*')
     .single();
 

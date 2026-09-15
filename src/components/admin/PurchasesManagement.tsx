@@ -68,10 +68,24 @@ const PurchasesManagement = () => {
    * emitirían el mismo, y una numeración con duplicados es tan indefendible
    * frente a una auditoría como una con huecos.
    */
-  const emitirOC = async (oc: OCRow) => {
-    const res = await fetch(`/api/purchases/${oc.id}/issue`, { method: 'POST' });
+  const emitirOC = async (oc: OCRow, overrideReason?: string) => {
+    const res = await fetch(`/api/purchases/${oc.id}/issue`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ override_reason: overrideReason ?? null }),
+    });
     const b = await res.json().catch(() => null);
-    if (!res.ok) { toast.error(b?.error ?? 'No se pudo emitir'); return; }
+    if (!res.ok) {
+      // El proveedor bloqueado no frena la emisión para siempre — la base pide
+      // un motivo nominal para dejarla pasar igual, no reintenta sola.
+      if (!overrideReason && /bloqueado/i.test(b?.error ?? '')) {
+        const motivo = window.prompt(`${b.error}\n\n¿Por qué se autoriza igual?`);
+        if (motivo?.trim()) await emitirOC(oc, motivo.trim());
+        return;
+      }
+      toast.error(b?.error ?? 'No se pudo emitir');
+      return;
+    }
     toast.success(b.mensaje);
     refetch();
   };
@@ -624,11 +638,21 @@ function FacturasDialog({ oc, onClose }: { oc: OCRow | null; onClose: () => void
     } catch (e: any) { toast.error(e?.message ?? 'Error'); }
   };
 
-  const setStatus = async (f: FacturaCompra, status: FacturaCompra['status']) => {
+  const setStatus = async (f: FacturaCompra, status: FacturaCompra['status'], closure_reason?: string) => {
     try {
-      await updateFactura.mutateAsync({ purchaseId: oc.id, invoiceId: f.id, status });
+      await updateFactura.mutateAsync({ purchaseId: oc.id, invoiceId: f.id, status, closure_reason });
       toast.success(status === 'matched' || status === 'paid' ? 'Conciliada — costo real en la OT' : 'Actualizada');
-    } catch (e: any) { toast.error(e?.message ?? 'Error'); }
+    } catch (e: any) {
+      // El calce en vivo puede exigir motivo aunque la pantalla no lo muestre
+      // todavía — no se pide de entrada porque la mayoría de los cierres no
+      // tiene diferencia.
+      if (!closure_reason && /MOTIVO_REQUERIDO|motivo/i.test(e?.message ?? '')) {
+        const motivo = window.prompt(`${e.message}`);
+        if (motivo?.trim()) await setStatus(f, status, motivo.trim());
+        return;
+      }
+      toast.error(e?.message ?? 'Error');
+    }
   };
 
   return (
@@ -662,6 +686,13 @@ function FacturasDialog({ oc, onClose }: { oc: OCRow | null; onClose: () => void
                     )}
                   </div>
                   <p className="text-sm font-semibold tabular-nums mt-0.5">{formatCLP(f.amount)}</p>
+                  {/* Se cerró con diferencia: queda a la vista quién y por qué,
+                      no sólo que ocurrió. */}
+                  {f.closure_reason && (
+                    <p className="text-xs text-amber-600 dark:text-amber-400 mt-0.5">
+                      Cerrada con diferencia: {f.closure_reason}
+                    </p>
+                  )}
                 </div>
                 <div className="flex gap-1.5 shrink-0">
                   {f.status !== 'matched' && f.status !== 'paid' && (
