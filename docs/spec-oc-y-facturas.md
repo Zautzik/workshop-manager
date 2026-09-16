@@ -7,9 +7,11 @@ vencido bloqueado al recibir **y** al consumir). La §1 de abajo describe el
 estado de agosto — "nadie lo consulta" ya no es cierto — y se deja tal cual
 porque documenta el diagnóstico, no el presente. De la §3, los puntos 1, 2, 4 y
 5 están resueltos; el punto 3 (proveedor aprobado al emitir) se cerró el 15 de
-septiembre. De la §7, sigue sin responder el taller: tolerancia de recepción
-(hoy `TOLERANCIA_RECEPCION = 0.02` en el código, sin confirmar), monto máximo
-por emisor, y si se trabaja con órdenes abiertas.
+septiembre. De la §7, el taller ya respondió la tolerancia de recepción — cero:
+`TOLERANCIA_RECEPCION = 0` desde el 16 de septiembre, sin margen porque la OC y
+la factura son documentos legales y cualquier diferencia es una alerta, no una
+variación aceptable. Siguen sin responder: monto máximo por emisor, y si se
+trabaja con órdenes abiertas.
 
 **Por qué ahora (agosto):** entre Compra de Papel y En Bodega la aplicación pide «registro
 de costos reales». Lo que realmente ocurre ahí es que **se emite un documento y
@@ -216,7 +218,9 @@ disparador que impide `UPDATE` de campos económicos fuera de `borrador`, y
 
 ## 7 · Lo que hay que preguntarle al taller
 
-- ¿Qué tolerancia de recepción se acepta sin autorización? (±2%, ±5%)
+- ~~¿Qué tolerancia de recepción se acepta sin autorización?~~ **Respondido
+  2026-09-16: ninguna.** Documentos legales, sin margen — cualquier diferencia
+  es alerta, no autorización silenciosa. `TOLERANCIA_RECEPCION = 0`.
 - ¿Quién puede emitir una OC y hasta qué monto?
 - ¿Quién recibe? ¿Es distinto del que pide? *(debería serlo)*
 - ¿Se trabaja con órdenes abiertas —un precio pactado y despachos parciales—

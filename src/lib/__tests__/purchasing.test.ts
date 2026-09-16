@@ -49,9 +49,12 @@ describe('threeWayMatch', () => {
 		expect(r.payable).toBe(false);
 	});
 
-	it('una diferencia dentro de la tolerancia no molesta a nadie', () => {
+	// Confirmado con el taller (2026-09-16): sin margen. La OC y la factura son
+	// documentos legales — ni un 0,5% de diferencia se deja pasar en silencio.
+	it('sin margen: hasta una diferencia chica de recepción queda en revisión', () => {
 		const r = threeWayMatch({ ordered: 1_000_000, received: 995_000, invoiced: 995_000 });
-		expect(r.status).toBe('ok');
+		expect(r.status).toBe('en_revision');
+		expect(r.findings.join(' ')).toContain('Lo ve bodega');
 	});
 
 	it('facturar antes de recibir se frena', () => {

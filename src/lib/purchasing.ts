@@ -29,11 +29,14 @@ export const IVA_RATE = 0.19;
 /**
  * Cuánto puede diferir lo recibido de lo pedido sin que alguien lo explique.
  *
- * PENDIENTE DE DEFINIR con el taller: es una política comercial, no un dato
- * técnico. 2% es un punto de partida conservador para papel, donde el proveedor
- * despacha por resmas completas.
+ * CONFIRMADO con el taller (2026-09-16): cero. La OC y la factura son
+ * documentos legales — lo recibido tiene que ser lo pedido, sin margen. Ya no
+ * es un punto de partida conservador para papel por resma; es la política. La
+ * única tolerancia real es la de redondeo (`TOLERANCIA_REDONDEO_CLP`), que
+ * absorbe el peso de diferencia que puede meter un emisor al facturar, no una
+ * variación de cantidad.
  */
-export const TOLERANCIA_RECEPCION = 0.02;
+export const TOLERANCIA_RECEPCION = 0;
 
 /** Lo que el emisor puede redondear sin que sea un error de tipeo. */
 export const TOLERANCIA_REDONDEO_CLP = 1;

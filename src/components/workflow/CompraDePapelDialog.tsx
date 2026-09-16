@@ -29,7 +29,6 @@ import {
 	CERT_LABELS,
 	certPermiteRecibir,
 	certStatus,
-	TOLERANCIA_RECEPCION,
 } from '@/lib/purchasing';
 
 interface Props {
@@ -368,7 +367,7 @@ export function CompraDePapelDialog({ ot, open, onOpenChange, onDone }: Props) {
 								id="desvio"
 								value={motivoDesvio}
 								onChange={(e) => setMotivoDesvio(e.target.value)}
-								placeholder={`Se pide sobre ${Math.round(TOLERANCIA_RECEPCION * 100)}% de diferencia`}
+								placeholder="Sin margen: cualquier diferencia con lo pedido necesita motivo"
 							/>
 						</div>
 
