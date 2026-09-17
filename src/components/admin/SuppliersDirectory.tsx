@@ -62,7 +62,7 @@ export function SuppliersDirectory() {
         <KpiCard label="Comprado (histórico)" value={formatCLP(totals?.spend ?? 0)} hint="suma de OCs" tone="warning" />
         <KpiCard label="PEFC certificados" value={String(totals?.pefc ?? 0)} hint="cadena de custodia" tone="success" />
         <KpiCard label="OCs abiertas" value={String(totals?.open ?? 0)} hint="sin cerrar/anular" tone="info" />
-        <KpiCard label="Bloqueados" value={String(totals?.blocked ?? 0)} hint="no emiten sin autorización" tone={totals?.blocked > 0 ? 'critical' : 'default'} />
+        <KpiCard label="Bloqueados" value={String(totals?.blocked ?? 0)} hint="no emiten sin autorización" tone={(totals?.blocked ?? 0) > 0 ? 'critical' : 'default'} />
       </div>
 
       <Card>
