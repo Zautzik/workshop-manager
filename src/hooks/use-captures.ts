@@ -32,6 +32,7 @@ export interface CaptureCounts {
   applied: number;
   production: number;
   warehouse: number;
+  truncated: boolean;
 }
 
 export function useCaptures(filters?: { domain?: string; status?: string; applied?: string }) {

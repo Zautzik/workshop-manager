@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { isAuthError, requireAuth } from '@/lib/api-middleware';
 import { supabaseAdmin } from '@/integrations/supabase/server';
 import { certStatusNow, type CertStatusNow } from '@/lib/fssc';
+import { fetchAll } from '@/lib/fetch-all';
 
 // GET /api/certifications
 // FSSC 22000 incoming-material register. The universe is the SAME lot ledger
@@ -17,22 +18,31 @@ export async function GET(_req: NextRequest) {
   if (isAuthError(auth)) return auth;
 
   try {
-    const [itemsRes, lotsRes] = await Promise.all([
+    // El registro FSSC no puede callarse un lote riesgoso por haberse quedado
+    // afuera de un tope silencioso — es exactamente el defecto que truncó
+    // Rentabilidad, aplicado esta vez a un registro de cumplimiento en vez de a
+    // un margen (auditoría 2026-09-30). `fetchAll` pagina hasta agotar la tabla.
+    const [itemsRes, { rows: lots, truncated: lotsTruncated }] = await Promise.all([
       supabaseAdmin.from('inventory_items').select('id, name, sku, is_certification_required'),
-      supabaseAdmin
-        .from('inventory_lots')
-        .select('id, lot_number, supplier_name, certification_code, certification_expires_on, quantity_available, received_date, item_id')
-        .order('certification_expires_on', { ascending: true, nullsFirst: false })
-        .limit(5000),
+      fetchAll<{
+        id: string; lot_number: string; supplier_name: string | null;
+        certification_code: string | null; certification_expires_on: string | null;
+        quantity_available: number | null; received_date: string | null; item_id: string;
+      }>((desde, hasta) =>
+        supabaseAdmin
+          .from('inventory_lots')
+          .select('id, lot_number, supplier_name, certification_code, certification_expires_on, quantity_available, received_date, item_id')
+          .order('certification_expires_on', { ascending: true, nullsFirst: false })
+          .range(desde, hasta) as any,
+      ),
     ]);
 
-    if (itemsRes.error || lotsRes.error) {
-      console.error('Error fetching certifications:', itemsRes.error ?? lotsRes.error);
+    if (itemsRes.error) {
+      console.error('Error fetching certifications:', itemsRes.error);
       return NextResponse.json({ error: 'Failed to fetch certifications' }, { status: 500 });
     }
 
     const items = itemsRes.data ?? [];
-    const lots = lotsRes.data ?? [];
     const itemById = new Map(items.map((i) => [i.id, i]));
 
     // In scope: lots of cert-required items (even uncertified — those are the
@@ -78,6 +88,7 @@ export async function GET(_req: NextRequest) {
         faltante: count('faltante'),
         sin_vencimiento: count('sin_vencimiento'),
         at_risk: atRisk,
+        truncated: lotsTruncated,
       },
       lots: rows,
     });

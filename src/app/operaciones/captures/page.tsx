@@ -4,7 +4,7 @@ import ProtectedRoute from '@/components/ProtectedRoute';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Factory, Package, MessageSquare, QrCode, CheckCircle2, XCircle, Clock, Inbox } from 'lucide-react';
+import { Factory, Package, MessageSquare, QrCode, CheckCircle2, XCircle, Clock, Inbox, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatCLP } from '@/lib/format';
 import { useCaptures, useReviewCapture, type CaptureEvent } from '@/hooks/use-captures';
@@ -55,6 +55,22 @@ function CapturasInner() {
 
   return (
     <div className="space-y-6">
+      {/* Los conteos del header venían de una consulta sin límite -- caía
+          directo en el tope silencioso de PostgREST (1.000 filas) apenas la
+          bandeja acumulara más eventos que eso. Ya pagina hasta agotar la
+          tabla; esto avisa en el único caso que igual no alcanza. */}
+      {counts?.truncated && (
+        <Card className="border-rose-500/40 bg-rose-500/5">
+          <CardContent className="p-4 flex items-center gap-3">
+            <AlertTriangle className="h-5 w-5 text-rose-500 shrink-0" />
+            <p className="text-sm">
+              <span className="font-semibold text-rose-600 dark:text-rose-400">Conteos incompletos.</span>{' '}
+              <span className="text-muted-foreground">Hay más eventos en la base de los que se pudieron sumar — los números de arriba están calculados sobre una parte, no sobre el total.</span>
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
       {/* KPIs */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <Kpi label="Total" value={String(counts?.total ?? 0)} tint="text-foreground" icon={Inbox} />

@@ -82,6 +82,22 @@ export default function CertificacionesReport() {
         </Card>
       )}
 
+      {/* La tabla de lotes creció más allá de lo que una sola consulta trae de
+          vuelta: lo que se ve abajo es una parte, no el registro completo. Un
+          lote riesgoso que quedó fuera de esa parte es exactamente el defecto
+          que truncó Rentabilidad, aplicado a cumplimiento en vez de a margen. */}
+      {s.truncated && (
+        <Card className="border-rose-500/40 bg-rose-500/5">
+          <CardContent className="p-4 flex items-center gap-3">
+            <ShieldAlert className="h-5 w-5 text-rose-500 shrink-0" />
+            <p className="text-sm">
+              <span className="font-semibold text-rose-600 dark:text-rose-400">Registro incompleto.</span>{' '}
+              <span className="text-muted-foreground">Hay más lotes en la base de los que esta pantalla pudo traer — los conteos de arriba están calculados sobre una parte, no sobre el total.</span>
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Saldo de inventario que no cuadra contra su propio libro de
           movimientos — un problema distinto al certificado: acá lo que falla
           no es el material, es la cuenta. */}

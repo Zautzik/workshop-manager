@@ -25,6 +25,7 @@ export interface CertificationsResponse {
     faltante: number;
     sin_vencimiento: number;
     at_risk: number;
+    truncated: boolean;
   };
   lots: CertLot[];
 }

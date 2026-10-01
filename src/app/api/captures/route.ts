@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { isAuthError, requireAuth } from '@/lib/api-middleware';
 import { supabaseAdmin } from '@/integrations/supabase/server';
+import { fetchAll } from '@/lib/fetch-all';
 
 export const dynamic = 'force-dynamic';
 
@@ -30,17 +31,25 @@ export async function GET(req: NextRequest) {
   const { data, error } = await query;
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  // Lightweight roll-up for the inbox header (by domain + pending count).
-  const { data: all } = await supabaseAdmin
-    .from('capture_events' as any)
-    .select('domain, status, applied');
-  const rows = (all ?? []) as unknown as Array<{ domain: string; status: string; applied: boolean }>;
+  // Lightweight roll-up for the inbox header (by domain + pending count). Sin
+  // límite, esta consulta caía directo en el tope silencioso de 1.000 filas de
+  // PostgREST (el mismo defecto que truncó Rentabilidad) — inofensivo con pocos
+  // eventos, mentiroso el día que la bandeja acumule más que eso (auditoría
+  // 2026-09-30). `fetchAll` pagina hasta agotar y avisa si igual no alcanzó.
+  const { rows, truncated } = await fetchAll<{ domain: string; status: string; applied: boolean }>(
+    (desde, hasta) =>
+      supabaseAdmin
+        .from('capture_events' as any)
+        .select('domain, status, applied')
+        .range(desde, hasta) as any,
+  );
   const counts = {
     total: rows.length,
     pending: rows.filter((r) => r.status === 'pending').length,
     applied: rows.filter((r) => r.applied).length,
     production: rows.filter((r) => r.domain === 'production').length,
     warehouse: rows.filter((r) => r.domain === 'warehouse').length,
+    truncated,
   };
 
   return NextResponse.json({ data: data ?? [], counts });

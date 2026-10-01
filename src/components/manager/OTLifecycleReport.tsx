@@ -69,6 +69,22 @@ export default function OTLifecycleReport() {
 
   return (
     <div className="space-y-6">
+      {/* El historial de transiciones no tiene ventana de tiempo: sólo crece.
+          Si la consulta llegó a su tope, todo lo de abajo —lead time, cuello
+          de botella, WIP— está calculado sobre una parte del historial, no
+          sobre el total, y conviene decirlo antes que el número. */}
+      {analytics?.truncated && (
+        <Card className="border-rose-500/40 bg-rose-500/5">
+          <CardContent className="p-4 flex items-center gap-3">
+            <AlertTriangle className="h-5 w-5 text-rose-500 shrink-0" />
+            <p className="text-sm">
+              <span className="font-semibold text-rose-600 dark:text-rose-400">Historial incompleto.</span>{' '}
+              <span className="text-muted-foreground">Hay más movimientos en la base de los que esta pantalla pudo traer — los números de abajo están calculados sobre una parte, no sobre el total.</span>
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
       {/* ── Flow KPIs ─────────────────────────────────────────────────────── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {loadingAnalytics ? (

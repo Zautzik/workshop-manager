@@ -56,6 +56,7 @@ export interface CycleAnalytics {
   current_distribution: Record<string, number>;
   recent_activity: ActivityEvent[];
   total_events: number;
+  truncated: boolean;
 }
 
 /** Shop-wide flow intelligence: bottleneck, lead time, WIP, activity feed. */

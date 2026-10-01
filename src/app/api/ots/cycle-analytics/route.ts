@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { isAuthError, requireAuth } from '@/lib/api-middleware';
 import { supabaseAdmin } from '@/integrations/supabase/server';
+import { fetchAll } from '@/lib/fetch-all';
 
 // GET /api/ots/cycle-analytics
 // Shop-floor flow intelligence reconstructed from ot_status_history:
@@ -33,26 +34,28 @@ export async function GET(_req: NextRequest) {
   if (isAuthError(auth)) return auth;
 
   try {
-    const [{ data: histData, error: histError }, { data: otData, error: otError }] =
+    // Sin ventana de tiempo: `ot_status_history` sólo crece, nunca envejece filas
+    // hacia afuera. Un `.limit()` fijo acá es el mismo defecto que truncó
+    // Rentabilidad, con un plazo de vencimiento más corto — mientras esa
+    // pantalla necesitaba 4.256 líneas para romperse, ésta se rompe sola en
+    // cuanto el historial de transiciones supere el tope (auditoría 2026-09-30).
+    // `fetchAll` pagina hasta agotar la tabla y dice si igual no alcanzó.
+    const [{ rows: history, truncated: historyTruncated }, { rows: ots, truncated: otsTruncated }] =
       await Promise.all([
-        supabaseAdmin
-          .from('ot_status_history')
-          .select('id, ot_id, from_status, to_status, changed_by_role, rollback, created_at')
-          .order('created_at', { ascending: true })
-          .limit(5000),
-        supabaseAdmin
-          .from('ots')
-          .select('id, ot_number, client_name, status, created_at')
-          .limit(2000),
+        fetchAll<HistoryRow>((desde, hasta) =>
+          supabaseAdmin
+            .from('ot_status_history')
+            .select('id, ot_id, from_status, to_status, changed_by_role, rollback, created_at')
+            .order('created_at', { ascending: true })
+            .range(desde, hasta) as any,
+        ),
+        fetchAll<OtRow>((desde, hasta) =>
+          supabaseAdmin
+            .from('ots')
+            .select('id, ot_number, client_name, status, created_at')
+            .range(desde, hasta) as any,
+        ),
       ]);
-
-    if (histError || otError) {
-      console.error('Error fetching cycle analytics:', histError ?? otError);
-      return NextResponse.json({ error: 'Failed to fetch cycle analytics' }, { status: 500 });
-    }
-
-    const history = (histData ?? []) as HistoryRow[];
-    const ots = (otData ?? []) as OtRow[];
     const otById = new Map(ots.map((o) => [o.id, o]));
 
     // ── Time-in-stage: between consecutive transitions of the same OT, the order
@@ -145,6 +148,7 @@ export async function GET(_req: NextRequest) {
       current_distribution: currentDistribution,
       recent_activity: recentActivity,
       total_events: history.length,
+      truncated: historyTruncated || otsTruncated,
     });
   } catch (error) {
     console.error('Error in cycle analytics route:', error);
