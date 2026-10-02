@@ -36,14 +36,23 @@
 const fs = require('node:fs');
 const path = require('node:path');
 
-/* ─── Credenciales, del mismo .env.local que usa la app ─────────────── */
+/* ─── Credenciales, de .env.local si existe, si no de .env ────────────
+ *
+ * El script asumía .env.local -- pero la convención real de este proyecto
+ * (ver .env.example, next dev, los otros scripts) es un .env a secas.
+ * Resultado: corrido tal cual, fallaba con "faltan variables" en vez de
+ * hacer su trabajo (auditoría 2026-10-02). .env.local sigue andando primero
+ * para quien sí lo use como override local.
+ */
 
 function loadEnv() {
-	const file = path.join(__dirname, '..', '.env.local');
-	if (!fs.existsSync(file)) return;
-	for (const line of fs.readFileSync(file, 'utf8').split(/\r?\n/)) {
-		const m = line.match(/^\s*([A-Z0-9_]+)\s*=\s*(.*)\s*$/);
-		if (m && !process.env[m[1]]) process.env[m[1]] = m[2].replace(/^["']|["']$/g, '');
+	for (const name of ['.env.local', '.env']) {
+		const file = path.join(__dirname, '..', name);
+		if (!fs.existsSync(file)) continue;
+		for (const line of fs.readFileSync(file, 'utf8').split(/\r?\n/)) {
+			const m = line.match(/^\s*([A-Z0-9_]+)\s*=\s*(.*)\s*$/);
+			if (m && !process.env[m[1]]) process.env[m[1]] = m[2].replace(/^["']|["']$/g, '');
+		}
 	}
 }
 
@@ -212,7 +221,7 @@ async function main() {
 	const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
 	const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
 	if (!url || !key) {
-		console.error('Faltan NEXT_PUBLIC_SUPABASE_URL o SUPABASE_SERVICE_ROLE_KEY en .env.local.');
+		console.error('Faltan NEXT_PUBLIC_SUPABASE_URL o SUPABASE_SERVICE_ROLE_KEY en .env.local o .env.');
 		process.exitCode = 2;
 		return;
 	}

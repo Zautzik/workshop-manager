@@ -27,6 +27,15 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      - name: Check for duplicate migration definitions
+        run: npm run check:migrations
+
+      - name: Check for dead function references
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: npm run check:functions
+
       - name: Test
         run: npm run test
 
