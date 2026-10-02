@@ -1,8 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
+import crypto from 'node:crypto';
 import { supabaseAdmin } from '@/integrations/supabase/server';
 import { evaluateSchedule, decideCronOrderAction } from '@/lib/maintenance-due';
 import { notifyScheduleDue } from '@/lib/maintenance-notify';
 import logger from '@/lib/logger';
+
+// Mismo patrón que verifyWhatsAppSignature (src/lib/whatsapp-intake.ts): largo
+// distinto lanza en vez de devolver false, así que el try/catch es necesario,
+// no decorativo.
+function timingSafeEqualStr(a: string, b: string): boolean {
+  try {
+    return crypto.timingSafeEqual(Buffer.from(a, 'utf8'), Buffer.from(b, 'utf8'));
+  } catch {
+    return false;
+  }
+}
 
 export const dynamic = 'force-dynamic';
 
@@ -36,8 +48,8 @@ export async function GET(req: NextRequest) {
   // best-effort de este proyecto no bloquean cuando el secreto no existe.
   const cronSecret = process.env.CRON_SECRET;
   if (cronSecret) {
-    const authHeader = req.headers.get('authorization');
-    if (authHeader !== `Bearer ${cronSecret}`) {
+    const authHeader = req.headers.get('authorization') ?? '';
+    if (!timingSafeEqualStr(authHeader, `Bearer ${cronSecret}`)) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
   }
