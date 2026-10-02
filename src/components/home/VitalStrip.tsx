@@ -11,11 +11,13 @@ const FLOW_TEXT: Record<FlowStatus, string> = {
   flowing: 'text-emerald-500',
   stagnant: 'text-amber-500',
   clotted: 'text-rose-500',
+  unknown: 'text-muted-foreground',
 };
 const FLOW_STROKE: Record<FlowStatus, string> = {
   flowing: 'rgb(16 185 129)',
   stagnant: 'rgb(245 158 11)',
   clotted: 'rgb(244 63 94)',
+  unknown: 'rgb(148 163 184)',
 };
 
 function Sparkline({ data, color }: { data: number[]; color: string }) {
@@ -47,9 +49,9 @@ const DEFS: VitalDef[] = [
   { key: 'pulso', label: 'Actividad', icon: HeartPulse,
     fmt: (v) => `${v.value}${v.unit ?? ''}` },
   { key: 'circulacion', label: 'Integridad', icon: Droplets,
-    fmt: (v) => `${v.value}%`, sub: (v) => { const c = v as { resolved: number; total: number }; return `${c.resolved}/${c.total} asignaciones`; } },
+    fmt: (v) => v.value === null ? '—' : `${v.value}%`, sub: (v) => { const c = v as { resolved: number; total: number }; return c.total ? `${c.resolved}/${c.total} asignaciones` : 'sin asignaciones'; } },
   { key: 'agni', label: 'Validadas', icon: Flame,
-    fmt: (v) => `${v.value}%`, sub: (v) => { const a = v as { pending: number }; return a.pending ? `${a.pending} por revisar` : undefined; } },
+    fmt: (v) => v.value === null ? '—' : `${v.value}%`, sub: (v) => { const a = v as { pending: number }; return a.pending ? `${a.pending} por revisar` : undefined; } },
   { key: 'carga', label: 'Máquinas', icon: Cog,
     fmt: (v) => `${v.value}%`, sub: (v) => { const c = v as { running: number; total: number }; return `${c.running}/${c.total} en uso`; } },
   { key: 'reflejos', label: 'Alertas', icon: Zap,
@@ -62,12 +64,12 @@ const DEFS: VitalDef[] = [
     } },
 ];
 
-function HealthBadge({ score, label }: { score: number; label: string }) {
-  const tone = score >= 80 ? FLOW_TEXT.flowing : score >= 60 ? FLOW_TEXT.stagnant : FLOW_TEXT.clotted;
+function HealthBadge({ score, label }: { score: number | null; label: string }) {
+  const tone = score === null ? FLOW_TEXT.unknown : score >= 80 ? FLOW_TEXT.flowing : score >= 60 ? FLOW_TEXT.stagnant : FLOW_TEXT.clotted;
   return (
     <div className="flex items-center gap-3 pr-4 border-r border-border/60">
       <div className="relative flex h-14 w-14 items-center justify-center">
-        <span className={cn('text-2xl font-bold', tone)}>{score}</span>
+        <span className={cn('text-2xl font-bold', tone)}>{score === null ? '—' : score}</span>
       </div>
       <div>
         <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">Salud</p>
@@ -109,6 +111,7 @@ export default function VitalStrip() {
                     'bg-emerald-500': v.status === 'flowing',
                     'bg-amber-500': v.status === 'stagnant',
                     'bg-rose-500': v.status === 'clotted',
+                    'bg-muted-foreground/40': v.status === 'unknown',
                   })} />
                 </div>
                 <div className="flex items-end justify-between gap-2">

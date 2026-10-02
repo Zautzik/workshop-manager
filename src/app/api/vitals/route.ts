@@ -61,7 +61,10 @@ export async function GET(_req: NextRequest) {
   const totalAssign = assignments.length;
   const resolvedAssign = assignments.filter(resolvable).length;
   const unmappedAssign = totalAssign - resolvedAssign;
-  const circulationPct = totalAssign === 0 ? 100 : Math.round((resolvedAssign / totalAssign) * 100);
+  // Sin asignaciones no es "100% sano" -- es la misma trampa que "costo cero es
+  // 100% margen" (ver margin-confidence.ts), reaparecida acá. Cero datos es
+  // cero datos, no una nota perfecta (auditoría 2026-10-02).
+  const circulationPct = totalAssign === 0 ? null : Math.round((resolvedAssign / totalAssign) * 100);
 
   // ── 🫀 Pulso — assignments per day (the heartbeat), last 7 days ──
   const days7 = lastNDays(7);
@@ -73,7 +76,7 @@ export async function GET(_req: NextRequest) {
   // ── 🔥 Agni — digestion of field captures (approved vs total) ──
   const waApproved = whatsapp.filter((w) => w.review_status === 'approved').length;
   const waPending = whatsapp.filter((w) => w.review_status === 'pending').length;
-  const agniPct = whatsapp.length === 0 ? 100 : Math.round((waApproved / whatsapp.length) * 100);
+  const agniPct = whatsapp.length === 0 ? null : Math.round((waApproved / whatsapp.length) * 100);
 
   // ── 👤 Contribución humana — captures from the field (the human pulse) ──
   const waByDay: Record<string, number> = {};
@@ -110,15 +113,32 @@ export async function GET(_req: NextRequest) {
   const toxins = unmappedAssign + staleMachines + certIssues;
 
   // ── Composite health score ──
+  //
+  // circulationPct y agniPct ahora pueden ser null (sin datos). El puntaje se
+  // promedia sólo sobre los componentes que SÍ tienen dato, con sus pesos
+  // reponderados -- en vez de tratar "sin dato" como si fuera un 100 perfecto,
+  // que es exactamente el defecto que esto corrige.
   const reflexScore = reflejos7 > 0 ? 100 : 0;
-  let healthScore = Math.round(
-    0.45 * circulationPct + 0.2 * agniPct + 0.2 * cargaPct + 0.15 * reflexScore
+  const components: Array<{ value: number | null; weight: number }> = [
+    { value: circulationPct, weight: 0.45 },
+    { value: agniPct, weight: 0.2 },
+    { value: cargaPct, weight: 0.2 },
+    { value: reflexScore, weight: 0.15 },
+  ];
+  const present = components.filter(
+    (c): c is { value: number; weight: number } => c.value !== null
   );
-  healthScore = Math.max(0, Math.min(100, healthScore - Math.min(20, toxins)));
-  const healthLabel = healthScore >= 80 ? 'Saludable' : healthScore >= 60 ? 'Atención' : 'Crítico';
+  const presentWeight = present.reduce((s, c) => s + c.weight, 0);
+  let healthScore: number | null = presentWeight === 0
+    ? null
+    : Math.round(present.reduce((s, c) => s + c.value * c.weight, 0) / presentWeight);
+  if (healthScore !== null) {
+    healthScore = Math.max(0, Math.min(100, healthScore - Math.min(20, toxins)));
+  }
+  const healthLabel = healthScore === null ? 'Sin datos' : healthScore >= 80 ? 'Saludable' : healthScore >= 60 ? 'Atención' : 'Crítico';
 
-  const status = (pct: number, warn = 70, crit = 40) =>
-    pct >= warn ? 'flowing' : pct >= crit ? 'stagnant' : 'clotted';
+  const status = (pct: number | null, warn = 70, crit = 40) =>
+    pct === null ? 'unknown' : pct >= warn ? 'flowing' : pct >= crit ? 'stagnant' : 'clotted';
 
   return NextResponse.json({
     generatedAt: new Date().toISOString(),

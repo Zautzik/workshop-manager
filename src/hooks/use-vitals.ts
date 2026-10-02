@@ -1,10 +1,11 @@
 'use client';
 import { useQuery } from '@tanstack/react-query';
 
-export type FlowStatus = 'flowing' | 'stagnant' | 'clotted';
+export type FlowStatus = 'flowing' | 'stagnant' | 'clotted' | 'unknown';
 
 export interface Vital {
-  value: number;
+  /** null = sin datos todavía, no un cero real. */
+  value: number | null;
   unit?: string;
   series?: number[];
   status: FlowStatus;
@@ -13,7 +14,7 @@ export interface Vital {
 
 export interface VitalsResponse {
   generatedAt: string;
-  health: { score: number; label: string };
+  health: { score: number | null; label: string };
   vitals: {
     pulso: Vital;
     circulacion: Vital & { resolved: number; total: number };
