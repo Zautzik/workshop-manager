@@ -12,14 +12,16 @@ import { Switch } from '@/components/ui/switch';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useQuickLinks } from '@/hooks/use-quick-links';
 import { useHomePrefs } from '@/hooks/use-home-prefs';
+import { useAuth } from '@/contexts/AuthContext';
 import type { FlatNavLeaf } from '@/lib/navigation';
 
 function EditDialog({
-  available, isPinned, toggle,
+  available, isPinned, toggle, role,
 }: {
   available: FlatNavLeaf[];
   isPinned: (href: string) => boolean;
   toggle: (href: string) => void;
+  role?: string | null;
 }) {
   // Group the catalogue by module for a scannable picker.
   const grouped = useMemo(() => {
@@ -32,7 +34,7 @@ function EditDialog({
     return Array.from(map.values());
   }, [available]);
 
-  const { prefs, setShowVitals } = useHomePrefs();
+  const { prefs, setShowVitals } = useHomePrefs(role);
 
   return (
     <Dialog>
@@ -109,6 +111,7 @@ function EditDialog({
 
 export default function QuickLinks() {
   const router = useRouter();
+  const { role } = useAuth();
   const { loaded, links, available, isPinned, toggle } = useQuickLinks();
 
   if (!loaded) return null;
@@ -139,7 +142,7 @@ export default function QuickLinks() {
             </Tooltip>
           );
         })}
-        <EditDialog available={available} isPinned={isPinned} toggle={toggle} />
+        <EditDialog available={available} isPinned={isPinned} toggle={toggle} role={role} />
       </div>
     </TooltipProvider>
   );

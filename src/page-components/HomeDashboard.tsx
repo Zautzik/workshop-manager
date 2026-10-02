@@ -261,7 +261,7 @@ export default function HomeDashboard() {
   const { theme } = useTheme();
   const isDark = theme === 'dark';
   const router = useRouter();
-  const { prefs } = useHomePrefs();
+  const { prefs } = useHomePrefs(role);
 
   const visibleActions = quickActions.filter(
     (action) => action.roles.includes(role || '')
