@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { isAuthError, requireAuth } from '@/lib/api-middleware';
 import { supabaseAdmin } from '@/integrations/supabase/server';
-import { invoiceArithmetic, threeWayMatch } from '@/lib/purchasing';
+import { canInvoice, invoiceArithmetic, threeWayMatch } from '@/lib/purchasing';
 
 const OPS = ['admin', 'manager', 'supervisor'] as const;
 
@@ -52,6 +52,31 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     );
   }
   const d = parsed.data;
+
+  // ── El estado de la OC manda ─────────────────────────────────────────────
+  //
+  // Faltaba por completo: esta ruta nunca miraba en qué estado estaba la OC
+  // antes de aceptarle una factura, y más abajo pisa su `status` a 'invoiced'
+  // sin condición — lo que significa que facturar contra una OC Anulada la
+  // revivía en silencio. `canInvoice` ya existe y ya excluye 'cancelled'; acá
+  // es donde realmente hacía falta, no sólo en qué botón mostrar en la tabla
+  // (auditoría 2026-10-02).
+  const { data: oc, error: ocError } = await supabaseAdmin
+    .from('purchases' as any)
+    .select('status, oc_number')
+    .eq('id', id)
+    .maybeSingle();
+
+  if (ocError) return NextResponse.json({ error: ocError.message }, { status: 500 });
+  if (!oc) return NextResponse.json({ error: 'OC no encontrada.' }, { status: 404 });
+
+  const ocRow = oc as unknown as { status: string; oc_number: string | null };
+  if (!canInvoice(ocRow.status as any)) {
+    return NextResponse.json(
+      { error: `La OC ${ocRow.oc_number ?? ''} está ${ocRow.status === 'cancelled' ? 'anulada' : ocRow.status} y no puede recibir facturas.` },
+      { status: 409 }
+    );
+  }
 
   // ── La aritmética del documento ─────────────────────────────────────────
   //

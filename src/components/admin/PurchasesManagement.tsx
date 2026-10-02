@@ -18,7 +18,7 @@ import {
 } from '@/components/ui/table';
 import { toast } from 'sonner';
 import { QRCodeSVG } from 'qrcode.react';
-import { Plus, Trash2, Receipt, FileText, Link2, AlertTriangle, CheckCircle2, PackageCheck, FileSignature, Ban, ShieldAlert } from 'lucide-react';
+import { Plus, Trash2, Receipt, FileText, Link2, AlertTriangle, CheckCircle2, PackageCheck, FileSignature, Ban, ShieldAlert, Search } from 'lucide-react';
 import { formatCLP } from '@/lib/format';
 import { ocActions, threeWayMatch, type OCStatus } from '@/lib/purchasing';
 import { usePurchases } from '@/hooks/use-admin-queries';
@@ -52,7 +52,22 @@ const FACTURA_STATUS: Record<string, { label: string; cls: string }> = {
 };
 
 const PurchasesManagement = () => {
-  const { data: ocs = [], refetch } = usePurchases() as { data: OCRow[]; refetch: () => void };
+  const { data: purchasesData, refetch } = usePurchases() as {
+    data: { data: OCRow[]; truncated: boolean } | undefined;
+    refetch: () => void;
+  };
+  const ocsAll = purchasesData?.data ?? [];
+  const purchasesTruncated = purchasesData?.truncated ?? false;
+  const [search, setSearch] = useState('');
+  const ocs = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return ocsAll;
+    return ocsAll.filter((oc) =>
+      (oc.oc_number ?? '').toLowerCase().includes(q) ||
+      (oc.ot_number ?? '').toLowerCase().includes(q) ||
+      (oc.supplier ?? '').toLowerCase().includes(q)
+    );
+  }, [ocsAll, search]);
   const { data: ots = [] } = useOTs();
   const createOC = useCreateOC();
 
@@ -149,17 +164,19 @@ const PurchasesManagement = () => {
     [ots]
   );
 
+  // Sobre ocsAll, no sobre la lista filtrada por búsqueda: un KPI que cambia
+  // porque alguien está tipeando en el buscador deja de servir como totales.
   const kpis = useMemo(() => {
-    const committed = ocs
+    const committed = ocsAll
       .filter((o) => ['sent', 'received', 'invoiced'].includes(o.status) && o.matched_count === 0 && o.ot_id)
       .reduce((a, o) => a + Number(o.total_cost || 0), 0);
-    const invoiced = ocs.reduce((a, o) => a + Number(o.facturado ?? o.invoiced_total ?? 0), 0);
+    const invoiced = ocsAll.reduce((a, o) => a + Number(o.facturado ?? o.invoiced_total ?? 0), 0);
 
     // El contador de discrepancias miraba `variance` —pedido menos facturado— y
     // por eso NO veía el caso peor: pedir 500, recibir 480 y que te facturen
     // 500 da variación cero. El titular de la pantalla decía «todo en orden»
     // justo cuando el proveedor cobra papel que no entregó.
-    const conDiferencia = ocs.filter(
+    const conDiferencia = ocsAll.filter(
       (o) =>
         threeWayMatch({
           ordered: Number(o.pedido ?? o.total_cost ?? 0),
@@ -170,10 +187,10 @@ const PurchasesManagement = () => {
 
     // El certificado vencido no es plata y por eso se cuenta aparte: una OC
     // puede calzar al peso y traer material que no debería estar en planta.
-    const certVencidos = ocs.filter((o) => Number(o.certificados_vencidos ?? 0) > 0).length;
+    const certVencidos = ocsAll.filter((o) => Number(o.certificados_vencidos ?? 0) > 0).length;
 
     return { committed, invoiced, discrepancies: conDiferencia, certVencidos };
-  }, [ocs]);
+  }, [ocsAll]);
 
   const resetForm = () => {
     setForm({ supplier: '', supplier_rut: '', ot_id: '', total_cost: 0, expected_date: '', certification_details: '', notes: '' });
@@ -246,6 +263,25 @@ const PurchasesManagement = () => {
           <KpiCard label="Certificado vencido" value={String(kpis.certVencidos)} tone={kpis.certVencidos > 0 ? 'critical' : 'default'} />
         </div>
 
+        {/* El registro completo ya se trae server-side (fetchAll); esto sólo
+            avisa en el único caso en que igual no alcanzó. */}
+        {purchasesTruncated && (
+          <p className="text-xs text-red-600 dark:text-red-400 flex items-center gap-1.5 rounded-md border border-red-500/30 bg-red-500/5 px-3 py-2">
+            <ShieldAlert className="h-3.5 w-3.5 shrink-0" />
+            Hay más órdenes de compra en la base de las que esta pantalla pudo traer — los totales de arriba están calculados sobre una parte, no sobre el total.
+          </p>
+        )}
+
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            className="pl-9"
+            placeholder="Buscar por N° de OC, OT o proveedor…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
+
         <Table>
           <TableHeader>
             <TableRow>
@@ -265,7 +301,7 @@ const PurchasesManagement = () => {
           </TableHeader>
           <TableBody>
             {ocs.length === 0 && (
-              <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground py-8">Sin órdenes de compra.</TableCell></TableRow>
+              <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground py-8">{search.trim() ? 'Ninguna OC coincide con la búsqueda.' : 'Sin órdenes de compra.'}</TableCell></TableRow>
             )}
             {ocs.map((oc) => {
               const st = OC_STATUS[oc.status] ?? { label: oc.status, cls: '' };
@@ -712,7 +748,14 @@ function FacturasDialog({ oc, onClose }: { oc: OCRow | null; onClose: () => void
           })}
         </div>
 
-        {/* New factura */}
+        {/* New factura — oculto cuando la OC no puede recibir una: mostrar el
+            formulario para una Anulada invitaba a reabrirla por esta puerta
+            (auditoría 2026-10-02, el servidor ya la cierra aparte). */}
+        {!ocActions(oc.status as OCStatus).facturar ? (
+          <p className="text-sm text-muted-foreground rounded-lg border bg-muted/30 p-3">
+            Esta OC está {(OC_STATUS[oc.status]?.label ?? oc.status).toLowerCase()}: no puede recibir facturas nuevas.
+          </p>
+        ) : (
         <div className="rounded-lg border bg-muted/30 p-3 space-y-3">
           <p className="text-sm font-medium">Registrar factura</p>
           <div className="grid grid-cols-2 gap-3">
@@ -730,6 +773,7 @@ function FacturasDialog({ oc, onClose }: { oc: OCRow | null; onClose: () => void
             <Button onClick={() => addFactura('matched')} disabled={createFactura.isPending}>Registrar y conciliar</Button>
           </div>
         </div>
+        )}
       </DialogContent>
     </Dialog>
   );

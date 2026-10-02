@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { isAuthError, requireAuth } from '@/lib/api-middleware';
 import { supabaseAdmin } from '@/integrations/supabase/server';
+import { fetchAll } from '@/lib/fetch-all';
 
 // OCs drive live cost; never cache at the HTTP layer.
 export const dynamic = 'force-dynamic';
@@ -23,15 +24,19 @@ export async function GET(req: NextRequest) {
   const auth = await requireAuth([...OPS]);
   if (isAuthError(auth)) return auth;
 
-  let q = supabaseAdmin.from('oc_conciliacion' as any).select('*');
-
   const otId = req.nextUrl.searchParams.get('ot_id');
-  if (otId) q = q.eq('ot_id', otId);
 
-  const { data, error } = await q.order('issued_at', { ascending: false, nullsFirst: false });
+  // Sin tope ni paginar, esta consulta traía la tabla entera de un viaje --
+  // inofensivo con las OC de hoy, el mismo riesgo de PostgREST truncando en
+  // silencio en cuanto el taller acumule más historia (auditoría 2026-10-02,
+  // mismo defecto ya cerrado en captures/certifications/cycle-analytics).
+  const { rows: data, truncated } = await fetchAll<any>((desde, hasta) => {
+    let q = supabaseAdmin.from('oc_conciliacion' as any).select('*');
+    if (otId) q = q.eq('ot_id', otId);
+    return q.order('issued_at', { ascending: false, nullsFirst: false }).range(desde, hasta) as any;
+  });
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ data: data ?? [] });
+  return NextResponse.json({ data, truncated });
 }
 
 const OCLineSchema = z.object({

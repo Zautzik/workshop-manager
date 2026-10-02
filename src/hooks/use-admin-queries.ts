@@ -136,15 +136,16 @@ export function useInventoryLowStockAlerts() {
 }
 
 export function usePurchases() {
-  return useQuery<any[]>({
+  return useQuery<{ data: any[]; truncated: boolean }>({
     queryKey: queryKeys.purchases,
     queryFn: async () => {
       // Server route (supabaseAdmin) — RLS blanks client-side reads under the
-      // dev bypass, and this returns the oc_billing roll-up (OC + OT + variance).
+      // dev bypass, and this returns the oc_conciliacion roll-up (OC + OT +
+      // el calce a tres bandas), paginated to exhaustion server-side.
       const res = await fetch('/api/purchases');
       if (!res.ok) throw new Error('Failed to fetch purchases');
       const json = await res.json();
-      return (json.data ?? []) as any[];
+      return { data: (json.data ?? []) as any[], truncated: !!json.truncated };
     },
   });
 }
