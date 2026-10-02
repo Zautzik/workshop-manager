@@ -43,7 +43,11 @@ export function KpiCard({ icon: Icon, label, value, hint, tone = 'default', bord
 				</CardTitle>
 			</CardHeader>
 			<CardContent>
-				<p className={`text-2xl font-bold ${tone === 'default' ? '' : cls.text}`}>{value}</p>
+				{/* break-words, no truncate: es casi siempre un monto o un conteo, y
+				    cortarlo con "…" esconde un dígito real. Que se parta en dos líneas
+				    a un ancho angosto es preferible a que se salga de la tarjeta
+				    (auditoría 2026-10-02, encontrado en Compras a 390px). */}
+				<p className={`text-2xl font-bold break-words ${tone === 'default' ? '' : cls.text}`}>{value}</p>
 				{hint && <p className="text-[11px] text-muted-foreground mt-0.5">{hint}</p>}
 				{children && <div className="mt-3">{children}</div>}
 			</CardContent>

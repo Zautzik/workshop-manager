@@ -142,7 +142,12 @@ function HexTile({ item, size }: { item: HexLandingItem; size: number }) {
               <div style={{ position: 'absolute', left: '50%', top: '24%', transform: 'translate(-50%, -50%)', borderRadius: '50%', padding: 6, background: `rgb(${r} / 0.26)`, border: `1.5px solid rgb(${r} / 0.5)`, display: 'flex' }}>
                 <Icon style={{ width: 18, height: 18, color: `rgb(${r})`, filter: 'brightness(1.5)' }} />
               </div>
-              <span className="text-foreground" style={{ position: 'absolute', left: '50%', top: '54%', transform: 'translate(-50%, -50%)', width: '84%', fontSize: 16, fontWeight: 600, letterSpacing: '-0.01em', textAlign: 'center', lineHeight: 1.1, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', overflowWrap: 'break-word', wordBreak: 'break-word' }}>
+              {/* hyphens:'auto' (con <html lang="es">, ya presente en layout.tsx)
+                  deja que "Mantenimiento" parta en sílabas -- "Manteni-miento"
+                  -- en vez de wordBreak cortando donde el ancho se acaba, que
+                  dejaba "Mantenimient" / "o" (auditoría 2026-10-02). wordBreak
+                  se mantiene como red para palabras que ni así entran. */}
+              <span className="text-foreground" style={{ position: 'absolute', left: '50%', top: '54%', transform: 'translate(-50%, -50%)', width: '84%', fontSize: 16, fontWeight: 600, letterSpacing: '-0.01em', textAlign: 'center', lineHeight: 1.1, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', overflowWrap: 'break-word', wordBreak: 'break-word', hyphens: 'auto' }}>
                 {item.label}
                 {item.external && <ExternalLink style={{ width: 11, height: 11, opacity: 0.6, marginLeft: 3, display: 'inline' }} />}
               </span>

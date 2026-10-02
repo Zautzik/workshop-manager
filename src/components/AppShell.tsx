@@ -223,6 +223,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             const button = (
               <button
                 key={item.href}
+                aria-label={item.label}
                 onClick={() => {
                   if (hasChildren) {
                     toggleExpanded(item.href);
@@ -320,6 +321,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           <TooltipTrigger asChild>
             <button
               onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
+              aria-label={!mounted ? 'Cambiar tema' : theme === 'light' ? 'Modo Oscuro' : 'Modo Claro'}
               className={cn(
                 "w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-muted-foreground hover:bg-muted transition-colors",
                 collapsed && "justify-center px-2"
@@ -341,6 +343,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           <TooltipTrigger asChild>
             <button
               onClick={handleLogout}
+              aria-label={`Cerrar sesión${user?.email ? ` — ${user.email}` : ''}`}
               className={cn(
                 "w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors",
                 collapsed && "justify-center px-2"
