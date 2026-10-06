@@ -2,10 +2,8 @@
 
 import { useRouter } from 'next/navigation';
 import WatercolorBackdrop from '@/components/branding/WatercolorBackdrop';
-import VitalStrip from '@/components/home/VitalStrip';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
-import { useHomePrefs } from '@/hooks/use-home-prefs';
 import { type OrganSystem } from '@/lib/navigation';
 import {
   Factory,
@@ -261,7 +259,6 @@ export default function HomeDashboard() {
   const { theme } = useTheme();
   const isDark = theme === 'dark';
   const router = useRouter();
-  const { prefs } = useHomePrefs(role);
 
   const visibleActions = quickActions.filter(
     (action) => action.roles.includes(role || '')
@@ -313,9 +310,6 @@ export default function HomeDashboard() {
           ¿Cómo puedo ayudarte hoy?
         </h1>
       </div>
-
-      {/* Vital signs — opt-in via the Personalizar dialog */}
-      {prefs.showVitals && <VitalStrip />}
 
       {/* Interlaced organ honeycomb — tight cluster, absolutely positioned */}
       <div style={{ position: 'relative', width: honeyWidth, height: honeyHeight }}>

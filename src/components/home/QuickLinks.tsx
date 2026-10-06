@@ -7,21 +7,17 @@ import {
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { Sliders, Check, Activity } from 'lucide-react';
-import { Switch } from '@/components/ui/switch';
+import { Sliders, Check } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useQuickLinks } from '@/hooks/use-quick-links';
-import { useHomePrefs } from '@/hooks/use-home-prefs';
-import { useAuth } from '@/contexts/AuthContext';
 import type { FlatNavLeaf } from '@/lib/navigation';
 
 function EditDialog({
-  available, isPinned, toggle, role,
+  available, isPinned, toggle,
 }: {
   available: FlatNavLeaf[];
   isPinned: (href: string) => boolean;
   toggle: (href: string) => void;
-  role?: string | null;
 }) {
   // Group the catalogue by module for a scannable picker.
   const grouped = useMemo(() => {
@@ -34,8 +30,6 @@ function EditDialog({
     return Array.from(map.values());
   }, [available]);
 
-  const { prefs, setShowVitals } = useHomePrefs(role);
-
   return (
     <Dialog>
       <DialogTrigger asChild>
@@ -47,21 +41,9 @@ function EditDialog({
         <DialogHeader>
           <DialogTitle>Personalizar inicio</DialogTitle>
           <DialogDescription>
-            Activa los signos vitales y marca las secciones que quieres tener a mano.
+            Marca las secciones que quieres tener a mano.
           </DialogDescription>
         </DialogHeader>
-
-        {/* Vital strip toggle (off by default — opt-in for power users) */}
-        <div className="flex items-center justify-between rounded-lg border p-3">
-          <div className="flex items-center gap-2">
-            <Activity className="h-4 w-4 text-muted-foreground" />
-            <div>
-              <p className="text-sm font-medium">Signos vitales</p>
-              <p className="text-xs text-muted-foreground">Mostrar la barra de indicadores en el inicio</p>
-            </div>
-          </div>
-          <Switch checked={prefs.showVitals} onCheckedChange={setShowVitals} />
-        </div>
 
         <ScrollArea className="max-h-[55vh] pr-3 -mr-3">
           <div className="space-y-5">
@@ -111,7 +93,6 @@ function EditDialog({
 
 export default function QuickLinks() {
   const router = useRouter();
-  const { role } = useAuth();
   const { loaded, links, available, isPinned, toggle } = useQuickLinks();
 
   if (!loaded) return null;
@@ -142,7 +123,7 @@ export default function QuickLinks() {
             </Tooltip>
           );
         })}
-        <EditDialog available={available} isPinned={isPinned} toggle={toggle} role={role} />
+        <EditDialog available={available} isPinned={isPinned} toggle={toggle} />
       </div>
     </TooltipProvider>
   );
