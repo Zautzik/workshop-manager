@@ -17,17 +17,18 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
 import { toast } from 'sonner';
-import { QRCodeSVG } from 'qrcode.react';
-import { Plus, Trash2, Receipt, FileText, Link2, AlertTriangle, CheckCircle2, PackageCheck, FileSignature, Ban, ShieldAlert, Search } from 'lucide-react';
+import { Plus, Trash2, Receipt, Link2, AlertTriangle, PackageCheck, FileSignature, Ban, ShieldAlert, Search } from 'lucide-react';
 import { formatCLP } from '@/lib/format';
 import { ocActions, threeWayMatch, type OCStatus } from '@/lib/purchasing';
 import { usePurchases } from '@/hooks/use-admin-queries';
 import { useOTs } from '@/hooks/use-operations-queries';
 import {
-  usePurchaseInvoices, useCreateOC, useCreateFactura, useUpdateFactura,
-  useStockItems, useReceiveOC, usePurchaseOrder, useSuppliers,
-  type OCRow, type FacturaCompra, type StockItem, type PurchaseOrderLine,
+  useCreateOC, useStockItems, useSuppliers,
+  type OCRow, type StockItem,
 } from '@/hooks/use-procurement-queries';
+import { OC_STATUS } from './purchase-status';
+import { ReceiveDialog } from './ReceiveDialog';
+import { FacturasDialog } from './FacturasDialog';
 
 interface DraftLine {
   key: number;
@@ -35,21 +36,6 @@ interface DraftLine {
   quantity: number;
   unit_cost: number;
 }
-
-const OC_STATUS: Record<string, { label: string; cls: string }> = {
-  draft:     { label: 'Borrador',  cls: 'bg-slate-500/15 text-slate-500' },
-  sent:      { label: 'Enviada',   cls: 'bg-sky-500/15 text-sky-600' },
-  received:  { label: 'Recibida',  cls: 'bg-indigo-500/15 text-indigo-600' },
-  invoiced:  { label: 'Facturada', cls: 'bg-amber-500/15 text-amber-600' },
-  closed:    { label: 'Cerrada',   cls: 'bg-green-500/15 text-green-600' },
-  cancelled: { label: 'Anulada',   cls: 'bg-red-500/15 text-red-600' },
-};
-const FACTURA_STATUS: Record<string, { label: string; cls: string }> = {
-  received: { label: 'Recibida',   cls: 'bg-slate-500/15 text-slate-500' },
-  matched:  { label: 'Conciliada', cls: 'bg-green-500/15 text-green-600' },
-  disputed: { label: 'En disputa', cls: 'bg-red-500/15 text-red-600' },
-  paid:     { label: 'Pagada',     cls: 'bg-emerald-500/15 text-emerald-600' },
-};
 
 const PurchasesManagement = () => {
   const { data: purchasesData, refetch } = usePurchases() as {
@@ -542,241 +528,5 @@ const PurchasesManagement = () => {
     </Card>
   );
 };
-
-// ── Goods receipt against an OC (creates a lot linked to the OC) ─────────────
-function ReceiveDialog({ oc, onClose }: { oc: OCRow | null; onClose: () => void }) {
-  const { data: items = [] } = useStockItems();
-  const { data: detail } = usePurchaseOrder(oc?.id ?? null);
-  const receive = useReceiveOC();
-  const [itemId, setItemId] = useState('');
-  const [qty, setQty] = useState(0);
-  const [unitCost, setUnitCost] = useState(0);
-  const [lotNumber, setLotNumber] = useState('');
-  const [certCode, setCertCode] = useState('');
-
-  const openLines = (detail?.items ?? []).filter((l) => l.remaining > 0);
-
-  const recibirLinea = (l: PurchaseOrderLine) => {
-    setItemId(l.item_id);
-    setQty(l.remaining);
-    setUnitCost(l.unit_cost ?? 0);
-  };
-
-  if (!oc) return null;
-
-  const submit = async () => {
-    if (!itemId) { toast.error('Selecciona el material recibido'); return; }
-    if (qty <= 0) { toast.error('Cantidad inválida'); return; }
-    try {
-      await receive.mutateAsync({
-        purchaseId: oc.id, item_id: itemId, quantity: qty,
-        unit_cost: unitCost || null, lot_number: lotNumber || null, cert_code: certCode || null,
-      });
-      toast.success('Recibido — lote creado y vinculado a la OC');
-      setItemId(''); setQty(0); setUnitCost(0); setLotNumber(''); setCertCode('');
-      onClose();
-    } catch (e: any) { toast.error(e?.message ?? 'No se pudo recibir'); }
-  };
-
-  return (
-    <Dialog open={!!oc} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-lg">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2"><PackageCheck className="h-5 w-5" /> Recibir — {oc.oc_number}</DialogTitle>
-          <DialogDescription>{oc.supplier}{oc.ot_number ? ` · ${oc.ot_number}` : ' · stock'} · crea un lote trazable (FSSC) vinculado a la OC.</DialogDescription>
-        </DialogHeader>
-        {openLines.length > 0 && (
-          <div className="space-y-1.5 rounded-lg border bg-muted/30 p-2">
-            <p className="text-xs font-medium text-muted-foreground">Pendiente de recibir</p>
-            {openLines.map((l) => (
-              <button
-                key={l.id}
-                type="button"
-                onClick={() => recibirLinea(l)}
-                className="flex w-full items-center justify-between gap-2 rounded-md px-2 py-1 text-left text-xs hover:bg-accent"
-              >
-                <span className="truncate">{l.item_name ?? l.item_id} {l.item_sku ? `(${l.item_sku})` : ''}</span>
-                <span className="shrink-0 tabular-nums text-muted-foreground">
-                  {l.received_quantity > 0 && `${l.received_quantity.toLocaleString('es-CL')} de `}
-                  {l.quantity.toLocaleString('es-CL')} {l.unit ?? ''} · faltan {l.remaining.toLocaleString('es-CL')}
-                </span>
-              </button>
-            ))}
-          </div>
-        )}
-        <div className="flex gap-4">
-          <div className="flex-1 space-y-3">
-            <div className="space-y-1.5">
-              <Label>Material recibido</Label>
-              <Select value={itemId} onValueChange={setItemId}>
-                <SelectTrigger><SelectValue placeholder="Selecciona material…" /></SelectTrigger>
-                <SelectContent>
-                  {items.map((it) => (
-                    <SelectItem key={it.id} value={it.id}>{it.name} ({it.sku})</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label>Cantidad</Label>
-                <Input type="number" value={qty || ''} onChange={(e) => setQty(parseFloat(e.target.value) || 0)} />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Costo unitario</Label>
-                <Input type="number" value={unitCost || ''} onChange={(e) => setUnitCost(parseFloat(e.target.value) || 0)} />
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label>N° lote (opcional)</Label>
-                <Input value={lotNumber} onChange={(e) => setLotNumber(e.target.value)} placeholder="auto" />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Cert. FSSC (opcional)</Label>
-                <Input value={certCode} onChange={(e) => setCertCode(e.target.value)} />
-              </div>
-            </div>
-          </div>
-          {/* Scannable OC label — operator scans + reporta por WhatsApp */}
-          <div className="flex flex-col items-center justify-start gap-1.5 pt-6">
-            <div className="rounded-lg border bg-white p-2">
-              <QRCodeSVG value={`WH:RECV:OC:${oc.oc_number}`} size={92} />
-            </div>
-            <span className="text-[10px] text-muted-foreground">{oc.oc_number}</span>
-          </div>
-        </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose}>Cancelar</Button>
-          <Button onClick={submit} disabled={receive.isPending}>{receive.isPending ? 'Recibiendo…' : 'Confirmar recepción'}</Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-// ── Facturas detail + matching ──────────────────────────────────────────────
-function FacturasDialog({ oc, onClose }: { oc: OCRow | null; onClose: () => void }) {
-  const { data: facturas = [] } = usePurchaseInvoices(oc?.id ?? null);
-  const createFactura = useCreateFactura();
-  const updateFactura = useUpdateFactura();
-  const [num, setNum] = useState('');
-  const [amount, setAmount] = useState(0);
-
-  if (!oc) return null;
-
-  const addFactura = async (status: 'received' | 'matched') => {
-    if (!num.trim()) { toast.error('N° de factura requerido'); return; }
-    try {
-      await createFactura.mutateAsync({ purchaseId: oc.id, invoice_number: num, amount: Number(amount) || 0, status });
-      toast.success(status === 'matched' ? 'Factura conciliada — costo real en la OT' : 'Factura registrada');
-      setNum(''); setAmount(0);
-    } catch (e: any) { toast.error(e?.message ?? 'Error'); }
-  };
-
-  const setStatus = async (f: FacturaCompra, status: FacturaCompra['status'], closure_reason?: string) => {
-    try {
-      await updateFactura.mutateAsync({ purchaseId: oc.id, invoiceId: f.id, status, closure_reason });
-      toast.success(status === 'matched' || status === 'paid' ? 'Conciliada — costo real en la OT' : 'Actualizada');
-    } catch (e: any) {
-      // El calce en vivo puede exigir motivo aunque la pantalla no lo muestre
-      // todavía — no se pide de entrada porque la mayoría de los cierres no
-      // tiene diferencia.
-      if (!closure_reason && /MOTIVO_REQUERIDO|motivo/i.test(e?.message ?? '')) {
-        const motivo = window.prompt(`${e.message}`);
-        if (motivo?.trim()) await setStatus(f, status, motivo.trim());
-        return;
-      }
-      toast.error(e?.message ?? 'Error');
-    }
-  };
-
-  return (
-    <Dialog open={!!oc} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-2xl">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <FileText className="h-5 w-5" /> Facturas — {oc.oc_number}
-          </DialogTitle>
-          <DialogDescription>
-            {oc.supplier} · OC {formatCLP(oc.total_cost)}{oc.ot_number ? ` · ${oc.ot_number}` : ' · stock'}
-          </DialogDescription>
-        </DialogHeader>
-
-        {/* Existing facturas */}
-        <div className="space-y-2">
-          {facturas.length === 0 && <p className="text-sm text-muted-foreground py-2">Aún no hay facturas registradas.</p>}
-          {facturas.map((f) => {
-            const fs = FACTURA_STATUS[f.status] ?? { label: f.status, cls: '' };
-            const diff = Number(f.amount) - Number(oc.total_cost);
-            return (
-              <div key={f.id} className="flex items-center justify-between gap-3 rounded-lg border p-3">
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="font-mono text-xs">{f.invoice_number}</span>
-                    <Badge className={fs.cls}>{fs.label}</Badge>
-                    {diff !== 0 && (
-                      <span className={`inline-flex items-center gap-1 text-xs ${diff > 0 ? 'text-red-600' : 'text-amber-600'}`}>
-                        <AlertTriangle className="h-3 w-3" /> {diff > 0 ? '+' : ''}{formatCLP(diff)} vs OC
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-sm font-semibold tabular-nums mt-0.5">{formatCLP(f.amount)}</p>
-                  {/* Se cerró con diferencia: queda a la vista quién y por qué,
-                      no sólo que ocurrió. */}
-                  {f.closure_reason && (
-                    <p className="text-xs text-amber-600 dark:text-amber-400 mt-0.5">
-                      Cerrada con diferencia: {f.closure_reason}
-                    </p>
-                  )}
-                </div>
-                <div className="flex gap-1.5 shrink-0">
-                  {f.status !== 'matched' && f.status !== 'paid' && (
-                    <Button size="sm" variant="outline" className="gap-1" onClick={() => setStatus(f, 'matched')}>
-                      <CheckCircle2 className="h-3.5 w-3.5" /> Conciliar
-                    </Button>
-                  )}
-                  {(f.status === 'matched') && (
-                    <Button size="sm" variant="outline" onClick={() => setStatus(f, 'paid')}>Marcar pagada</Button>
-                  )}
-                  {f.status !== 'disputed' && f.status !== 'paid' && (
-                    <Button size="sm" variant="ghost" className="text-red-600" onClick={() => setStatus(f, 'disputed')}>Disputar</Button>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-
-        {/* New factura — oculto cuando la OC no puede recibir una: mostrar el
-            formulario para una Anulada invitaba a reabrirla por esta puerta
-            (auditoría 2026-10-02, el servidor ya la cierra aparte). */}
-        {!ocActions(oc.status as OCStatus).facturar ? (
-          <p className="text-sm text-muted-foreground rounded-lg border bg-muted/30 p-3">
-            Esta OC está {(OC_STATUS[oc.status]?.label ?? oc.status).toLowerCase()}: no puede recibir facturas nuevas.
-          </p>
-        ) : (
-        <div className="rounded-lg border bg-muted/30 p-3 space-y-3">
-          <p className="text-sm font-medium">Registrar factura</p>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label>N° factura (DTE)</Label>
-              <Input value={num} onChange={(e) => setNum(e.target.value)} placeholder="F-12345" />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Monto (CLP)</Label>
-              <Input type="number" value={amount} onChange={(e) => setAmount(parseFloat(e.target.value) || 0)} />
-            </div>
-          </div>
-          <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={() => addFactura('received')} disabled={createFactura.isPending}>Registrar</Button>
-            <Button onClick={() => addFactura('matched')} disabled={createFactura.isPending}>Registrar y conciliar</Button>
-          </div>
-        </div>
-        )}
-      </DialogContent>
-    </Dialog>
-  );
-}
 
 export default PurchasesManagement;
