@@ -1,9 +1,57 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import { isAuthError, requireAuth } from '@/lib/api-middleware';
 import { supabaseAdmin } from '@/integrations/supabase/server';
 import { resolveSalesScope, scopeFilterId } from '@/lib/sales-scope';
 
 const ROLES = ['admin', 'manager', 'supervisor', 'vendedor'] as const;
+
+const EstimateLineSchema = z.object({
+  category: z.string(),
+  description: z.string(),
+  quantity: z.coerce.number(),
+  unit: z.string(),
+  unit_cost: z.coerce.number(),
+});
+
+// Nada de esto cambia qué puede pasar hoy -- es la misma cotización que ya se
+// guardaba. Lo que faltaba era que un número mal tipeado (p. ej. un string en
+// `quantity`) o un campo corrupto llegara derecho a la base sin que nadie lo
+// mirara antes: acá es donde se para.
+const CreateVbSchema = z.object({
+  client_id: z.string().uuid().optional().nullable(),
+  client_name: z.string().max(200).optional().nullable(),
+  salesman_id: z.string().uuid().optional().nullable(),
+  product_name: z.string().max(200).optional().nullable(),
+  product_type: z.string().max(100).optional().nullable(),
+  quantity: z.coerce.number().int().min(0).optional().nullable(),
+  width_cm: z.coerce.number().min(0).optional().nullable(),
+  height_cm: z.coerce.number().min(0).optional().nullable(),
+  substrate_type: z.string().max(100).optional().nullable(),
+  grammage_gsm: z.coerce.number().int().min(0).optional().nullable(),
+  color_front: z.string().max(50).optional().nullable(),
+  color_back: z.string().max(50).optional().nullable(),
+  ink_coverage: z.string().max(50).optional().nullable(),
+  finishes: z.record(z.string(), z.boolean()).optional().nullable(),
+  estimate_lines: z.array(EstimateLineSchema).optional().nullable(),
+  calc_sheets: z.coerce.number().min(0).optional().nullable(),
+  calc_substrate_kg: z.coerce.number().min(0).optional().nullable(),
+  calc_ink_kg: z.coerce.number().min(0).optional().nullable(),
+  calc_plates: z.coerce.number().min(0).optional().nullable(),
+  calc_print_hours: z.coerce.number().min(0).optional().nullable(),
+  calc_finish_hours: z.coerce.number().min(0).optional().nullable(),
+  subtotal_cost: z.coerce.number().min(0).default(0),
+  margin_pct: z.coerce.number().default(0),
+  markup_pct: z.coerce.number().default(0),
+  total_price: z.coerce.number().min(0).default(0),
+  unit_price: z.coerce.number().min(0).default(0),
+  floor_price: z.coerce.number().min(0).default(0),
+  status: z.enum(['draft', 'sent', 'signed', 'converted', 'rejected', 'expired']).default('draft'),
+  notes: z.string().max(2000).optional().nullable(),
+  deadline: z.string().optional().nullable(),
+  priority_level: z.string().max(50).optional().default('normal'),
+  press_id: z.string().uuid().optional().nullable(),
+});
 
 // GET /api/vistos-buenos — list quotes (Vistos Buenos).
 export async function GET(_req: NextRequest) {
@@ -45,8 +93,17 @@ export async function POST(req: NextRequest) {
   const auth = await requireAuth([...ROLES]);
   if (isAuthError(auth)) return auth;
 
-  const b = await req.json().catch(() => null);
-  if (!b) return NextResponse.json({ error: 'Cuerpo inválido' }, { status: 400 });
+  const raw = await req.json().catch(() => null);
+  if (!raw) return NextResponse.json({ error: 'Cuerpo inválido' }, { status: 400 });
+
+  const parsed = CreateVbSchema.safeParse(raw);
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: 'Datos inválidos', details: parsed.error.flatten().fieldErrors },
+      { status: 400 }
+    );
+  }
+  const b = parsed.data;
 
   // Ownership: a vendedor can only create quotes under their own name. Ops/
   // management roles may attribute the quote to any salesman (b.salesman_id).
@@ -85,20 +142,20 @@ export async function POST(req: NextRequest) {
     calc_plates: b.calc_plates ?? null,
     calc_print_hours: b.calc_print_hours ?? null,
     calc_finish_hours: b.calc_finish_hours ?? null,
-    subtotal_cost: b.subtotal_cost ?? 0,
-    margin_pct: b.margin_pct ?? 0,
-    markup_pct: b.markup_pct ?? 0,
-    total_price: b.total_price ?? 0,
-    unit_price: b.unit_price ?? 0,
-    floor_price: b.floor_price ?? 0,
-    status: b.status ?? 'draft',
+    subtotal_cost: b.subtotal_cost,
+    margin_pct: b.margin_pct,
+    markup_pct: b.markup_pct,
+    total_price: b.total_price,
+    unit_price: b.unit_price,
+    floor_price: b.floor_price,
+    status: b.status,
     notes: b.notes ?? null,
     // La ruta enumera los campos, así que lo que no esté acá se descarta en
     // silencio. Estos tres llegaban desde el diálogo y se perdían: la OT nacía
     // sin fecha comprometida, en prioridad normal, y sin la prensa que decide
     // qué pliego se puede montar — el dato que más mueve el precio.
     deadline: b.deadline ?? null,
-    priority_level: b.priority_level ?? 'normal',
+    priority_level: b.priority_level,
     press_id: b.press_id ?? null,
   };
 
