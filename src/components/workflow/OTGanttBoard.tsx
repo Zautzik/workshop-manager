@@ -145,11 +145,15 @@ export function OTGanttBoard() {
   // referencialmente igual al anterior, así que esto recalculaba en cada
   // render pese a la lista de dependencias. Se compara por su valor numérico,
   // que sí es estable mientras siga siendo el mismo día real (auditoría de
-  // performance 2026-09).
+  // performance 2026-09). Se extrae a una constante simple porque el linter
+  // de react-hooks ya no acepta una llamada (`today.getTime()`) directo en el
+  // arreglo de dependencias — sólo identificadores o accesos de propiedad.
+  const todayMs = today.getTime();
+  const windowEndMs = windowEnd.getTime();
+
   const days = useMemo(() =>
     Array.from({ length: WINDOW_DAYS }, (_, i) => addDays(today, i)),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [today.getTime()]
+    [todayMs]
   );
 
   // Activas con plazo — vencidas incluidas: una OT atrasada es justo lo que
@@ -165,8 +169,7 @@ export function OTGanttBoard() {
 
   const overdueCount = useMemo(
     () => ots.filter((ot) => new Date(ot.deadline) < today).length,
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [ots, today.getTime()],
+    [ots, todayMs],
   );
 
   const dayPct = (date: Date) => {
@@ -190,8 +193,7 @@ export function OTGanttBoard() {
   // `ots` no hubiera cambiado.
   const rowGeometry = useMemo(
     () => new Map(ots.map((ot) => [ot.id, barGeometry(ot)])),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [ots, today.getTime(), windowEnd.getTime()],
+    [ots, todayMs, windowEndMs],
   );
 
   return (

@@ -277,7 +277,7 @@ export async function PATCH(request: NextRequest) {
 		// (auditoría 2026-08).
 		const { data: updated, error } = await supabaseAdmin
 			.from('user_roles')
-			.update(updatePayload)
+			.update(updatePayload as any)
 			.eq('user_id', id)
 			.select('id');
 

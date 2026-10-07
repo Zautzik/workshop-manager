@@ -67,7 +67,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     return NextResponse.json({ error: 'Nada que actualizar' }, { status: 400 });
   }
 
-  const { error } = await supabaseAdmin.from('inventory_lots').update(patch).eq('id', id);
+  const { error } = await supabaseAdmin.from('inventory_lots').update(patch as any).eq('id', id);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
   return NextResponse.json({ ok: true });

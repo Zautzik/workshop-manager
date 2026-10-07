@@ -340,7 +340,7 @@ export async function POST(req: NextRequest) {
 
 			const { error: opsError } = await supabaseAdmin
 				.from('ot_operations')
-				.insert(opsPayload);
+				.insert(opsPayload as any);
 
 			if (opsError) {
 				console.error('Error creating OT operations:', opsError);

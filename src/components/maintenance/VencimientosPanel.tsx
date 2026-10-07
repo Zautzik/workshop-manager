@@ -338,7 +338,7 @@ function PendingOrdersSection({ overdue, upcoming }: { overdue: any[]; upcoming:
           </div>
         </div>
         <p className="text-xs text-muted-foreground">
-          Ya se emitieron — a diferencia de las pautas de arriba, esto no es "crear la orden", es "ir a hacerla" en la pestaña Órdenes.
+          Ya se emitieron — a diferencia de las pautas de arriba, esto no es &quot;crear la orden&quot;, es &quot;ir a hacerla&quot; en la pestaña Órdenes.
         </p>
       </CardHeader>
       <CardContent className="p-0">

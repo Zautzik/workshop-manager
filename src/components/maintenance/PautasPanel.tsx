@@ -269,7 +269,7 @@ function PautaDialog({
             </Select>
             {!d.checklist_id && (
               <p className="text-[11px] text-amber-600 dark:text-amber-400">
-                Sin checklist, "Vencimientos" no podrá ofrecer "Crear orden" para esta pauta.
+                Sin checklist, &quot;Vencimientos&quot; no podrá ofrecer &quot;Crear orden&quot; para esta pauta.
               </p>
             )}
           </div>

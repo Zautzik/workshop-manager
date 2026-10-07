@@ -125,7 +125,7 @@ export async function PUT(
         certification_validity_months,
         icon_name,
         updated_at: new Date().toISOString(),
-      })
+      } as any)
       .eq('id', id)
       .select()
       .single();

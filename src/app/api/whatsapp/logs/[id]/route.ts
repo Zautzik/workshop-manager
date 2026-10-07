@@ -89,7 +89,7 @@ export async function PATCH(
 
     const { data, error } = await supabaseAdmin
       .from('whatsapp_production_logs')
-      .update(updatePayload)
+      .update(updatePayload as any)
       .eq('id', id)
       .select('*')
       .single();

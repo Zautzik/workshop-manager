@@ -86,7 +86,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
     const { data, error } = await supabaseAdmin
       .from('employment_contracts')
-      .update(patch)
+      .update(patch as any)
       .eq('id', current.id)
       .select('*')
       .single();

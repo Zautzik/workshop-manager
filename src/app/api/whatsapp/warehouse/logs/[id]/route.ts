@@ -97,7 +97,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
 
   const { error: updateError } = await supabaseAdmin
     .from('whatsapp_warehouse_logs')
-    .update(updateData)
+    .update(updateData as any)
     .eq('id', id);
 
   if (updateError) {

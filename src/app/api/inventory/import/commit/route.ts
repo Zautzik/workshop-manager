@@ -132,7 +132,7 @@ export async function POST(req: NextRequest) {
         continue;
       }
 
-      const { error: updateErr } = await supabaseAdmin.from('inventory_items').update(patch).eq('id', match.id);
+      const { error: updateErr } = await supabaseAdmin.from('inventory_items').update(patch as any).eq('id', match.id);
       if (updateErr) {
         errors.push(`${row.sku} (${row.name}): no se pudo actualizar — ${updateErr.message}`);
         continue;

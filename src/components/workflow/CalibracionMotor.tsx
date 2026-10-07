@@ -366,7 +366,7 @@ function PropuestasCalibracion({ evidencia }: { evidencia: unknown }) {
   const create = useCreateCalibrationProposal();
   const resolve = useResolveCalibrationProposal();
 
-  const paths = useMemo(calibrationPaths, []);
+  const paths = useMemo(() => calibrationPaths(), []);
   const [path, setPath] = useState(paths[0]?.path ?? '');
   const [nuevoValor, setNuevoValor] = useState<number | null>(null);
   const [motivo, setMotivo] = useState('');
