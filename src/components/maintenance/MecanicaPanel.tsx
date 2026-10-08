@@ -1,11 +1,11 @@
-'use client';
+﻿'use client';
 
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
-  Wrench, AlertTriangle, PackageX, ChevronRight, Plus, Gauge,
-  ShoppingCart, Ship, CheckCircle2, HelpCircle, ClipboardList, Truck,
+  Wrench, AlertTriangle, PackageX, ChevronRight, Gauge,
+  ShoppingCart, Ship, Truck,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -25,84 +25,14 @@ import { KpiCard } from '@/components/ui/kpi-card';
 import { RankedList, type RankedListItem } from '@/components/ui/ranked-list';
 import {
   STATUS_LABEL, USAGE_UNIT_LABEL, USAGE_UNIT_SHORT,
-  type PartStatus,
 } from '@/lib/part-procurement';
 import { machineTypeLabel } from '@/types/machine-type';
-
-interface MachineRow {
-  id: string;
-  name: string;
-  type: string;
-  usage_unit: string;
-  usage_counter: number;
-}
-
-interface SystemRow {
-  id: string;
-  code: string;
-  name: string;
-  description: string | null;
-  sort_order: number;
-}
-
-interface PartRow {
-  id: string;
-  machine_id: string;
-  system_id: string;
-  name: string;
-  part_number: string | null;
-  position: string | null;
-  quantity_installed: number;
-  criticality: string;
-  lead_time_days: number | null;
-  preferred_supplier: string | null;
-  min_stock: number;
-  is_imported: boolean;
-  expected_life_usage: number | null;
-  last_replaced_at: string | null;
-  usage_unit: string;
-  current_stock: number | null;
-  suggested_min_stock: number | null;
-  machine_systems: SystemRow | null;
-  inventory_items: { id: string; sku: string; name: string; unit: string } | null;
-  on_order: { oc_number: string | null; supplier: string; expected_date: string | null } | null;
-  health: {
-    status: PartStatus;
-    lifeUsedPct: number | null;
-    remainingUsage: number | null;
-    daysRemaining: number | null;
-    effectiveLeadDays: number | null;
-    slackDays: number | null;
-    reason: string;
-  };
-}
-
-const STATUS_STYLE: Record<PartStatus, { badge: string; bar: string; icon: typeof AlertTriangle }> = {
-  vencida:     { badge: 'bg-red-500/15 text-red-700 dark:text-red-300 border-red-500/30',        bar: 'bg-red-500',    icon: PackageX },
-  atrasado:    { badge: 'bg-orange-500/15 text-orange-700 dark:text-orange-300 border-orange-500/30', bar: 'bg-orange-500', icon: Ship },
-  pedir_ahora: { badge: 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30', bar: 'bg-amber-500',  icon: ShoppingCart },
-  sin_datos:   { badge: 'bg-slate-500/15 text-slate-700 dark:text-slate-300 border-slate-500/30', bar: 'bg-slate-400',  icon: HelpCircle },
-  ok:          { badge: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30', bar: 'bg-emerald-500', icon: CheckCircle2 },
-};
-
-const CRITICALITY_STYLE: Record<string, string> = {
-  critica: 'bg-red-500/15 text-red-700 dark:text-red-300 border-red-500/30',
-  alta:    'bg-orange-500/15 text-orange-700 dark:text-orange-300 border-orange-500/30',
-  media:   'bg-sky-500/15 text-sky-700 dark:text-sky-300 border-sky-500/30',
-  baja:    'bg-slate-500/15 text-slate-600 dark:text-slate-300 border-slate-500/30',
-};
-
-const nf = new Intl.NumberFormat('es-CL', { maximumFractionDigits: 0 });
-
-const URGENCY_COLOR: Record<string, string> = {
-  vencida: '#ef4444',
-  atrasado: '#f97316',
-  pedir_ahora: '#f59e0b',
-};
-
-interface FleetPartRow extends PartRow {
-  machines: { id: string; name: string; type: string } | null;
-}
+import {
+  STATUS_STYLE, CRITICALITY_STYLE, TONE, URGENCY_COLOR, nf,
+  type MachineRow, type SystemRow, type PartRow, type FleetPartRow, type EmpleadoRow,
+} from './mecanica/types';
+import { PlantillaDialog } from './mecanica/PlantillaDialog';
+import { NuevaPiezaDialog } from './mecanica/NuevaPiezaDialog';
 
 /**
  * Qué requiere atención en TODA la flota, no sólo la máquina elegida abajo.
@@ -659,13 +589,6 @@ function PiezaRow({
 
 /* ── Resumen ─────────────────────────────────────────────────────────── */
 
-const TONE: Record<string, string> = {
-  red: 'text-red-600 dark:text-red-400',
-  orange: 'text-orange-600 dark:text-orange-400',
-  amber: 'text-amber-600 dark:text-amber-400',
-  slate: 'text-slate-500 dark:text-slate-400',
-};
-
 function ResumenCard({
   label, value, tone, icon: Icon,
 }: {
@@ -733,8 +656,6 @@ function PedirTodoButton({ partIds, onDone }: { partIds: string[]; onDone: () =>
 }
 
 /* ── De pieza rota a trabajo asignado ────────────────────────────────── */
-
-interface EmpleadoRow { id: string; full_name: string }
 
 function CrearOrdenButton({ part }: { part: PartRow }) {
   const router = useRouter();
@@ -852,332 +773,6 @@ function CrearOrdenButton({ part }: { part: PartRow }) {
           <Button variant="ghost" onClick={() => setOpen(false)}>Cancelar</Button>
           <Button onClick={() => mut.mutate(false)} disabled={mut.isPending}>
             Emitir orden
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-/* ── Plantilla por clase de máquina ──────────────────────────────────── */
-
-interface TemplateItem {
-  system: string;
-  system_id: string;
-  system_name: string;
-  name: string;
-  criticality: string;
-  position?: string;
-  note?: string;
-  already_present: boolean;
-}
-
-function PlantillaDialog({
-  machineId, onApplied,
-}: {
-  machineId: string;
-  onApplied: () => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const [marcadas, setMarcadas] = useState<Set<string>>(new Set());
-
-  const { data, isLoading } = useQuery<{
-    machine: { name: string; type: string };
-    has_template: boolean;
-    items: TemplateItem[];
-    missing_fields_notice: string;
-  }>({
-    queryKey: ['machine-parts-template', machineId],
-    enabled: open,
-    queryFn: async () => {
-      const res = await fetch(`/api/machine-parts/template?machine_id=${machineId}`);
-      if (!res.ok) throw new Error('No se pudo cargar la plantilla');
-      const json = await res.json();
-      // Por defecto vienen marcadas las que faltan: el trabajo es tachar lo que
-      // esta máquina no tiene, no acordarse de lo que sí.
-      setMarcadas(new Set(json.items.filter((i: TemplateItem) => !i.already_present).map((i: TemplateItem) => i.name)));
-      return json;
-    },
-  });
-
-  const mut = useMutation({
-    mutationFn: async () => {
-      const items = (data?.items ?? [])
-        .filter((i) => marcadas.has(i.name) && !i.already_present)
-        .map((i) => ({
-          system_id: i.system_id,
-          name: i.name,
-          criticality: i.criticality,
-          position: i.position ?? null,
-        }));
-      const res = await fetch('/api/machine-parts/template', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ machine_id: machineId, items }),
-      });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error ?? 'No se pudo aplicar la plantilla');
-      return json;
-    },
-    onSuccess: (json) => {
-      toast.success(
-        `${json.created} piezas creadas. Ahora falta lo que la plantilla no puede saber: plazo de reposición y vida útil de cada una.`
-      );
-      setOpen(false);
-      onApplied();
-    },
-    onError: (e: Error) => toast.error(e.message),
-  });
-
-  const toggle = (name: string) =>
-    setMarcadas((prev) => {
-      const next = new Set(prev);
-      if (next.has(name)) next.delete(name); else next.add(name);
-      return next;
-    });
-
-  const porSistema = useMemo(() => {
-    const map = new Map<string, TemplateItem[]>();
-    for (const i of data?.items ?? []) {
-      map.set(i.system_name, [...(map.get(i.system_name) ?? []), i]);
-    }
-    return map;
-  }, [data]);
-
-  const aCrear = (data?.items ?? []).filter((i) => marcadas.has(i.name) && !i.already_present).length;
-
-  return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button size="sm" variant="outline" className="gap-1">
-          <ClipboardList className="h-4 w-4" /> Partir de una plantilla
-        </Button>
-      </DialogTrigger>
-      <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl">
-        <DialogHeader>
-          <DialogTitle>
-            Piezas habituales de {data ? machineTypeLabel(data.machine.type).toLowerCase() : 'esta máquina'}
-          </DialogTitle>
-        </DialogHeader>
-
-        {isLoading && <Skeleton className="h-64 w-full" />}
-
-        {data && (
-          <div className="space-y-4">
-            <p className="rounded-md border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-800 dark:text-amber-200">
-              {data.missing_fields_notice}
-            </p>
-
-            <p className="text-sm text-muted-foreground">
-              Vienen marcadas las que faltan. Destilda lo que esta máquina no tiene —
-              es más rápido tachar que acordarse.
-            </p>
-
-            {[...porSistema.entries()].map(([sistema, items]) => (
-              <div key={sistema} className="space-y-1.5">
-                <p className="font-mono text-xs uppercase tracking-wide text-muted-foreground">
-                  {sistema}
-                </p>
-                <ul className="space-y-1">
-                  {items.map((i) => (
-                    <li key={i.name}>
-                      <label
-                        className={`flex cursor-pointer items-start gap-2.5 rounded-md p-2 text-sm transition-colors hover:bg-muted/60 ${
-                          i.already_present ? 'opacity-50' : ''
-                        }`}
-                      >
-                        <input
-                          type="checkbox"
-                          className="mt-0.5 h-4 w-4 shrink-0 accent-current"
-                          checked={i.already_present || marcadas.has(i.name)}
-                          disabled={i.already_present}
-                          onChange={() => toggle(i.name)}
-                        />
-                        <span className="min-w-0 flex-1">
-                          <span className="flex flex-wrap items-center gap-1.5">
-                            {i.name}
-                            <Badge variant="outline" className={`text-[0.65rem] ${CRITICALITY_STYLE[i.criticality] ?? ''}`}>
-                              {i.criticality}
-                            </Badge>
-                            {i.position && (
-                              <span className="text-xs text-muted-foreground">({i.position})</span>
-                            )}
-                            {i.already_present && (
-                              <span className="text-xs text-muted-foreground">ya registrada</span>
-                            )}
-                          </span>
-                          {i.note && (
-                            <span className="mt-0.5 block text-xs text-muted-foreground">{i.note}</span>
-                          )}
-                        </span>
-                      </label>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
-          </div>
-        )}
-
-        <DialogFooter>
-          <Button variant="ghost" onClick={() => setOpen(false)}>Cancelar</Button>
-          <Button onClick={() => mut.mutate()} disabled={aCrear === 0 || mut.isPending}>
-            Crear {aCrear} pieza{aCrear === 1 ? '' : 's'}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-/* ── Alta de pieza ───────────────────────────────────────────────────── */
-
-function NuevaPiezaDialog({
-  machineId, systems, unitLabel, onSaved,
-}: {
-  machineId: string;
-  systems: SystemRow[];
-  unitLabel: string;
-  onSaved: () => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({
-    system_id: '', name: '', part_number: '', position: '',
-    criticality: 'media', lead_time_days: '', preferred_supplier: '',
-    expected_life_usage: '', is_imported: false,
-  });
-
-  const set = (k: string, v: string | boolean) => setForm((f) => ({ ...f, [k]: v }));
-
-  const mut = useMutation({
-    mutationFn: async () => {
-      const res = await fetch('/api/machine-parts', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          machine_id: machineId,
-          system_id: form.system_id,
-          name: form.name,
-          part_number: form.part_number || null,
-          position: form.position || null,
-          criticality: form.criticality,
-          lead_time_days: form.lead_time_days ? Number(form.lead_time_days) : null,
-          preferred_supplier: form.preferred_supplier || null,
-          expected_life_usage: form.expected_life_usage ? Number(form.expected_life_usage) : null,
-          is_imported: form.is_imported,
-        }),
-      });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error ?? 'No se pudo guardar la pieza');
-      return json;
-    },
-    onSuccess: () => {
-      toast.success('Pieza registrada.');
-      setOpen(false);
-      setForm({
-        system_id: '', name: '', part_number: '', position: '',
-        criticality: 'media', lead_time_days: '', preferred_supplier: '',
-        expected_life_usage: '', is_imported: false,
-      });
-      onSaved();
-    },
-    onError: (e: Error) => toast.error(e.message),
-  });
-
-  return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button size="sm" className="gap-1">
-          <Plus className="h-4 w-4" /> Agregar pieza
-        </Button>
-      </DialogTrigger>
-      <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle>Nueva pieza</DialogTitle>
-        </DialogHeader>
-
-        <div className="space-y-4">
-          <div className="space-y-1.5">
-            <Label>Sistema</Label>
-            <Select value={form.system_id} onValueChange={(v) => set('system_id', v)}>
-              <SelectTrigger><SelectValue placeholder="¿A qué sistema pertenece?" /></SelectTrigger>
-              <SelectContent>
-                {systems.map((s) => (
-                  <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div className="space-y-1.5 sm:col-span-2">
-              <Label>Nombre</Label>
-              <Input value={form.name} onChange={(e) => set('name', e.target.value)}
-                placeholder="Mantilla cuerpo 1" />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Número de parte</Label>
-              <Input value={form.part_number} onChange={(e) => set('part_number', e.target.value)} />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Posición</Label>
-              <Input value={form.position} onChange={(e) => set('position', e.target.value)}
-                placeholder="lado operador" />
-            </div>
-          </div>
-
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div className="space-y-1.5">
-              <Label>Criticidad</Label>
-              <Select value={form.criticality} onValueChange={(v) => set('criticality', v)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="critica">Crítica — para la máquina</SelectItem>
-                  <SelectItem value="alta">Alta</SelectItem>
-                  <SelectItem value="media">Media</SelectItem>
-                  <SelectItem value="baja">Baja</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5">
-              <Label>Reposición (días)</Label>
-              <Input type="number" value={form.lead_time_days}
-                onChange={(e) => set('lead_time_days', e.target.value)} placeholder="30" />
-            </div>
-          </div>
-
-          <div className="space-y-1.5">
-            <Label>Proveedor habitual</Label>
-            <Input value={form.preferred_supplier}
-              onChange={(e) => set('preferred_supplier', e.target.value)} />
-          </div>
-
-          <div className="space-y-1.5">
-            <Label>Vida útil esperada ({unitLabel})</Label>
-            <Input type="number" value={form.expected_life_usage}
-              onChange={(e) => set('expected_life_usage', e.target.value)} />
-            <p className="text-xs text-muted-foreground">
-              En la unidad de esta máquina. Es lo que permite avisar antes de que falle;
-              sin este dato la pieza queda como &quot;sin datos&quot;.
-            </p>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <Switch id="importada" checked={form.is_imported}
-              onCheckedChange={(v) => set('is_imported', v)} />
-            <Label htmlFor="importada" className="cursor-pointer text-sm">
-              Importada — suma aduana y flete al plazo
-            </Label>
-          </div>
-        </div>
-
-        <DialogFooter>
-          <Button variant="ghost" onClick={() => setOpen(false)}>Cancelar</Button>
-          <Button
-            onClick={() => mut.mutate()}
-            disabled={!form.system_id || form.name.trim().length < 2 || mut.isPending}
-          >
-            Guardar pieza
           </Button>
         </DialogFooter>
       </DialogContent>
