@@ -177,11 +177,16 @@ export function OTManagement({ onOTSelect }: OTManagementProps) {
     stageReport: StageReportPayload | null = null,
   ) => {
     // 1. Snapshot the current list before we touch anything.
-    const previousOTs = queryClient.getQueryData<any[]>(queryKeys.ots);
+    // `useOTs()` envuelve su data en `{ rows, total, isTruncated }` (auditoría
+    // 2026-09-07, para no confiar a ciegas en 200 filas) — esta caché cruda
+    // guarda ese mismo objeto, no un array, así que leerla/escribirla tiene
+    // que respetar esa forma en vez de asumir un array directo (si no,
+    // `old.map` revienta antes de llegar al fetch real y la OT nunca avanza).
+    const previousOTs = queryClient.getQueryData<{ rows: any[]; total: number; isTruncated: boolean }>(queryKeys.ots);
 
     // 2. Move the card immediately — 0 ms perceived latency.
-    queryClient.setQueryData<any[]>(queryKeys.ots, (old = []) =>
-      old.map(ot => ot.id === otId ? { ...ot, status: newStatus } : ot)
+    queryClient.setQueryData<{ rows: any[]; total: number; isTruncated: boolean }>(queryKeys.ots, (old) =>
+      old ? { ...old, rows: old.rows.map(ot => ot.id === otId ? { ...ot, status: newStatus } : ot) } : old
     );
 
     const res = await fetch(`/api/ots/${otId}/transition`, {
