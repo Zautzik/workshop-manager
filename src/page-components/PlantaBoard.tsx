@@ -6,14 +6,11 @@ import { useRouter } from 'next/navigation';
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { WorkerStatsPanel } from "@/components/workflow/WorkerStatsPanel";
 import { WeekendShiftRotation } from "@/components/workflow/WeekendShiftRotation";
 const WorkstationLayout = dynamic(() => import('@/components/workflow/WorkstationLayout').then((m) => m.WorkstationLayout));
-import { Users, Factory, Clock, ClipboardList, ChevronLeft, ChevronRight, CalendarDays, WandSparkles, Replace, Shuffle, UploadCloud, ShieldAlert, CheckCircle2, Copy, RotateCcw, Printer, LayoutList, FileSpreadsheet, GanttChart, MessageSquare, Monitor } from "lucide-react";
+import { Clock } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCompensationRatesForDate, useSchedulingCostModel, useWorkerAssignments, useWorkerMonthlyOvertime, useWorkflowCertificationAlerts, useWorkflowContracts, useWorkflowIncentiveStatuses, useWorkflowLeaveStatuses, useWorkflowWeeklyHours, useWorkersByRating, useWorkstations, useShifts } from "@/hooks/use-workflow-queries";
@@ -21,9 +18,13 @@ import { useRealtimeProduction } from "@/hooks/use-realtime-production";
 import { DndContext, DragEndEvent, DragOverlay } from "@dnd-kit/core";
 import { isWorkerQualifiedForStation } from "@/lib/workstation-skills";
 import { isWorkerEligibleForStation, workerConflictFlags, workerSortScore } from "@/lib/worker-eligibility";
-import { CerrarDiaDialog } from "@/components/workflow/CerrarDiaDialog";
 import { useStationsUnderMaintenance } from "@/hooks/use-maintenance-queries";
 import { dateToLocalIso, startOfIsoWeek, weekDatesFrom } from "@/lib/week-dates";
+import { SelectedOTBanner } from "./planta-board/SelectedOTBanner";
+import { AgendaSemanalSidebar } from "./planta-board/AgendaSemanalSidebar";
+import { BulkActionsPanel } from "./planta-board/BulkActionsPanel";
+import { QuickRosterPanel } from "./planta-board/QuickRosterPanel";
+import { CostModelPanel } from "./planta-board/CostModelPanel";
 
 type WorkflowTab = 'en_proceso' | 'ots' | 'clients' | 'layout' | 'shifts' | 'production' | 'hoja_prod' | 'plan_semanal' | 'gantt' | 'calendar' | 'whatsapp';
 
@@ -66,13 +67,8 @@ export default function PlantaBoard({ initialTab = 'layout' }: PlantaBoardProps)
   const { data: costModel, refetch: refetchCostModel } = useSchedulingCostModel();
   const [selectedShiftId, setSelectedShiftId] = useState<string | null>(null);
   const [activeId, setActiveId] = useState<string | null>(null);
-  const [costModelError, setCostModelError] = useState<string | null>(null);
-  const [savingCostModel, setSavingCostModel] = useState(false);
-  const [isCostModelExpanded, setIsCostModelExpanded] = useState(false);
   const [bulkActionLoading, setBulkActionLoading] = useState<'auto-fill' | 'replace-conflicts' | 'redistribute-ot' | null>(null);
   const [quickSetupLoading, setQuickSetupLoading] = useState<'copy-day' | 'repeat-last-week' | null>(null);
-  const [showQuickRosterGuide, setShowQuickRosterGuide] = useState(false);
-  const [quickRosterOpenedOnce, setQuickRosterOpenedOnce] = useState(false);
   const [publishLoading, setPublishLoading] = useState(false);
   const [publishedWeeks, setPublishedWeeks] = useState<Record<string, string>>({});
   const [lastWeekValidation, setLastWeekValidation] = useState<{
@@ -168,48 +164,6 @@ export default function PlantaBoard({ initialTab = 'layout' }: PlantaBoardProps)
     };
   }, [workersData.length, workstationsData.length, fallbackWorkers.length, fallbackWorkstations.length]);
 
-  const defaultCostModel = {
-    name: 'Default Cost Model',
-    cost_weight: '1',
-    rating_weight: '0',
-    skill_weight: '0',
-    overtime_multiplier_50: '',
-    overtime_multiplier_100: '',
-    night_shift_multiplier: '',
-    weekend_multiplier: '',
-    minimum_hourly_rate: '',
-    maximum_hourly_rate: '',
-    rounding_increment: '0.01',
-    prefer_lower_cost: true,
-  };
-
-  const [costModelForm, setCostModelForm] = useState(defaultCostModel);
-  const COST_MODEL_EXPANDED_STORAGE_KEY = 'workflow_cost_model_expanded';
-  const QUICK_ROSTER_GUIDE_SESSION_KEY = 'workflow_quick_roster_guide_seen';
-
-  useEffect(() => {
-    const hasSeenGuide = sessionStorage.getItem(QUICK_ROSTER_GUIDE_SESSION_KEY) === '1';
-    setShowQuickRosterGuide(!hasSeenGuide);
-  }, []);
-
-  useEffect(() => {
-    if (!costModel) return;
-    setCostModelForm({
-      name: costModel.name || 'Cost Model',
-      cost_weight: String(costModel.cost_weight ?? '1'),
-      rating_weight: String(costModel.rating_weight ?? '0'),
-      skill_weight: String(costModel.skill_weight ?? '0'),
-      overtime_multiplier_50: costModel.overtime_multiplier_50 === null ? '' : String(costModel.overtime_multiplier_50),
-      overtime_multiplier_100: costModel.overtime_multiplier_100 === null ? '' : String(costModel.overtime_multiplier_100),
-      night_shift_multiplier: costModel.night_shift_multiplier === null ? '' : String(costModel.night_shift_multiplier),
-      weekend_multiplier: costModel.weekend_multiplier === null ? '' : String(costModel.weekend_multiplier),
-      minimum_hourly_rate: costModel.minimum_hourly_rate === null ? '' : String(costModel.minimum_hourly_rate),
-      maximum_hourly_rate: costModel.maximum_hourly_rate === null ? '' : String(costModel.maximum_hourly_rate),
-      rounding_increment: String(costModel.rounding_increment ?? '0.01'),
-      prefer_lower_cost: Boolean(costModel.prefer_lower_cost ?? true),
-    });
-  }, [costModel]);
-
   useEffect(() => {
     if (!selectedShiftId && shifts.length > 0) {
       setSelectedShiftId(shifts[0].id);
@@ -236,24 +190,6 @@ export default function PlantaBoard({ initialTab = 'layout' }: PlantaBoardProps)
       // ignore local storage errors
     }
   }, []);
-
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem(COST_MODEL_EXPANDED_STORAGE_KEY);
-      if (!raw) return;
-      setIsCostModelExpanded(raw === 'true');
-    } catch {
-      // ignore local storage errors
-    }
-  }, [COST_MODEL_EXPANDED_STORAGE_KEY]);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem(COST_MODEL_EXPANDED_STORAGE_KEY, String(isCostModelExpanded));
-    } catch {
-      // ignore local storage errors
-    }
-  }, [isCostModelExpanded, COST_MODEL_EXPANDED_STORAGE_KEY]);
 
   const weekDates = weekDatesFrom(weekStartDate);
   const weekStartIso = dateToLocalIso(weekStartDate);
@@ -554,80 +490,6 @@ export default function PlantaBoard({ initialTab = 'layout' }: PlantaBoardProps)
 
     return result;
   }, [selectedDate, workers, workflowLeaveStatuses, workflowIncentiveStatuses, workflowCertificationAlerts, workflowContracts, workflowWeeklyHours]);
-
-  const toNumberOrNull = (value: string) => {
-    const trimmed = value.trim();
-    if (!trimmed) return null;
-    const parsed = Number(trimmed);
-    return Number.isNaN(parsed) ? null : parsed;
-  };
-
-  const handleSaveCostModel = async () => {
-    setSavingCostModel(true);
-    setCostModelError(null);
-
-    const payload = {
-      name: costModelForm.name || 'Cost Model',
-      is_active: true,
-      cost_weight: Number(costModelForm.cost_weight || 0),
-      rating_weight: Number(costModelForm.rating_weight || 0),
-      skill_weight: Number(costModelForm.skill_weight || 0),
-      overtime_multiplier_50: toNumberOrNull(costModelForm.overtime_multiplier_50),
-      overtime_multiplier_100: toNumberOrNull(costModelForm.overtime_multiplier_100),
-      night_shift_multiplier: toNumberOrNull(costModelForm.night_shift_multiplier),
-      weekend_multiplier: toNumberOrNull(costModelForm.weekend_multiplier),
-      minimum_hourly_rate: toNumberOrNull(costModelForm.minimum_hourly_rate),
-      maximum_hourly_rate: toNumberOrNull(costModelForm.maximum_hourly_rate),
-      rounding_increment: Number(costModelForm.rounding_increment || 0.01),
-      prefer_lower_cost: Boolean(costModelForm.prefer_lower_cost),
-    };
-
-    try {
-      // Through the API, not browser-direct: RLS silently rejected these writes
-      // under dev-bypass, so the model looked saved and never was.
-      const res = costModel?.id
-        ? await fetch(`/api/scheduling-cost-models?id=${encodeURIComponent(costModel.id)}`, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'include',
-            body: JSON.stringify(payload),
-          })
-        : await fetch('/api/scheduling-cost-models', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'include',
-            body: JSON.stringify(payload),
-          });
-
-      if (!res.ok) {
-        const body = await res.json().catch(() => null);
-        throw new Error(body?.error || 'No se pudo guardar el modelo de costos');
-      }
-
-      toast({
-        title: 'Modelo de costos guardado',
-        description: 'La programación usará la configuración actualizada del modelo de costos.',
-      });
-      refetchCostModel();
-    } catch (error: any) {
-      setCostModelError(error.message || 'No se pudo guardar el modelo de costos');
-      toast({
-        title: 'No se pudo guardar el modelo de costos',
-        description: error.message || 'Revisa los valores e intenta de nuevo.',
-        variant: 'destructive',
-      });
-    } finally {
-      setSavingCostModel(false);
-    }
-  };
-
-  const calendarLocale = 'es-CL';
-
-  const formatWeekday = (date: Date) =>
-    date.toLocaleDateString(calendarLocale, { weekday: "short" });
-
-  const formatDayLabel = (date: Date) =>
-    date.toLocaleDateString(calendarLocale, { day: "2-digit", month: "2-digit" });
 
   const handleDragStart = (event: any) => {
     setActiveId(event.active.id);
@@ -1202,24 +1064,7 @@ export default function PlantaBoard({ initialTab = 'layout' }: PlantaBoardProps)
 
         {/* Selected OT Banner */}
         {selectedOT && (
-          <Card 
-            className="bg-card border-accent/40 backdrop-blur-sm p-4 mb-6"
-          >
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-lg font-bold text-foreground">OT Activa: {selectedOT.ot_number}</h3>
-                <p className="text-sm text-muted-foreground">{selectedOT.client_name} — {selectedOT.quantity} unidades</p>
-              </div>
-              <Button 
-                variant="outline" 
-                size="sm"
-                onClick={() => setSelectedOT(null)}
-                className="border-border bg-card/50 hover:bg-card"
-              >
-                Limpiar
-              </Button>
-            </div>
-          </Card>
+          <SelectedOTBanner ot={selectedOT} onClear={() => setSelectedOT(null)} />
         )}
 
         {/* Main Content */}
@@ -1273,68 +1118,18 @@ export default function PlantaBoard({ initialTab = 'layout' }: PlantaBoardProps)
               </div>
               <div className="lg:col-span-1 space-y-3">
                 {/* Agenda Semanal — sidebar */}
-                <Card className="bg-card/80 border-border backdrop-blur-sm p-3">
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-1.5">
-                      <CalendarDays className="w-3.5 h-3.5 text-muted-foreground" />
-                      <span className="text-xs font-semibold text-foreground">Agenda</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <Button variant="outline" size="icon" onClick={goToPreviousWeek} className="h-6 w-6 border-border bg-card/50 hover:bg-card">
-                        <ChevronLeft className="w-3 h-3" />
-                      </Button>
-                      <Button variant="outline" size="icon" onClick={goToNextWeek} className="h-6 w-6 border-border bg-card/50 hover:bg-card">
-                        <ChevronRight className="w-3 h-3" />
-                      </Button>
-                      <Button size="sm" onClick={handlePublishWeek} disabled={publishLoading} className="h-6 px-2 text-[10px]">
-                        <UploadCloud className="w-3 h-3 mr-1" />
-                        {publishLoading ? '...' : 'Publicar'}
-                      </Button>
-                      {/* Turns the day's clock marks into real labour cost on each OT. */}
-                      <CerrarDiaDialog date={selectedDate} />
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-4 gap-1 mb-2">
-                    {weekDates.map((date) => {
-                      const dateIso = dateToLocalIso(date);
-                      const isSelected = dateIso === selectedDate;
-                      const isToday = dateIso === dateToLocalIso(new Date());
-                      return (
-                        <button
-                          key={dateIso}
-                          onClick={() => setSelectedDate(dateIso)}
-                          className={`rounded px-1 py-1.5 text-center text-[10px] leading-tight transition-colors ${
-                            isSelected ? 'bg-primary text-primary-foreground' : 'bg-muted/40 hover:bg-muted text-muted-foreground'
-                          }`}
-                        >
-                          <div className="font-medium uppercase">{formatWeekday(date)}</div>
-                          <div className={isToday ? 'font-bold' : ''}>{formatDayLabel(date)}</div>
-                        </button>
-                      );
-                    })}
-                  </div>
-                  <div className="flex items-center gap-1 text-[10px] mb-1">
-                    {publishedWeeks[weekStartIso] ? (
-                      <span className="flex items-center gap-1 text-emerald-600">
-                        <CheckCircle2 className="w-3 h-3" />
-                        Publicado
-                      </span>
-                    ) : (
-                      <span className="flex items-center gap-1 text-muted-foreground">
-                        <ShieldAlert className="w-3 h-3" />
-                        Sin publicar
-                      </span>
-                    )}
-                  </div>
-                  {lastWeekValidation && lastWeekValidation.weekStart === weekStartIso && (
-                    <div className={`rounded p-1.5 text-[10px] ${
-                      lastWeekValidation.legalViolations > 0 || lastWeekValidation.leaveViolations > 0
-                        ? 'bg-destructive/10 text-destructive' : 'bg-emerald-500/10 text-emerald-700'
-                    }`}>
-                      {lastWeekValidation.leaveViolations} ausencias · {lastWeekValidation.legalViolations} legales
-                    </div>
-                  )}
-                </Card>
+                <AgendaSemanalSidebar
+                  weekDates={weekDates}
+                  selectedDate={selectedDate}
+                  setSelectedDate={setSelectedDate}
+                  weekStartIso={weekStartIso}
+                  publishedWeeks={publishedWeeks}
+                  lastWeekValidation={lastWeekValidation}
+                  onPreviousWeek={goToPreviousWeek}
+                  onNextWeek={goToNextWeek}
+                  onPublish={handlePublishWeek}
+                  publishLoading={publishLoading}
+                />
 
                 {/* Weekend shift rotation — two templates rotating weekly */}
                 <WeekendShiftRotation workers={workers} weekStart={weekStartDate} />
@@ -1347,244 +1142,28 @@ export default function PlantaBoard({ initialTab = 'layout' }: PlantaBoardProps)
                 />
 
                 {/* Bulk Actions */}
-                <Card className="bg-card/80 border-border backdrop-blur-sm p-3">
-                  <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-2">Acciones masivas</p>
-                  <div className="space-y-1.5">
-                    <Button onClick={handleBulkAutoFillShift} disabled={!selectedShiftId || bulkActionLoading !== null} size="sm" className="w-full h-7 text-xs justify-start">
-                      <WandSparkles className="w-3.5 h-3.5 mr-1.5" />
-                      {bulkActionLoading === 'auto-fill' ? 'Asignando...' : 'Auto-fill por restricciones'}
-                    </Button>
-                    <Button onClick={handleReplaceConflictedAssignments} disabled={!selectedShiftId || bulkActionLoading !== null} variant="outline" size="sm" className="w-full h-7 text-xs justify-start border-amber-500/40 text-amber-700 hover:bg-amber-500/10 dark:text-amber-400">
-                      <Replace className="w-3.5 h-3.5 mr-1.5" />
-                      {bulkActionLoading === 'replace-conflicts' ? 'Reemplazando...' : 'Reemplazar conflictos'}
-                    </Button>
-                    <Button onClick={handleRedistributeOT} disabled={!selectedShiftId || bulkActionLoading !== null} variant="outline" size="sm" className="w-full h-7 text-xs justify-start border-amber-500/40 text-amber-700 hover:bg-amber-500/10 dark:text-amber-400">
-                      <Shuffle className="w-3.5 h-3.5 mr-1.5" />
-                      {bulkActionLoading === 'redistribute-ot' ? 'Redistributing...' : 'Redistribuir HE'}
-                    </Button>
-                  </div>
-                </Card>
+                <BulkActionsPanel
+                  selectedShiftId={selectedShiftId}
+                  bulkActionLoading={bulkActionLoading}
+                  onAutoFill={handleBulkAutoFillShift}
+                  onReplaceConflicts={handleReplaceConflictedAssignments}
+                  onRedistributeOT={handleRedistributeOT}
+                />
 
                 {/* Quick Roster */}
-                {showQuickRosterGuide && (
-                  <details
-                    className="group"
-                    onToggle={(event) => {
-                      const isOpen = (event.currentTarget as HTMLDetailsElement).open;
-                      if (isOpen) {
-                        setQuickRosterOpenedOnce(true);
-                        return;
-                      }
-                      if (quickRosterOpenedOnce) {
-                        sessionStorage.setItem(QUICK_ROSTER_GUIDE_SESSION_KEY, '1');
-                        setShowQuickRosterGuide(false);
-                      }
-                    }}
-                  >
-                    <summary className="cursor-pointer select-none text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 list-none">
-                      <ChevronRight className="w-3 h-3 transition-transform group-open:rotate-90 shrink-0" />
-                      Configuración rápida
-                    </summary>
-                    <div className="mt-2 rounded-md border border-border p-3 bg-card/40 space-y-2">
-                      <Button variant="outline" size="sm" onClick={handleRepeatLastWeekSetup} disabled={!selectedShiftId || quickSetupLoading !== null} className="w-full h-7 text-xs">
-                        <RotateCcw className="w-3 h-3 mr-1" />
-                        {quickSetupLoading === 'repeat-last-week' ? 'Aplicando...' : 'Repetir semana anterior'}
-                      </Button>
-                      <div className="flex flex-wrap gap-1">
-                        {weekDates.map((date) => dateToLocalIso(date)).filter((d) => d !== selectedDate).map((dateIso) => (
-                          <Button key={`copy-${dateIso}`} variant="outline" size="sm" disabled={!selectedShiftId || quickSetupLoading !== null} onClick={() => handleCopyFromWeekDay(dateIso)} className="h-6 px-2 text-[10px]">
-                            <Copy className="w-2.5 h-2.5 mr-0.5" />
-                            {dateIso}
-                          </Button>
-                        ))}
-                      </div>
-                    </div>
-                  </details>
-                )}
+                <QuickRosterPanel
+                  weekDates={weekDates}
+                  selectedDate={selectedDate}
+                  selectedShiftId={selectedShiftId}
+                  quickSetupLoading={quickSetupLoading}
+                  onRepeatLastWeek={handleRepeatLastWeekSetup}
+                  onCopyFromDay={handleCopyFromWeekDay}
+                />
               </div>
             </div>
 
             {canManageCostModel && (
-              <Card className="bg-card/80 border-border backdrop-blur-sm p-4 mt-6">
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <h3 className="text-lg font-bold text-foreground">Modelo de costos</h3>
-                    <p className="text-sm text-muted-foreground">
-                      Customize how cost, rating, and skill weights rank assignments.
-                    </p>
-                  </div>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => setIsCostModelExpanded((prev) => !prev)}
-                    className="border-border bg-card/50 hover:bg-card"
-                  >
-                    {isCostModelExpanded ? 'Collapse' : 'Expand'}
-                  </Button>
-                </div>
-
-                {isCostModelExpanded && (
-                  <div className="mt-4 max-h-[50vh] overflow-y-auto pr-1">
-                    <div className="flex items-center justify-end mb-4">
-                      <Button
-                        onClick={handleSaveCostModel}
-                        disabled={savingCostModel}
-                        className="bg-primary hover:bg-primary/90"
-                      >
-                        {savingCostModel ? 'Saving...' : 'Save Cost Model'}
-                      </Button>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <div>
-                        <Label htmlFor="cost-model-name">Nombre del modelo</Label>
-                        <Input
-                          id="cost-model-name"
-                          value={costModelForm.name}
-                          onChange={(event) =>
-                            setCostModelForm((prev) => ({ ...prev, name: event.target.value }))
-                          }
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="cost-weight">Peso del costo</Label>
-                        <Input
-                          id="cost-weight"
-                          type="number"
-                          step="0.1"
-                          value={costModelForm.cost_weight}
-                          onChange={(event) =>
-                            setCostModelForm((prev) => ({ ...prev, cost_weight: event.target.value }))
-                          }
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="rating-weight">Peso de la calificación</Label>
-                        <Input
-                          id="rating-weight"
-                          type="number"
-                          step="0.1"
-                          value={costModelForm.rating_weight}
-                          onChange={(event) =>
-                            setCostModelForm((prev) => ({ ...prev, rating_weight: event.target.value }))
-                          }
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="skill-weight">Peso de la habilidad</Label>
-                        <Input
-                          id="skill-weight"
-                          type="number"
-                          step="0.1"
-                          value={costModelForm.skill_weight}
-                          onChange={(event) =>
-                            setCostModelForm((prev) => ({ ...prev, skill_weight: event.target.value }))
-                          }
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="ot-multiplier">OT 50% Multiplier</Label>
-                        <Input
-                          id="ot-multiplier"
-                          type="number"
-                          step="0.01"
-                          value={costModelForm.overtime_multiplier_50}
-                          onChange={(event) =>
-                            setCostModelForm((prev) => ({ ...prev, overtime_multiplier_50: event.target.value }))
-                          }
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="ot-multiplier-100">OT 100% Multiplier</Label>
-                        <Input
-                          id="ot-multiplier-100"
-                          type="number"
-                          step="0.01"
-                          value={costModelForm.overtime_multiplier_100}
-                          onChange={(event) =>
-                            setCostModelForm((prev) => ({ ...prev, overtime_multiplier_100: event.target.value }))
-                          }
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="night-multiplier">Night Shift Multiplier</Label>
-                        <Input
-                          id="night-multiplier"
-                          type="number"
-                          step="0.01"
-                          value={costModelForm.night_shift_multiplier}
-                          onChange={(event) =>
-                            setCostModelForm((prev) => ({ ...prev, night_shift_multiplier: event.target.value }))
-                          }
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="weekend-multiplier">Weekend Multiplier</Label>
-                        <Input
-                          id="weekend-multiplier"
-                          type="number"
-                          step="0.01"
-                          value={costModelForm.weekend_multiplier}
-                          onChange={(event) =>
-                            setCostModelForm((prev) => ({ ...prev, weekend_multiplier: event.target.value }))
-                          }
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="min-rate">Tarifa mínima por hora</Label>
-                        <Input
-                          id="min-rate"
-                          type="number"
-                          step="0.01"
-                          value={costModelForm.minimum_hourly_rate}
-                          onChange={(event) =>
-                            setCostModelForm((prev) => ({ ...prev, minimum_hourly_rate: event.target.value }))
-                          }
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="max-rate">Maximum Hourly Rate</Label>
-                        <Input
-                          id="max-rate"
-                          type="number"
-                          step="0.01"
-                          value={costModelForm.maximum_hourly_rate}
-                          onChange={(event) =>
-                            setCostModelForm((prev) => ({ ...prev, maximum_hourly_rate: event.target.value }))
-                          }
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="rounding">Rounding Increment</Label>
-                        <Input
-                          id="rounding"
-                          type="number"
-                          step="0.01"
-                          value={costModelForm.rounding_increment}
-                          onChange={(event) =>
-                            setCostModelForm((prev) => ({ ...prev, rounding_increment: event.target.value }))
-                          }
-                        />
-                      </div>
-                    </div>
-
-                    <div className="flex items-center justify-between mt-4">
-                      <div className="flex items-center gap-2">
-                        <Switch
-                          checked={costModelForm.prefer_lower_cost}
-                          onCheckedChange={(checked) =>
-                            setCostModelForm((prev) => ({ ...prev, prefer_lower_cost: checked }))
-                          }
-                        />
-                        <Label>Preferir menor costo</Label>
-                      </div>
-                      {costModelError && (
-                        <p className="text-sm text-destructive">{costModelError}</p>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </Card>
+              <CostModelPanel costModel={costModel} refetchCostModel={refetchCostModel} />
             )}
           </TabsContent>
 
