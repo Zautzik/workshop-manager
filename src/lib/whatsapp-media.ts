@@ -11,6 +11,8 @@
  * segura de que un día una de las dos copias siga usando `v20.0` y la otra no.
  */
 
+import { graphUrl } from '@/lib/whatsapp-graph';
+
 const MAX_MEDIA_BYTES = 8 * 1024 * 1024;
 
 export interface MediaEntrante {
@@ -32,7 +34,7 @@ export async function resolveMetaMediaUrl(
 ): Promise<{ url: string; mime: string | null } | null> {
 	const token = process.env.WHATSAPP_ACCESS_TOKEN;
 	if (!token) return null;
-	const res = await fetch(`https://graph.facebook.com/v20.0/${encodeURIComponent(mediaId)}`, {
+	const res = await fetch(graphUrl(encodeURIComponent(mediaId)), {
 		headers: { Authorization: `Bearer ${token}` },
 	});
 	if (!res.ok) return null;

@@ -22,6 +22,7 @@ import { supabaseAdmin } from '@/integrations/supabase/server';
 import { parseWhatsAppEvents, type ParseResult } from '@/lib/whatsapp-parser';
 import { inferProductionCosts, type OTContext } from '@/lib/whatsapp-cost-inference';
 import { checkRateLimit, retryAfterSeconds } from '@/lib/rate-limiter';
+import { resolveMetaMediaUrl } from '@/lib/whatsapp-media';
 import { tryProcessMaintenanceMessage } from '@/lib/whatsapp-maintenance-ingest';
 import logger from '@/lib/logger';
 import type { Json } from '@/integrations/supabase/types';
@@ -96,17 +97,12 @@ async function ensureMediaBucket(): Promise<void> {
   bucketEnsured = true;
 }
 
-/** Resolve a Meta media id to its short-lived download URL via the Graph API. */
-async function resolveMetaMediaUrl(mediaId: string): Promise<{ url: string; mime: string | null } | null> {
-  const token = process.env.WHATSAPP_ACCESS_TOKEN;
-  if (!token) return null;
-  const res = await fetch(`https://graph.facebook.com/v20.0/${encodeURIComponent(mediaId)}`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  if (!res.ok) return null;
-  const meta = (await res.json()) as { url?: string; mime_type?: string };
-  return meta.url ? { url: meta.url, mime: meta.mime_type ?? null } : null;
-}
+// `resolveMetaMediaUrl` vivía acá, como copia privada e idéntica a la que
+// exporta `whatsapp-media.ts`. Esa copia era justo lo que el header de ese
+// módulo decía que no había que dejar pasar («la forma segura de que un día
+// una de las dos copias siga usando v20.0 y la otra no») — y se cumplió: las
+// dos quedaron en v20.0, que venció el 2026-09-24. Se borra y se usa la
+// exportada; la versión ahora vive sólo en `whatsapp-graph.ts` (H5).
 
 /**
  * Download inbound media and register it as OT evidence (storage + row in

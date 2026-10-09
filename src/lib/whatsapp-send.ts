@@ -22,6 +22,7 @@
 
 import { supabaseAdmin } from '@/integrations/supabase/server';
 import { whatsappProvider } from '@/lib/whatsapp-intake';
+import { graphUrl } from '@/lib/whatsapp-graph';
 import { redactPhone } from '@/lib/whatsapp-ingest';
 import logger from '@/lib/logger';
 
@@ -43,7 +44,10 @@ async function sendViaMeta(to: string, body: string): Promise<SendResult> {
   }
 
   try {
-    const res = await fetch(`https://graph.facebook.com/v20.0/${phoneNumberId}/messages`, {
+    // `phoneNumberId` no se escapa: el path tiene dos segmentos y
+    // `encodeURIComponent` sobre el conjunto convertiría la barra en %2F.
+    // Es un id numérico que sale de la env, no de un mensaje entrante.
+    const res = await fetch(graphUrl(`${phoneNumberId}/messages`), {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${token}`,
