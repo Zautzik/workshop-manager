@@ -13,7 +13,7 @@ the biggest margin.
 Tailwind + Radix · Zod · Recharts · Vitest
 
 ```
-158 migrations   153 API routes   72 domain libraries   912 tests
+187 migrations   163 API routes   87 domain libraries   1,058 tests
 ```
 
 ---
@@ -140,7 +140,7 @@ that looks like it works.
 ```bash
 npm install
 cp .env.example .env.local        # Supabase URL + keys
-npx supabase db push              # 158 migrations
+npx supabase db push              # 187 migrations
 npm run dev
 ```
 
@@ -167,7 +167,7 @@ target. See [`scripts/seed/model.ts`](scripts/seed/model.ts).
 
 ```bash
 npm run typecheck        # tsc --noEmit
-npm test                 # 912 tests, 53 files
+npm test                 # 1,058 tests, 67 files
 npm run lint
 npm run verify:csp       # asserts no CDN escapes the Content-Security-Policy
 npm run check:migrations # lists every function more than one migration defines
@@ -192,7 +192,7 @@ src/
   lib/__tests__/    one test file per module
   integrations/     Supabase clients (browser anon vs. service role)
 supabase/
-  migrations/       158, ordered, each explaining its own reasoning
+  migrations/       187, ordered, each explaining its own reasoning
 scripts/
   seed/             the demo shop: a pure model + a writer
 docs/               design records and audits

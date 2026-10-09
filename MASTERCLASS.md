@@ -14,9 +14,9 @@ diary — what broke, and how it got fixed — then think of this one as the pro
 where the actual lessons live, kept around long after the incident that taught them has
 been forgotten by everyone who lived through it.
 
-By now, those lessons add up to something you could measure: 158 separate trips back
-into the database to fix or extend something, 153 little doors the software answers
-questions through, 72 small rulebooks written in code, 76 different screens, and 912
+By now, those lessons add up to something you could measure: 187 separate trips back
+into the database to fix or extend something, 163 little doors the software answers
+questions through, 87 small rulebooks written in code, 75 different screens, and 1,058
 automatic checks that all have to agree before anything new ships. None of that is the
 point. The point is everything underneath it — so let's get into it.
 
@@ -718,6 +718,47 @@ rule afterward — would have shown up instead as a half-finished, broken databa
 completely cryptic error message with no obvious story attached to explain where it
 actually came from.
 
+## 19 · Telling the type checker what something is doesn't make it true
+
+There's a very particular kind of lie that's easy to tell by accident: writing down, in
+your own code, exactly what shape some piece of data is — and having the type checker
+believe you completely, because you're the one who told it. A job board let someone drag
+a card from one column to another, and the very first thing that happened afterward was:
+grab whatever's currently cached under the label "all the orders," and update just the
+one that moved. The code doing the grabbing said, in effect, "this is going to be a plain
+list of orders" — and the type checker nodded along, because nothing about writing that
+sentence down is actually false as far as it's concerned.
+
+It just happened to be wrong. What was actually sitting under that label wasn't a plain
+list at all — it was a small wrapped parcel: the list, plus a total count, plus a flag
+saying whether the list had quietly been cut short. That wrapping had been added on
+purpose, specifically so nothing downstream would ever mistake "here are the first two
+hundred rows" for "here is everything." But the one piece of code dragging a card across
+the board had been written before that wrapping existed, and nobody had gone back to
+update its own private assumption about the shape of what it was reaching into.
+
+The result was about as quiet as a bug gets. Asking the wrapped parcel to behave like a
+plain list failed immediately and loudly inside the code — but it failed *before* the
+part of the function that would have actually talked to the server, so nothing ever got
+sent, no error ever reached the screen, and the card just slid back to where it started.
+It looked, to absolutely anyone watching, like they'd simply missed the drop zone by a
+few pixels. The entire feature — moving a job forward or backward on the board — had been
+completely unreachable, and the single most visible symptom of that was a UI that looked
+exactly like "try again, you missed."
+
+The fix is almost beneath mentioning: unwrap the parcel correctly, update the list that's
+actually inside it, and hand back the same wrapping shape. The lesson underneath it is the
+one worth keeping. A type annotation on a piece of code that reads some shared, remembered
+value is not a promise that anything checked — it is a promise *you* made, on behalf of
+whatever actually produced that value, and the type checker's only real job in that moment
+is to make sure the rest of your own sentence is internally consistent, not that the
+sentence itself is true. The actual shape of a shared value belongs to exactly one place:
+whoever originally decided to go fetch it and store it that way. Every other piece of code
+reaching into the same spot is working from a copy of that decision it never actually
+verified — and if the original shape ever changes and even one of those copies doesn't get
+the memo, the type checker will wave everything through without blinking, because as far
+as it's concerned, nothing it was ever told checking turned out to be false.
+
 ---
 
 # Part III · The toolbox, and what it taught us
@@ -820,11 +861,11 @@ never once actually tells anyone that what they really typed in was minutes, not
 The doorman can tell you a number's out of range. Only the rule further inside actually
 understands what that number means.
 
-## Vitest — 912 small, fast promises that keep getting checked
+## Vitest — 1,058 small, fast promises that keep getting checked
 
-This is the tool that runs the project's automatic tests — 912 of them, spread across 50
-files, and the overwhelming majority of them aimed squarely at the pure rules from Part
-II.15. They run fast for a genuinely simple reason: nothing in them fakes a database
+This is the tool that runs the project's automatic tests — 1,058 of them, spread across
+67 files, and the overwhelming majority of them aimed squarely at the pure rules from
+Part II.15. They run fast for a genuinely simple reason: nothing in them fakes a database
 connection, because the rules that matter most in this whole system never touch one in
 the first place.
 

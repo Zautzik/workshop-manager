@@ -673,6 +673,82 @@ remembering it.**
 
 ---
 
+## 14 · The card always snapped back, and it looked like a missed drop
+
+Dragging an order to another column on the production Kanban called `updateOTStatus`,
+which does the standard optimistic-update dance: snapshot the cache, write the new
+state immediately, call the server, roll back on failure.
+
+```ts
+const previousOTs = queryClient.getQueryData<any[]>(queryKeys.ots);
+queryClient.setQueryData<any[]>(queryKeys.ots, (old = []) =>
+  old.map(ot => ot.id === otId ? { ...ot, status: newStatus } : ot)
+);
+```
+
+`<any[]>` is a lie the type checker was asked to believe. `useOTs()` does not store a
+bare array under that key — it wraps it in `{ rows, total, isTruncated }`:
+
+```ts
+// use-workflow-queries.ts
+// El corte en 200 ya se quedó corto una vez, en silencio: useOtCostSummary existe
+// en parte porque este hook no avisaba cuando había más de 200 OT (234, en
+// producción) — se le construyó un camino aparte en vez de arreglar éste.
+return { rows: data, total, isTruncated: total > data.length };
+```
+
+That wrapping was deliberate, and the hook's own author had already thought about
+breaking its callers: `useOTs()` returns `data: query.data?.rows` precisely so every
+existing `const { data } = useOTs()` keeps working unchanged, and anyone who actually
+needs to know whether they're looking at everything can check `isTruncated` instead of
+trusting 200 rows blindly. Every caller going through the hook was safe.
+
+`updateOTStatus` did not go through the hook. It read the TanStack Query cache directly
+by key — `queryClient.getQueryData(queryKeys.ots)` — which is exactly the path the
+hook's careful aliasing does not reach. `old` was always the wrapped object. `old.map`
+is not a function on a plain object, so the optimistic write threw — synchronously,
+before the function reached its own `fetch` call. Nothing downstream ever ran: no
+request to `/api/ots/{id}/transition`, no toast, no rollback, because the exception
+fired before there was anything to roll back. The card snapped back to its starting
+column, which looked exactly like a drop that had missed by a few pixels, not like the
+entire feature being unreachable.
+
+### How it was found
+
+Not by reading `updateOTStatus` — it reads correctly, if you already believe the
+annotation. By dragging a real card across a real board during a live verification pass
+and watching the console instead of the screen. The UI gave no error of its own;
+`DragEndEvent` fired, no toast ever appeared, and only the browser console held
+`TypeError: old.map is not a function`.
+
+### The fix
+
+Read and write the shape the hook actually produces, touching only the field that
+changes:
+
+```ts
+const previousOTs = queryClient.getQueryData<{ rows: any[]; total: number; isTruncated: boolean }>(queryKeys.ots);
+queryClient.setQueryData<{ rows: any[]; total: number; isTruncated: boolean }>(queryKeys.ots, (old) =>
+  old ? { ...old, rows: old.rows.map(ot => ot.id === otId ? { ...ot, status: newStatus } : ot) } : old
+);
+```
+
+### What it taught
+
+A generic type parameter on a cache read is a promise the caller writes for itself —
+`getQueryData<any[]>` passes `tsc` not because anything checked that the cache holds an
+array, but because nothing can fail to typecheck an assertion. The real shape belongs to
+the one function that calls `setQueryData` to put it there in the first place; every
+other reader is trusting a copy of that decision it never verified and nothing kept in
+sync. The hook's author had already protected every caller who asked *it* for the data —
+the defect lived in the one place that reached past the hook into the shared cache
+directly, the exact seam that aliasing cannot cover. Same lesson as §7 and §13's dead
+column references, wearing a third costume: the fact lived in exactly one place the
+whole time, and the bug was a second piece of code assuming its shape instead of reading
+it from the function that owns it.
+
+---
+
 ## What is still wrong
 
 Kept here rather than in a private list, because a log that only contains solved
@@ -690,9 +766,13 @@ problems is marketing.
   *expressed* in sheets/hour so `FINISH_RATES` keeps its shape, but
   `machines.optimal_speed_sheets_hr` has the same defect underneath and needs a
   sheets-per-lift column to be fixed properly.
-- **Twenty of sixty-five libraries have no tests**, and they are still the wrong twenty:
-  `auth`, `api-middleware`, `identity`, `whatsapp-ingest`. The domain is tested; the
-  perimeter is not.
+- **Twenty-one of eighty-seven libraries have no tests.** `auth`, `api-middleware` and
+  `dev-bypass-guard` closed since this was last written — the security perimeter that
+  decides who gets in. Ten of the remaining twenty-one are one path: `identity`,
+  `whatsapp-ingest`, `whatsapp-send`, `whatsapp-apply`, `whatsapp-cost-inference`,
+  `whatsapp-maintenance-ingest`, `whatsapp-media`, `warehouse-parser`,
+  `warehouse-photo-ingest`, `warehouse-qr` — the WhatsApp/warehouse ingest perimeter. The
+  domain is tested; the newest door into it is not.
 - **~50 unread-`error` sites remain**, held at `warn` by the ESLint tripwire in §12.
   The same pattern was behind the `due_date` bug and at least five further findings in
   that pass, so each site needs individual verification rather than a bulk edit. The
