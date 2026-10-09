@@ -1,15 +1,8 @@
 'use client';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from '@tanstack/react-query';
-import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { useOTs } from "@/hooks/use-workflow-queries";
 import { queryKeys } from "@/hooks/use-workflow-queries";
-import {
-  Plus, ArrowRight, Edit2, DollarSign,
-  ChevronDown, ChevronRight, GripVertical, Search,
-} from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { UnifiedOTWizard } from "./UnifiedOTWizard";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -19,73 +12,26 @@ import { ComprasDialog } from "./ComprasDialog";
 import { RealCostEntryDialog } from "./RealCostEntryDialog";
 import { OTHoverCard } from "./OTHoverCard";
 import { SplitOTDialog } from "./SplitOTDialog";
-import { PRODUCTION_PHASES } from '@/lib/production-phases';
 // El recorrido real de una OT vive en el motor de estados: el prensista que
 // manda «fin, entro OT 40965» tiene que llegar a la misma etapa a la que lo
 // llevaría este tablero.
 import { naturalNextStatuses, type OTWorkflowStatus } from '@/lib/ot-state-machine';
 import { useQuery } from '@tanstack/react-query';
-import { otStatusLabel } from '@/lib/status-labels';
 import type { StageReportPayload } from './CierreDeEtapa';
 import { PasadasPendientes } from './PasadasPendientes';
+import {
+  STATUS_FLOW, KANBAN_GROUPS, BOARD_PAD, LANE_RESERVE, WIDTH_UNITS, HEIGHT_UNITS, MOBILE_MAX_W, MOBILE_GAP,
+  getStatusInfo, getAllNextStatuses,
+} from './ot-management/kanban-constants';
+import { KanbanToolbar } from './ot-management/KanbanToolbar';
+import { KanbanHexBoard } from './ot-management/KanbanHexBoard';
+import { ViaRapidaPanel } from './ot-management/ViaRapidaPanel';
+import { RollbackDialog, type RollbackTarget } from './ot-management/RollbackDialog';
 
 interface OTManagementProps {
   onOTSelect: (ot: any) => void;
 }
 
-const STATUS_FLOW = [
-  { key: 'pre_press',           label: 'Pre-Press',      labelEs: 'Pre-Prensa',   color: 'bg-violet-500',  rgb: '139 92 246',  description: 'Diseño y modelado' },
-  { key: 'visto_bueno',         label: 'Approval',       labelEs: 'Visto Bueno',  color: 'bg-amber-500',   rgb: '245 158 11',  description: 'Confirmación del cliente' },
-  { key: 'paper_purchase',      label: 'Procurement',    labelEs: 'Compras',      color: 'bg-slate-500',   rgb: '100 116 139', description: 'Todo lo que la OT necesita: comprar, sacar de bodega o tercerizar' },
-  { key: 'in_storage',          label: 'In Storage',     labelEs: 'En Bodega',    color: 'bg-cyan-500',    rgb: '6 182 212',   description: 'Listo para producción' },
-  { key: 'guillotine_first_cut',label: 'First Cut',       labelEs: 'Primer Corte',     color: 'bg-orange-500',  rgb: '249 115 22',  description: 'Corte inicial guillotina' },
-  { key: 'offset_printing',     label: 'Offset Print',    labelEs: 'Offset', color: 'bg-purple-500',  rgb: '168 85 247',  description: 'Impresión offset' },
-  { key: 'digital_printing',    label: 'Digital Print',   labelEs: 'Impresión Digital',color: 'bg-fuchsia-500', rgb: '217 70 239',  description: 'Impresión digital' },
-  { key: 'die_cutting',         label: 'Die Cutting',    labelEs: 'Troquelado',   color: 'bg-pink-500',    rgb: '236 72 153',  description: 'Proceso de troquelado' },
-  { key: 'guillotine_final_cut',label: 'Final Cut',      labelEs: 'Corte Final',  color: 'bg-red-500',     rgb: '239 68 68',   description: 'Corte guillotina final' },
-  { key: 'workshop',            label: 'Workshop',       labelEs: 'Taller',       color: 'bg-indigo-500',  rgb: '99 102 241',  description: 'Taller interno', optional: true },
-  { key: 'outsourced',          label: 'Outsourced',     labelEs: 'Tercerizado',  color: 'bg-yellow-500',  rgb: '234 179 8',   description: 'Procesado externo', optional: true },
-  { key: 'workshop_revision',   label: 'Revision',       labelEs: 'Revisión',     color: 'bg-emerald-500', rgb: '16 185 129',  description: 'Control de calidad' },
-  { key: 'ready_for_delivery',  label: 'Ready',          labelEs: 'Listo',        color: 'bg-green-500',   rgb: '34 197 94',   description: 'Listo para despacho' },
-  { key: 'in_delivery',         label: 'In Delivery',    labelEs: 'En Entrega',   color: 'bg-teal-500',    rgb: '20 184 166',  description: 'En camino' },
-  { key: 'completed',           label: 'Completed',      labelEs: 'Completado',   color: 'bg-gray-500',    rgb: '107 114 128', description: 'Orden finalizada' },
-] satisfies { key: string; label: string; labelEs: string; color: string; rgb: string; description: string; optional?: boolean }[];
-
-// Las fases viven en `@/lib/production-phases` para que Equipos pueda agrupar
-// la flota con los mismos nombres sin copiarlos. Definirlas aquí dentro hacía
-// que cualquier otra pantalla que quisiera decir "Terminación" tuviera que
-// duplicar la lista, y las dos se separaran al primer cambio.
-const KANBAN_GROUPS = PRODUCTION_PHASES;
-// -- Honeycomb board geometry (flat-top hexes; beehive of the 6 process stages) --
-// The beehive is sized to FILL its frame: hex WIDTH comes from the free width (the
-// cluster spans 3.25 hex-widths) and hex HEIGHT from the free height (two
-// interlocked rows). There is no uniform zoom, so labels keep a true, fixed
-// on-screen size (>= 16px) while the hexes grow to use every pixel — width and
-// height — with no dead space below. Geometry is derived per-render from the
-// measured frame inside the component.
-const HEX_CLIP = 'polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%)';
-const BOARD_PAD = 6;       // gutter around the beehive inside its frame
-const LANE_RESERVE = 60;   // height kept below the board for the urgent lane
-const WIDTH_UNITS = 3.25;  // beehive width, measured in hex-widths
-const HEIGHT_UNITS = 2;    // beehive height, measured in hex-heights
-const MOBILE_MAX_W = 768;  // below this the board switches to a vertical column
-const MOBILE_GAP = 12;     // vertical gap between stacked stage hexes on mobile
-
-function getPriorityColor(p: number) {
-  if (p >= 8) return 'bg-red-500/20 text-red-400 border-red-500/40';
-  if (p >= 5) return 'bg-amber-500/20 text-amber-400 border-amber-500/40';
-  return 'bg-blue-500/20 text-blue-400 border-blue-500/40';
-}
-function getPriorityRing(p: number) {
-  if (p >= 8) return 'ring-red-500/50';
-  if (p >= 5) return 'ring-amber-500/50';
-  return 'ring-blue-500/30';
-}
-function getStatusInfo(key: string) { return STATUS_FLOW.find(s => s.key === key) ?? STATUS_FLOW[0]; }
-function getAllNextStatuses(currentStatus: string) {
-  return naturalNextStatuses(currentStatus as OTWorkflowStatus)
-    .map(getStatusInfo);
-}
 export function OTManagement({ onOTSelect }: OTManagementProps) {
   const { data: otsQuery = [], isFetching: otsFetching, refetch: refetchOTs } = useOTs();
   const { toast } = useToast();
@@ -164,14 +110,13 @@ export function OTManagement({ onOTSelect }: OTManagementProps) {
   const [splitOT,         setSplitOT]         = useState<any>(null);
   const [pasadasOT,       setPasadasOT]       = useState<any>(null);
   const [splitTarget,     setSplitTarget]     = useState<{ key: string; label: string } | null>(null);
-  const [rollbackTarget,  setRollbackTarget]  = useState<{ ot: any; key: string; labelEs: string; fromLabelEs: string } | null>(null);
+  const [rollbackTarget,  setRollbackTarget]  = useState<RollbackTarget | null>(null);
   const [searchTerm,      setSearchTerm]      = useState("");
   const [showCompleted,   setShowCompleted]   = useState(false);
   const [draggedOT,       setDraggedOT]       = useState<any>(null);
   const [dragOverCol,     setDragOverCol]     = useState<string | null>(null);
   const [draggingId,      setDraggingId]      = useState<string | null>(null);
   const [hoveredOT,       setHoveredOT]       = useState<{ ot: any; rect: DOMRect } | null>(null);
-  const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const dragCounter = useRef<Record<string, number>>({});
   // Board scales to fill the available box (both axes) — never scrolls, and
   // grows to use the freed vertical space instead of leaving a gap below.
@@ -426,27 +371,13 @@ export function OTManagement({ onOTSelect }: OTManagementProps) {
   return (
     <div className="space-y-2 overflow-x-hidden">
       {/* Slim toolbar -- search + create (page chrome lives in the back button) */}
-      <div className="flex items-center justify-start sm:justify-end gap-2 flex-wrap">
-        <div className="relative w-full sm:w-auto">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
-          <Input
-            placeholder="Buscar OT o cliente..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="bg-input border-border placeholder:text-muted-foreground w-full sm:w-56 pl-9 text-base"
-          />
-        </div>
-        <Button
-          variant={showCompleted ? 'default' : 'outline'}
-          onClick={() => setShowCompleted(prev => !prev)}
-          className="text-sm sm:text-base"
-        >
-          {showCompleted ? 'Ocultar completadas' : 'Mostrar completadas'}
-        </Button>
-        <Button onClick={() => setCreateFlow('wizard')} className="bg-primary hover:bg-primary/90 text-sm sm:text-base">
-          <Plus className="w-4 h-4 mr-1" />Nueva OT
-        </Button>
-      </div>
+      <KanbanToolbar
+        searchTerm={searchTerm}
+        setSearchTerm={setSearchTerm}
+        showCompleted={showCompleted}
+        setShowCompleted={setShowCompleted}
+        onCreateNew={() => setCreateFlow('wizard')}
+      />
 
       {/* Floating drag hint */}
       {draggingId && (
@@ -456,295 +387,48 @@ export function OTManagement({ onOTSelect }: OTManagementProps) {
       )}
 
       {/* -- Honeycomb stage board: 6 process hexes, scales to fit width -- */}
-      {(() => {
-        return (
-          <div
-            ref={boardWrapRef}
-            style={{ width: '100%', overflow: isMobile ? 'visible' : 'hidden', display: 'flex', justifyContent: 'center', paddingBottom: 4 }}
-          >
-            <div style={{ width: CANVAS_W, height: CANVAS_H, position: 'relative', flexShrink: 0 }}>
-              <div style={{ position: 'absolute', inset: 0 }}>
-                {/* Flow arrows between process hexes (desktop beehive only) */}
-                {!isMobile && (
-                <svg width={CANVAS_W} height={CANVAS_H} style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 1, opacity: 0.8 }}>
-                  <defs>
-                    <marker id="flowArrowHead" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
-                      <polygon points="0 0, 6 3, 0 6" fill="rgba(148,163,184,0.8)" />
-                    </marker>
-                  </defs>
-                  {[[0, 2], [1, 2], [2, 3], [2, 4], [3, 5], [4, 5]].map(([from, to], idx) => {
-                    const fromPos = POSITIONS[from as number];
-                    const toPos = POSITIONS[to as number];
-                    const x1 = fromPos.x + HEX_W / 2;
-                    const y1 = fromPos.y + HEX_H / 2;
-                    const x2 = toPos.x + HEX_W / 2;
-                    const y2 = toPos.y + HEX_H / 2;
-                    const dx = x2 - x1, dy = y2 - y1;
-                    const len = Math.hypot(dx, dy) || 1;
-                    const pad = 54;
-                    return (
-                      <line
-                        key={`flow-${idx}`}
-                        x1={x1 + (dx / len) * pad} y1={y1 + (dy / len) * pad}
-                        x2={x2 - (dx / len) * pad} y2={y2 - (dy / len) * pad}
-                        stroke="rgba(148,163,184,0.8)" strokeWidth="2.5" strokeDasharray="6 5" markerEnd="url(#flowArrowHead)"
-                      />
-                    );
-                  })}
-                </svg>
-                )}
-
-                {KANBAN_GROUPS.map((group, idx) => {
-                  const { x, y } = POSITIONS[idx];
-                  const count = group.stages.reduce((s, k) => s + getByStatus(k).length, 0);
-                  return (
-                    <div
-                      key={group.id}
-                      style={{
-                        position: 'absolute', left: x, top: y,
-                        width: HEX_W, height: HEX_H, zIndex: 2,
-                        filter: `drop-shadow(0 4px 16px rgb(${group.rgb} / 0.42))`,
-                        transition: 'filter 0.18s',
-                      }}
-                      onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.filter = `drop-shadow(0 6px 22px rgb(${group.rgb} / 0.68))`; }}
-                      onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.filter = `drop-shadow(0 4px 16px rgb(${group.rgb} / 0.42))`; }}
-                    >
-                      {/* outer hex = border colour */}
-                      <div style={{ position: 'absolute', inset: 0, clipPath: HEX_CLIP, background: `rgb(${group.rgb})` }}>
-                        {/* inner hex = fill */}
-                        <div style={{ position: 'absolute', inset: '7px', clipPath: HEX_CLIP, background: 'var(--hex-fill, #ffffff)' }}>
-                          {/* -- Content: title + horizontal sub-step columns -- */}
-                          <div style={{ position: 'absolute', left: INSET_X, right: INSET_X, top: INSET_Y, bottom: INSET_Y, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-                            {/* Title + count */}
-                            <div style={{ flexShrink: 0, textAlign: 'center', padding: '4px 4px 3px', borderBottom: `3px solid rgb(${group.rgb})` }}>
-                              <div style={{ fontSize: 20, fontWeight: 900, color: `rgb(${group.rgb})`, lineHeight: 1.1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                {group.label}
-                              </div>
-                              <div style={{ fontSize: 16, fontWeight: 600, color: `rgb(${group.rgb} / 0.7)`, lineHeight: 1.2, marginTop: 1 }}>
-                                {count} {count === 1 ? 'orden' : 'ordenes'}
-                              </div>
-                            </div>
-                            {/* Sub-step columns -- colored header tab + cards body, each a drop target */}
-                            <div style={{ flex: 1, display: 'flex', flexDirection: 'row', overflow: 'hidden' }}>
-                              {(group.stages as readonly string[]).map((stageKey, sIdx) => {
-                                const stInfo = getStatusInfo(stageKey);
-                                const stageOTs = getByStatus(stageKey);
-                                const isOver = dragOverCol === stageKey && !!draggingId;
-                                return (
-                                  <div
-                                    key={stageKey}
-                                    style={{
-                                      flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0,
-                                      borderLeft: sIdx > 0 ? `1px solid rgb(${group.rgb} / 0.25)` : 'none',
-                                      background: isOver ? `rgb(${group.rgb} / 0.10)` : 'transparent',
-                                      transition: 'background 0.1s',
-                                    }}
-                                    onDragEnter={e => onColEnter(e, stageKey)}
-                                    onDragLeave={e => onColLeave(e, stageKey)}
-                                    onDragOver={onColOver}
-                                    onDrop={e => onColDrop(e, stageKey)}
-                                  >
-                                    <div style={{ flexShrink: 0, textAlign: 'center', background: `rgb(${group.rgb})`, padding: '3px 3px' }}>
-                                      <div style={{ fontSize: 14, fontWeight: 700, color: '#fff', lineHeight: 1.05, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', wordBreak: 'normal', overflowWrap: 'break-word' }}>
-                                        {stInfo.labelEs}
-                                      </div>
-                                      <div style={{ fontSize: 16, fontWeight: 600, color: 'rgba(255,255,255,0.85)', lineHeight: 1.1 }}>
-                                        {stageOTs.length}
-                                      </div>
-                                    </div>
-                                    <div style={{ flex: 1, overflowY: 'auto', padding: '5px 3px', display: 'flex', flexWrap: 'wrap', gap: 4, alignContent: 'flex-start', justifyContent: 'center' }}>
-                                      {isOver && stageOTs.length === 0 && (
-                                        <div style={{ width: '100%', border: `1px dashed rgb(${group.rgb} / 0.5)`, borderRadius: 3, textAlign: 'center', fontSize: 16, color: `rgb(${group.rgb})`, padding: '3px 0', marginTop: 2 }}>↓</div>
-                                      )}
-                                      {stageOTs.map(ot => {
-                                        const isDragging = draggingId === ot.id;
-                                        const isPartial = !!ot.is_partial;
-                                        const splitTotal = ot.split_group_id ? Number(splitGroupTotals[ot.split_group_id] ?? 0) : 0;
-                                        const splitPct = isPartial && splitTotal > 0
-                                          ? Math.max(1, Math.min(100, Math.round((Number(ot.quantity ?? 0) / splitTotal) * 100)))
-                                          : null;
-                                        const priDot = ot.priority >= 8 ? '#ef4444' : ot.priority >= 5 ? '#f59e0b' : `rgb(${group.rgb})`;
-                                        // Las etapas por las que pasó y de las que todavía se
-                                        // deben horas. Van al `title` para que el motivo esté a
-                                        // un hover, no sólo el hecho de que algo falta.
-                                        const debe: string[] = openPasses[ot.id] ?? [];
-                                        const MINI_W = Math.round(HEX_W * 0.2);
-                                        const MINI_H = Math.round(MINI_W * 0.88);
-                                        return (
-                                          <div
-                                            key={ot.id}
-                                            draggable
-                                            onDragStart={e => onDragStart(e, ot)}
-                                            onDragEnd={onDragEnd}
-                                            onMouseEnter={e => {
-                                              if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
-                                              const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-                                              hoverTimerRef.current = setTimeout(() => setHoveredOT({ ot, rect }), 220);
-                                            }}
-                                            onMouseLeave={() => {
-                                              if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
-                                              hoverTimerRef.current = setTimeout(() => setHoveredOT(p => p?.ot.id === ot.id ? null : p), 80);
-                                            }}
-                                            onClick={() => { if (!isDragging) onOTSelect(ot); }}
-                                            title={
-                                              `${ot.ot_number} - ${stInfo.labelEs} - ${ot.client_name}` +
-                                              (debe.length
-                                                ? `
-Faltan horas de: ${debe.map(otStatusLabel).join(', ')}`
-                                                : '')
-                                            }
-                                            style={{
-                                              width: MINI_W, height: MINI_H, clipPath: HEX_CLIP,
-                                              background: isDragging ? `rgb(${group.rgb} / 0.10)` : isPartial ? `rgb(${group.rgb} / 0.09)` : `rgb(${group.rgb} / 0.20)`,
-                                              cursor: 'grab', opacity: isDragging ? 0.3 : isPartial ? 0.6 : 1,
-                                              display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-                                              position: 'relative', flexShrink: 0,
-                                              outline: isPartial ? `1.5px dashed rgb(${group.rgb} / 0.55)` : 'none',
-                                            }}
-                                          >
-                                            <div style={{ position: 'absolute', top: 7, left: '50%', transform: 'translateX(-50%)', width: 6, height: 6, borderRadius: '50%', background: priDot }} />
-                                            {debe.length > 0 && (
-                                              // Un anillo ámbar arriba a la derecha: se lee de un
-                                              // vistazo sin robarle sitio al número de OT, que es
-                                              // lo único que el hexágono tiene que decir siempre.
-                                              //
-                                              // Y es la puerta, no sólo el aviso: la deuda se paga
-                                              // donde se ve. `draggable={false}` y `stopPropagation`
-                                              // para que el clic no arranque un arrastre ni abra la
-                                              // OT — el hexágono entero ya hace las dos cosas.
-                                              <button
-                                                type="button"
-                                                draggable={false}
-                                                onDragStart={e => e.preventDefault()}
-                                                onClick={e => { e.stopPropagation(); setPasadasOT(ot); }}
-                                                title={`Faltan horas de: ${debe.map(otStatusLabel).join(', ')}`}
-                                                aria-label={`Cerrar pasadas pendientes de ${ot.ot_number}`}
-                                                style={{
-                                                  position: 'absolute', top: 4, right: '14%',
-                                                  width: 13, height: 13, borderRadius: '50%',
-                                                  border: '2px solid #f59e0b', background: 'transparent',
-                                                  cursor: 'pointer', padding: 0, zIndex: 2,
-                                                }}
-                                              />
-                                            )}
-                                            <span style={{ fontSize: 16, fontWeight: 800, color: `rgb(${group.rgb})`, textAlign: 'center', lineHeight: 1.05, padding: '0 4px', marginTop: 6, overflow: 'hidden', maxWidth: '100%', wordBreak: 'break-all' }}>
-                                              {ot.ot_number.replace(/^OT-?/i, '')}
-                                            </span>
-                                            {isPartial && (
-                                              <span style={{ fontSize: 16, fontWeight: 800, color: '#f59e0b', lineHeight: 1 }}>
-                                                {splitPct !== null ? `${splitPct}%` : 'PAR'}
-                                              </span>
-                                            )}
-                                            {ot.product_image_url && (
-                                              <div style={{ position: 'absolute', inset: 0, clipPath: HEX_CLIP, backgroundImage: `url(${ot.product_image_url})`, backgroundSize: 'cover', backgroundPosition: 'center', opacity: 0.18 }} />
-                                            )}
-                                          </div>
-                                        );
-                                      })}
-                                    </div>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-        );
-      })()}
+      <KanbanHexBoard
+        boardWrapRef={boardWrapRef}
+        isMobile={isMobile}
+        HEX_W={HEX_W}
+        HEX_H={HEX_H}
+        INSET_X={INSET_X}
+        INSET_Y={INSET_Y}
+        POSITIONS={POSITIONS}
+        CANVAS_W={CANVAS_W}
+        CANVAS_H={CANVAS_H}
+        getByStatus={getByStatus}
+        dragOverCol={dragOverCol}
+        draggingId={draggingId}
+        openPasses={openPasses}
+        splitGroupTotals={splitGroupTotals}
+        onDragStart={onDragStart}
+        onDragEnd={onDragEnd}
+        onColEnter={onColEnter}
+        onColLeave={onColLeave}
+        onColOver={onColOver}
+        onColDrop={onColDrop}
+        onHover={setHoveredOT}
+        onOTSelect={onOTSelect}
+        onPasadasOpen={setPasadasOT}
+      />
 
       {/* Vía Rápida: urgent OTs */}
-      {(() => {
-        const urgentOTs = filteredOTs.filter(ot => ot.priority >= 8 && ot.status !== 'completed');
-        return (
-          <div style={{ width: '100%', maxWidth: CANVAS_W, margin: '6px auto 0' }}>
-            <div style={{
-              background: 'linear-gradient(90deg, rgba(239,68,68,0.13) 0%, rgba(234,179,8,0.10) 100%)',
-              border: '1.5px solid rgba(239,68,68,0.45)',
-              borderRadius: 10, padding: '8px 14px',
-              display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap',
-            }}>
-              <span style={{ fontSize: 16, fontWeight: 800, color: '#ef4444', letterSpacing: '0.03em', display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap' }}>
-                Vía Rápida — Urgentes
-              </span>
-              {urgentOTs.length === 0 ? (
-                <span className="text-muted-foreground" style={{ fontSize: 16, fontStyle: 'italic' }}>Sin OTs urgentes</span>
-              ) : (
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                  {urgentOTs.map(ot => {
-                    const stInfo = getStatusInfo(ot.status);
-                    const isDragging = draggingId === ot.id;
-                    return (
-                      <div
-                        key={ot.id}
-                        draggable
-                        onDragStart={e => onDragStart(e, ot)}
-                        onDragEnd={onDragEnd}
-                        onClick={() => { if (!isDragging) onOTSelect(ot); }}
-                        title={`${ot.ot_number} - ${stInfo.labelEs} - ${ot.client_name}`}
-                        style={{
-                          background: isDragging ? 'rgba(239,68,68,0.08)' : 'rgba(239,68,68,0.18)',
-                          border: '1px solid rgba(239,68,68,0.5)',
-                          borderRadius: 7, padding: '4px 10px', cursor: 'grab',
-                          opacity: isDragging ? 0.3 : 1,
-                          display: 'flex', alignItems: 'center', gap: 8,
-                        }}
-                      >
-                        <span style={{ fontSize: 16, fontWeight: 800, color: '#ef4444' }}>{ot.ot_number}</span>
-                        <span className="text-muted-foreground" style={{ fontSize: 16 }}>{stInfo.labelEs}</span>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          </div>
-        );
-      })()}
+      <ViaRapidaPanel
+        filteredOTs={filteredOTs}
+        draggingId={draggingId}
+        onDragStart={onDragStart}
+        onDragEnd={onDragEnd}
+        onOTSelect={onOTSelect}
+        canvasW={CANVAS_W}
+      />
 
       {/* Rollback confirmation dialog */}
-      {rollbackTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-          <div className="bg-card border border-amber-500/40 rounded-xl shadow-2xl p-5 max-w-sm w-full mx-4">
-            <div className="flex items-start gap-3 mb-4">
-              <div className="w-9 h-9 rounded-full bg-amber-500/15 border border-amber-500/40 flex items-center justify-center shrink-0">
-                <ArrowRight className="w-4 h-4 text-amber-400 rotate-180" />
-              </div>
-              <div>
-                <h3 className="font-bold text-foreground text-sm">Retroceder OT</h3>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  <span className="font-semibold text-foreground">{rollbackTarget.ot.ot_number}</span>
-                  {' '}—{' '}{rollbackTarget.ot.client_name}
-                </p>
-              </div>
-            </div>
-            <div className="bg-amber-500/8 border border-amber-500/25 rounded-lg p-3 mb-4 space-y-1.5">
-              <div className="flex items-center gap-2 text-xs">
-                <span className="text-muted-foreground">De:</span>
-                <span className="font-semibold text-foreground">{rollbackTarget.fromLabelEs}</span>
-                <ArrowRight className="w-3 h-3 text-amber-400 rotate-180" />
-                <span className="font-semibold text-amber-400">{rollbackTarget.labelEs}</span>
-              </div>
-              <p className="text-[11px] text-amber-600 dark:text-amber-400 leading-snug">
-                ⚠️ Los costos ya registrados en esta OT serán preservados. Solo se cambia el estado del proceso.
-              </p>
-            </div>
-            <div className="flex gap-2 justify-end">
-              <Button variant="outline" size="sm" onClick={() => setRollbackTarget(null)}>
-                Cancelar
-              </Button>
-              <Button size="sm" className="bg-amber-500 hover:bg-amber-600 text-white" onClick={confirmRollback}>
-                Confirmar Retroceso
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
+      <RollbackDialog
+        rollbackTarget={rollbackTarget}
+        onCancel={() => setRollbackTarget(null)}
+        onConfirm={confirmRollback}
+      />
       {/* Dialogs */}
       {createFlow === 'wizard' && (
         <div className="fixed inset-0 z-50 bg-background overflow-y-auto">
