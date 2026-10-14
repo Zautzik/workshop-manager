@@ -118,8 +118,16 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     if (parent) setExpandedNav(parent.href);
   }, [pathname]);
 
-  // Public routes — no shell needed
-  const isPublicRoute = pathname === '/' || pathname === '/login';
+  // Public routes — no shell needed, and no session required.
+  //
+  // `/track/[share_token]` belongs here: it is the only screen a client's
+  // client ever sees and it carries its own gate (the share token). It was
+  // already listed as a fullscreen route below, so the nav was correctly
+  // skipped — but it was missing from this line, so `needsAuthRedirect` fired
+  // for an anonymous visitor and bounced them to /login. The tracker page
+  // itself documents "No auth"; this is the line that makes that true.
+  const isPublicRoute =
+    pathname === '/' || pathname === '/login' || pathname.startsWith('/track/');
   const isFullscreenRoute = pathname === '/estacion' || pathname === '/operaciones/whatsapp/operator' || pathname.startsWith('/track/');
 
   // Kick unauthenticated visitors off protected routes. This runs in an effect

@@ -208,7 +208,16 @@ const PurchasesManagement = () => {
         supplier_rut: form.supplier_rut || null,
         ot_id: form.ot_id || null,
         total_cost: Number(form.total_cost) || 0,
-        status: 'sent',
+        // Sin `status`. Mandaba 'sent' y el esquema de la ruta acepta sólo
+        // 'draft' (`z.literal('draft')`), así que TODA creación de OC se caía
+        // con 400 — la pantalla nunca pudo crear una orden de compra.
+        //
+        // 'draft' no es un detalle del esquema: la base exige `oc_number`,
+        // `issued_by` e `issued_at` en cuanto el estado deja de ser borrador
+        // (`purchases_emitida_esta_completa`), y esos tres los llena `emitirOC`
+        // más arriba, dentro de la transacción que numera la OC. Nacer en
+        // borrador y emitir como un acto aparte es el diseño, no una
+        // limitación: por eso acá no se manda estado.
         expected_date: form.expected_date || null,
         certification_details: form.certification_details || null,
         notes: form.notes || null,
