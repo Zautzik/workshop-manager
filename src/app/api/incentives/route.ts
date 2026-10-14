@@ -39,9 +39,62 @@ export const CreateIncentiveSchema = z
 		{ message: 'La fecha de término no puede ser anterior a la de inicio', path: ['effective_to'] },
 	);
 
-// No hay GET acá: la lectura sigue directo desde el cliente (RLS abierta a
-// cualquier autenticado), como ya la leía IncentivosContent. Sólo las
-// escrituras necesitan pasar por una ruta con requireAuth + Zod.
+const ListSchema = z.object({
+	page: z.coerce.number().int().min(1).default(1),
+	limit: z.coerce.number().int().min(1).max(500).default(200),
+	active: z.enum(['true', 'false']).optional(),
+});
+
+/**
+ * Lista las reglas de incentivo.
+ *
+ * Acá vivía este comentario: «No hay GET acá: la lectura sigue directo desde el
+ * cliente (RLS abierta a cualquier autenticado), como ya la leía
+ * IncentivosContent.» Las dos mitades eran falsas, y juntas explican el bug:
+ *
+ *   · La policy de lectura de `incentive_rules` no está abierta a cualquier
+ *     autenticado, es `has_role(auth.uid(), 'supervisor')`.
+ *   · Y el cliente del navegador nunca es `authenticated`: esta aplicación
+ *     entra por NextAuth y no obtiene un JWT de Supabase, así que su rol es
+ *     `anon` y `auth.uid()` es siempre NULL.
+ *
+ * O sea que esa lectura devolvía cero filas — como `200 []`, no como error — y
+ * la pantalla mostraba «no hay incentivos». Que esta tabla además esté vacía
+ * hoy es casualidad: tapaba el síntoma. Ver `/api/hr/contracts`, donde la misma
+ * causa dejaba los contratos invisibles.
+ *
+ * El portón es el mismo del POST, por la misma razón que lo eligió.
+ */
+export async function GET(req: NextRequest) {
+	const auth = await requireAuth(['admin', 'hr_manager']);
+	if (isAuthError(auth)) return auth;
+
+	const parsed = ListSchema.safeParse(
+		Object.fromEntries(new URL(req.url).searchParams)
+	);
+	if (!parsed.success) {
+		return NextResponse.json(
+			{ error: 'Parámetros inválidos', details: parsed.error.flatten().fieldErrors },
+			{ status: 400 },
+		);
+	}
+	const { page, limit, active } = parsed.data;
+	const offset = (page - 1) * limit;
+
+	let query = supabaseAdmin
+		.from('incentive_rules')
+		.select('*', { count: 'exact' })
+		.order('created_at', { ascending: false })
+		.range(offset, offset + limit - 1);
+
+	if (active) query = query.eq('is_active', active === 'true');
+
+	const { data, error, count } = await query;
+	if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+	return NextResponse.json({ data: data ?? [], total: count ?? 0, page, limit });
+}
+
 export async function POST(req: NextRequest) {
 	// RLS ("Admins and HR managers can manage incentive rules",
 	// 20260224233000_hr_role_permissions.sql): sólo admin y hr_manager escriben.

@@ -15,8 +15,9 @@ import ProtectedRoute from '@/components/ProtectedRoute';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Network, GraduationCap, Award, Gift } from 'lucide-react';
-import { CertificacionesContent } from '@/app/personas/certificaciones/page';
-import { IncentivosContent } from '@/app/personas/incentivos/page';
+import { CertificacionesContent } from '@/components/hr/CertificacionesContent';
+import { IncentivosContent } from '@/components/hr/IncentivosContent';
+import { useTabFromUrl } from '@/hooks/use-tab-from-url';
 
 // Both are heavy trees; keep them out of the initial bundle.
 const CraftSkillTree = dynamic(() => import('@/components/hr/CraftSkillTree'));
@@ -29,18 +30,15 @@ const loading = (
   </div>
 );
 
-export default function DesarrolloTalentoPage() {
-  return (
-    <ProtectedRoute allowedRoles={['admin', 'hr_manager', 'supervisor']}>
-      <div className="p-6 space-y-6 max-w-[1200px] mx-auto">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Desarrollo de Talento</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Cómo crece cada persona: competencias, formación, acreditaciones y reconocimiento
-          </p>
-        </div>
+// Las rutas que esta pantalla absorbió redirigen a `?tab=…`, así que la
+// pestaña inicial sale de la URL. Componente aparte porque `useSearchParams`
+// necesita un `<Suspense>` por encima.
+const TABS = ['habilidades', 'capacitacion', 'certificaciones', 'incentivos'] as const;
 
-        <Tabs defaultValue="habilidades" className="w-full">
+function TalentoTabs() {
+  const initial = useTabFromUrl(TABS, 'habilidades');
+  return (
+        <Tabs defaultValue={initial} className="w-full">
           <TabsList>
             <TabsTrigger value="habilidades" className="gap-1.5">
               <Network className="h-4 w-4" /> Habilidades
@@ -80,6 +78,23 @@ export default function DesarrolloTalentoPage() {
             </Suspense>
           </TabsContent>
         </Tabs>
+  );
+}
+
+export default function DesarrolloTalentoPage() {
+  return (
+    <ProtectedRoute allowedRoles={['admin', 'hr_manager', 'supervisor']}>
+      <div className="p-6 space-y-6 max-w-[1200px] mx-auto">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">Desarrollo de Talento</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Cómo crece cada persona: competencias, formación, acreditaciones y reconocimiento
+          </p>
+        </div>
+
+        <Suspense fallback={loading}>
+          <TalentoTabs />
+        </Suspense>
       </div>
     </ProtectedRoute>
   );

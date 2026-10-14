@@ -28,7 +28,6 @@ import {
 } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { useEmployees } from '@/hooks/use-employees';
-import { supabase } from '@/integrations/supabase/client';
 import {
   SKILL_NODES,
   CONNECTIONS,

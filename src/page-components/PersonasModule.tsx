@@ -189,8 +189,8 @@ function rosterLabel(date: string): string {
 const DEV_LINKS = [
   { label: 'Habilidades', href: '/personas/habilidades', icon: Network, desc: 'Competencias y niveles de maestría', accent: 'text-violet-500' },
   { label: 'Capacitación', href: '/personas/capacitacion', icon: GraduationCap, desc: 'Cursos, formación y planes de desarrollo', accent: 'text-teal-500' },
-  { label: 'Certificaciones', href: '/personas/certificaciones', icon: Award, desc: 'Acreditaciones y vigencias del personal', accent: 'text-amber-500' },
-  { label: 'Incentivos', href: '/personas/incentivos', icon: Gift, desc: 'Bonos, premios y reconocimientos', accent: 'text-rose-500' },
+  { label: 'Certificaciones', href: '/personas/talento?tab=certificaciones', icon: Award, desc: 'Acreditaciones y vigencias del personal', accent: 'text-amber-500' },
+  { label: 'Incentivos', href: '/personas/talento?tab=incentivos', icon: Gift, desc: 'Bonos, premios y reconocimientos', accent: 'text-rose-500' },
 ] as const;
 
 /**
