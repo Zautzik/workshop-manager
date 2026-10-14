@@ -2,7 +2,6 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { fetchAll } from '@/lib/fetch-all';
 
 const queryKeys = {
   adminStats: ['admin', 'stats'] as const,
@@ -46,9 +45,10 @@ export function useInventory() {
   return useQuery<any[]>({
     queryKey: queryKeys.inventory,
     queryFn: async () => {
-      const { data, error } = await supabase.from('inventory_items_stock_v').select('*').order('name');
-      if (error) throw error;
-      return (data ?? []) as any[];
+      const res = await fetch('/api/inventory/levels', { credentials: 'include' });
+      const body = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(body?.error ?? 'No se pudo cargar el inventario');
+      return (body?.data ?? []) as any[];
     },
   });
 }
@@ -57,9 +57,10 @@ export function useInventoryItems() {
   return useQuery<any[]>({
     queryKey: queryKeys.inventoryItems,
     queryFn: async () => {
-      const { data, error } = await supabase.from('inventory_items_stock_v').select('*').order('name');
-      if (error) throw error;
-      return (data ?? []) as any[];
+      const res = await fetch('/api/inventory/levels', { credentials: 'include' });
+      const body = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(body?.error ?? 'No se pudo cargar el inventario');
+      return (body?.data ?? []) as any[];
     },
   });
 }
@@ -93,30 +94,39 @@ export function useInventoryLots(itemId?: string | null) {
  * Todo el libro de movimientos de inventario, sin fecha de corte.
  *
  * `InventoryManagement.tsx` recorta esto a una ventana de 30 días EN EL
- * NAVEGADOR para calcular consumo y rotación — sin este `fetchAll`, una
- * consulta sin `.range()` queda expuesta al tope por defecto de PostgREST
- * (1000 filas), que en este mismo repo ya hizo que un margen leyera 82% en
- * vez de 22% (ver fetch-all.ts). Acá venía funcionando por casualidad: el
- * orden descendente hace que el tope corte del lado viejo, que es el que a
- * la ventana de 30 días no le importa — hasta que otro consumidor de este
- * mismo hook necesite historia más vieja (auditoría 2026-09-07).
+ * NAVEGADOR para calcular consumo y rotación — así que un libro incompleto da
+ * números incompletos sin avisar. Una consulta sin `.range()` queda expuesta
+ * al tope por defecto de PostgREST (1000 filas), que en este mismo repo ya hizo
+ * que un margen leyera 82% en vez de 22% (ver fetch-all.ts).
  *
- * Esto arregla que no mienta en silencio, no que traiga de más: seguir
+ * El `fetchAll` que resolvía eso se movió a `/api/inventory/movements` junto
+ * con la lectura: `inventory_stock_transactions_v` es una vista, y una vista
+ * pasa por encima de RLS, así que leerla desde el navegador funcionaba y la
+ * dejaba legible con la publishable key. La migración 20261014121000 le pone
+ * `security_invoker` (auditoría 2026-10).
+ *
+ * La garantía se conserva de punta a punta: la ruta pagina hasta agotar la
+ * tabla y devuelve `truncated`, y acá eso se convierte en error. Mostrar 30
+ * días calculados sobre un libro recortado es el error que esto evita; seguir
  * bajando el libro entero para mirar 30 días sigue siendo el desperdicio que
- * era. Paginar la tabla que se muestra es un cambio de UI aparte.
+ * era, y paginar la tabla que se muestra es un cambio de UI aparte.
  */
 export function useInventoryTransactions() {
   return useQuery<any[]>({
     queryKey: queryKeys.inventoryTransactions,
     queryFn: async () => {
-      const { rows } = await fetchAll<any>((from, to) =>
-        supabase
-          .from('inventory_stock_transactions_v')
-          .select('*')
-          .order('created_at', { ascending: false })
-          .range(from, to),
-      );
-      return rows;
+      // La paginación vive ahora en la ruta, con el mismo `fetchAll`.
+      // `truncated` se propaga como error en vez de devolver un libro
+      // incompleto en silencio — ver el encabezado de la ruta.
+      const res = await fetch('/api/inventory/movements', { credentials: 'include' });
+      const body = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(body?.error ?? 'No se pudo leer el libro de movimientos');
+      if (body?.truncated) {
+        throw new Error(
+          'El libro de movimientos superó el techo de paginación: los números de consumo y rotación saldrían incompletos.',
+        );
+      }
+      return (body?.data ?? []) as any[];
     },
   });
 }
@@ -125,12 +135,10 @@ export function useInventoryLowStockAlerts() {
   return useQuery<any[]>({
     queryKey: queryKeys.inventoryLowStockAlerts,
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('inventory_low_stock_alerts_v' as any)
-        .select('*')
-        .order('shortage', { ascending: false });
-      if (error) throw error;
-      return (data ?? []) as any[];
+      const res = await fetch('/api/inventory/low-stock', { credentials: 'include' });
+      const body = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(body?.error ?? 'No se pudieron cargar las alertas de stock');
+      return (body?.data ?? []) as any[];
     },
   });
 }

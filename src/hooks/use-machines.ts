@@ -254,9 +254,10 @@ export function usePlantaLive() {
   return useQuery<any[]>({
     queryKey: Q.planta,
     queryFn: async () => {
-      const { data, error } = await supabase.from('planta_live').select('*');
-      if (error) throw error;
-      return data ?? [];
+      const res = await fetch('/api/planta/live', { credentials: 'include' });
+      const body = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(body?.error ?? 'No se pudo cargar el tablero de planta');
+      return (body?.data ?? []) as any[];
     },
     refetchInterval: 30_000, // auto-refresh every 30 seconds
   });
