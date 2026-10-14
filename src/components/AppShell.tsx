@@ -126,9 +126,16 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   // skipped — but it was missing from this line, so `needsAuthRedirect` fired
   // for an anonymous visitor and bounced them to /login. The tracker page
   // itself documents "No auth"; this is the line that makes that true.
+  //
+  // `/legal/` entra por lo mismo: la política de privacidad es la URL que Meta
+  // exige para la WhatsApp Business Platform, así que tiene que abrir sin
+  // sesión — si rebota a /login, la revisión de la app falla.
   const isPublicRoute =
-    pathname === '/' || pathname === '/login' || pathname.startsWith('/track/');
-  const isFullscreenRoute = pathname === '/estacion' || pathname === '/operaciones/whatsapp/operator' || pathname.startsWith('/track/');
+    pathname === '/' ||
+    pathname === '/login' ||
+    pathname.startsWith('/track/') ||
+    pathname.startsWith('/legal/');
+  const isFullscreenRoute = pathname === '/estacion' || pathname === '/operaciones/whatsapp/operator' || pathname.startsWith('/track/') || pathname.startsWith('/legal/');
 
   // Kick unauthenticated visitors off protected routes. This runs in an effect
   // because navigating during render updates the Router while AppShell is still

@@ -150,6 +150,14 @@ const Login = () => {
           </form>
         </CardContent>
       </Card>
+
+      {/* La política de privacidad se enlaza desde acá y desde /track/[token]:
+          son las dos pantallas que ve alguien de afuera. */}
+      <p className="relative z-10 mt-6 text-xs text-muted-foreground">
+        <a className="underline underline-offset-2 hover:text-foreground" href="/legal/privacidad">
+          Política de privacidad
+        </a>
+      </p>
     </div>
   );
 };

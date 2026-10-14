@@ -227,6 +227,10 @@ export default function TrackPage() {
             <p className="pb-4 text-center text-xs text-muted-foreground">
               Pedido iniciado el {format(new Date(data.created_at), "d 'de' MMMM yyyy", { locale: es })} ·
               Impreso con tinta y cuidado 🖋
+              {' · '}
+              <a className="underline underline-offset-2 hover:text-foreground" href="/legal/privacidad">
+                Privacidad
+              </a>
             </p>
           </div>
         )}
