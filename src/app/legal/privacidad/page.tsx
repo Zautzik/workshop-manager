@@ -20,14 +20,16 @@ import { EMPRESA, datoEmpresa } from '@/lib/company';
  * que una de las dos estaba mal y nadie lo iba a notar: son dos archivos que
  * nadie lee juntos.
  *
- * Leyendo de `EMPRESA`, el nombre legal, el RUT y el domicilio de esta política
- * son los mismos que salen impresos en una cotización. Arreglar `company.ts`
- * arregla los tres documentos.
+ * Leyendo de `EMPRESA`, el nombre legal y el domicilio de esta política son los
+ * mismos que salen impresos en una cotización. Arreglar `company.ts` arregla
+ * los tres documentos.
  *
- *   ⚠ `company.ts` todavía tiene valores de RELLENO (su propio encabezado lo
- *     dice). Hasta que se reemplacen, esta página publica una razón social y un
- *     RUT inventados. Eso es a propósito visible: un dato legal equivocado es
- *     mejor verlo en pantalla que esconderlo en un segundo archivo.
+ *   ⚠ Al 2026-10-14 el RUT sigue siendo de relleno, así que esta página NO lo
+ *     imprime: `datoEmpresa('rut')` devuelve null y la frase del responsable se
+ *     arma sin él. Mejor no decirlo que decirlo mal — un RUT con dígito
+ *     verificador válido identifica a otra empresa como responsable del
+ *     tratamiento. Al completarlo en `company.ts` y sacarlo de
+ *     `EMPRESA_PENDIENTE`, la frase se completa sola.
  *
  * Server component a propósito: no necesita estado ni el bundle de React para
  * leerse, y así sobrevive a cualquier error de cliente.
@@ -48,8 +50,10 @@ const CONTACTO_PRIVACIDAD = 'rzautzikg@gmail.com';
  * Cierra una frase con punto, sin duplicarlo.
  *
  * «Inversiones Gonsa S.A.» ya termina en punto, así que agregarle otro deja
- * «S.A..». Pasa sólo cuando el RUT y el domicilio están pendientes y la frase
- * termina justo en la razón social — o sea, hoy.
+ * «S.A..». Pasa cuando la frase termina justo en la razón social, es decir
+ * cuando el RUT y el domicilio están pendientes. Hoy el domicilio ya es real y
+ * la frase cierra con la ciudad, pero esto queda porque la condición vuelve
+ * cada vez que un dato se marca pendiente.
  */
 function terminar(frase: string): string {
 	return frase.endsWith('.') ? frase : `${frase}.`;
@@ -79,9 +83,12 @@ function Seccion({
 export default function PoliticaPrivacidadPage() {
 	// `null` mientras el dato siga siendo de relleno — ver `EMPRESA_PENDIENTE`.
 	const rut = datoEmpresa('rut');
-	const direccion = datoEmpresa('direccion');
-	const ciudad = datoEmpresa('ciudad');
-	const domicilio = [direccion, ciudad].filter(Boolean).join(', ') || null;
+	// Calle, comuna y ciudad, en ese orden: es cómo se escribe un domicilio en
+	// Chile y es lo que un documento legal necesita para identificar el lugar.
+	const domicilio =
+		[datoEmpresa('direccion'), datoEmpresa('comuna'), datoEmpresa('ciudad')]
+			.filter(Boolean)
+			.join(', ') || null;
 
 	return (
 		<main className="mx-auto max-w-3xl px-4 py-12 sm:py-16">

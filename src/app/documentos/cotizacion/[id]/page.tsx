@@ -146,10 +146,13 @@ function Documento({ params }: { params: Promise<{ id: string }> }) {
 						<p className="mt-2 text-[10px] leading-relaxed text-gray-500">
 							{EMPRESA.razonSocial}
 							{datoEmpresa('rut') ? ` · RUT ${datoEmpresa('rut')}` : ''}
-							{[datoEmpresa('direccion'), datoEmpresa('ciudad')].filter(Boolean).length > 0 && (
+							{[datoEmpresa('direccion'), datoEmpresa('comuna'), datoEmpresa('ciudad')].filter(Boolean)
+								.length > 0 && (
 								<>
 									<br />
-									{[datoEmpresa('direccion'), datoEmpresa('ciudad')].filter(Boolean).join(', ')}
+									{[datoEmpresa('direccion'), datoEmpresa('comuna'), datoEmpresa('ciudad')]
+										.filter(Boolean)
+										.join(', ')}
 								</>
 							)}
 							{[datoEmpresa('telefono'), datoEmpresa('email')].filter(Boolean).length > 0 && (
@@ -264,7 +267,8 @@ function Documento({ params }: { params: Promise<{ id: string }> }) {
 						))}
 					</ul>
 					<p className="mt-4 text-center text-[10px] text-gray-400">
-						{[EMPRESA.nombre, datoEmpresa('web'), datoEmpresa('telefono')]
+						{/* Sin web: la imprenta no tiene sitio y el campo ya no existe. */}
+						{[EMPRESA.nombre, datoEmpresa('comuna'), datoEmpresa('telefono')]
 							.filter(Boolean)
 							.join(' · ')}
 					</p>

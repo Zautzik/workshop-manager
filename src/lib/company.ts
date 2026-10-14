@@ -7,14 +7,18 @@
  *
  * ── Qué es real y qué falta ─────────────────────────────────────────────────
  *
- * `razonSocial` y `nombre` son reales desde 2026-10-14. Los campos que siguen
- * siendo de relleno están enumerados en `EMPRESA_PENDIENTE`, más abajo, y hay
- * que cambiarlos ANTES de mandar un solo documento a un cliente: RUT,
- * dirección, ciudad, teléfono y web.
+ * Reales desde 2026-10-14: `razonSocial`, `nombre`, `direccion`, `comuna`,
+ * `ciudad` y `email`. Los dos que siguen siendo de relleno están enumerados en
+ * `EMPRESA_PENDIENTE`, más abajo, y hay que cambiarlos ANTES de mandar un solo
+ * documento a un cliente: **RUT y teléfono**.
  *
- * `email` es real desde 2026-10-14, pero es una casilla personal: en la
- * cotización sale como el contacto comercial de la imprenta. Si existe una
- * casilla de la empresa, va acá.
+ * No hay `web`: la imprenta no tiene sitio, y el campo se quitó en vez de
+ * dejarlo vacío — un string vacío se cuela en un pie de página como un
+ * separador suelto.
+ *
+ * `email` es real, pero es una casilla personal: en la cotización sale como el
+ * contacto comercial de la imprenta. Si existe una casilla de la empresa, va
+ * en el mismo campo.
  *
  * `giro` quedó fuera de esa lista porque describe a la imprenta y no identifica
  * a la sociedad; si no es exacto, corregirlo es cosmético, no legal.
@@ -29,11 +33,15 @@ export const EMPRESA = {
 	razonSocial: 'Inversiones Gonsa S.A.',
 	rut: '76.543.210-K',
 	giro: 'Impresión offset y digital · Envases y etiquetas',
-	direccion: 'Av. Los Talleres 1450, Quilicura',
-	ciudad: 'Santiago, Chile',
+	// Dirección legal en tres partes, como se escribe en Chile: calle y número,
+	// comuna, ciudad. Juntarlas en un solo string obliga a cada plantilla a
+	// cortarlo si necesita sólo la comuna, y es lo que hace que una termine
+	// diciendo «Santiago, Chile» y otra «Quinta Normal».
+	direccion: 'Apóstol Santiago 470',
+	comuna: 'Quinta Normal',
+	ciudad: 'Santiago',
 	telefono: '+56 2 2345 6789',
 	email: 'rzautzikg@gmail.com',
-	web: 'imprentagons.cl',
 } as const;
 
 /**
@@ -51,10 +59,7 @@ export const EMPRESA = {
  */
 export const EMPRESA_PENDIENTE = new Set<keyof typeof EMPRESA>([
 	'rut',
-	'direccion',
-	'ciudad',
 	'telefono',
-	'web',
 ]);
 
 /** ¿Este campo sigue siendo de relleno? */
