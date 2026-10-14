@@ -10,7 +10,11 @@
  * `razonSocial` y `nombre` son reales desde 2026-10-14. Los campos que siguen
  * siendo de relleno están enumerados en `EMPRESA_PENDIENTE`, más abajo, y hay
  * que cambiarlos ANTES de mandar un solo documento a un cliente: RUT,
- * dirección, ciudad, teléfono, correo y web.
+ * dirección, ciudad, teléfono y web.
+ *
+ * `email` es real desde 2026-10-14, pero es una casilla personal: en la
+ * cotización sale como el contacto comercial de la imprenta. Si existe una
+ * casilla de la empresa, va acá.
  *
  * `giro` quedó fuera de esa lista porque describe a la imprenta y no identifica
  * a la sociedad; si no es exacto, corregirlo es cosmético, no legal.
@@ -28,7 +32,7 @@ export const EMPRESA = {
 	direccion: 'Av. Los Talleres 1450, Quilicura',
 	ciudad: 'Santiago, Chile',
 	telefono: '+56 2 2345 6789',
-	email: 'ventas@imprentagons.cl',
+	email: 'rzautzikg@gmail.com',
 	web: 'imprentagons.cl',
 } as const;
 
@@ -50,7 +54,6 @@ export const EMPRESA_PENDIENTE = new Set<keyof typeof EMPRESA>([
 	'direccion',
 	'ciudad',
 	'telefono',
-	'email',
 	'web',
 ]);
 
