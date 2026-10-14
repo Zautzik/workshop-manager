@@ -161,14 +161,37 @@ export async function POST(req: NextRequest) {
           workflow_step: WORKFLOW_STEP,
           operation_code: code,
           description: `Mano de obra — ${who}${overtimeNote}`,
-          category: 'impresion',
+          // 'mano_de_obra', no 'impresion'.
+          //
+          // `map_real_cost_category` (20260823120000) traduce la categoría de
+          // texto libre al enum de 7 valores que lee el margen, y mapea
+          // 'impresion' → 'machine'. O sea que la mano de obra del turno se
+          // sumaba al carril de MÁQUINA: el costo de operarios aparecía como
+          // costo de prensa, y el carril de mano de obra quedaba en cero
+          // (auditoría 2026-10 §Labour cost). La misma función ya traduce
+          // 'mano_de_obra' → 'labor', así que esto no necesita migración.
+          category: 'mano_de_obra',
           quantity: line.hours,
           unit: 'hrs',
           // Pesos, like every other line in ot_real_costs. Wages used to be
           // stored in USD next to a CLP catalog — the same number ~950× apart,
           // which silently understated labour on every OT. Migration
           // 20260726150000 put the whole schema on CLP.
-          unit_cost: Math.round(line.hourlyRate),
+          //
+          // Tarifa EFECTIVA, no la base. Antes iba `line.hourlyRate` con
+          // `quantity: line.hours`, así que el asiento valía horas × tarifa
+          // base y el recargo de las horas extra quedaba sólo escrito en la
+          // nota — un número que ninguna pantalla suma. `line.cost` sí lo
+          // incluye (`regularHours × tarifa + overtimeHours × tarifa ×
+          // multiplicador`, labor-attribution.ts), así que se divide por las
+          // horas para que cantidad × unitario vuelva a dar el costo real.
+          // El redondeo a peso entero puede dejar una diferencia de pesos
+          // contra `line.cost`; es la misma convención de peso entero que usa
+          // el resto del proyecto, y es preferible a perder el recargo
+          // completo.
+          unit_cost: line.hours > 0
+            ? Math.round(line.cost / line.hours)
+            : Math.round(line.hourlyRate),
           recorded_by: userId,
           notes: `Turno del ${date}. ${line.regularHours} h normales${
             line.overtimeHours > 0 ? ` + ${line.overtimeHours} h extra ×${(line.cost / Math.max(line.hours * line.hourlyRate, 1)).toFixed(2)}` : ''
