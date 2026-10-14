@@ -6,7 +6,7 @@ import { use } from 'react';
 
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { LogoEmpresa } from '@/components/documentos/LogoEmpresa';
-import { CONDICIONES, EMPRESA, VIGENCIA_DIAS } from '@/lib/company';
+import { CONDICIONES, EMPRESA, VIGENCIA_DIAS, EMPRESA_PENDIENTE, datoEmpresa } from '@/lib/company';
 import { formatCLP } from '@/lib/format';
 import { priceBand } from '@/lib/ot-spec';
 
@@ -135,13 +135,36 @@ function Documento({ params }: { params: Promise<{ id: string }> }) {
 				<header className="flex items-start justify-between border-b-2 border-gray-900 pb-4">
 					<div>
 						<LogoEmpresa className="h-12 w-auto" />
+						{/*
+						  Sólo se imprime lo verificado. Un RUT o un domicilio de relleno en
+						  una cotización sale al cliente como si fuera cierto, y este
+						  documento ya decía en su propio encabezado que había que
+						  reemplazarlos antes de mandar uno — ese aviso vivía en un comentario
+						  que el que imprime no lee. Ahora el dato falso no se imprime y la
+						  advertencia se ve en pantalla.
+						*/}
 						<p className="mt-2 text-[10px] leading-relaxed text-gray-500">
-							{EMPRESA.razonSocial} · RUT {EMPRESA.rut}
-							<br />
-							{EMPRESA.direccion}, {EMPRESA.ciudad}
-							<br />
-							{EMPRESA.telefono} · {EMPRESA.email}
+							{EMPRESA.razonSocial}
+							{datoEmpresa('rut') ? ` · RUT ${datoEmpresa('rut')}` : ''}
+							{[datoEmpresa('direccion'), datoEmpresa('ciudad')].filter(Boolean).length > 0 && (
+								<>
+									<br />
+									{[datoEmpresa('direccion'), datoEmpresa('ciudad')].filter(Boolean).join(', ')}
+								</>
+							)}
+							{[datoEmpresa('telefono'), datoEmpresa('email')].filter(Boolean).length > 0 && (
+								<>
+									<br />
+									{[datoEmpresa('telefono'), datoEmpresa('email')].filter(Boolean).join(' · ')}
+								</>
+							)}
 						</p>
+						{EMPRESA_PENDIENTE.size > 0 && (
+							<p className="mt-2 rounded border border-amber-500 bg-amber-50 px-2 py-1 text-[10px] font-medium text-amber-900 print:hidden">
+								Faltan datos de la empresa ({[...EMPRESA_PENDIENTE].join(', ')}). Completar
+								src/lib/company.ts antes de enviar esta cotización a un cliente.
+							</p>
+						)}
 					</div>
 
 					<div className="text-right">
@@ -241,7 +264,9 @@ function Documento({ params }: { params: Promise<{ id: string }> }) {
 						))}
 					</ul>
 					<p className="mt-4 text-center text-[10px] text-gray-400">
-						{EMPRESA.nombre} · {EMPRESA.web} · {EMPRESA.telefono}
+						{[EMPRESA.nombre, datoEmpresa('web'), datoEmpresa('telefono')]
+							.filter(Boolean)
+							.join(' · ')}
 					</p>
 				</footer>
 			</article>

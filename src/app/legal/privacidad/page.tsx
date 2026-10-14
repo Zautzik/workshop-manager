@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { EMPRESA } from '@/lib/company';
+import { EMPRESA, datoEmpresa } from '@/lib/company';
 
 /**
  * Política de privacidad — /legal/privacidad
@@ -44,6 +44,17 @@ const ACTUALIZADA = '14 de octubre de 2026';
 /** Canal para ejercer derechos. Conviene que sea una casilla de rol, no personal. */
 const CONTACTO_PRIVACIDAD = 'rzautzikg@gmail.com';
 
+/**
+ * Cierra una frase con punto, sin duplicarlo.
+ *
+ * «Inversiones Gonsa S.A.» ya termina en punto, así que agregarle otro deja
+ * «S.A..». Pasa sólo cuando el RUT y el domicilio están pendientes y la frase
+ * termina justo en la razón social — o sea, hoy.
+ */
+function terminar(frase: string): string {
+	return frase.endsWith('.') ? frase : `${frase}.`;
+}
+
 function Seccion({
 	id,
 	titulo,
@@ -66,6 +77,12 @@ function Seccion({
 }
 
 export default function PoliticaPrivacidadPage() {
+	// `null` mientras el dato siga siendo de relleno — ver `EMPRESA_PENDIENTE`.
+	const rut = datoEmpresa('rut');
+	const direccion = datoEmpresa('direccion');
+	const ciudad = datoEmpresa('ciudad');
+	const domicilio = [direccion, ciudad].filter(Boolean).join(', ') || null;
+
 	return (
 		<main className="mx-auto max-w-3xl px-4 py-12 sm:py-16">
 			<header>
@@ -79,17 +96,27 @@ export default function PoliticaPrivacidadPage() {
 
 			<p className="mt-6 text-sm leading-relaxed text-muted-foreground">
 				GonsAdmin es el sistema interno de gestión de producción de {EMPRESA.razonSocial},{' '}
-				{EMPRESA.giro.toLowerCase()}, con domicilio en {EMPRESA.direccion}, {EMPRESA.ciudad}. Esta
-				política explica qué datos personales trata GonsAdmin —tanto los que llegan por su número
-				de WhatsApp como los del personal de la imprenta—, para qué se usan y cómo ejercer tus
-				derechos sobre ellos.
+				{EMPRESA.giro.toLowerCase()}. Esta política explica qué datos personales trata GonsAdmin
+				—tanto los que llegan por su número de WhatsApp como los del personal de la imprenta—,
+				para qué se usan y cómo ejercer tus derechos sobre ellos.
 			</p>
 
 			<Seccion id="responsable" titulo="1. Responsable">
+				{/*
+				  El RUT y el domicilio se imprimen SÓLO si son reales. Siguen en
+				  `EMPRESA_PENDIENTE`, y este es el documento que identifica al
+				  responsable del tratamiento: un nombre legal verdadero junto a un RUT
+				  inventado se lee como un dato verificado, y es peor que no decirlo.
+				  Al sacarlos de esa lista, la frase se completa sola.
+				*/}
 				<p>
-					El responsable del tratamiento es {EMPRESA.razonSocial}, RUT {EMPRESA.rut}, con
-					domicilio en {EMPRESA.direccion}, {EMPRESA.ciudad}. Para cualquier consulta sobre esta
-					política o sobre tus datos, escribe a{' '}
+					{/* `terminar` evita «S.A..»: la razón social ya trae su propio punto. */}
+					{terminar(
+						`El responsable del tratamiento es ${EMPRESA.razonSocial}` +
+							(rut ? `, RUT ${rut}` : '') +
+							(domicilio ? `, con domicilio en ${domicilio}` : ''),
+					)}{' '}
+					Para cualquier consulta sobre esta política o sobre tus datos, escribe a{' '}
 					<a className="text-primary underline underline-offset-2" href={`mailto:${CONTACTO_PRIVACIDAD}`}>
 						{CONTACTO_PRIVACIDAD}
 					</a>
