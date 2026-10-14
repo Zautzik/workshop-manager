@@ -13,7 +13,7 @@ the biggest margin.
 Tailwind + Radix · Zod · Recharts · Vitest
 
 ```
-187 migrations   163 API routes   87 domain libraries   1,058 tests
+191 migrations   164 API routes   88 domain libraries   1,058 tests
 ```
 
 ---
@@ -140,7 +140,7 @@ that looks like it works.
 ```bash
 npm install
 cp .env.example .env.local        # Supabase URL + keys
-npx supabase db push              # 187 migrations
+npx supabase db push              # 191 migrations
 npm run dev
 ```
 
@@ -186,13 +186,13 @@ time a person uses one. It happened four times before it became a script; see
 
 ```
 src/
-  app/              routes + 151 API handlers
+  app/              164 route files · 274 API handlers
   components/       UI, grouped by module
   lib/              ← the domain. pure, tested, no React
   lib/__tests__/    one test file per module
   integrations/     Supabase clients (browser anon vs. service role)
 supabase/
-  migrations/       187, ordered, each explaining its own reasoning
+  migrations/       191, ordered, each explaining its own reasoning
 scripts/
   seed/             the demo shop: a pure model + a writer
 docs/               design records and audits

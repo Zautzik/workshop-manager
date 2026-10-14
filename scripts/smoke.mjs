@@ -28,6 +28,8 @@ import { join } from 'node:path';
 
 const BASE = process.env.SMOKE_BASE_URL ?? 'http://localhost:3000';
 const MUTATE = process.argv.includes('--mutate');
+// Static checks only — no network, no running app. This is the CI-safe subset.
+const STATIC_ONLY = process.argv.includes('--static');
 
 let failures = 0;
 const fail = (msg) => { failures += 1; console.error(`  ✗ ${msg}`); };
@@ -96,10 +98,22 @@ async function readSweep() {
 const PUBLIC_ALLOWLIST = [
   'api/health/route.ts',              // liveness probe
   'api/track/[token]/route.ts',       // public tracker (share_token-gated)
+  'api/track/[token]/approval/route.ts', // client proof sign-off (share_token-gated)
   'api/whatsapp/webhook/route.ts',    // HMAC signature-gated
   'api/whatsapp/warehouse/webhook/route.ts', // HMAC signature-gated
   'api/auth/[...nextauth]/route.ts',  // NextAuth itself
   'api/attendance/clock/route.ts',    // QR kiosk (credential-in-body, no session)
+  'api/cron/maintenance-due-check/route.ts', // Vercel Cron; CRON_SECRET required, fails closed (503) when unset
+];
+
+// Write handlers that deliberately carry no role list because they only ever
+// touch the caller's own rows — every query is scoped with `.eq('user_id',
+// auth.id)` or inserts `user_id: auth.id`. A role gate here would be wrong,
+// not missing: it would stop people managing their own notifications and
+// saved searches.
+const SELF_SCOPED_ALLOWLIST = [
+  'api/notifications/route.ts',  // POST raises a notification for the caller; PATCH marks the caller's as read
+  'api/search/saved/route.ts',   // a person's own saved searches
 ];
 
 function walkRoutes(dir, acc = []) {
@@ -121,6 +135,53 @@ function authCoverage() {
     const allowed = PUBLIC_ALLOWLIST.some((a) => rel.endsWith(a));
     if (!gated && !allowed) fail(`${rel} has no requireAuth and is not allowlisted`);
     else ok(`${rel}${gated ? '' : '  (public by design)'}`);
+  }
+}
+
+/**
+ * Role coverage — authentication is not authorization.
+ *
+ * The 2026-10 audit found 23 write handlers in 15 files that asked only "are
+ * you signed in?". Two mattered that day: any user could approve a warehouse
+ * movement into stock, and any user could change anyone's skill levels, which
+ * decide who may run a machine. `requireAuth()` with no argument is a 401 gate
+ * with no 403 behind it.
+ *
+ * So this walks every POST/PUT/PATCH/DELETE handler and asserts it either
+ * passes roles to `requireAuth(...)`, checks them itself (`hasRole`,
+ * `isAdmin`, `isSupervisorOrAdmin`), or sits on one of the two allowlists
+ * above with a reason written next to it.
+ */
+function roleCoverage() {
+  console.log('\n■ Role coverage (static scan of write handlers)');
+  const routes = walkRoutes('src/app/api');
+  for (const route of routes) {
+    const rel = route.replaceAll('\\', '/').replace(/^.*src\/app\//, '');
+    const src = readFileSync(route, 'utf8');
+
+    if (PUBLIC_ALLOWLIST.some((a) => rel.endsWith(a))) continue;
+    const selfScoped = SELF_SCOPED_ALLOWLIST.some((a) => rel.endsWith(a));
+
+    // Split the file into handler bodies: from one `export async function VERB`
+    // to the next, so a gated GET cannot vouch for an ungated DELETE.
+    const marks = [];
+    const re = /export async function (GET|POST|PUT|PATCH|DELETE)\b/g;
+    let m;
+    while ((m = re.exec(src))) marks.push({ verb: m[1], at: m.index });
+
+    for (let i = 0; i < marks.length; i++) {
+      if (marks[i].verb === 'GET') continue;
+      const body = src.slice(marks[i].at, i + 1 < marks.length ? marks[i + 1].at : src.length);
+      const label = `${rel} ${marks[i].verb}`;
+
+      // `requireAuth(` followed by anything other than `)` means roles were passed.
+      const rolesPassed = /requireAuth\(\s*[^)\s]/.test(body);
+      const checksRoles = /hasRole\(|isAdmin\(|isSupervisorOrAdmin\(/.test(body);
+
+      if (rolesPassed || checksRoles) ok(label);
+      else if (selfScoped) ok(`${label}  (self-scoped by design)`);
+      else fail(`${label} accepts any signed-in role — pass roles to requireAuth() or allowlist it`);
+    }
   }
 }
 
@@ -190,8 +251,17 @@ async function goldenThread() {
 /* ── run ─────────────────────────────────────────────────────── */
 
 const started = Date.now();
-await readSweep();
+
+// `--static` runs only the checks that read files, never the network. That is
+// what CI can run: the read sweep needs the app up with a database behind it,
+// but auth and role coverage are a scan of `src/app/api` and catch the class of
+// regression that actually happened — a new route shipped without a gate.
+if (!STATIC_ONLY) await readSweep();
+else console.log('\n■ Read sweep skipped (--static)');
+
 authCoverage();
+roleCoverage();
+
 if (MUTATE) await goldenThread();
 else console.log('\n■ Golden thread skipped (pass --mutate to run against a dev/demo DB)');
 

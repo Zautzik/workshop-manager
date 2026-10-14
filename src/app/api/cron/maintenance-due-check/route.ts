@@ -43,15 +43,26 @@ export const dynamic = 'force-dynamic';
  */
 export async function GET(req: NextRequest) {
   // Vercel manda `Authorization: Bearer $CRON_SECRET` en las invocaciones de
-  // Cron cuando esa variable está configurada -- sin CRON_SECRET seteado
-  // (dev local) no se exige, igual que el resto de los checks de auth
-  // best-effort de este proyecto no bloquean cuando el secreto no existe.
+  // Cron. Antes, si `CRON_SECRET` no estaba seteada, este endpoint no exigía
+  // nada -- y es la única ruta sin sesión que escribe (crea órdenes de trabajo
+  // de mantención y manda avisos por WhatsApp).
+  //
+  // "Si falta el secreto, no exijas nada" es la forma de fallar abierto:
+  // la variable se puede borrar de Vercel sin que nadie lo note, y el endpoint
+  // queda público sin que cambie una línea de código. Los webhooks de WhatsApp
+  // de este mismo proyecto ya fallaban cerrado cuando les falta el secreto
+  // (`whatsapp-ingest`); esto los iguala.
   const cronSecret = process.env.CRON_SECRET;
-  if (cronSecret) {
-    const authHeader = req.headers.get('authorization') ?? '';
-    if (!timingSafeEqualStr(authHeader, `Bearer ${cronSecret}`)) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+  if (!cronSecret) {
+    logger.error('maintenance-due-check: falta CRON_SECRET — se rechaza la invocación');
+    return NextResponse.json(
+      { error: 'CRON_SECRET no configurado en el servidor' },
+      { status: 503 }
+    );
+  }
+  const authHeader = req.headers.get('authorization') ?? '';
+  if (!timingSafeEqualStr(authHeader, `Bearer ${cronSecret}`)) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
   const { data: schedules, error } = await supabaseAdmin

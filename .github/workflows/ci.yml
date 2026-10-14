@@ -15,7 +15,8 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          # Node 20 quedó sin soporte el 2026-04-30 y supabase-js declara >=22.
+          node-version: '22'
           cache: 'npm'
 
       - name: Install dependencies
@@ -55,3 +56,10 @@ jobs:
 
       - name: Verify CSP wiring
         run: npm run verify:csp
+
+      # Cobertura de auth y de rol: un escaneo de src/app/api, sin red y sin
+      # base de datos. Es el subconjunto de smoke.mjs que CI puede correr, y
+      # atrapa la regresión que de verdad pasó -- una ruta nueva sin control
+      # de rol. El barrido de lectura y el golden thread siguen siendo locales.
+      - name: Auth and role coverage (static)
+        run: npm run test:smoke:static
