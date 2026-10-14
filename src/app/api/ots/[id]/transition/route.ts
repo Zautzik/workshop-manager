@@ -14,6 +14,7 @@ import { estimatedHoursFor, promptsStageReport } from '@/lib/stage-report';
 import { loadRoleAccess } from '@/lib/transition-rules';
 import { dispatchNotifications, emitDomainEvent } from '@/lib/domain-events';
 import { tryBackflush } from '@/lib/backflush';
+import { cuentaParaCalidadInterna } from '@/lib/ot-approval-origin';
 
 // Las mismas tres etapas donde /operaciones/escanear ofrece el recordatorio
 // de escanear un lote (ver CierreDeEtapa.tsx) — es donde el papel deja bodega.
@@ -115,9 +116,29 @@ export async function POST(
     const fromStatus = o.status as OTWorkflowStatus;
 
     const [approvalResult, costsResult, roleAccess] = await Promise.all([
+      // La compuerta de calidad NO cuenta lo que firmó el portal público.
+      //
+      // Antes contaba cualquier fila con `status = 'approved'`, y una de las
+      // vías que las escribe es `POST /api/track/[token]/approval` — el portal
+      // del cliente, que no tiene sesión: se entra con el share token. O sea
+      // que alguien externo con un enlace satisfacía el control de calidad
+      // interno firmando su propia prueba (auditoría 2026-10 §Quality).
+      //
+      // Se excluye por las dos marcas que el portal se pone a sí mismo, no por
+      // una sola: `confirmed_via` es la intención declarada y `recorded_by` la
+      // huella del actor. Un visto bueno del cliente que registró un vendedor
+      // por `/api/ots/[id]/approvals` sí cuenta — ahí hay alguien del taller
+      // identificado que responde por la fila. Ver `@/lib/ot-approval-origin`.
+      // Se traen las filas en vez de contarlas en SQL, a propósito. Filtrar
+      // «no es del portal» en PostgREST necesitaría `neq` sobre dos columnas
+      // que pueden ser NULL, y `neq` descarta los NULL — una aprobación
+      // interna con `recorded_by` nulo quedaría fuera del conteo y la OT no
+      // podría pasar NUNCA a lista para despacho. El predicado vive una sola
+      // vez, en `cuentaParaCalidadInterna`, donde además está testeado. Son
+      // pocas filas por OT (hay una restricción de una por vuelta).
       supabaseAdmin
         .from('ot_approvals')
-        .select('id', { count: 'exact', head: true })
+        .select('status, confirmed_via, recorded_by')
         .eq('ot_id', id)
         .eq('status', 'approved'),
       supabaseAdmin
@@ -175,7 +196,7 @@ export async function POST(
       quotedPrice: (cotizacion as any)?.data?.total_price ?? null,
       firmPrice: o.total_price ?? null,
       repriceApproved: Boolean(parsed.data.metadata?.reprice_approved),
-      hasApprovedApproval: (approvalResult.count ?? 0) > 0,
+      hasApprovedApproval: (approvalResult.data ?? []).some(cuentaParaCalidadInterna),
       hasAnyRealCosts: (costsResult.count ?? 0) > 0,
       rollback: parsed.data.rollback ?? false,
       // `?? undefined` y no `?? []`: una lista vacía significaría «no falta

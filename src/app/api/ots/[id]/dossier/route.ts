@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { isAuthError, requireAuth } from '@/lib/api-middleware';
 import { supabaseAdmin } from '@/integrations/supabase/server';
 import { certStatusAtUse, evaluateDossierCompliance, type CertStatusAtUse } from '@/lib/fssc';
+import { cuentaParaCalidadInterna, esDelPortalPublico } from '@/lib/ot-approval-origin';
 
 // GET /api/ots/[id]/dossier
 // The FSSC 22000 traceability dossier ("Expediente de OT"): assembles, from data
@@ -64,7 +65,9 @@ export async function GET(
         .order('created_at', { ascending: true }),
       supabaseAdmin
         .from('ot_approvals')
-        .select('id, status, comments, approver_id, requested_by, resolved_at, created_at')
+        // `confirmed_via` y `recorded_by` distinguen la revisión interna del
+        // visto bueno que el cliente firmó por el portal público.
+        .select('id, status, comments, approver_id, requested_by, resolved_at, created_at, confirmed_via, recorded_by')
         .eq('ot_id', id)
         .order('created_at', { ascending: false }),
     ]);
@@ -171,7 +174,10 @@ export async function GET(
     }
 
     const attachments = (attRes.data ?? []) as Array<{ id: string; filename: string; storage_path: string; mime_type: string | null; created_at: string }>;
-    const approvals = (apprRes.data ?? []) as Array<{ id: string; status: string; comments: string | null; resolved_at: string | null; created_at: string }>;
+    const approvals = (apprRes.data ?? []) as Array<{
+      id: string; status: string; comments: string | null; resolved_at: string | null;
+      created_at: string; confirmed_via: string | null; recorded_by: string | null;
+    }>;
 
     // Short-lived signed URLs for image attachments so the dossier shows thumbnails.
     const imagePaths = attachments.filter((a) => (a.mime_type ?? '').startsWith('image/')).map((a) => a.storage_path);
@@ -186,7 +192,22 @@ export async function GET(
 
     // ── Compliance verdict ──
     const photoCount = attachments.filter((a) => (a.mime_type ?? '').startsWith('image/')).length || attachments.length;
-    const hasApproval = approvals.some((a) => a.status === 'approved');
+
+    // El veredicto de cumplimiento NO cuenta el visto bueno que el cliente
+    // firmó por el portal.
+    //
+    // Antes contaba cualquier fila `approved`, y `POST /api/track/[token]/approval`
+    // escribe ahí sin sesión (sólo el share token). Este expediente es el
+    // documento de calidad: decir «hay aprobación» porque el cliente aceptó su
+    // propia prueba afirma que la imprenta revisó el trabajo cuando nadie lo
+    // revisó. Las dos cosas se informan por separado para que el expediente
+    // siga mostrando el visto bueno del cliente — es evidencia válida, de otra
+    // cosa. Ver `@/lib/ot-approval-origin`.
+    const internalApprovals = approvals.filter(cuentaParaCalidadInterna);
+    const clientPortalApprovals = approvals.filter(
+      (a) => a.status === 'approved' && esDelPortalPublico(a)
+    );
+    const hasApproval = internalApprovals.length > 0;
     const verdict = evaluateDossierCompliance({
       materialCertStatuses: materials.map((m) => m.cert_status),
       materialsCount: materials.length,
@@ -204,7 +225,11 @@ export async function GET(
         cert_issues: verdict.certIssues,
         materials_count: materials.length,
         photo_count: photoCount,
+        // `has_approval` significa ahora «hay revisión de calidad interna».
         has_approval: hasApproval,
+        // Se informa aparte para que quien lea el expediente vea que el
+        // cliente sí firmó, sin que eso se confunda con la revisión interna.
+        client_portal_approval_count: clientPortalApprovals.length,
         reasons: verdict.reasons,
       },
     });

@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { supabaseAdmin } from '@/integrations/supabase/server';
 import { buildRateLimitActor, enforceRouteRateLimit } from '@/lib/api-rate-limit';
 import { approvalState, nextRound, validateApproval, type ApprovalRow } from '@/lib/approval';
+import { PORTAL_ACTOR } from '@/lib/ot-approval-origin';
 import { validateTransition } from '@/lib/ot-state-machine';
 import { loadRoleAccess } from '@/lib/transition-rules';
 import { dispatchNotifications, emitDomainEvent } from '@/lib/domain-events';
@@ -40,10 +41,10 @@ export const dynamic = 'force-dynamic';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-// `ot_approvals.recorded_by` no tiene FK (ver comentario donde se usa) así
-// que este UUID nunca necesita resolver a una fila real de `auth.users` --
-// es una constante legible, no un id inventado.
-const PORTAL_ACTOR = '00000000-0000-0000-0000-000000000000';
+// `PORTAL_ACTOR` se movió a `@/lib/ot-approval-origin`: ahora lo leen tres
+// lugares —este escritor, la compuerta de `ready_for_delivery` que lo excluye,
+// y el expediente de calidad que lo etiqueta— y tres copias de un UUID mágico
+// es cómo se llega a que una deje de calzar.
 
 const CuerpoSchema = z.object({
   decision: z.enum(['approved', 'rejected']),

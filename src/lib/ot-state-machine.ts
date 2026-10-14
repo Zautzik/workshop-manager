@@ -328,11 +328,21 @@ export function validateTransition(input: TransitionValidationInput): Transition
     }
   }
 
+  // `hasApprovedApproval` lo calcula quien llama, y desde 2026-10 excluye las
+  // filas que escribió el portal público del cliente: una prueba que el cliente
+  // firmó con su enlace no es la revisión de calidad de la imprenta. El
+  // mensaje lo dice, porque el caso más probable de esta compuerta es
+  // justamente una OT que YA tiene el visto bueno del cliente y a la que le
+  // falta la revisión interna — y un "se requiere una aprobación" a secas
+  // manda al operador a buscar algo que cree que ya hizo.
   if (toStatus === 'ready_for_delivery' && !hasApprovedApproval) {
     return {
       ok: false,
       code: 'APPROVAL_REQUIRED',
-      message: 'Se requiere una aprobación de calidad antes de marcar lista para despacho.',
+      message:
+        'Falta la revisión de calidad de la imprenta antes de marcar lista para despacho. ' +
+        'El visto bueno que el cliente firmó por el portal no la reemplaza: lo tiene que ' +
+        'aprobar alguien del taller.',
     };
   }
 
