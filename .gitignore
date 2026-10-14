@@ -48,3 +48,7 @@ vivo/
 
 # Salida suelta de herramientas ad hoc — no es un artefacto del build.
 tables.json
+
+# Respaldos de la base. Contienen dato personal de empleados (RUT, teléfono,
+# contrato, remuneración) y el repositorio es público: nunca se versionan.
+backups/
