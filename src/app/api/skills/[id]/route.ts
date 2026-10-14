@@ -90,7 +90,7 @@ export async function PUT(
   request: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
-  const auth = await requireAuth();
+  const auth = await requireAuth(['admin', 'hr_manager']);
   if (isAuthError(auth)) return auth;
 
   try {
@@ -153,7 +153,7 @@ export async function DELETE(
   request: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
-  const auth = await requireAuth();
+  const auth = await requireAuth(['admin', 'hr_manager']);
   if (isAuthError(auth)) return auth;
 
   try {

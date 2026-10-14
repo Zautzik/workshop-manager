@@ -43,7 +43,7 @@ export async function GET(request: NextRequest) {
  * Create or update a proficiency level
  */
 export async function POST(request: NextRequest) {
-  const auth = await requireAuth();
+  const auth = await requireAuth(['admin', 'hr_manager']);
   if (isAuthError(auth)) return auth;
 
   try {
@@ -128,7 +128,7 @@ export async function POST(request: NextRequest) {
  * Query params: id
  */
 export async function DELETE(request: NextRequest) {
-  const auth = await requireAuth();
+  const auth = await requireAuth(['admin', 'hr_manager']);
   if (isAuthError(auth)) return auth;
 
   try {

@@ -26,7 +26,7 @@ async function ensureBucketExists() {
 }
 
 export async function POST(req: NextRequest) {
-  const auth = await requireAuth();
+  const auth = await requireAuth(['admin', 'supervisor', 'manager']);
   if (isAuthError(auth)) return auth;
 
   try {

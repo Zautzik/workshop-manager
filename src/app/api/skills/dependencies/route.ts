@@ -43,7 +43,7 @@ export async function GET(request: NextRequest) {
  * Create a new skill dependency
  */
 export async function POST(request: NextRequest) {
-  const auth = await requireAuth();
+  const auth = await requireAuth(['admin', 'hr_manager']);
   if (isAuthError(auth)) return auth;
 
   try {

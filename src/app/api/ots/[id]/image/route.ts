@@ -11,7 +11,7 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const authResult = await requireAuth();
+  const authResult = await requireAuth(['admin', 'supervisor', 'manager']);
   if (isAuthError(authResult)) return authResult;
 
   const actorId = typeof authResult === 'object' && 'id' in authResult ? authResult.id : null;
@@ -98,7 +98,7 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const authResult = await requireAuth();
+  const authResult = await requireAuth(['admin', 'supervisor', 'manager']);
   if (isAuthError(authResult)) return authResult;
 
   const actorId = typeof authResult === 'object' && 'id' in authResult ? authResult.id : null;

@@ -444,15 +444,20 @@ export function useEmployeeCostTimeline(
 ) {
   return useQuery<EmployeeCostTimelineRow[]>({
     queryKey: queryKeys.employeeCostTimeline(employeeId, startDate, endDate, granularity),
+    // Goes through the API, not `supabase.rpc`, on purpose.
+    // `get_employee_cost_timeline` is SECURITY DEFINER and reads past RLS, and
+    // calling it from here meant the publishable key could ask for anyone's
+    // remuneration by UUID. Migration 20261014122000 revokes the default
+    // PUBLIC grant that made that work; the route carries the admin/hr_manager
+    // gate instead.
     queryFn: async () => {
-      const { data, error } = await supabase.rpc('get_employee_cost_timeline', {
-        p_employee_id: employeeId,
-        p_start_date: startDate,
-        p_end_date: endDate,
-        p_granularity: granularity,
-      });
-      if (error) throw error;
-      return data ?? [];
+      const qs = new URLSearchParams({ start: startDate, end: endDate, granularity });
+      const res = await fetch(
+        `/api/employees/${encodeURIComponent(employeeId)}/cost-timeline?${qs}`
+      );
+      const body = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(body?.error ?? 'No se pudo cargar el costo de la persona');
+      return body?.data ?? [];
     },
     enabled: !!employeeId && !!startDate && !!endDate,
   });

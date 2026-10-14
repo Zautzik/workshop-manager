@@ -12,7 +12,7 @@ import { requireAuth, isAuthError } from '@/lib/api-middleware';
  * tree used to run its own insert-or-update browser-direct to decide).
  */
 export async function POST(request: NextRequest) {
-  const auth = await requireAuth();
+  const auth = await requireAuth(['admin', 'supervisor', 'hr_manager']);
   if (isAuthError(auth)) return auth;
 
   try {
@@ -76,7 +76,7 @@ export async function POST(request: NextRequest) {
  * Update employee skill
  */
 export async function PUT(request: NextRequest) {
-  const auth = await requireAuth();
+  const auth = await requireAuth(['admin', 'supervisor', 'hr_manager']);
   if (isAuthError(auth)) return auth;
 
   try {
@@ -121,7 +121,7 @@ export async function PUT(request: NextRequest) {
  * Remove skill from employee
  */
 export async function DELETE(request: NextRequest) {
-  const auth = await requireAuth();
+  const auth = await requireAuth(['admin', 'supervisor', 'hr_manager']);
   if (isAuthError(auth)) return auth;
 
   try {

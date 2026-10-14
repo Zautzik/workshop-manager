@@ -4,7 +4,7 @@ import { requireAuth, isAuthError } from '@/lib/api-middleware';
 import { supabaseAdmin } from '@/integrations/supabase/server';
 import { MIN_PASSWORD_LENGTH, MAX_PASSWORD_LENGTH, checkPassword } from '@/lib/password-policy';
 import { buildRateLimitActor, enforceRouteRateLimit } from '@/lib/api-rate-limit';
-import type { AppRole } from '@/types/app-role';
+import { APP_ROLES, type AppRole } from '@/types/app-role';
 
 const CreateUserSchema = z.object({
 	email: z.string().email().max(255),
@@ -14,7 +14,7 @@ const CreateUserSchema = z.object({
 		.max(MAX_PASSWORD_LENGTH)
 		.refine((p) => checkPassword(p).ok, (p) => ({ message: checkPassword(p).reason ?? 'Invalid password.' })),
 	name: z.string().min(1).max(255).optional(),
-	role: z.enum(['supervisor', 'manager', 'hr_manager', 'admin', 'technician']),
+	role: z.enum(APP_ROLES),
 	department: z.string().max(100).optional().nullable(),
 	manager_domain: z.string().max(100).optional().nullable(),
 });
@@ -224,7 +224,7 @@ export async function DELETE(request: NextRequest) {
 
 const UpdateUserSchema = z.object({
 	id: z.string().uuid(),
-	role: z.enum(['supervisor', 'manager', 'hr_manager', 'admin', 'technician']).optional(),
+	role: z.enum(APP_ROLES).optional(),
 	department: z.string().max(100).optional().nullable(),
 	manager_domain: z.string().max(100).optional().nullable(),
 });

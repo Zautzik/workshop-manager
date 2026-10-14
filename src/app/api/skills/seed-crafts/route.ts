@@ -11,7 +11,7 @@ import { SKILL_NODES, CONNECTIONS } from '@/lib/craft-skill-paths';
  * updated (upsert), so running this multiple times is safe.
  */
 export async function POST() {
-  const auth = await requireAuth();
+  const auth = await requireAuth(['admin']);
   if (isAuthError(auth)) return auth;
 
   const sb = supabaseAdmin;

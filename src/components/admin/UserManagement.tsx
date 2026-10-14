@@ -35,7 +35,13 @@ import { useLanguage } from '@/contexts/LanguageContext';
 /*  Types                                                              */
 /* ------------------------------------------------------------------ */
 
-type AppRole = 'admin' | 'manager' | 'supervisor' | 'hr_manager' | 'technician';
+// Se importa el tipo canónico en vez de redeclararlo. La copia local que vivía
+// acá omitía 'vendedor', y como esta pantalla es la única que asigna roles, el
+// rol existía en toda la API, en la máquina de estados y en las policies —
+// pero no se le podía dar a nadie. Dos definiciones del mismo tipo es
+// exactamente el patrón que NOTES.md §5 llama el más persistente del
+// repositorio; la forma de que no vuelva a pasar es que haya una sola.
+import type { AppRole } from '@/types/app-role';
 
 interface UserRow {
   id: string;
@@ -260,6 +266,7 @@ const UserManagement = ({ onUpdate }: UserManagementProps) => {
       case 'manager': return 'bg-manager text-manager-foreground';
       case 'supervisor': return 'bg-supervisor text-supervisor-foreground';
       case 'technician': return 'bg-orange-500 text-white';
+      case 'vendedor': return 'bg-amber-600 text-white';
       default: return 'bg-secondary text-secondary-foreground';
     }
   };
@@ -450,6 +457,15 @@ const UserManagement = ({ onUpdate }: UserManagementProps) => {
                       <div>
                         <div className="font-medium">{t('technician')}</div>
                         <div className="text-xs text-muted-foreground">Ejecuta listas de verificación de mantenimiento</div>
+                      </div>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="vendedor">
+                    <div className="flex items-center gap-2">
+                      <div className="w-3 h-3 rounded-full bg-amber-600" />
+                      <div>
+                        <div className="font-medium">Vendedor</div>
+                        <div className="text-xs text-muted-foreground">Cotiza, crea vistos buenos y sigue sus propios pedidos</div>
                       </div>
                     </div>
                   </SelectItem>

@@ -43,7 +43,7 @@ const ReviewSchema = z.object({
 });
 
 export async function PATCH(req: NextRequest, { params }: Params) {
-  const auth = await requireAuth();
+  const auth = await requireAuth(['admin', 'supervisor', 'manager']);
   if (auth instanceof NextResponse) return auth;
 
   const { id } = await params;

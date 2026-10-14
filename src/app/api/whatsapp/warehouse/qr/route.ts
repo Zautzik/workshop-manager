@@ -20,7 +20,7 @@ const QRRequestSchema = z.object({
 });
 
 export async function POST(req: NextRequest) {
-  const auth = await requireAuth();
+  const auth = await requireAuth(['admin', 'supervisor', 'manager']);
   if (auth instanceof NextResponse) return auth;
 
   const body = await req.json();
