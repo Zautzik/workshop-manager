@@ -8,7 +8,11 @@ import { resolveIdentity, type IdentityMethod } from '@/lib/identity';
 // are identified by badge.
 
 const ClockSchema = z.object({
-  method: z.enum(['qr', 'face', 'manual']).default('qr'),
+  // Sin 'face': el adaptador de reconocimiento facial se eliminó el 2026-10-15
+  // (dato biométrico = sensible bajo la Ley 21.719; ver el encabezado de
+  // @/lib/identity). Aceptarlo acá daría un 500 desde el resolver en vez de un
+  // 400 claro, así que el esquema lo rechaza antes.
+  method: z.enum(['qr', 'manual']).default('qr'),
   value: z.string().min(1),
   event_type: z.enum(['clock_in', 'clock_out']).default('clock_in'),
   // `attendance_events` has no `station_id` column — the real FK is
@@ -72,15 +76,9 @@ export async function POST(req: NextRequest) {
     }
     const { method, value, event_type, machine_id } = parsed.data;
 
-    let identity;
-    try {
-      identity = await resolveIdentity(method as IdentityMethod, value);
-    } catch (e) {
-      if ((e as Error).message === 'FACE_ADAPTER_NOT_CONFIGURED') {
-        return NextResponse.json({ error: 'Reconocimiento facial no configurado' }, { status: 501 });
-      }
-      throw e;
-    }
+    // Ya no hace falta try/catch: el único error que el resolver podía lanzar
+    // era FACE_ADAPTER_NOT_CONFIGURED, y ese adaptador se eliminó.
+    const identity = await resolveIdentity(method as IdentityMethod, value);
     if (!identity) {
       return NextResponse.json({ error: 'Operario no reconocido' }, { status: 404 });
     }

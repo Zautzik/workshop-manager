@@ -45,12 +45,42 @@ describe('identidad de la empresa', () => {
 			expect(Object.keys(EMPRESA)).toContain(campo);
 		}
 	});
+});
 
-	it('el RUT de relleno no se puede publicar mientras siga pendiente', () => {
-		// 76.543.210-K es inventado. Mientras esté pendiente, nadie lo imprime.
-		if (EMPRESA.rut === '76.543.210-K') {
-			expect(datoPendiente('rut')).toBe(true);
-			expect(datoEmpresa('rut')).toBeNull();
-		}
+/**
+ * Dígito verificador del RUT, módulo 11.
+ *
+ * Vale la pena porque habría atrapado el relleno sin que nadie lo mirara: el
+ * RUT inventado era 76.543.210-K, y su dígito correcto es 3. Ningún RUT real
+ * pudo haber sido ése. Una cadena con el formato correcto se lee como válida;
+ * el dígito es lo que distingue un RUT de un número con puntos.
+ */
+function digitoVerificador(cuerpo: string): string {
+	let suma = 0;
+	let factor = 2;
+	for (let i = cuerpo.length - 1; i >= 0; i--) {
+		suma += Number(cuerpo[i]) * factor;
+		factor = factor === 7 ? 2 : factor + 1;
+	}
+	const resto = 11 - (suma % 11);
+	return resto === 11 ? '0' : resto === 10 ? 'K' : String(resto);
+}
+
+describe('el RUT de la empresa', () => {
+	it('tiene el dígito verificador correcto', () => {
+		const [cuerpo, dv] = EMPRESA.rut.replace(/\./g, '').split('-');
+		expect(dv.toUpperCase()).toBe(digitoVerificador(cuerpo));
+	});
+
+	it('el relleno viejo no habría pasado esta prueba', () => {
+		// Deja constancia de por qué la prueba existe.
+		expect(digitoVerificador('76543210')).toBe('3');
+		expect(digitoVerificador('76543210')).not.toBe('K');
+	});
+
+	it('ya no queda ningún campo pendiente', () => {
+		// Si alguien agrega un campo nuevo sin verificarlo, esto falla y la
+		// cotización vuelve a mostrar su advertencia.
+		expect([...EMPRESA_PENDIENTE]).toEqual([]);
 	});
 });

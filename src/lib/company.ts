@@ -7,10 +7,13 @@
  *
  * ── Qué es real y qué falta ─────────────────────────────────────────────────
  *
- * Reales desde 2026-10-14: `razonSocial`, `nombre`, `direccion`, `comuna`,
- * `ciudad` y `email`. Los dos que siguen siendo de relleno están enumerados en
- * `EMPRESA_PENDIENTE`, más abajo, y hay que cambiarlos ANTES de mandar un solo
- * documento a un cliente: **RUT y teléfono**.
+ * **Todos los campos son reales desde 2026-10-15.** `EMPRESA_PENDIENTE` quedó
+ * vacío, así que la política de privacidad imprime el RUT y el domicilio, y la
+ * cotización ya no muestra la advertencia de datos faltantes.
+ *
+ * El RUT 83.383.100-3 se verificó con módulo 11 (dígito verificador correcto).
+ * De paso quedó claro que el relleno anterior, 76.543.210-K, era imposible: su
+ * dígito debía ser 3, no K — ningún RUT real pudo haber sido ése.
  *
  * No hay `web`: la imprenta no tiene sitio, y el campo se quitó en vez de
  * dejarlo vacío — un string vacío se cuela en un pie de página como un
@@ -31,7 +34,7 @@
 export const EMPRESA = {
 	nombre: 'Gonsa',
 	razonSocial: 'Inversiones Gonsa S.A.',
-	rut: '76.543.210-K',
+	rut: '83.383.100-3',
 	giro: 'Impresión offset y digital · Envases y etiquetas',
 	// Dirección legal en tres partes, como se escribe en Chile: calle y número,
 	// comuna, ciudad. Juntarlas en un solo string obliga a cada plantilla a
@@ -40,7 +43,7 @@ export const EMPRESA = {
 	direccion: 'Apóstol Santiago 470',
 	comuna: 'Quinta Normal',
 	ciudad: 'Santiago',
-	telefono: '+56 2 2345 6789',
+	telefono: '+56 9 6658 8249',
 	email: 'rzautzikg@gmail.com',
 } as const;
 
@@ -58,8 +61,9 @@ export const EMPRESA = {
  * señal de que el dato se verificó.
  */
 export const EMPRESA_PENDIENTE = new Set<keyof typeof EMPRESA>([
-	'rut',
-	'telefono',
+	// Vacío desde 2026-10-15: todos los datos están verificados. El mecanismo se
+	// conserva porque el próximo campo nuevo —o el próximo que se descubra
+	// equivocado— tiene que poder marcarse sin tocar las plantillas.
 ]);
 
 /** ¿Este campo sigue siendo de relleno? */

@@ -5,7 +5,7 @@ Qué se respalda, con qué comando, dónde queda, y cómo se prueba que sirve.
 | | |
 |---|---|
 | Escrito | 2026-10-14, como Fase 0 del [plan de remediación](audit-remediation-plan-2026-10-14.md) |
-| Estado | **El procedimiento está escrito; nadie ha tomado ni restaurado un respaldo todavía.** Los comandos necesitan la credencial del proyecto, que tiene el dueño. |
+| Estado | **Primer respaldo tomado el 2026-10-15.** Los tres dumps corrieron OK. La restauración de prueba sigue pendiente — ver §3. |
 | Por qué existe | La checklist de salida a producción de julio tiene el ítem de respaldo sin marcar. El repositorio no tenía script de dump, prueba de restauración, ni procedimiento para operar con la aplicación caída. |
 
 ---
@@ -19,9 +19,9 @@ De la [página de precios de Supabase](https://supabase.com/pricing):
 | Free | **Ninguno.** Además el proyecto se pausa tras una semana sin uso, y el límite es 500 MB | — |
 | Pro | Diario, retención 7 días | Point-in-time recovery es un adicional aparte |
 
-**Si el proyecto está en Free, no existe ningún respaldo automático hoy.** Los comandos de abajo son entonces el único respaldo, y hay que correrlos a mano. Pasar a Pro es la compra de mayor valor en todo el plan de remediación: convierte "no hay respaldo" en "hay uno de ayer".
+**El proyecto está hoy en Free** (confirmado por el dueño el 2026-10-15; el plan es pasar a Pro, pero todavía no). Así que **no existe ningún respaldo automático**: los dumps de abajo son el único respaldo que hay, y hay que correrlos a mano.
 
-Esto es una decisión del dueño (Q-2 del plan). El resto de este documento sirve igual en cualquiera de los dos planes: un respaldo automático que nadie restauró nunca tampoco es un respaldo.
+Pasar a Pro sigue siendo la compra de mayor valor del plan de remediación — convierte "el último respaldo es de cuando alguien se acordó" en "hay uno de ayer". Y aun en Pro, un respaldo automático que nadie restauró nunca tampoco es un respaldo: §3 no se vuelve opcional.
 
 ---
 
@@ -29,8 +29,10 @@ Esto es una decisión del dueño (Q-2 del plan). El resto de este documento sirv
 
 `supabase db dump` **no** trae todo en una sola pasada. La referencia del CLI es explícita: por defecto excluye los esquemas administrados por Supabase (`auth`, `storage`, los de extensiones) y «does not contain any data or custom roles». Son tres comandos, no uno.
 
+**Hace falta Docker.** `supabase db dump` corre `pg_dump` dentro de un contenedor, así que con Docker Desktop apagado falla con `DockerRunError` y deja un archivo de 0 bytes. No hay `pg_dump` nativo en esta máquina. Levantar Docker Desktop y esperar unos segundos es todo.
+
 ```bash
-# 0) una sola vez: enlazar el proyecto
+# 0) una sola vez: enlazar el proyecto (ya está enlazado)
 supabase link --project-ref sgnbbatucphbqhahgczq
 
 mkdir -p backups
@@ -46,6 +48,20 @@ supabase db dump --linked --role-only -f backups/$(date +%F)_roles.sql
 ```
 
 Para ver qué `pg_dump` va a correr sin ejecutarlo: agregar `--dry-run`.
+
+Lo que dio la primera corrida (2026-10-15), como referencia de que salió bien:
+
+| Archivo | Tamaño | Contenido |
+|---|---|---|
+| `_schema.sql` | 560 KB | tablas, vistas, funciones y policies |
+| `_data.sql` | 4,7 MB | **133 bloques `COPY`** |
+| `_roles.sql` | 297 B | roles del cluster |
+
+`pg_dump` avisa que un dump `--data-only` puede no restaurarse sin
+`--disable-triggers`. En la práctica el archivo ya empieza con
+`SET session_replication_role = replica`, que desactiva los triggers durante la
+carga — por eso el orden de §3 (roles → esquema → datos) funciona. Si alguna vez
+falla por una restricción, ahí está la pista.
 
 `backups/` está en `.gitignore` y tiene que seguir estándolo: el dump de datos trae RUT, teléfono, contrato y remuneración de cada empleado, y este repositorio es público. **Un dump en un commit es una filtración de dato personal, no un descuido de higiene.**
 

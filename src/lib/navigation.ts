@@ -176,7 +176,11 @@ export const MODULES: NavModule[] = [
         color: 'from-rose-500/10 to-pink-500/5', border: 'border-rose-500/20', heading: 'text-rose-400',
         items: [
           { label: 'Expediente',      href: '/calidad/expediente',   description: 'Trazabilidad documental FSSC 22000 por orden',        icon: FileCheck,   color: 'bg-rose-500/10 text-rose-400' },
-          { label: 'Simulacro Retiro',href: '/calidad/recall',       description: 'Mock recall: del lote a las OTs y clientes afectados', icon: AlertCircle, color: 'bg-amber-500/10 text-amber-400' },
+          { label: 'Retiro hacia adelante', href: '/calidad/recall', description: 'Mock recall: del lote a las OTs y clientes afectados', icon: AlertCircle, color: 'bg-amber-500/10 text-amber-400' },
+          // La otra mitad del rastreo FSSC, que existía sin entrada en el menú:
+          // 239 líneas funcionando contra /api/recall/hacia-atras, inalcanzables
+          // salvo escribiendo la URL (auditoría 2026-10, Quality).
+          { label: 'Retiro hacia atrás',    href: '/calidad/retiro', description: 'De una OT entregada a los lotes y proveedores de origen', icon: Truck,       color: 'bg-amber-500/10 text-amber-400' },
           { label: 'Certificaciones', href: '/calidad/certificaciones', description: 'Registro FSSC de certificados de insumos y vencimientos', icon: BadgeCheck, color: 'bg-emerald-500/10 text-emerald-400' },
           { label: 'Ciclo de OT',     href: '/calidad/trazabilidad', description: 'Lead time, cuellos de botella y recorrido de cada OT', icon: GitMerge,    color: 'bg-pink-500/10 text-pink-400' },
           { label: 'Retención',       href: '/calidad/retencion',    description: 'Conservación de registros FSSC 22000 (5 años)',        icon: Archive,     color: 'bg-violet-500/10 text-violet-400' },
@@ -336,7 +340,19 @@ export const MODULES: NavModule[] = [
         color: 'from-indigo-500/10 to-cyan-500/5', border: 'border-indigo-500/20', heading: 'text-indigo-400',
         items: [
           { label: 'Tendencias',  href: '/analitica/tendencias',  description: 'Cómo evolucionan las métricas del taller', icon: TrendingUp,     color: 'bg-cyan-500/10 text-cyan-400' },
-          { label: 'Rendimiento', href: '/analitica/rendimiento', description: 'Productividad por persona y por equipo',   icon: ClipboardCheck, color: 'bg-indigo-500/10 text-indigo-400' },
+          // 'Rendimiento' se quitó del menú el 2026-10-15. Lee worker_stats,
+          // una vista sobre employees, y NADA escribe las seis columnas que
+          // informa: attendance_score, quality_score, speed_score,
+          // overall_rating, sheets_per_hour y teamwork_rating sólo aparecen en
+          // dos rutas — una de lectura y el POST de /api/workers, que acepta
+          // name, department y status. La pantalla promete un informe de datos
+          // que ningún código produce.
+          //
+          // Una entrada de menú que no puede tener datos es peor que una ruta
+          // inalcanzable: la primera se lee como 'el taller no tiene
+          // productividad', la segunda no se lee. La página sigue en
+          // /analitica/rendimiento para quien tenga el enlace, y vuelve al menú
+          // cuando algo escriba esas columnas.
         ],
       },
     ],
