@@ -27,10 +27,10 @@ A test that turns red depending on what else the machine is doing trains people 
 | Phase | State |
 |---|---|
 | 0 — Backup | **Procedure written** ([`backup-y-restauracion.md`](backup-y-restauracion.md)), `backups/` git-ignored. **No dump taken** — needs the project credential. Owner. |
-| 1A — RLS on 12 tables | Migration written, **not pushed** |
-| 1B — Views `security_invoker` | Migration written, **not pushed** |
-| 1C — Function grants | Migration written, **not pushed** |
-| 1D — `search_path` + `pg_temp` | Migration written, **not pushed** |
+| 1A — RLS on 11 tables | **APPLIED** 2026-10-15 |
+| 1B — Views `security_invoker` | **APPLIED** 2026-10-15 |
+| 1C — Function grants | **APPLIED** 2026-10-15 |
+| 1D — `search_path` + `pg_temp` | **APPLIED** 2026-10-15 |
 | 1E — Role gates + `/api/workers` | **Done** — 18 handlers gated, columns narrowed |
 | 1F — Role coverage in CI | **Done** — `smoke.mjs` extended, wired into CI |
 | 2 — HR data path | **DONE for the four live HR tabs** (see §0 below). Q-1 answered YES on 2026-10-14: same screen, same session, two data paths — Equipo (service role) populated, Contratos (browser `anon`) empty. The tab now renders **38 contracts**. A live bug fix, not hygiene. |
@@ -95,6 +95,20 @@ While rewriting it I introduced and caught a parse-breaking bug: JavaScript's `S
 - **Works and is anon-readable**: `batches` (no RLS), plus `jobs`, `machines`, `worker_assignments`, `maintenance_work_orders`, `machine_cost_entries`, `machine_supply_requirements` (permissive read policies)
 
 That static split is approximate — it ignores the `TO` clause (a `TO authenticated` policy never matches this app's `anon`) and mis-bucketed `scheduling_cost_models`, which the empirical probe proved leaks. **`npm run check:anon` is the ground truth**, and the remedy is the same either way: move the read server-side behind a role gate.
+
+### The migrations are applied — and the database contradicted the files twice
+
+`supabase db push` ran on 2026-10-15 against `sgnbbatucphbqhahgczq` (Postgres **17.6.1**, so the `security_invoker` guard passed). Verified after: `npm run check:anon` ends **"Nada legible con la publishable key"**, and `smoke.mjs` is green across 30 live endpoints. Before the push, `scheduling_cost_models` leaked 1 row; now every sensitive object reads 0 to `anon` while the service role still sees the real counts — 43 employees, 42 compensation rates, 442 clock-ins, 236 purchase items, 503 shifts, 238 cost summaries, 18 planta rows.
+
+**The first attempt failed, by design, and that is the useful part.** Migration `120000` aborted because `deprecated_worker_fields` does not exist in the database — and nothing was applied, because each migration is transactional.
+
+So **the audit's count of 11 tables was right and my "correction" to 12 was wrong** — the second time the audit beat my static analysis (the first was `search_path`). The table is created by `20260221143400` with `CREATE TABLE IF NOT EXISTS`, no migration drops it, and it still is not there: either it was dropped by hand during the workers→employees consolidation, or that migration was marked applied without running — the repo ships `scripts/repair-migration-history.sh`, which does exactly that.
+
+The second attempt failed on `121000`: `public.workstations` does not exist either (merged into `machines` by `20260802120000`), and `DROP POLICY IF EXISTS` does **not** protect against a missing *table* — the `IF EXISTS` refers to the policy, so it raises 42P01 and takes the migration with it. My policy-replay script followed `DROP POLICY` but not `DROP TABLE`, so it counted a policy that had already gone with its table. Section 3 now asks the catalogue whether each table exists.
+
+`check:anon` then found two more objects that exist in the migrations but not in the database: the views `workers_with_compensation` and `workers_full_profile`. **So "26 live views" was wrong too.**
+
+**The lesson outranks all three counts: reading migrations is not reading the database.** "All applied" in the history table means *recorded*, not *executed*. Every count in §1 of this document derives from parsing SQL files, so each one should be treated as a hypothesis until a query confirms it. `npm run check:anon` is the cheapest way to ask.
 
 ### The most urgent thing found while executing
 

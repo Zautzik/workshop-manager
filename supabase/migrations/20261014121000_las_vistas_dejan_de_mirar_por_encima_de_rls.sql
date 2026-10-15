@@ -80,18 +80,60 @@ BEGIN
   RAISE NOTICE 'security_invoker activado en % vistas (todas).', cambiadas;
 END $$;
 
--- 3) Las tres tablas realmente legibles por `anon`.
+-- 3) Las policies permisivas que quedan vivas, si su tabla sigue existiendo.
 --
---    Son las únicas policies vivas con `USING (true)` y sin cláusula `TO`, o
---    sea aplicables a PUBLIC, que incluye `anon`. (La auditoría marcó cinco;
---    `ots` y `worker_assignments` tenían la suya derogada y reemplazada en la
---    migración siguiente, 20251102131546 — esas dos están bien.)
+--    Son las policies con `USING (true)` y sin cláusula `TO`, o sea aplicables
+--    a PUBLIC, que incluye `anon`. (La auditoría marcó cinco; `ots` y
+--    `worker_assignments` tenían la suya derogada y reemplazada en la migración
+--    siguiente, 20251102131546 — esas dos están bien.)
 --
 --    Se eliminan en vez de re-acotarse a `authenticated`: las tres se leen por
 --    service-role, y un rol que esta aplicación nunca ocupa no es una
 --    protección, es una policy muerta que el próximo lector creerá activa.
-DROP POLICY IF EXISTS "Authenticated users can view workstations" ON public.workstations;
-DROP POLICY IF EXISTS "Authenticated users can view shifts"       ON public.shifts;
-DROP POLICY IF EXISTS "Authenticated users can view cost models"  ON public.scheduling_cost_models;
+--
+--    ── Por qué esto va en un DO y no son tres DROP sueltos ────────────────
+--
+--    Porque `workstations` YA NO EXISTE: se fusionó en `machines`
+--    (20260802120000) y al borrarse la tabla se borraron sus policies con
+--    ella. `DROP POLICY IF EXISTS` no protege de eso — el `IF EXISTS` se
+--    refiere a la policy, no a la tabla, así que sobre una tabla ausente
+--    falla con 42P01 y se lleva la migración entera. La primera corrida murió
+--    exactamente ahí.
+--
+--    El script que reprodujo las policies seguía los `DROP POLICY` pero no los
+--    `DROP TABLE`, y por eso contó una policy que ya no estaba. Preguntarle al
+--    catálogo si la tabla existe es más corto que mantener esa lista al día.
+DO $$
+DECLARE
+  p         record;
+  borradas  int := 0;
+  ausentes  text[] := '{}';
+  objetivo  CONSTANT text[][] := ARRAY[
+    ['workstations',            'Authenticated users can view workstations'],
+    ['shifts',                  'Authenticated users can view shifts'],
+    ['scheduling_cost_models',  'Authenticated users can view cost models']
+  ];
+  i int;
+BEGIN
+  FOR i IN 1 .. array_length(objetivo, 1)
+  LOOP
+    IF EXISTS (
+      SELECT 1 FROM pg_class c
+      JOIN pg_namespace n ON n.oid = c.relnamespace
+      WHERE n.nspname = 'public' AND c.relname = objetivo[i][1] AND c.relkind = 'r'
+    ) THEN
+      EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', objetivo[i][2], objetivo[i][1]);
+      borradas := borradas + 1;
+    ELSE
+      ausentes := ausentes || objetivo[i][1];
+    END IF;
+  END LOOP;
+
+  RAISE NOTICE 'Policies permisivas atendidas en % tabla(s).', borradas;
+  IF array_length(ausentes, 1) > 0 THEN
+    -- No es un error: una tabla que ya no existe no puede filtrar nada.
+    RAISE NOTICE 'Tablas que ya no existen, se omiten: %.', array_to_string(ausentes, ', ');
+  END IF;
+END $$;
 
 COMMIT;

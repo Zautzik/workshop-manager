@@ -1,9 +1,19 @@
--- RLS en las doce tablas que nunca lo tuvieron
+-- RLS en las once tablas que nunca lo tuvieron
 --
--- La auditoría 2026-10 («the Good, the Bad and the Ugly», §Ugly 1) contó once
--- tablas sin row-level security. Al re-verificar el 2026-10-13 son DOCE: falta
--- `deprecated_worker_fields` en esa lista. Ninguna de las doce tiene tampoco
--- una sola policy.
+-- La auditoría 2026-10 («the Good, the Bad and the Ugly», §Ugly 1) contó ONCE
+-- tablas sin row-level security, y tenía razón.
+--
+-- Al re-verificar leyendo las migraciones conté doce, agregando
+-- `deprecated_worker_fields`. La primera corrida de esta migración lo desmintió:
+-- esa tabla NO existe en la base. La crea `20260221143400` con `CREATE TABLE IF
+-- NOT EXISTS`, ninguna migración la borra, y sin embargo no está — así que o se
+-- borró a mano durante la consolidación workers→employees, o esa migración
+-- quedó marcada como aplicada sin haberse ejecutado (el repositorio trae
+-- `scripts/repair-migration-history.sh`, que hace exactamente eso).
+--
+-- Deja una lección que vale más que el conteo: leer las migraciones NO es leer
+-- la base. «Todas aplicadas» en el historial significa registradas, no
+-- ejecutadas. Ninguna de las once tiene tampoco una sola policy.
 --
 -- Por qué esto importa más de lo que parecía: el repositorio es público y
 -- nombra el proyecto, y la documentación de Supabase es explícita —«a table in
@@ -48,8 +58,7 @@ DECLARE
     'attendance_events',
     'certification_requirements',
     'ot_requirements',
-    'inventory_reservations',
-    'deprecated_worker_fields'
+    'inventory_reservations'
   ];
 BEGIN
   FOREACH t IN ARRAY objetivo
@@ -68,7 +77,7 @@ BEGIN
 
   IF array_length(faltan, 1) > 0 THEN
     RAISE EXCEPTION
-      'Esta migración esperaba 12 tablas y no encontró: %. Revisar antes de seguir.',
+      'Esta migración esperaba 11 tablas y no encontró: %. Revisar antes de seguir.',
       array_to_string(faltan, ', ');
   END IF;
 
