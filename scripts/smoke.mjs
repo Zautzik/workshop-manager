@@ -104,6 +104,8 @@ const PUBLIC_ALLOWLIST = [
   'api/auth/[...nextauth]/route.ts',  // NextAuth itself
   'api/attendance/clock/route.ts',    // QR kiosk (credential-in-body, no session)
   'api/cron/maintenance-due-check/route.ts', // Vercel Cron; CRON_SECRET required, fails closed (503) when unset
+  'api/maquina/[token]/route.ts',            // QR de la maquina; gated por machines.qr_token
+  'api/maquina/[token]/ordenes/[orderId]/route.ts', // idem + la orden debe ser de esa maquina
 ];
 
 // Write handlers that deliberately carry no role list because they only ever

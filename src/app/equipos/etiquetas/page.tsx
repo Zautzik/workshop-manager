@@ -19,17 +19,20 @@ import { usageUnitInline } from '@/types/machine-usage-unit';
 
 interface MachineRow {
   id: string; name: string; type: string; usage_unit: string; is_active: boolean;
+  /** El token de la etiqueta. Es lo que el QR codifica, y no sale por /api/machines. */
+  qr_token: string;
 }
 
 function Etiquetas() {
   const { data: machines, isLoading } = useQuery<MachineRow[]>({
     queryKey: ['machines', 'etiquetas'],
+    // /api/machines/etiquetas y no /api/machines: el token sólo sale por una ruta
+    // con control de rol. Ver el encabezado de esa ruta.
     queryFn: async () => {
-      const res = await fetch('/api/machines');
-      if (!res.ok) throw new Error('No se pudieron cargar las máquinas');
-      const json = await res.json();
-      const list: MachineRow[] = Array.isArray(json) ? json : (json.machines ?? []);
-      return list.filter((m) => m.is_active);
+      const res = await fetch('/api/machines/etiquetas', { credentials: 'include' });
+      const json = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(json?.error ?? 'No se pudieron cargar las máquinas');
+      return (json?.data ?? []) as MachineRow[];
     },
   });
 
@@ -44,8 +47,9 @@ function Etiquetas() {
           <h1 className="text-2xl font-bold">Etiquetas QR de las máquinas</h1>
           <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
             Imprime, recorta y pega una en cada equipo, a la altura del contador. Quien pase
-            por ahí escanea y elige: anotar la lectura, o revisar qué mantención tiene
-            pendiente esa máquina ahora mismo.
+            por ahí escanea y ve, sin tener que iniciar sesión, qué mantención tiene
+            pendiente esa máquina — y puede arrancarla, marcar los ítems y cerrarla
+            ahí mismo.
           </p>
         </div>
         <Button onClick={() => window.print()} className="gap-2">
@@ -60,14 +64,17 @@ function Etiquetas() {
             className="flex break-inside-avoid flex-col items-center gap-2 rounded-lg border-2 border-dashed p-4 print:border-solid print:border-black/40"
           >
             <div className="rounded bg-white p-2">
-              <QRCodeSVG value={`${origin}/equipos/lectura/${m.id}`} size={128} level="M" />
+              {/* El QR lleva el TOKEN, no el id de la máquina: una URL pública es
+                  una credencial, y los ids aparecen en otras pantallas. Ver la
+                  migración 20261016150000. */}
+              <QRCodeSVG value={`${origin}/m/${m.qr_token}`} size={128} level="M" />
             </div>
             <p className="text-center text-sm font-bold leading-tight">{m.name}</p>
             <p className="text-center text-[11px] text-muted-foreground print:text-black/60">
               {machineTypeLabel(m.type)} · se mide en {usageUnitInline(m.usage_unit)}
             </p>
             <p className="text-center text-[10px] text-muted-foreground print:text-black/60">
-              Escanear para anotar lectura o ver mantenciones
+              Escanear: mantenciones pendientes
             </p>
           </div>
         ))}

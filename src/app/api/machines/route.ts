@@ -66,7 +66,23 @@ const fetchMachines = unstable_cache(
 			.order('name', { ascending: true });
 
 		if (error) throw new Error(error.message);
-		return data ?? [];
+
+		// `qr_token` NO sale por acá.
+		//
+		// Es la credencial de la etiqueta pegada en la máquina: abre la pantalla
+		// pública de mantenciones de ese equipo SIN sesión. Este endpoint corre con
+		// un `requireAuth()` sin roles, así que con `select(*)` cualquier usuario con
+		// sesión se llevaría los tokens de todas las máquinas — el mismo error que
+		// tenía /api/workers con `badge_code`.
+		//
+		// Se quita de la respuesta en vez de enumerar columnas para no romper a los
+		// consumidores que leen campos arbitrarios de esta lista. El único lugar que
+		// necesita el token es la hoja de etiquetas, y tiene su propia ruta con
+		// control de rol: GET /api/machines/etiquetas.
+		return (data ?? []).map((m) => {
+			const { qr_token: _descartado, ...resto } = m as Record<string, unknown>;
+			return resto;
+		});
 	},
 	['machines-list'],
 	{ tags: ['machines'], revalidate: 300 },
