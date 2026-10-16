@@ -39,6 +39,25 @@ export const dynamic = 'force-dynamic';
  * que el operario hace frente a la máquina.
  */
 
+/**
+ * Un error de base NO se devuelve textual en una ruta publica.
+ *
+ * La primera version devolvia `error.message` de Postgrest. Probando con un
+ * token bien formado antes de aplicar la migracion, la respuesta decia
+ * "column machines.qr_token does not exist": nombre de tabla y de columna,
+ * a quien sea, sin sesion. Es poco, y es exactamente la clase de poco con la
+ * que se empieza a mapear un esquema.
+ *
+ * Hacia afuera va un mensaje util para el operario; el detalle queda en el log
+ * del servidor, que es donde sirve para arreglarlo.
+ */
+function fallaInterna(contexto: string, detalle: unknown) {
+	console.error(`[etiqueta] ${contexto}:`, detalle);
+	return NextResponse.json(
+		{ error: 'No se pudo guardar. Intentá de nuevo en un momento.' },
+		{ status: 500 },
+	);
+}
 const TokenSchema = z.string().uuid();
 
 /**
@@ -47,26 +66,50 @@ const TokenSchema = z.string().uuid();
  * Deliberadamente más angosto que el PATCH con sesión. No se puede reasignar,
  * cambiar prioridad ni reabrir una orden cerrada desde una etiqueta.
  */
+/**
+ * Un item de checklist, CON TOPES.
+ *
+ * El esquema de la ruta con sesion no acota nada: `item_id: z.string()`, sin
+ * largo, y `completed_items` sin maximo de elementos. Detras de una sesion eso
+ * es descuido; en una ruta publica es un buzon de escritura. A 200 pedidos por
+ * minuto por IP, un arreglo sin tope de strings sin tope se guarda entero en una
+ * columna jsonb que ademas es evidencia de mantencion.
+ *
+ * Los numeros son generosos a proposito: una pauta real tiene decenas de pasos,
+ * no cientos, y ningun titulo de paso necesita 300 caracteres. Lo que se corta
+ * es el abuso, no el uso.
+ */
+const ItemSchema = z.object({
+	item_id: z.string().min(1).max(120),
+	completed: z.boolean(),
+	completed_at: z.string().datetime().nullable().optional(),
+	estimated_minutes: z.coerce.number().min(0).max(10_000).nullable().optional(),
+	title: z.string().max(300).optional(),
+	section: z.string().max(120).nullable().optional(),
+	action_type: z.string().max(120).nullable().optional(),
+});
+
+/**
+ * Lo que el QR puede cambiar: arrancar, marcar items, cerrar, y dejar una nota.
+ *
+ * Deliberadamente mas angosto que el PATCH con sesion. No se puede reasignar,
+ * cambiar prioridad ni reabrir una orden cerrada desde una etiqueta.
+ *
+ * Las fechas van con `.datetime()`, igual que en la ruta con sesion. La primera
+ * version de este archivo usaba `z.string()` suelto: una fecha cualquiera habria
+ * llegado a una columna timestamptz para fallar en la base en vez de rebotar
+ * como 400 aca.
+ */
 const CuerpoSchema = z
 	.object({
 		status: z.enum(['in_progress', 'completed']).optional(),
-		started_at: z.string().optional(),
-		completed_at: z.string().optional(),
-		actual_minutes: z.coerce.number().min(0).optional(),
+		started_at: z.string().datetime().optional(),
+		completed_at: z.string().datetime().optional(),
+		// Una semana en minutos. Una orden que dice durar mas que eso es un error
+		// de tipeo o un abuso, y en los dos casos no deberia entrar al costo.
+		actual_minutes: z.coerce.number().min(0).max(10_080).optional(),
 		notes: z.string().max(2000).nullable().optional(),
-		completed_items: z
-			.array(
-				z.object({
-					item_id: z.string(),
-					completed: z.boolean(),
-					completed_at: z.string().nullable().optional(),
-					estimated_minutes: z.coerce.number().min(0).nullable().optional(),
-					label: z.string().optional(),
-					section: z.string().nullable().optional(),
-					action_type: z.string().nullable().optional(),
-				}),
-			)
-			.optional(),
+		completed_items: z.array(ItemSchema).max(200).optional(),
 	})
 	.refine((v) => Object.keys(v).length > 0, { message: 'Nada que actualizar' });
 
@@ -87,7 +130,7 @@ export async function PATCH(
 		.eq('qr_token' as never, token as never)
 		.maybeSingle();
 
-	if (errMaquina) return NextResponse.json({ error: errMaquina.message }, { status: 500 });
+	if (errMaquina) return fallaInterna('lectura de maquina', errMaquina);
 	if (!maquina) return NextResponse.json({ error: 'Etiqueta no válida' }, { status: 404 });
 
 	// 2) La orden tiene que ser de ESA máquina. Sin este chequeo el token sería
@@ -98,7 +141,7 @@ export async function PATCH(
 		.eq('id', orderId)
 		.maybeSingle();
 
-	if (errOrden) return NextResponse.json({ error: errOrden.message }, { status: 500 });
+	if (errOrden) return fallaInterna('lectura de orden', errOrden);
 	if (!orden || (orden as any).machine_id !== (maquina as any).id) {
 		// Mismo 404 que una etiqueta inexistente: no se confirma que la orden
 		// exista si no es de esta máquina.
@@ -124,12 +167,19 @@ export async function PATCH(
 	try {
 		// Mismo camino que el PATCH con sesión: incluye el registro de parada y el
 		// avance de la pauta.
-		const data = await applyWorkOrderUpdate(orderId, parsed.data as never);
+		//
+		// `applyWorkOrderUpdate` devuelve {data, error} y NO lanza. La primera
+		// versión de este archivo tomaba el retorno como si fuera el dato: un fallo
+		// de escritura habría salido con HTTP 200 y el operario habría visto su
+		// casilla marcada sin que se guardara nada. Se destructura igual que en la
+		// ruta con sesión.
+		const { data, error } = await applyWorkOrderUpdate(orderId, parsed.data as never);
+		if (error) return fallaInterna('update de orden', error);
+		if (!data) {
+			return NextResponse.json({ error: 'No se pudo actualizar la orden' }, { status: 500 });
+		}
 		return NextResponse.json({ data });
 	} catch (err) {
-		return NextResponse.json(
-			{ error: err instanceof Error ? err.message : 'No se pudo actualizar la orden' },
-			{ status: 500 },
-		);
+		return fallaInterna('excepcion en update', err);
 	}
 }

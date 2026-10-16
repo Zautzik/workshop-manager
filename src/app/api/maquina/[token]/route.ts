@@ -32,6 +32,25 @@ export const dynamic = 'force-dynamic';
  * `/api/workers` tenía con `employees`.
  */
 
+/**
+ * Un error de base NO se devuelve textual en una ruta publica.
+ *
+ * La primera version devolvia `error.message` de Postgrest. Probando con un
+ * token bien formado antes de aplicar la migracion, la respuesta decia
+ * "column machines.qr_token does not exist": nombre de tabla y de columna,
+ * a quien sea, sin sesion. Es poco, y es exactamente la clase de poco con la
+ * que se empieza a mapear un esquema.
+ *
+ * Hacia afuera va un mensaje util para el operario; el detalle queda en el log
+ * del servidor, que es donde sirve para arreglarlo.
+ */
+function fallaInterna(contexto: string, detalle: unknown) {
+	console.error(`[etiqueta] ${contexto}:`, detalle);
+	return NextResponse.json(
+		{ error: 'No se pudo leer la etiqueta. Intentá de nuevo en un momento.' },
+		{ status: 500 },
+	);
+}
 const TokenSchema = z.string().uuid();
 
 /** Datos de la máquina que la etiqueta puede mostrar. Nada más. */
@@ -45,7 +64,9 @@ const COLUMNAS_MAQUINA = 'id, name, type, usage_counter, usage_unit';
 const COLUMNAS_ORDEN =
 	'id, machine_id, schedule_id, status, work_order_type, priority, scheduled_date, ' +
 	'started_at, completed_at, notes, total_time_minutes, completed_items, checklist_id, ' +
-	'title, fault_description, maintenance_checklists(name, frequency, items)';
+	// Sin `fault_description`: la pantalla no lo dibuja, y es texto libre del
+	// operario. Lo que una ruta publica no necesita, no lo publica.
+	'title, maintenance_checklists(name, frequency, items)';
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ token: string }> }) {
 	const { token } = await params;
@@ -62,9 +83,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ tok
 		.eq('qr_token' as never, token as never)
 		.maybeSingle();
 
-	if (errMaquina) {
-		return NextResponse.json({ error: errMaquina.message }, { status: 500 });
-	}
+	if (errMaquina) return fallaInterna('lectura de maquina', errMaquina);
 	if (!maquina) {
 		return NextResponse.json({ error: 'Etiqueta no válida' }, { status: 404 });
 	}
@@ -82,9 +101,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ tok
 		.in('status', ['pending', 'in_progress'])
 		.order('scheduled_date', { ascending: true });
 
-	if (errOrdenes) {
-		return NextResponse.json({ error: errOrdenes.message }, { status: 500 });
-	}
+	if (errOrdenes) return fallaInterna('lectura de ordenes', errOrdenes);
 
 	// Pautas de esta máquina, para poder ofrecer «crear orden» cuando una está
 	// vencida y todavía no tiene orden abierta.
@@ -96,9 +113,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ tok
 		)
 		.eq('machine_id', maq.id);
 
-	if (errPautas) {
-		return NextResponse.json({ error: errPautas.message }, { status: 500 });
-	}
+	if (errPautas) return fallaInterna('lectura de pautas', errPautas);
 
 	// `due` se calcula con la misma función pura que usa el resto de la
 	// aplicación, así que «vencida» significa lo mismo acá que en Vencimientos.
@@ -117,9 +132,10 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ tok
 		};
 	});
 
+	// El `id` de la máquina NO viaja en la respuesta: la pantalla no lo dibuja y
+	// es un UUID interno. Se usa sólo acá, del lado del servidor, para filtrar.
 	return NextResponse.json({
 		machine: {
-			id: maq.id,
 			name: maq.name,
 			type: maq.type,
 			usage_counter: maq.usage_counter,

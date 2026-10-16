@@ -58,8 +58,9 @@ import { deriveChecklistItems, type CompletedChecklistItem } from '@/lib/checkli
 import { machineTypeLabel } from '@/types/machine-type';
 
 interface Respuesta {
+	// Sin `id`: la ruta publica no lo devuelve (es un UUID interno que esta
+	// pantalla no dibuja).
 	machine: {
-		id: string;
 		name: string;
 		type: string;
 		usage_counter: number | null;

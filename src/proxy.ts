@@ -58,6 +58,12 @@ const RATE_LIMITS = {
 	auth:    { requests: 10,  windowMs: 60_000 },
 	webhook: { requests: 100, windowMs: 60_000 },
 	api:     { requests: 200, windowMs: 60_000 },
+	// La etiqueta QR de la máquina (/api/maquina/...) es la única ruta pública
+	// que ESCRIBE sin sesión. 200/min es el presupuesto de un cliente con
+	// cuenta; acá el uso legítimo es un operario tocando casillas frente a la
+	// máquina: una carga de pantalla y unos pocos ticks. 40 alcanza de sobra y
+	// corta cinco veces antes el abuso.
+	etiqueta: { requests: 40, windowMs: 60_000 },
 } as const;
 
 type RlTier = keyof typeof RATE_LIMITS;
@@ -78,6 +84,7 @@ function getRlTier(pathname: string, method: string): RlTier | null {
 		return submitsCredentials ? 'auth' : 'api';
 	}
 	if (pathname.startsWith('/api/whatsapp')) return 'webhook';
+	if (pathname.startsWith('/api/maquina'))  return 'etiqueta';
 	if (pathname.startsWith('/api/'))         return 'api';
 	return null;
 }
