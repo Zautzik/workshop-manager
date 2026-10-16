@@ -11,49 +11,52 @@ import { EMPRESA, datoEmpresa } from '@/lib/company';
  * /login — el mismo bug que tenía `/track/`) y en `isFullscreenRoute` (para que
  * no se dibuje el nav de la planta alrededor de un documento legal).
  *
- * ── Por qué la identidad sale de `company.ts` y no está escrita acá ────────
+ * ── Por qué la identidad sale de `company.ts` ──────────────────────────────
  *
- * Porque ya se desincronizó una vez. La primera versión de esta página era un
- * archivo estático en `public/` que decía «Gonsa S.A.», mientras
- * `src/lib/company.ts` —la fuente que usan la cotización y las guías— dice
- * «Imprenta Gons SpA». En Chile S.A. y SpA son tipos de sociedad distintos, así
- * que una de las dos estaba mal y nadie lo iba a notar: son dos archivos que
- * nadie lee juntos.
+ * Porque ya se desincronizó una vez: la primera versión era un archivo estático
+ * en `public/` que decía «Gonsa S.A.» mientras `company.ts` —la fuente de la
+ * cotización y las guías— decía «Imprenta Gons SpA». En Chile S.A. y SpA son
+ * tipos de sociedad distintos, y eran dos archivos que nadie lee juntos.
+ * Leyendo de `EMPRESA`, el nombre legal, el RUT y el domicilio de esta política
+ * son los mismos que salen impresos en una cotización.
  *
- * Leyendo de `EMPRESA`, el nombre legal y el domicilio de esta política son los
- * mismos que salen impresos en una cotización. Arreglar `company.ts` arregla
- * los tres documentos.
+ * ── Alcance y límites de este texto ────────────────────────────────────────
  *
- *   ⚠ Al 2026-10-14 el RUT sigue siendo de relleno, así que esta página NO lo
- *     imprime: `datoEmpresa('rut')` devuelve null y la frase del responsable se
- *     arma sin él. Mejor no decirlo que decirlo mal — un RUT con dígito
- *     verificador válido identifica a otra empresa como responsable del
- *     tratamiento. Al completarlo en `company.ts` y sacarlo de
- *     `EMPRESA_PENDIENTE`, la frase se completa sola.
+ * Alcance: TODA la empresa, no sólo el canal de WhatsApp (decisión del dueño,
+ * 2026-10-15). Por eso hay secciones separadas para el personal, los clientes y
+ * el canal de reportes.
  *
- * Server component a propósito: no necesita estado ni el bundle de React para
- * leerse, y así sobrevive a cualquier error de cliente.
+ * Se estructuró contra el deber de información de la Ley 21.719 (art. 14 ter,
+ * doce puntos mínimos) y contra el art. 13 del RGPD como línea de base de
+ * industria, porque la ley chilena sigue de cerca ese modelo.
+ *
+ *   ⚠ NO SE PUDO LEER EL TEXTO OFICIAL. La BCN sirve la ley desde una
+ *     aplicación con JavaScript que no se pudo renderizar, así que la lista de
+ *     doce puntos viene de fuentes secundarias (guías de estudios jurídicos),
+ *     no del articulado. **Esto necesita revisión de un abogado antes de
+ *     publicarse como el compromiso legal de la empresa**, en particular los
+ *     plazos de conservación y las bases de licitud, que son los dos puntos
+ *     donde una guía puede simplificar.
  */
 
 export const metadata: Metadata = {
 	title: `Política de privacidad · ${EMPRESA.nombre}`,
-	description: `Política de privacidad de GonsAdmin, el sistema interno de producción de ${EMPRESA.razonSocial}, y del canal de WhatsApp para reportes de planta.`,
+	description: `Política de privacidad de ${EMPRESA.razonSocial}: qué datos personales trata GonsAdmin, con qué finalidad y cómo ejercer los derechos de acceso, rectificación, supresión, oposición, portabilidad y bloqueo.`,
 };
 
-/** Fecha de la última revisión del texto. Se actualiza a mano, con el texto. */
-const ACTUALIZADA = '14 de octubre de 2026';
+/** Fecha y versión: punto 1 del deber de información. Se actualizan con el texto. */
+const ACTUALIZADA = '16 de octubre de 2026';
+const VERSION = '2.0';
 
-/** Canal para ejercer derechos. Conviene que sea una casilla de rol, no personal. */
+/** Canal único para ejercer derechos. */
 const CONTACTO_PRIVACIDAD = 'rzautzikg@gmail.com';
 
 /**
  * Cierra una frase con punto, sin duplicarlo.
  *
  * «Inversiones Gonsa S.A.» ya termina en punto, así que agregarle otro deja
- * «S.A..». Pasa cuando la frase termina justo en la razón social, es decir
- * cuando el RUT y el domicilio están pendientes. Hoy el domicilio ya es real y
- * la frase cierra con la ciudad, pero esto queda porque la condición vuelve
- * cada vez que un dato se marca pendiente.
+ * «S.A..». Hoy la frase cierra con la ciudad, pero esto queda porque la
+ * condición vuelve cada vez que un dato se marca pendiente.
  */
 function terminar(frase: string): string {
 	return frase.endsWith('.') ? frase : `${frase}.`;
@@ -80,11 +83,20 @@ function Seccion({
 	);
 }
 
+function Correo() {
+	return (
+		<a
+			className="text-primary underline underline-offset-2"
+			href={`mailto:${CONTACTO_PRIVACIDAD}`}
+		>
+			{CONTACTO_PRIVACIDAD}
+		</a>
+	);
+}
+
 export default function PoliticaPrivacidadPage() {
 	// `null` mientras el dato siga siendo de relleno — ver `EMPRESA_PENDIENTE`.
 	const rut = datoEmpresa('rut');
-	// Calle, comuna y ciudad, en ese orden: es cómo se escribe un domicilio en
-	// Chile y es lo que un documento legal necesita para identificar el lugar.
 	const domicilio =
 		[datoEmpresa('direccion'), datoEmpresa('comuna'), datoEmpresa('ciudad')]
 			.filter(Boolean)
@@ -94,150 +106,262 @@ export default function PoliticaPrivacidadPage() {
 		<main className="mx-auto max-w-3xl px-4 py-12 sm:py-16">
 			<header>
 				<h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
-					Política de privacidad de GonsAdmin
+					Política de privacidad
 				</h1>
 				<p className="mt-2 text-sm text-muted-foreground">
-					{EMPRESA.razonSocial} · Última actualización: {ACTUALIZADA}
+					{EMPRESA.razonSocial} · Versión {VERSION} · Última actualización: {ACTUALIZADA}
 				</p>
 			</header>
 
 			<p className="mt-6 text-sm leading-relaxed text-muted-foreground">
-				GonsAdmin es el sistema interno de gestión de producción de {EMPRESA.razonSocial},{' '}
-				{EMPRESA.giro.toLowerCase()}. Esta política explica qué datos personales trata GonsAdmin
-				—tanto los que llegan por su número de WhatsApp como los del personal de la imprenta—,
-				para qué se usan y cómo ejercer tus derechos sobre ellos.
+				{EMPRESA.razonSocial} ({EMPRESA.giro.toLowerCase()}) trata datos personales para
+				administrar su producción. GonsAdmin es el sistema interno donde ocurre ese
+				tratamiento. Esta política explica qué datos tratamos, de quién, con qué finalidad y
+				con qué fundamento legal, con quién se comparten, cuánto se conservan y cómo ejercer
+				los derechos que la ley reconoce.
 			</p>
 
-			<Seccion id="responsable" titulo="1. Responsable">
-				{/*
-				  El RUT y el domicilio se imprimen SÓLO si son reales. Siguen en
-				  `EMPRESA_PENDIENTE`, y este es el documento que identifica al
-				  responsable del tratamiento: un nombre legal verdadero junto a un RUT
-				  inventado se lee como un dato verificado, y es peor que no decirlo.
-				  Al sacarlos de esa lista, la frase se completa sola.
-				*/}
+			<Seccion id="responsable" titulo="1. Quién es el responsable">
 				<p>
-					{/* `terminar` evita «S.A..»: la razón social ya trae su propio punto. */}
 					{terminar(
 						`El responsable del tratamiento es ${EMPRESA.razonSocial}` +
 							(rut ? `, RUT ${rut}` : '') +
 							(domicilio ? `, con domicilio en ${domicilio}` : ''),
 					)}{' '}
-					Para cualquier consulta sobre esta política o sobre tus datos, escribe a{' '}
-					<a className="text-primary underline underline-offset-2" href={`mailto:${CONTACTO_PRIVACIDAD}`}>
-						{CONTACTO_PRIVACIDAD}
-					</a>
-					.
+					Para cualquier consulta sobre esta política, o para ejercer tus derechos, escribe a{' '}
+					<Correo />. Ese es el único canal: no hay formulario ni teléfono dedicado, y una
+					solicitud enviada ahí queda registrada.
 				</p>
 			</Seccion>
 
-			<Seccion id="datos-whatsapp" titulo="2. Qué datos recibimos por WhatsApp">
+			<Seccion id="personal" titulo="2. Datos del personal de la imprenta">
+				<p>De quienes trabajan en la imprenta tratamos:</p>
+				<ul className="list-disc space-y-1 pl-5">
+					<li>identificación y contacto: nombre, correo, teléfono y contacto de emergencia;</li>
+					<li>
+						el contrato de trabajo y sus condiciones: tipo de jornada, horas semanales, topes
+						de horas extra y fechas de inicio y término;
+					</li>
+					<li>remuneración: tarifa por hora, recargos, bonos e incentivos, y su historial;</li>
+					<li>
+						marcas de entrada y salida en las estaciones, y el código de la credencial con que
+						se registran;
+					</li>
+					<li>competencias y certificaciones, con su fecha de evaluación y de vencimiento;</li>
+					<li>licencias, permisos y ausencias, y los documentos de personal que la ley obliga a conservar.</li>
+				</ul>
 				<p>
-					El número de WhatsApp de la imprenta recibe reportes de trabajo enviados por personal de
-					la planta. De cada mensaje recibimos:
+					<strong className="text-foreground">Fundamento legal:</strong> la ejecución del
+					contrato de trabajo y el cumplimiento de las obligaciones laborales, previsionales y
+					tributarias que la ley impone al empleador. No pedimos tu consentimiento para esto
+					porque no es la base que corresponde: son datos sin los cuales no se puede pagar un
+					sueldo ni cumplir la ley.
+				</p>
+				<p>
+					<strong className="text-foreground">
+						Las marcas de entrada y salida no son el registro legal de asistencia.
+					</strong>{' '}
+					Se usan para atribuir horas a cada orden de trabajo y calcular el costo de
+					producción. El control de asistencia que exige la normativa laboral se lleva por la
+					vía que la empresa tenga dispuesta para ese efecto, no por este sistema.
+				</p>
+			</Seccion>
+
+			<Seccion id="clientes" titulo="3. Datos de clientes y proveedores">
+				<p>
+					De nuestros clientes y proveedores —y, cuando son empresas, de las personas que los
+					representan— tratamos el nombre, el RUT, la dirección, el correo y el teléfono de
+					contacto, junto con el historial de cotizaciones, órdenes de trabajo, despachos y
+					facturas asociados.
+				</p>
+				<p>
+					<strong className="text-foreground">Fundamento legal:</strong> la ejecución del
+					contrato o la preparación de una cotización solicitada, y el cumplimiento de las
+					obligaciones contables y tributarias. No usamos estos datos para publicidad ni los
+					cedemos a terceros con fines comerciales.
+				</p>
+			</Seccion>
+
+			<Seccion id="whatsapp" titulo="4. Datos que llegan por el canal de WhatsApp">
+				<p>
+					El número de WhatsApp de la imprenta recibe reportes de trabajo enviados por
+					personal de planta. De cada mensaje recibimos:
 				</p>
 				<ul className="list-disc space-y-1 pl-5">
 					<li>el número de teléfono y el nombre de perfil de WhatsApp de quien lo envía;</li>
 					<li>el contenido del mensaje: texto y, si se adjuntan, fotos o documentos;</li>
 					<li>la fecha y hora del mensaje y su identificador técnico asignado por WhatsApp.</li>
 				</ul>
-				<p>
-					No solicitamos datos sensibles por este canal. Te pedimos no enviar por aquí información
-					personal que no sea necesaria para el reporte.
-				</p>
-			</Seccion>
-
-			<Seccion id="datos-personal" titulo="3. Qué datos tratamos del personal">
-				<p>
-					Para administrar la producción y cumplir obligaciones laborales, GonsAdmin también
-					guarda, del personal de la imprenta: datos de identificación y contacto; el contrato de
-					trabajo y sus condiciones de jornada; la remuneración y sus liquidaciones; las marcas de
-					entrada y salida y la credencial con que se registran; las competencias y
-					certificaciones asociadas a cada máquina; y los documentos de personal que la empresa
-					deba conservar.
-				</p>
-				<p>
-					Estos datos se tratan para ejecutar el contrato de trabajo, calcular remuneraciones y
-					costos de producción, asignar turnos según competencias acreditadas, y cumplir las
-					obligaciones legales de la empresa. No se usan para ninguna otra finalidad.
-				</p>
-			</Seccion>
-
-			<Seccion id="finalidad" titulo="4. Para qué usamos los reportes">
+				<p>Con eso:</p>
 				<ul className="list-disc space-y-1 pl-5">
+					<li>identificamos a la persona que reporta, comparando su número con la ficha de personal;</li>
 					<li>
-						Identificar a la persona que reporta, comparando su número con la ficha de personal.
+						registramos el avance de órdenes de trabajo y de mantención —inicio, término,
+						cantidades, horas e incidencias— para el control de producción y de costos;
 					</li>
-					<li>
-						Registrar el avance de órdenes de trabajo (inicio, término, cantidades, horas e
-						incidencias) y de órdenes de mantención, para el control de producción y de costos.
-					</li>
-					<li>Guardar las fotos como evidencia del trabajo informado.</li>
+					<li>guardamos las fotos como evidencia del trabajo informado.</li>
 				</ul>
 				<p>
-					No usamos estos datos con fines publicitarios, no los vendemos y no enviamos mensajes
-					promocionales.
+					<strong className="text-foreground">Fundamento legal:</strong> la ejecución del
+					contrato de trabajo, del que este canal es un instrumento. No solicitamos datos
+					sensibles por aquí, y te pedimos no enviar información personal que el reporte no
+					necesite. No usamos estos datos con fines publicitarios, no los vendemos y no
+					enviamos mensajes promocionales.
 				</p>
 			</Seccion>
 
-			<Seccion id="destinatarios" titulo="5. Con quién se comparten">
-				<p>Solo con los proveedores que hacen funcionar el servicio, y únicamente para ese fin:</p>
+			<Seccion id="origen" titulo="5. De dónde provienen los datos">
+				<p>
+					Los datos los entrega la propia persona —al ser contratada, al cotizar, o al enviar
+					un reporte— o se generan por el uso del sistema: una marca de reloj, una hora
+					cargada a una orden, una foto adjunta. No compramos bases de datos ni obtenemos
+					datos personales de terceros.
+				</p>
+			</Seccion>
+
+			<Seccion id="destinatarios" titulo="6. Con quién se comparten y transferencias internacionales">
+				<p>
+					Solo con los proveedores que hacen funcionar el servicio, y únicamente para ese fin:
+				</p>
 				<ul className="list-disc space-y-1 pl-5">
 					<li>Meta Platforms, Inc. (WhatsApp Business Platform), que transmite los mensajes;</li>
 					<li>Supabase, que aloja la base de datos;</li>
 					<li>Vercel, que aloja la aplicación;</li>
-					<li>cuando corresponde, servicios de monitoreo de errores técnicos de la aplicación.</li>
+					<li>servicios de monitoreo de errores técnicos de la aplicación;</li>
+					<li>
+						y, cuando la ley lo exige, los organismos públicos competentes y nuestros asesores
+						contables y laborales.
+					</li>
 				</ul>
 				<p>
-					Estos proveedores pueden procesar datos fuera de Chile. Si incorporamos nuevos
-					proveedores —por ejemplo para transcribir notas de voz o interpretar reportes de forma
-					automática— o cambiamos qué datos se almacenan, actualizaremos esta política antes de
-					hacerlo.
+					<strong className="text-foreground">Transferencias internacionales:</strong> la base
+					de datos y la aplicación están alojadas en Estados Unidos, y Meta procesa los
+					mensajes fuera de Chile. Esos proveedores tratan los datos por cuenta nuestra y
+					sujetos a sus propios compromisos contractuales de seguridad y confidencialidad.
+				</p>
+				<p>
+					Si incorporamos nuevos proveedores —por ejemplo para transcribir notas de voz o
+					interpretar reportes de forma automática— o cambiamos qué datos se almacenan,
+					actualizaremos esta política antes de hacerlo.
 				</p>
 			</Seccion>
 
-			<Seccion id="conservacion" titulo="6. Cuánto tiempo los conservamos">
+			<Seccion id="conservacion" titulo="7. Cuánto tiempo se conservan">
+				<ul className="list-disc space-y-1 pl-5">
+					<li>
+						<strong className="text-foreground">Personal:</strong> durante la relación laboral
+						y después por los plazos que la legislación laboral, previsional y tributaria
+						exige conservar cada documento.
+					</li>
+					<li>
+						<strong className="text-foreground">Clientes y documentos tributarios:</strong> por
+						los plazos de la normativa contable y tributaria.
+					</li>
+					<li>
+						<strong className="text-foreground">Trazabilidad de producción:</strong> cinco años,
+						por el estándar FSSC 22000 que rige la trazabilidad de envases y etiquetas.
+					</li>
+					<li>
+						<strong className="text-foreground">Reportes de WhatsApp:</strong> mientras sean
+						necesarios para el control de producción de la orden a la que corresponden. Los
+						mensajes que no corresponden a un reporte válido no se incorporan a los registros
+						de producción.
+					</li>
+				</ul>
 				<p>
-					Conservamos los reportes mientras sean necesarios para el control de producción y para
-					cumplir obligaciones legales y contables. Los datos del personal se conservan durante la
-					relación laboral y después por los plazos que la ley exige. Los mensajes que no
-					corresponden a un reporte válido no se incorporan a los registros de producción.
+					Cumplido el plazo, los datos se eliminan o se anonimizan. Si necesitas el plazo
+					exacto aplicable a un dato tuyo, pídelo a <Correo /> y te lo indicamos.
 				</p>
 			</Seccion>
 
-			<Seccion id="seguridad" titulo="7. Seguridad">
+			<Seccion id="decisiones" titulo="8. Decisiones automatizadas">
 				<p>
-					El acceso a GonsAdmin requiere usuario y contraseña, y los permisos se asignan por rol:
-					las pantallas de remuneración y de datos de personal están restringidas a
-					administración y a Recursos Humanos. Las comunicaciones viajan cifradas (HTTPS), y la
-					aplicación verifica la firma de cada notificación que recibe desde WhatsApp antes de
-					procesarla.
+					GonsAdmin calcula estimaciones y sugiere asignaciones de turno según las
+					competencias acreditadas de cada persona. Son apoyos para quien decide:{' '}
+					<strong className="text-foreground">
+						ninguna decisión que te afecte —una asignación, una evaluación, una remuneración—
+						se toma de forma automatizada sin intervención humana
+					</strong>
+					, y el sistema no elabora perfiles con fines distintos de los descritos aquí.
 				</p>
 			</Seccion>
 
-			<Seccion id="derechos" titulo="8. Tus derechos y eliminación de datos">
+			<Seccion id="seguridad" titulo="9. Seguridad">
 				<p>
-					Puedes solicitar el acceso, la rectificación o la eliminación de tus datos, u oponerte a
-					su tratamiento, conforme a la legislación chilena de protección de datos personales.
-					Para hacerlo, escribe a{' '}
-					<a className="text-primary underline underline-offset-2" href={`mailto:${CONTACTO_PRIVACIDAD}`}>
-						{CONTACTO_PRIVACIDAD}
-					</a>{' '}
-					indicando tu número de teléfono o tu nombre completo; responderemos dentro de los plazos
-					legales.
+					El acceso a GonsAdmin requiere usuario y contraseña, y los permisos se asignan por
+					rol: las pantallas de remuneración y de datos de personal están restringidas a
+					administración y a Recursos Humanos. Las comunicaciones viajan cifradas (HTTPS), la
+					base de datos aplica control de acceso por fila, y la aplicación verifica la firma
+					de cada notificación que recibe desde WhatsApp antes de procesarla.
+				</p>
+				<p>
+					Ningún sistema es infalible. Si detectamos una vulneración que afecte tus datos y
+					que implique un riesgo para tus derechos, te lo informaremos y lo comunicaremos a la
+					autoridad en los plazos que la ley establezca.
 				</p>
 			</Seccion>
 
-			<Seccion id="cambios" titulo="9. Cambios a esta política">
+			<Seccion id="derechos" titulo="10. Tus derechos">
+				<p>Sobre tus datos personales puedes ejercer los siguientes derechos:</p>
+				<ul className="list-disc space-y-1 pl-5">
+					<li>
+						<strong className="text-foreground">Acceso:</strong> saber qué datos tuyos tratamos
+						y obtener una copia.
+					</li>
+					<li>
+						<strong className="text-foreground">Rectificación:</strong> corregir datos
+						inexactos, desactualizados o incompletos.
+					</li>
+					<li>
+						<strong className="text-foreground">Supresión:</strong> pedir su eliminación cuando
+						ya no sean necesarios o no exista obligación legal de conservarlos.
+					</li>
+					<li>
+						<strong className="text-foreground">Oposición:</strong> oponerte a un tratamiento
+						determinado, en los casos que la ley permite.
+					</li>
+					<li>
+						<strong className="text-foreground">Portabilidad:</strong> recibir tus datos en un
+						formato estructurado y de uso común, o pedir que se transfieran a otro
+						responsable.
+					</li>
+					<li>
+						<strong className="text-foreground">Bloqueo:</strong> pedir la suspensión temporal
+						del tratamiento mientras se resuelve una solicitud de rectificación, supresión u
+						oposición.
+					</li>
+				</ul>
 				<p>
-					Si modificamos esta política, publicaremos la nueva versión en esta misma dirección con
-					su fecha de actualización.
+					Para ejercerlos, escribe a <Correo /> indicando tu nombre completo —o el número de
+					teléfono, si tu solicitud es sobre el canal de WhatsApp— y qué derecho quieres
+					ejercer. Responderemos dentro de los plazos legales. Ejercer un derecho es gratuito.
+				</p>
+				<p>
+					Donde el tratamiento se funde en tu consentimiento, puedes retirarlo en cualquier
+					momento por el mismo canal, sin que eso afecte la licitud del tratamiento anterior.
+					La mayor parte de lo descrito en esta política no se funda en consentimiento sino en
+					el contrato y en obligaciones legales, así que retirarlo no detiene esos
+					tratamientos.
+				</p>
+				<p>
+					<strong className="text-foreground">Reclamo ante la autoridad:</strong> si consideras
+					que no hemos atendido correctamente tu solicitud, puedes reclamar ante la Agencia de
+					Protección de Datos Personales.
+				</p>
+			</Seccion>
+
+			<Seccion id="cambios" titulo="11. Cambios a esta política">
+				<p>
+					Si modificamos esta política, publicaremos la nueva versión en esta misma dirección,
+					con su número de versión y su fecha de actualización. Los cambios relevantes para
+					quienes ya nos entregaron datos se comunicarán por el canal habitual de contacto.
 				</p>
 			</Seccion>
 
 			<footer className="mt-12 border-t border-border pt-6 text-xs text-muted-foreground">
 				<p>
-					{EMPRESA.razonSocial} · GonsAdmin ·{' '}
+					{EMPRESA.razonSocial}
+					{rut ? ` · RUT ${rut}` : ''} · GonsAdmin ·{' '}
 					<Link className="text-primary underline underline-offset-2" href="/login">
 						Volver al inicio
 					</Link>
