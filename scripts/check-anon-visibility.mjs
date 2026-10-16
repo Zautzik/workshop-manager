@@ -118,6 +118,15 @@ const VISTAS = [
 // Las tres con policy permisiva viva que 20261014121000 elimina.
 const PERMISIVAS = ['workstations', 'shifts', 'scheduling_cost_models'];
 
+// Tablas y vistas que EXISTEN en la base y que ninguna migración crea, halladas
+// por `check:rls-drift` el 2026-10-16. No pasaron por 20261014120000 porque esa
+// migración sólo conocía las que estaban en los archivos.
+const HUERFANAS = [
+  'users', 'inventory', 'purchases', 'maintenance_schedules',
+  'maintenance_logs', 'maintenance_alerts', 'machine_downtime_logs',
+  'oc_conciliacion', 'ot_certificacion',
+];
+
 // Protegidas por RLS pero nunca probadas: el navegador las lee y sus policies
 // cuelgan de auth.uid(), que en esta aplicación es siempre NULL, así que
 // deberían devolver cero filas. Estaban fuera de la sonda, y por eso la frase
@@ -327,6 +336,7 @@ await bloque('Tablas sin RLS (las cierra 20261014120000)', SIN_RLS);
 await bloque('Vistas (security_invoker: 20261014121000)', VISTAS);
 await bloque('Policy permisiva (la quitó 20261014121000)', PERMISIVAS);
 await bloque('Protegidas por RLS, antes sin probar', RLS_SIN_PROBAR);
+await bloque('Huérfanas: en la base, sin migración que las cree', HUERFANAS);
 await bloque(
   'Exposición ACEPTADA por decisión del dueño',
   [...TOLERADAS.entries()].map(([t, porque]) => [t, porque]),

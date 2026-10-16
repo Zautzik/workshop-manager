@@ -76,6 +76,51 @@ if (!URL_BASE || !SVC_KEY) {
 
 const MIGRATIONS_DIR = join(process.cwd(), 'supabase', 'migrations');
 
+/**
+ * Deja el SQL sin comentarios ni literales de texto.
+ *
+ * Sin esto el barrido lee prosa. La primera corrida reportó como tablas
+ * fantasma a IF, above, for, had, which y without, todas sacadas de
+ * comentarios como "-- Create table for OT financials" y "-- la CREATE TABLE
+ * IF NOT EXISTS above es...". Seis falsos positivos en una lista de doce:
+ * suficiente para que nadie vuelva a leerla.
+ *
+ * Mismo criterio y misma razón que `strip()` en check-dead-function-refs.cjs,
+ * que ya existía para esto. Se reemplaza por espacios y no se borra, para no
+ * pegar dos palabras que estaban separadas.
+ */
+function strip(sql) {
+  let out = '';
+  let i = 0;
+  while (i < sql.length) {
+    const dos = sql.slice(i, i + 2);
+    if (dos === '--') {
+      const fin = sql.indexOf(String.fromCharCode(10), i);
+      const hasta = fin === -1 ? sql.length : fin;
+      out += ' '.repeat(hasta - i);
+      i = hasta;
+    } else if (dos === '/*') {
+      const fin = sql.indexOf('*/', i + 2);
+      const hasta = fin === -1 ? sql.length : fin + 2;
+      out += ' '.repeat(hasta - i);
+      i = hasta;
+    } else if (sql[i] === String.fromCharCode(39)) {
+      let j = i + 1;
+      while (j < sql.length) {
+        if (sql[j] === String.fromCharCode(39) && sql[j + 1] === String.fromCharCode(39)) j += 2;
+        else if (sql[j] === String.fromCharCode(39)) { j += 1; break; }
+        else j += 1;
+      }
+      out += ' '.repeat(j - i);
+      i = j;
+    } else {
+      out += sql[i];
+      i += 1;
+    }
+  }
+  return out;
+}
+
 function loQueAfirmanLasMigraciones() {
 	const archivos = readdirSync(MIGRATIONS_DIR).filter((f) => f.endsWith('.sql')).sort();
 	const rlsEsperado = new Set();
@@ -83,7 +128,7 @@ function loQueAfirmanLasMigraciones() {
 	const vistasVivas = new Set();
 
 	for (const f of archivos) {
-		const sql = readFileSync(join(MIGRATIONS_DIR, f), 'utf8');
+		const sql = strip(readFileSync(join(MIGRATIONS_DIR, f), 'utf8'));
 
 		for (const m of sql.matchAll(
 			/alter\s+table\s+(?:if\s+exists\s+)?(?:public\.)?["]?([a-z0-9_]+)["]?\s+enable\s+row\s+level\s+security/gi,
@@ -237,6 +282,49 @@ if (fantasmasTablas.length > 0 || fantasmasVistas.length > 0) {
 		'    legítimo. Importa porque TODO conteo sacado de parsear las migraciones\n' +
 		'    los incluye, así que son hipótesis, no hechos.',
 	);
+}
+
+/* 5 — la deriva inversa: está en la base y no lo crea ninguna migración */
+const huerfanasTablas = [...tablasReales].filter((t) => !tablasCreadas.has(t)).sort();
+const huerfanasVistas = [...vistasReales].filter((v) => !vistasVivas.has(v)).sort();
+if (huerfanasTablas.length > 0 || huerfanasVistas.length > 0) {
+  console.log('■ Huérfanos: están en la base y ninguna migración los crea');
+  for (const t of huerfanasTablas) {
+    const seg = cat.seguridad[t];
+    const rls = seg?.rls ? 'RLS on' : 'RLS OFF';
+    console.log('  · tabla  ' + t.padEnd(34) + rls + ', ' + (seg?.policies ?? 0) + ' policy(s)');
+  }
+  for (const v of huerfanasVistas) console.log('  · vista  ' + v);
+
+  // Una huérfana SIN RLS es las dos cosas a la vez: indocumentada y abierta.
+  // Así se encontró `public.users`, que exponía dos correos a la publishable
+  // key. Esa combinación sí hace fallar el chequeo — el resto de las huérfanas
+  // es deuda de documentación, esto es un agujero.
+  const huerfanasSinRls = huerfanasTablas.filter((t) => cat.seguridad[t]?.rls !== true);
+  if (huerfanasSinRls.length > 0) {
+    deriva += huerfanasSinRls.length;
+    console.log(
+      [
+        '',
+        '    ✗ ' + huerfanasSinRls.join(', ') + ': huérfana Y sin RLS.',
+        '      Legible y ESCRIBIBLE con la publishable key, segun la propia',
+        '      documentacion de Supabase. Esto hace fallar el chequeo.',
+      ].join(String.fromCharCode(10)),
+    );
+  }
+  console.log(
+    [
+      '',
+      '    Esto es la deriva al revés, y pesa más que los fantasmas: un objeto que',
+      '    ninguna migración describe NO se recrea al reconstruir la base desde las',
+      '    migraciones. El dump de esquema sí lo tiene, así que el respaldo lo cubre;',
+      '    un `supabase db reset` no.',
+      '',
+      '    Si alguno tiene RLS OFF, además es legible con la publishable key: no pasó',
+      '    por 20261014120000 porque esa migración sólo conocía las que estaban en los',
+      '    archivos. Correr `npm run check:anon` para ver qué devuelve.',
+    ].join(String.fromCharCode(10)),
+  );
 }
 
 /* ── veredicto ───────────────────────────────────────────────────── */
