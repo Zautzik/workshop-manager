@@ -21,6 +21,7 @@
 		"test:smoke": "node scripts/smoke.mjs",
 		"test:smoke:static": "node scripts/smoke.mjs --static",
 		"check:anon": "node scripts/check-anon-visibility.mjs",
+		"check:rls-drift": "node scripts/check-rls-drift.mjs",
 		"test:watch": "vitest",
 		"seed:demo": "tsx scripts/seed/index.ts",
 		"seed:dies": "tsx scripts/seed/dies.ts",

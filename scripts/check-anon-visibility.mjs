@@ -111,10 +111,53 @@ const SIN_RLS = [
 const VISTAS = [
   'workers_with_compensation', 'workers_full_profile', 'worker_stats',
   'ot_cost_summary', 'planta_live', 'inventory_items_stock_v',
+  'inventory_stock_transactions_v', 'inventory_low_stock_alerts_v',
+  'oc_billing', 'ot_fulfillment', 'capture_feed', 'material_cost_v',
 ];
 
 // Las tres con policy permisiva viva que 20261014121000 elimina.
 const PERMISIVAS = ['workstations', 'shifts', 'scheduling_cost_models'];
+
+// Protegidas por RLS pero nunca probadas: el navegador las lee y sus policies
+// cuelgan de auth.uid(), que en esta aplicación es siempre NULL, así que
+// deberían devolver cero filas. Estaban fuera de la sonda, y por eso la frase
+// "nada legible con la publishable key" cubría 29 objetos y no los 24 que el
+// navegador realmente lee.
+const RLS_SIN_PROBAR = [
+  'inventory_items', 'user_roles', 'machine_costs', 'equipment_investments',
+  'leave_balances', 'employment_contracts',
+];
+
+/**
+ * Exposición ACEPTADA, no filtración.
+ *
+ * El dueño decidió el 2026-10-15 no cerrar estas tablas. Siete quedan legibles
+ * con la publishable key: seis conservan una policy USING(true) sin cláusula TO
+ * —aplicable a PUBLIC, que incluye anon— y batches no tiene RLS en absoluto,
+ * porque quedó fuera de la migración 20261014120000.
+ *
+ * Están acá y no en la lista general porque un riesgo aceptado que hace fallar
+ * el chequeo en cada corrida convierte el chequeo en ruido, y entonces nadie lo
+ * mira. Es el mismo problema que tenía la prueba que se ponía roja según la
+ * carga de la máquina. Se reportan como TOLERADA, con su conteo, y no cambian
+ * el código de salida.
+ *
+ * Lo que SÍ cambia el código de salida es una filtración FUERA de esta lista:
+ * eso es una regresión.
+ *
+ * Por qué es defendible: son datos de operación del taller —qué máquinas hay,
+ * qué turnos, qué asignaciones, qué repuestos—, no dato personal ni
+ * remuneración. Si alguna empieza a guardar algo personal, sale de acá.
+ */
+const TOLERADAS = new Map([
+  ['machines',                    'policy USING(true) — inventario de máquinas'],
+  ['jobs',                        'policy USING(true) — trabajos del taller'],
+  ['worker_assignments',          'policy USING(true) — asignaciones de turno'],
+  ['maintenance_work_orders',     'policy USING(true) — órdenes de mantención'],
+  ['machine_cost_entries',        'policy USING(true) — costos por máquina'],
+  ['machine_supply_requirements', 'policy USING(true) — insumos por máquina'],
+  ['batches',                     'SIN RLS — quedó fuera de 20261014120000'],
+]);
 
 /* ── lectura ─────────────────────────────────────────────────────── */
 
@@ -163,6 +206,7 @@ async function leer(objeto, key) {
 /* ── informe ─────────────────────────────────────────────────────── */
 
 let filtraciones = 0;
+let toleradas = 0;
 let bloqueadasConDatos = 0;
 let sinVerdad = 0;
 const pendientes = [];
@@ -237,6 +281,15 @@ async function revisar(objeto, nota) {
   }
 
   if (pub.total > 0) {
+    // Riesgo aceptado: se informa y NO cuenta como filtración ni cambia el
+    // código de salida. Ver TOLERADAS.
+    if (TOLERADAS.has(objeto)) {
+      toleradas++;
+      console.log(
+        `  ~  ${etiqueta} TOLERADA — legible, ${pub.total} de ${verdad} fila(s)${sufijo}`,
+      );
+      return;
+    }
     filtraciones++;
     const cols = VERBOSE && pub.columnas.length
       ? `\n       columnas expuestas: ${pub.columnas.join(', ')}`
@@ -272,7 +325,12 @@ await bloque('Pantallas de Personas (Q-1)', PERSONAS);
 await bloque('Dato personal y remuneración', SENSIBLES);
 await bloque('Tablas sin RLS (las cierra 20261014120000)', SIN_RLS);
 await bloque('Vistas (security_invoker: 20261014121000)', VISTAS);
-await bloque('Policy permisiva viva (la quita 20261014121000)', PERMISIVAS);
+await bloque('Policy permisiva (la quitó 20261014121000)', PERMISIVAS);
+await bloque('Protegidas por RLS, antes sin probar', RLS_SIN_PROBAR);
+await bloque(
+  'Exposición ACEPTADA por decisión del dueño',
+  [...TOLERADAS.entries()].map(([t, porque]) => [t, porque]),
+);
 
 /* ── veredicto ───────────────────────────────────────────────────── */
 
@@ -306,6 +364,17 @@ if (sinVerdad > 0) {
   );
 }
 
+if (toleradas > 0) {
+  console.log(
+    [
+      String.fromCharCode(10) + String.fromCharCode(126) + " " + toleradas +" objeto(s) legibles con la publishable key POR DECISION,",
+      "  no por descuido: datos de operacion del taller, sin dato personal ni",
+      "  remuneracion. No afectan el codigo de salida. Si alguno empieza a",
+      "  guardar algo personal, hay que sacarlo de TOLERADAS y cerrarlo.",
+    ].join(String.fromCharCode(10)),
+  );
+}
+
 if (filtraciones > 0) {
   console.error(
     `\n✗ ${filtraciones} objeto(s) LEGIBLES con la publishable key.\n` +
@@ -316,4 +385,4 @@ if (filtraciones > 0) {
   process.exit(1);
 }
 
-console.log('\n✓ Nada legible con la publishable key.');
+console.log('\n✓ Ninguna filtración fuera de lo aceptado.');

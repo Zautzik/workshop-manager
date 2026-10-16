@@ -1,7 +1,6 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
 
 const queryKeys = {
   adminStats: ['admin', 'stats'] as const,
@@ -23,19 +22,18 @@ interface AdminStats {
 export function useAdminStats() {
   return useQuery<AdminStats>({
     queryKey: queryKeys.adminStats,
+    // Los cuatro conteos salen de /api/admin/stats, no del navegador.
+    //
+    // Contados desde acá devolvían «4 usuarios, 0 trabajadores, 0 máquinas, 0
+    // trabajos»: tres estaban mal porque las policies de esas tablas cuelgan de
+    // auth.uid(), que acá es siempre NULL, y el cuarto era una FILTRACIÓN —
+    // user_roles contestaba a la publishable key porque RLS no está activo en
+    // la base pese a lo que dice su migración. Ver el encabezado de la ruta.
     queryFn: async () => {
-      const [usersData, workersData, machinesData, jobsData] = await Promise.all([
-        supabase.from('user_roles').select('id', { count: 'exact', head: true }),
-        supabase.from('employees').select('id', { count: 'exact', head: true }),
-        supabase.from('machines').select('id', { count: 'exact', head: true }),
-        supabase.from('jobs').select('id', { count: 'exact', head: true }),
-      ]);
-      return {
-        totalUsers: usersData.count ?? 0,
-        totalWorkers: workersData.count ?? 0,
-        totalMachines: machinesData.count ?? 0,
-        totalJobs: jobsData.count ?? 0,
-      };
+      const res = await fetch('/api/admin/stats', { credentials: 'include' });
+      const body = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(body?.error ?? 'No se pudieron cargar las cifras');
+      return body.data as AdminStats;
     },
     staleTime: 30_000,
   });
