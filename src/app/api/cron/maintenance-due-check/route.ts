@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'node:crypto';
 import { supabaseAdmin } from '@/integrations/supabase/server';
 import { evaluateSchedule, decideCronOrderAction } from '@/lib/maintenance-due';
-import { notifyScheduleDue } from '@/lib/maintenance-notify';
 import logger from '@/lib/logger';
 
 // Mismo patrón que verifyWhatsAppSignature (src/lib/whatsapp-intake.ts): largo
@@ -82,8 +81,6 @@ export async function GET(req: NextRequest) {
   const rateByMachine = new Map((rates ?? []).map((r) => [r.machine_id, r.uso_por_dia]));
 
   let created = 0;
-  let notified = 0;
-  let retriedNotify = 0;
   let skippedAlreadyOpen = 0;
   let skippedSinChecklist = 0;
   const errors: string[] = [];
@@ -120,7 +117,16 @@ export async function GET(req: NextRequest) {
 
     const action = decideCronOrderAction(existing ?? null);
 
-    if (action === 'skip') {
+    // 'retry_notify' se trata igual que 'skip'.
+    //
+    // Esa acción existía para reintentar el AVISO de una orden que ya estaba
+    // creada pero no avisada. Los avisos de vencimiento se dieron de baja
+    // (decisión del dueño, 2026-10-16), así que `notified_at` nunca se sella y
+    // toda orden abierta volvería a caer en 'retry_notify' en cada corrida,
+    // para no hacer nada. `decideCronOrderAction` y sus pruebas se dejan
+    // intactas: describen bien lo que describen, y la distinción queda dormida
+    // por si el aviso vuelve.
+    if (action === 'skip' || action === 'retry_notify') {
       skippedAlreadyOpen++;
       continue;
     }
@@ -150,8 +156,6 @@ export async function GET(req: NextRequest) {
       }
       orderId = order.id;
       created++;
-    } else {
-      retriedNotify++;
     }
 
     if (!orderId) {
@@ -163,29 +167,27 @@ export async function GET(req: NextRequest) {
       continue;
     }
 
-    try {
-      await notifyScheduleDue({
-        scheduleId: s.id,
-        workOrderId: orderId,
-        machineName: machine.name,
-        reason: due.reason,
-      });
-      await supabaseAdmin
-        .from('maintenance_work_orders')
-        .update({ notified_at: new Date().toISOString() })
-        .eq('id', orderId);
-      notified++;
-    } catch (err) {
-      // notified_at se queda null a propósito -- la corrida de mañana
-      // reintenta el aviso para esta misma orden en vez de darla por avisada.
-      errors.push(`notify ${orderId}: ${err instanceof Error ? err.message : 'error desconocido'}`);
-    }
+    // Acá iba el aviso por WhatsApp. Ya no se manda.
+    //
+    // El aviso era el ÚNICO mensaje saliente de la aplicación, y era texto
+    // libre, que Meta sólo acepta dentro de las 24 horas desde el último
+    // mensaje del técnico. Una corrida de las 7 de la mañana sobre una máquina
+    // que vence mañana caía casi siempre fuera de esa ventana y Meta la
+    // rechazaba: para que fuera confiable hacía falta una plantilla aprobada.
+    // El dueño decidió que el aviso no hace falta (2026-10-16), así que en vez
+    // de tramitar la plantilla se da de baja el envío.
+    //
+    // Lo que SÍ sigue haciendo esta corrida es lo que tiene valor: crear la
+    // orden de trabajo de mantención preventiva cuando una pauta vence. Eso se
+    // ve en Vencimientos y en el tablero, sin depender de WhatsApp.
+    //
+    // `maintenance-notify.ts` queda sin llamadores. No se borra: `whatsapp-send`
+    // es el transporte que el plan de captura necesita para responderle al
+    // operador (Fase 1), y volver a enchufar el aviso es una línea.
   }
 
   return NextResponse.json({
     created,
-    notified,
-    retried_notify: retriedNotify,
     skipped_already_open: skippedAlreadyOpen,
     skipped_sin_checklist: skippedSinChecklist,
     errors,
