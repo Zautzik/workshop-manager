@@ -21,6 +21,11 @@ import { useTabFromUrl } from '@/hooks/use-tab-from-url';
 
 // Both are heavy trees; keep them out of the initial bundle.
 const CraftSkillTree = dynamic(() => import('@/components/hr/CraftSkillTree'));
+// Venía de /personas/habilidades, que se plegó en esta pestaña. Sin esto el
+// panel se habría perdido en silencio: la pestaña sólo tenía el árbol.
+const HorasReales = dynamic(
+  () => import('@/components/hr/HorasReales').then((m) => m.HorasReales),
+);
 const TrainingKnowledgeBase = dynamic(() => import('@/components/admin/TrainingKnowledgeBase'));
 
 const loading = (
@@ -56,7 +61,12 @@ function TalentoTabs() {
 
           <TabsContent value="habilidades" className="mt-4">
             <Suspense fallback={loading}>
-              <CraftSkillTree />
+              {/* Lo que el taller ya sabe va antes de lo que hay que declarar a
+                  mano — el orden viene de /personas/habilidades y se conserva. */}
+              <div className="space-y-6">
+                <HorasReales />
+                <CraftSkillTree />
+              </div>
             </Suspense>
           </TabsContent>
 

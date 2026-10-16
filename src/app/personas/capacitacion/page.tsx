@@ -1,18 +1,12 @@
-'use client';
+import { redirect } from 'next/navigation';
 
-import ProtectedRoute from '@/components/ProtectedRoute';
-import TrainingKnowledgeBase from '@/components/admin/TrainingKnowledgeBase';
-
-export default function TrainingPage() {
-  return (
-    <ProtectedRoute allowedRoles={['admin', 'manager', 'hr_manager']}>
-      <div className="p-6 md:p-8 space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Knowledge Base</h1>
-          <p className="text-sm text-muted-foreground mt-1">Base de conocimiento y entrenamiento interno.</p>
-        </div>
-        <TrainingKnowledgeBase />
-      </div>
-    </ProtectedRoute>
-  );
+// Capacitación es ahora la pestaña "capacitacion" de /personas/talento.
+//
+// Renderizaba el mismo TrainingKnowledgeBase que la pestaña.
+//
+// Se deja un redirect y no un 404, igual que /operaciones/lotes,
+// /operaciones/proveedores, /supply y /supervisor: la ruta estuvo enlazada y los
+// marcadores viejos siguen apuntando acá.
+export default function CapacitacionRedirectPage() {
+  redirect('/personas/talento?tab=capacitacion');
 }

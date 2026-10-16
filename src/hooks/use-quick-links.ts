@@ -10,7 +10,7 @@ const DEFAULT_LINKS = [
   '/analitica/dashboard',
   '/analitica/rentabilidad',
   '/equipos/maquinas',
-  '/personas/empleados',
+  '/personas/consola?tab=equipo',
 ];
 
 const storageKey = (userId?: string) => `quicklinks:v1:${userId ?? 'anon'}`;

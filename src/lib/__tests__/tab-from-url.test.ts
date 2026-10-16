@@ -47,12 +47,24 @@ describe('qué pestaña abre ?tab=', () => {
 		expect(resolveTab(TALENTO, 'habilidades', 'contratos')).toBe('habilidades');
 	});
 
-	it('los destinos de los cuatro redirects son pestañas válidas', () => {
-		// Si alguien renombra una pestaña y olvida el redirect, esto falla acá y
-		// no como una pantalla en blanco que nadie reporta.
-		expect(resolveTab(CONSOLA, 'equipo', 'contratos')).toBe('contratos');   // /personas/contratos
-		expect(resolveTab(CONSOLA, 'equipo', 'asistencia')).toBe('asistencia'); // /personas/licencias
-		expect(resolveTab(TALENTO, 'habilidades', 'certificaciones')).toBe('certificaciones');
-		expect(resolveTab(TALENTO, 'habilidades', 'incentivos')).toBe('incentivos');
+	it('los destinos de los ocho redirects son pestañas válidas', () => {
+		// Ocho rutas de /personas se plegaron en dos pantallas con pestañas, y
+		// cada una dejó un redirect con un ?tab= concreto. Si alguien renombra
+		// una pestaña y olvida su redirect, esto falla acá en vez de aparecer
+		// como una pantalla en blanco que nadie reporta.
+		const destinos: Array<[readonly string[], string, string]> = [
+			[CONSOLA, 'contratos',      '/personas/contratos'],
+			[CONSOLA, 'asistencia',     '/personas/licencias'],
+			[CONSOLA, 'equipo',         '/personas/empleados'],
+			[CONSOLA, 'retribucion',    '/personas/nomina'],
+			[TALENTO, 'certificaciones', '/personas/certificaciones'],
+			[TALENTO, 'incentivos',     '/personas/incentivos'],
+			[TALENTO, 'habilidades',    '/personas/habilidades'],
+			[TALENTO, 'capacitacion',   '/personas/capacitacion'],
+		];
+		for (const [pantalla, tab, rutaVieja] of destinos) {
+			const base = pantalla === CONSOLA ? 'equipo' : 'habilidades';
+			expect(resolveTab(pantalla as readonly string[], base, tab), rutaVieja).toBe(tab);
+		}
 	});
 });

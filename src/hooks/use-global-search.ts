@@ -121,7 +121,7 @@ export function useGlobalSearchResults(query: string): ResultItem[] {
           label: w.full_name ?? w.name,
           sublabel: w.department,
           type: 'worker',
-          href: `/personas/empleados`,
+          href: `/personas/consola?tab=equipo`,
         });
       }
     }

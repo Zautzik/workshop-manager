@@ -22,7 +22,7 @@ function Stat({ icon: Icon, label, value, tone }: {
 
 /**
  * Compact labor-cost readout for Analítica, based on the current month's payroll.
- * The full per-employee payroll is canonical in Personas → /personas/nomina;
+ * The full per-employee payroll is canonical in Personas → Consola Operativa,
  * this card hands off there. Degrades gracefully if the payroll calculation
  * can't run (known worker→employee mapping drift) instead of throwing.
  */
@@ -41,7 +41,7 @@ export default function LaborCostSummary() {
           <Wallet className="h-4 w-4" />Costo laboral del mes
         </CardTitle>
         <Link
-          href="/personas/nomina"
+          href="/personas/consola?tab=retribucion"
           className="text-xs font-medium text-primary hover:underline flex items-center gap-1"
         >
           Ver nómina completa <ArrowRight className="h-3 w-3" />
@@ -60,7 +60,7 @@ export default function LaborCostSummary() {
               <p className="text-muted-foreground text-xs mt-0.5">
                 No se pudo calcular (asignaciones sin empleado o sin tarifa).
                 Revisa el detalle en{' '}
-                <Link href="/personas/nomina" className="text-primary hover:underline">Personas → Nómina</Link>.
+                <Link href="/personas/consola?tab=retribucion" className="text-primary hover:underline">Personas → Nómina</Link>.
               </p>
             </div>
           </div>

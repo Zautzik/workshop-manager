@@ -138,10 +138,10 @@ export function FragmentRow({ person: p, expanded, contractType, hrsWeek, assign
                   <div className="text-sm text-muted-foreground">Sin competencias registradas</div>
                 )}
                 <div className="flex flex-wrap gap-2 pt-1">
-                  <Link href="/personas/empleados" className="inline-flex items-center gap-1 text-xs text-primary hover:underline">
+                  <Link href="/personas/consola?tab=equipo" className="inline-flex items-center gap-1 text-xs text-primary hover:underline">
                     <Pencil className="h-3 w-3" /> Editar ficha
                   </Link>
-                  <Link href="/personas/nomina" className="inline-flex items-center gap-1 text-xs text-primary hover:underline">
+                  <Link href="/personas/consola?tab=retribucion" className="inline-flex items-center gap-1 text-xs text-primary hover:underline">
                     <Wallet className="h-3 w-3" /> Ver nómina
                   </Link>
                 </div>
