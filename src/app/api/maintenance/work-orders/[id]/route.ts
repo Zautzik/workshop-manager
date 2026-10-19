@@ -54,10 +54,38 @@ interface RouteParams {
  * pueda cerrar una orden por el mismo camino exacto que este endpoint, no uno
  * paralelo que se olvide de alguno de los dos.
  */
-export async function applyWorkOrderUpdate(id: string, patch: WorkOrderUpdateInput) {
+/**
+ * @param opts.advanceSchedule  Si al completar la orden se mueve la fecha de la
+ *   pauta. Por defecto `true`, que es lo que hacen los dos llamadores con
+ *   persona identificada (este PATCH y whatsapp-maintenance-ingest).
+ *
+ *   El cierre desde la etiqueta QR pasa `false`: ahi no hay nadie
+ *   identificado —lo que autoriza es el token impreso en la maquina— y estirar
+ *   el intervalo de mantencion de un equipo no puede quedar en manos de quien
+ *   le saco una foto a la etiqueta. La orden se cierra igual, pero la pauta
+ *   queda marcada `avance_pendiente` hasta que un supervisor lo apruebe
+ *   (decision del dueño, 2026-10-19; ver 20261019120000).
+ */
+export async function applyWorkOrderUpdate(
+  id: string,
+  patch: WorkOrderUpdateInput,
+  opts: { advanceSchedule?: boolean; closedFrom?: 'sesion' | 'etiqueta' } = {},
+) {
+  const advanceSchedule = opts.advanceSchedule ?? true;
+  const cierra = patch.status === 'completed';
+
+  // Las columnas de procedencia y de pendiente se escriben en el MISMO update
+  // que el resto: dos escrituras dejarian una ventana donde la orden esta
+  // cerrada y nadie sabe que la pauta quedo esperando.
+  const conMarcas = {
+    ...patch,
+    ...(cierra ? { cerrada_desde: opts.closedFrom ?? 'sesion' } : {}),
+    ...(cierra && !advanceSchedule ? { avance_pendiente: true } : {}),
+  };
+
   const { data, error } = await supabaseAdmin
     .from('maintenance_work_orders')
-    .update(patch)
+    .update(conMarcas as never)
     .eq('id', id)
     .select('*')
     .single();
@@ -71,7 +99,11 @@ export async function applyWorkOrderUpdate(id: string, patch: WorkOrderUpdateInp
 
   // Si esta orden nació de una pauta, completarla avanza su reloj -- si no,
   // la pauta se queda vencida para siempre aunque el trabajo ya se hizo.
-  if (patch.status === 'completed') {
+  //
+  // Salvo que el cierre venga de la etiqueta QR: ahí la pauta espera el visto
+  // bueno de un supervisor, que la avanza desde /aprobar-avance. La orden ya
+  // quedó marcada `avance_pendiente` en el update de arriba.
+  if (cierra && advanceSchedule) {
     await advanceLinkedSchedule(data);
   }
 
@@ -175,7 +207,11 @@ async function syncDowntime(
  * maintenance-due.ts). Mismo cuidado que syncDowntime: best-effort, nunca
  * bloquea el cierre real de la orden por un problema acá.
  */
-async function advanceLinkedSchedule(order: {
+/**
+ * Exportada para que la ruta de aprobacion del supervisor avance la pauta por
+ * ESTE camino y no por una copia que se olvide de la lectura del contador.
+ */
+export async function advanceLinkedSchedule(order: {
   schedule_id: string | null;
   machine_id: string;
   completed_at: string | null;

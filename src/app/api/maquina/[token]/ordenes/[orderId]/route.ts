@@ -173,7 +173,14 @@ export async function PATCH(
 		// de escritura habría salido con HTTP 200 y el operario habría visto su
 		// casilla marcada sin que se guardara nada. Se destructura igual que en la
 		// ruta con sesión.
-		const { data, error } = await applyWorkOrderUpdate(orderId, parsed.data as never);
+		// `advanceSchedule: false`: cerrar desde la etiqueta registra el trabajo pero
+		// NO mueve la fecha de la proxima mantencion. Aca no hay persona
+		// identificada, y estirar el intervalo de un equipo lo tiene que firmar un
+		// supervisor desde /aprobar-avance. La orden queda `avance_pendiente`.
+		const { data, error } = await applyWorkOrderUpdate(orderId, parsed.data as never, {
+			advanceSchedule: false,
+			closedFrom: 'etiqueta',
+		});
 		if (error) return fallaInterna('update de orden', error);
 		if (!data) {
 			return NextResponse.json({ error: 'No se pudo actualizar la orden' }, { status: 500 });

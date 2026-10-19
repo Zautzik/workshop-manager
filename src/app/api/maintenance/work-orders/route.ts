@@ -61,7 +61,7 @@ export async function GET(req: NextRequest) {
         let q = supabaseAdmin
           .from('maintenance_work_orders')
           .select(
-            'id, machine_id, status, scheduled_date, started_at, completed_at, priority, work_order_type, title, fault_description, notes, total_time_minutes, checklist_id, schedule_id, completed_items, machines(name, type), maintenance_checklists(name, frequency, items)'
+            'id, machine_id, status, scheduled_date, started_at, completed_at, priority, work_order_type, title, fault_description, notes, total_time_minutes, checklist_id, schedule_id, completed_items, avance_pendiente, avance_aprobado_por, avance_aprobado_en, cerrada_desde, machines(name, type), maintenance_checklists(name, frequency, items)' as never
           )
           .order('scheduled_date', { ascending: true });
         if (statuses) q = q.in('status', statuses);
@@ -72,7 +72,12 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  const orders = data ?? [];
+  // `as never` en el string del select y el tipo local aca: las columnas de
+  // aprobacion del avance (avance_pendiente, cerrada_desde...) son nuevas y los
+  // tipos generados todavia no las tienen, y este archivo deja escrito que el
+  // parser valida el string de .select(). Se va al correr `npm run gen-types`
+  // despues de aplicar 20261019120000.
+  const orders = (data ?? []) as unknown as Array<Record<string, any>>;
   const machineIds = [...new Set(orders.map((o) => o.machine_id).filter(Boolean))] as string[];
 
   // machine_id → why it's down, so the UI can say more than "unavailable".

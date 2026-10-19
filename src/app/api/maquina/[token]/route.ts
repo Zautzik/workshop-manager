@@ -64,6 +64,9 @@ const COLUMNAS_MAQUINA = 'id, name, type, usage_counter, usage_unit';
 const COLUMNAS_ORDEN =
 	'id, machine_id, schedule_id, status, work_order_type, priority, scheduled_date, ' +
 	'started_at, completed_at, notes, total_time_minutes, completed_items, checklist_id, ' +
+	// La pantalla muestra 'esperando visto bueno' cuando la pauta todavia no se
+	// movio, asi que la columna tiene que viajar.
+	'avance_pendiente, ' +
 	// Sin `fault_description`: la pantalla no lo dibuja, y es texto libre del
 	// operario. Lo que una ruta publica no necesita, no lo publica.
 	'title, maintenance_checklists(name, frequency, items)';

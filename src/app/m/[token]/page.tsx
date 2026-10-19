@@ -108,7 +108,19 @@ function TarjetaOrden({ token, orden }: { token: string; orden: any }) {
 			if (!res.ok) throw new Error(json?.error ?? 'No se pudo actualizar la orden');
 			return json;
 		},
-		onSuccess: () => qc.invalidateQueries({ queryKey: ['etiqueta', token] }),
+		onSuccess: (_d, variables) => {
+			qc.invalidateQueries({ queryKey: ['etiqueta', token] });
+			// Si el operario acaba de cerrar la orden, se le dice qué falta: la
+			// próxima fecha no se movió todavía. Dejarlo creer que terminó todo
+			// sería mentirle sobre el estado de su propia máquina.
+			if ((variables as Record<string, unknown>)?.status === 'completed') {
+				toast({
+					title: 'Orden cerrada',
+					description:
+						'Queda registrada. La próxima fecha de mantención la mueve un supervisor cuando revise el trabajo.',
+				});
+			}
+		},
 		onError: (e: Error) =>
 			toast({ title: 'No se guardó', description: e.message, variant: 'destructive' }),
 	});
@@ -169,6 +181,11 @@ function TarjetaOrden({ token, orden }: { token: string; orden: any }) {
 							</span>
 						)}
 						{orden.scheduled_date && <span>Programada {orden.scheduled_date}</span>}
+						{orden.avance_pendiente && (
+							<span className="text-amber-600 dark:text-amber-400">
+								esperando visto bueno
+							</span>
+						)}
 					</div>
 				</div>
 			</button>

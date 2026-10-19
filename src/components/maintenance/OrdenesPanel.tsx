@@ -76,6 +76,30 @@ function OrderDetailDialog({ order, onClose }: { order: any; onClose: () => void
 
   const editable = tracked && (order.status === 'pending' || order.status === 'in_progress');
 
+  /**
+   * Aprobar que la fecha de la próxima mantención se mueva.
+   *
+   * Una orden cerrada desde la etiqueta QR de la máquina registra el trabajo
+   * pero NO avanza la pauta: ahí no hay persona identificada, lo que autoriza
+   * es el token impreso. Estirar el intervalo de un equipo lo firma un
+   * supervisor, acá.
+   */
+  const aprobarAvance = useMutation({
+    mutationFn: async () => {
+      const res = await fetch(`/api/maintenance/work-orders/${order.id}/aprobar-avance`, {
+        method: 'POST',
+        credentials: 'include',
+      });
+      const json = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(json?.error ?? 'No se pudo aprobar el avance');
+      return json;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['maintenance', 'workOrders'] });
+      queryClient.invalidateQueries({ queryKey: ['maintenance', 'schedules'] });
+    },
+  });
+
   const patchOrder = useMutation({
     mutationFn: async (body: Record<string, unknown>) => {
       const res = await fetch(`/api/maintenance/work-orders/${order.id}`, {
@@ -148,6 +172,46 @@ function OrderDetailDialog({ order, onClose }: { order: any; onClose: () => void
 
           {order.fault_description && (
             <p className="rounded-md border border-border bg-muted/30 p-3 text-sm">{order.fault_description}</p>
+          )}
+
+          {/*
+            La fecha de la próxima mantención no se movió todavía. Pasa cuando la
+            orden se cerró desde la etiqueta QR: ahí no hay persona identificada,
+            así que el avance de la pauta espera el visto bueno de supervisión.
+            Mientras no se apruebe, la pauta sigue mostrándose vencida — que es la
+            verdad hasta que alguien del taller la revise.
+          */}
+          {order.avance_pendiente && (
+            <div className="rounded-md border border-amber-500/40 bg-amber-500/10 p-3">
+              <p className="flex items-start gap-2 text-xs text-amber-900 dark:text-amber-200">
+                <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                <span>
+                  <strong>La próxima mantención todavía no se corrió.</strong> Esta orden
+                  se cerró {order.cerrada_desde === 'etiqueta' ? 'desde la etiqueta QR de la máquina, sin sesión' : 'sin avanzar la pauta'}.
+                  Si el trabajo está bien hecho, aprobá que la fecha se mueva.
+                </span>
+              </p>
+              <Button
+                size="sm"
+                className="mt-3 w-full"
+                disabled={aprobarAvance.isPending}
+                onClick={() => aprobarAvance.mutate()}
+              >
+                {aprobarAvance.isPending ? 'Aprobando…' : 'Aprobar y mover la fecha'}
+              </Button>
+              {aprobarAvance.error && (
+                <p className="mt-2 text-xs text-destructive">
+                  {(aprobarAvance.error as Error).message}
+                </p>
+              )}
+            </div>
+          )}
+
+          {order.avance_aprobado_en && (
+            <p className="text-xs text-muted-foreground">
+              Avance de pauta aprobado el{' '}
+              {format(new Date(order.avance_aprobado_en), 'PPP', { locale: es })}.
+            </p>
           )}
 
           {!tracked && (
