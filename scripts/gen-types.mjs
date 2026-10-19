@@ -1,16 +1,41 @@
 // Generates src/integrations/supabase/types.ts by introspecting the live
 // PostgREST schema via the OpenAPI endpoint.
 // Usage: node scripts/gen-types.mjs
-import { readFileSync, writeFileSync } from 'node:fs';
+//
+// CUIDADO: desde 2026-10-16 este script produce tipos INCOMPLETOS.
+//
+// Introspecta el spec OpenAPI de PostgREST, y ese spec refleja lo que el rol
+// que pregunta puede ver. La migracion 20261014122000 revoco el EXECUTE de
+// PUBLIC/anon/authenticated sobre ~73 funciones, asi que el spec ya no las
+// lista: al correrlo el 2026-10-19 el archivo paso de 9.643 a 6.149 lineas y el
+// typecheck salto de 0 a 51 errores — se perdieron las relaciones entre tablas
+// ("could not find the relation between X and Y") y los nombres de los RPC.
+// O sea que el endurecimiento de permisos rompio al generador.
+//
+// Alternativa que si funciona, porque lee la base y no PostgREST:
+//
+//   npx supabase gen types typescript --linked --schema public > src/integrations/supabase/types.ts
+//
+// Da 9.777 lineas con las 121 relaciones intactas y las columnas nuevas. Su
+// unico costo: tipa los ARGUMENTOS de los RPC como no nulos (Postgres no tiene
+// NOT NULL en parametros), y deja ~10 errores en whatsapp-ingest.ts donde el
+// codigo pasa null a proposito y es correcto. Migrar a ese comando es deseable
+// y pide castear esas llamadas; no se hizo todavia.
+import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = resolve(__dirname, '..');
 
-// Parse .env.local manually
+// Parse .env.local, o .env si no existe.
+//
+// Estaba fijo en .env.local, y este repositorio usa .env: el script no se podia
+// correr tal cual, fallaba con ENOENT antes de hacer nada. Mismo orden de
+// preferencia que check-anon-visibility.mjs y check-rls-drift.mjs.
+const envFile = existsSync(resolve(root, '.env.local')) ? '.env.local' : '.env';
 const env = {};
-for (const line of readFileSync(resolve(root, '.env.local'), 'utf8').split('\n')) {
+for (const line of readFileSync(resolve(root, envFile), 'utf8').split('\n')) {
   const trimmed = line.trim();
   if (!trimmed || trimmed.startsWith('#')) continue;
   const eq = trimmed.indexOf('=');
