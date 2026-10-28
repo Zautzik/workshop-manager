@@ -3,7 +3,6 @@ import { z } from 'zod';
 import { requireAuth, isAuthError } from '@/lib/api-middleware';
 import { supabaseAdmin } from '@/integrations/supabase/server';
 import { fetchAll } from '@/lib/fetch-all';
-import { checkAssignment } from '@/lib/assignment-rules';
 
 export const dynamic = 'force-dynamic';
 
@@ -42,7 +41,10 @@ const ASSIGNMENT_COLUMNS =
   'id, employee_id, machine_id, ot_id, role, date, shift_id, hours_worked, ' +
   'workstation:machines!machine_id(id, name, type), ' +
   'employee:employees(id, full_name, department), ' +
-  'shift:shifts(id, name, code, start_time, end_time, archived_at)';
+  // `*` en el turno: `break_minutes` (la colación, migración 20261028120000) tiene
+  // que viajar para que Planta cuente horas pagadas, y nombrarla antes de que
+  // exista tumbaría la lectura.
+  'shift:shifts(*)';
 
 /**
  * GET /api/worker-assignments?date=YYYY-MM-DD
@@ -146,44 +148,21 @@ export async function GET(req: NextRequest) {
 }
 
 /**
- * Un turno en una máquina de producción tiene que decir a qué OT se carga.
+ * Una asignación es que la persona ESTÁ en su puesto ese turno. No exige OT.
  *
- * La comprobación vive acá y no sólo en la pantalla porque la pantalla se puede
- * saltar: cualquiera con sesión de supervisor puede llamar a este endpoint. Y
- * porque la consecuencia no es cosmética — una asignación sin OT son horas que
- * no entran al costo de ningún trabajo, y un margen que sale más alto de lo que
- * fue sin que nadie lo note.
+ * Hasta 2026-10-28 se rechazaba un turno en una máquina de producción sin OT
+ * (`assignment-rules.ts`, ya borrado), para que esas horas no quedaran fuera
+ * del costo de ningún trabajo. La planta lo corrigió: la gente cobra sueldo
+ * mensual y está en su máquina haya trabajo o no, y una mantención es un
+ * trabajo sin OT. Exigir la OT obligaba a inventar a qué pedido se cargaba un
+ * turno antes de que ocurriera, y hacía imposible cargar la semana de una vez.
  *
- * La regla —qué tipos de máquina exigen OT y por qué el reparto no— vive en
- * `assignment-rules.ts`, con pruebas.
+ * `ot_id` sigue siendo opcional: si viene, el costeo carga esas horas a esa
+ * OT. Si no viene, el costeo las cuenta como horas no atribuidas
+ * (`unattributed_hours`, en labor-margin): tiempo de planta (espera,
+ * mantención, limpieza), que es lo que son. Atribuirlas a las OT que la
+ * máquina corrió ese turno es el paso siguiente (auditoría 2026-10-28, brecha B).
  */
-async function rechazarSinOT(
-  filas: { machine_id: string; ot_id?: string | null }[],
-): Promise<NextResponse | null> {
-  const ids = [...new Set(filas.map((f) => f.machine_id))];
-  const { data: maquinas } = await supabaseAdmin
-    .from('machines')
-    .select('id, name, type')
-    .in('id', ids);
-
-  const tipoDe = new Map((maquinas ?? []).map((m: any) => [m.id, m.type]));
-  const nombreDe = new Map((maquinas ?? []).map((m: any) => [m.id, m.name]));
-
-  for (const f of filas) {
-    const veredicto = checkAssignment({ machineType: tipoDe.get(f.machine_id), otId: f.ot_id });
-    if (!veredicto.ok) {
-      return NextResponse.json(
-        {
-          error: veredicto.reason,
-          machine: nombreDe.get(f.machine_id) ?? null,
-          field: 'ot_id',
-        },
-        { status: 400 },
-      );
-    }
-  }
-  return null;
-}
 
 export async function POST(req: NextRequest) {
   const auth = await requireAuth(['admin', 'supervisor', 'manager']);
@@ -201,8 +180,6 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      const rechazo = await rechazarSinOT(parsed.data);
-      if (rechazo) return rechazo;
 
       const { data, error } = await supabaseAdmin
         .from('worker_assignments')
@@ -224,8 +201,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const rechazo = await rechazarSinOT([parsed.data]);
-    if (rechazo) return rechazo;
 
     const { data, error } = await supabaseAdmin
       .from('worker_assignments')
