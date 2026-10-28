@@ -405,17 +405,39 @@ export function useSchedulingCostModel() {
   });
 }
 
+/**
+ * Dotación desde `/api/worker-assignments`, nunca directo de la tabla.
+ *
+ * `worker_assignments` tiene RLS sin políticas (migración 20260801160000): leída
+ * desde el navegador devuelve cero filas, sin error. Planta mostraba todas las
+ * máquinas vacías aunque la dotación estuviera cargada, y las horas semanales y
+ * extra que frenan una asignación de más sumaban cero (2026-10-28).
+ */
+export async function fetchWorkerAssignments(
+  params: { date: string } | { from: string; to: string },
+  filters: { shiftId?: string; role?: string } = {},
+): Promise<any[]> {
+  const qs = new URLSearchParams(
+    'date' in params ? { date: params.date } : { from: params.from, to: params.to },
+  );
+  if (filters.shiftId) qs.set('shiftId', filters.shiftId);
+  if (filters.role) qs.set('role', filters.role);
+  const res = await fetch(`/api/worker-assignments?${qs}`, { credentials: 'include' });
+  if (!res.ok) {
+    const body = await res.json().catch(() => null);
+    throw new Error(body?.error ?? `No se pudo leer la dotación (${res.status})`);
+  }
+  const payload = await res.json();
+  return (payload?.assignments ?? []) as any[];
+}
+
 export function useWorkerAssignments(date?: string) {
   const dateValue = date || new Date().toISOString().split('T')[0];
   return useQuery({
     queryKey: queryKeys.assignments(dateValue),
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('worker_assignments')
-        .select('*, employee:employees(*), workstation:machines!machine_id(*), shift:shifts(*)')
-        .eq('date', dateValue);
-      if (error) throw error;
-      return (data ?? []).map((assignment: any) => ({
+      const data = await fetchWorkerAssignments({ date: dateValue });
+      return data.map((assignment: any) => ({
         ...assignment,
         worker: assignment.employee
           ? {
@@ -442,14 +464,7 @@ export function useWorkerMonthlyOvertime(referenceDate?: string) {
   return useQuery({
     queryKey: ['assignments', 'monthlyOvertime', monthStart, monthEnd],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('worker_assignments')
-        .select('employee_id, date, role, shift:shifts(start_time, end_time)')
-        .gte('date', monthStart)
-        .lte('date', monthEnd)
-        .ilike('role', '%overtime%');
-
-      if (error) throw error;
+      const data = await fetchWorkerAssignments({ from: monthStart, to: monthEnd }, { role: 'overtime' });
 
       const toMinutes = (timeValue?: string | null) => {
         if (!timeValue) return 0;
@@ -613,12 +628,7 @@ export function useWorkflowWeeklyHours(referenceDate?: string) {
   return useQuery({
     queryKey: queryKeys.workflowWeeklyHours(weekStart, weekEnd),
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('worker_assignments')
-        .select('employee_id, shift:shifts(start_time, end_time)')
-        .gte('date', weekStart)
-        .lte('date', weekEnd);
-      if (error) throw error;
+      const data = await fetchWorkerAssignments({ from: weekStart, to: weekEnd });
 
       const toMinutes = (timeValue?: string | null) => {
         if (!timeValue) return 0;

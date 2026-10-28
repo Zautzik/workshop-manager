@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { requireAuth, isAuthError } from '@/lib/api-middleware';
 import { supabaseAdmin } from '@/integrations/supabase/server';
+import { fetchAll } from '@/lib/fetch-all';
 import { checkAssignment } from '@/lib/assignment-rules';
 
 export const dynamic = 'force-dynamic';
@@ -31,9 +32,30 @@ const AssignmentSchema = z
 
 const AssignmentBulkSchema = z.array(AssignmentSchema).min(1);
 
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+
+// Lo que Planta necesita de cada asignación: la máquina, el turno con su
+// horario (horas semanales, horas extra, turnos archivados) y el nombre del
+// operario. Del empleado sólo nombre y área: teléfono, contacto de emergencia y
+// correo no tienen por qué viajar a cualquier rol con sesión.
+const ASSIGNMENT_COLUMNS =
+  'id, employee_id, machine_id, ot_id, role, date, shift_id, hours_worked, ' +
+  'workstation:machines!machine_id(id, name, type), ' +
+  'employee:employees(id, full_name, department), ' +
+  'shift:shifts(id, name, code, start_time, end_time, archived_at)';
+
 /**
  * GET /api/worker-assignments?date=YYYY-MM-DD
+ *     /api/worker-assignments?from=YYYY-MM-DD&to=YYYY-MM-DD   → un rango (semana, mes)
  *     /api/worker-assignments?latest=1   → most recent roster on or before today
+ *   Filtros opcionales: `shiftId`, `role` (contiene, sin mayúsculas: «overtime»).
+ *
+ * Planta leía `worker_assignments` directo desde el navegador, y desde la
+ * migración 20260801160000 la tabla tiene RLS sin políticas: el navegador
+ * recibía CERO filas, siempre. Se asignaba a alguien, la escritura (que ya iba
+ * por esta ruta) funcionaba, y la persona desaparecía de la pantalla; las
+ * horas semanales y extra que protegen la asignación también contaban cero
+ * (encontrado con el escenario de prueba, 2026-10-28). Toda lectura pasa por acá.
  *
  * Returns { date, assignments } where each assignment carries its workstation
  * (name/type) and the OT number. `ot_id` holds an `ots.id` in practice (PlantaBoard
@@ -48,6 +70,29 @@ export async function GET(req: NextRequest) {
   const today = new Date().toISOString().split('T')[0];
   const explicitDate = searchParams.get('date');
   const wantsLatest = searchParams.get('latest');
+  const from = searchParams.get('from');
+  const to = searchParams.get('to');
+  const shiftId = searchParams.get('shiftId');
+  const roleLike = searchParams.get('role');
+
+  if ([explicitDate, from, to].some((d) => d != null && !ISO_DATE.test(d))) {
+    return NextResponse.json({ error: 'Fecha inválida: usa YYYY-MM-DD.' }, { status: 400 });
+  }
+
+  if (from || to) {
+    if (!from || !to || from > to) {
+      return NextResponse.json({ error: 'El rango necesita from ≤ to.' }, { status: 400 });
+    }
+    // Un mes de dotación pasa las 1000 filas por defecto de PostgREST: se pagina.
+    const { rows, truncated } = await fetchAll<any>((desde, hasta) => {
+      let q = supabaseAdmin.from('worker_assignments').select(ASSIGNMENT_COLUMNS).gte('date', from).lte('date', to);
+      if (shiftId) q = q.eq('shift_id', shiftId);
+      if (roleLike) q = q.ilike('role', `%${roleLike}%`);
+      return q.order('date').range(desde, hasta) as any;
+    });
+    return NextResponse.json({ from, to, assignments: rows, truncated });
+  }
+
   let date = explicitDate || today;
 
   // Fall back to the newest roster at or before today so the view is meaningful
@@ -63,12 +108,12 @@ export async function GET(req: NextRequest) {
     if (latestRow?.date) date = latestRow.date;
   }
 
-  const { data: rows, error } = await supabaseAdmin
-    .from('worker_assignments')
-    // `workstation` se sigue devolviendo con ese nombre para no romper a los
-    // consumidores, pero ahora viene de `machines`: una sola identidad de equipo.
-    .select('id, employee_id, machine_id, ot_id, role, date, shift_id, workstation:machines!machine_id(id, name, type)')
-    .eq('date', date);
+  // `workstation` se sigue devolviendo con ese nombre para no romper a los
+  // consumidores, pero ahora viene de `machines`: una sola identidad de equipo.
+  let dayQuery = supabaseAdmin.from('worker_assignments').select(ASSIGNMENT_COLUMNS).eq('date', date);
+  if (shiftId) dayQuery = dayQuery.eq('shift_id', shiftId);
+  if (roleLike) dayQuery = dayQuery.ilike('role', `%${roleLike}%`);
+  const { data: rows, error } = await dayQuery;
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });

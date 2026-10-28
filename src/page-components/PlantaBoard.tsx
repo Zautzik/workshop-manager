@@ -14,7 +14,7 @@ const WorkstationLayout = dynamic(() => import('@/components/workflow/Workstatio
 import { Clock } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
-import { useCompensationRatesForDate, useSchedulingCostModel, useWorkerAssignments, useWorkerMonthlyOvertime, useWorkflowCertificationAlerts, useWorkflowContracts, useWorkflowIncentiveStatuses, useWorkflowLeaveStatuses, useWorkflowWeeklyHours, useWorkersByRating, useWorkstations, useShifts } from "@/hooks/use-workflow-queries";
+import { useCompensationRatesForDate, useSchedulingCostModel, useWorkerAssignments, useWorkerMonthlyOvertime, useWorkflowCertificationAlerts, useWorkflowContracts, useWorkflowIncentiveStatuses, useWorkflowLeaveStatuses, useWorkflowWeeklyHours, useWorkersByRating, useWorkstations, useShifts, fetchWorkerAssignments } from "@/hooks/use-workflow-queries";
 import { useRealtimeProduction } from "@/hooks/use-realtime-production";
 import { DndContext, DragEndEvent, DragOverlay } from "@dnd-kit/core";
 import { isWorkerQualifiedForStation } from "@/lib/workstation-skills";
@@ -35,6 +35,7 @@ type WorkflowTab = 'en_proceso' | 'ots' | 'clients' | 'layout' | 'shifts' | 'pro
 // cualquier memo/React.memo río abajo que reciba este valor como prop
 // (auditoría de performance 2026-09, ver WorkstationLayout.tsx).
 const EMPTY_OVERTIME_BY_WORKER: Record<string, { hours: number; shifts: number }> = {};
+const EMPTY_ASSIGNMENTS: any[] = [];
 
 interface PlantaBoardProps {
   /** Retained for compatibility; the board now renders only the planta layout. */
@@ -57,7 +58,7 @@ export default function PlantaBoard({ initialTab = 'layout' }: PlantaBoardProps)
   const { data: workersData = [] } = useWorkersByRating();
   const { data: workstationsData = [] } = useWorkstations();
   const { data: shifts = [] } = useShifts();
-  const { data: assignments = [], refetch: refetchAssignments } = useWorkerAssignments(selectedDate);
+  const { data: rawAssignments = EMPTY_ASSIGNMENTS, refetch: refetchAssignments } = useWorkerAssignments(selectedDate);
   const { data: monthlyOvertimeByWorker = EMPTY_OVERTIME_BY_WORKER } = useWorkerMonthlyOvertime(selectedDate);
   const { data: stationsUnderMaintenance, isError: maintenanceCheckFailed } = useStationsUnderMaintenance();
   const { data: compensationRates = [] } = useCompensationRatesForDate(selectedDate);
@@ -101,17 +102,21 @@ export default function PlantaBoard({ initialTab = 'layout' }: PlantaBoardProps)
   // por el nombre — y el Turno Noche 23–07 caía en «Tarde».
   const shiftDefinitions = useMemo(() => (shifts as any[]).filter((s) => s?.code), [shifts]);
 
-  // El turno de una asignación tal como se ve en Planta. Una cargada antes de
-  // la migración apunta a una fila archivada («Turno Día 07–15») y, sin esto,
-  // la dotación de ese día desaparecía de la pantalla: se lee como la
-  // definición equivalente (`definitionFor`). La asignación no se toca — la
-  // nómina sigue calculando con su fila original.
-  const planShiftOf = useCallback(
-    (assignment: any): string =>
-      shiftDefinitions.length > 0
-        ? (definitionFor(assignment?.shift, shiftDefinitions, assignment?.workstation?.type)?.id ?? assignment?.shift_id)
-        : assignment?.shift_id,
-    [shiftDefinitions]
+  // La dotación tal como se ve en Planta. Una asignación cargada antes de la
+  // migración apunta a una fila archivada («Turno Día 07–15») y, sin esto,
+  // desaparecía de la pantalla: su `shift_id` se lee como la definición
+  // equivalente (`definitionFor`). Se normaliza UNA vez acá para que el tablero
+  // de máquinas, los topes y los filtros vean lo mismo. La fila de la base no se
+  // toca — la nómina sigue calculando con su turno original (`shift`).
+  const assignments = useMemo(
+    () =>
+      shiftDefinitions.length === 0
+        ? rawAssignments
+        : rawAssignments.map((a: any) => {
+            const def = definitionFor(a?.shift, shiftDefinitions, a?.workstation?.type);
+            return def && def.id !== a.shift_id ? { ...a, shift_id: def.id } : a;
+          }),
+    [rawAssignments, shiftDefinitions]
   );
 
   const shiftToggleOptions = useMemo(() => {
@@ -145,11 +150,6 @@ export default function PlantaBoard({ initialTab = 'layout' }: PlantaBoardProps)
     }
     setLinkedMachine(params.get('machine'));
   }, []);
-  useEffect(() => {
-    const code = new URLSearchParams(window.location.search).get('shift');
-    const def = code ? shiftDefinitions.find((s: any) => s.code === code) : null;
-    if (def) setSelectedShiftId(def.id);
-  }, [shiftDefinitions]);
 
   useEffect(() => {
     setActiveTab(initialTab);
@@ -209,9 +209,15 @@ export default function PlantaBoard({ initialTab = 'layout' }: PlantaBoardProps)
 
   useEffect(() => {
     if (!selectedShiftId && shifts.length > 0) {
-      // La Mañana si hay definiciones; si no, la primera fila (como antes).
+      // El turno de la URL (`?shift=noche`, desde el Cronograma) y si no, la
+      // Mañana; sin definiciones, la primera fila (como antes). En UN efecto:
+      // eran dos que corrían en el mismo render al llegar los turnos, y el de la
+      // Mañana —con `selectedShiftId` todavía null— pisaba al de la URL.
+      // «Abrir en Planta» la Noche del jueves aterrizaba en la Mañana.
+      const code = new URLSearchParams(window.location.search).get('shift');
+      const fromUrl = code ? shiftDefinitions.find((s: any) => s.code === code) : null;
       const manana = shiftDefinitions.find((s: any) => s.code === 'manana');
-      setSelectedShiftId((manana ?? shifts[0]).id);
+      setSelectedShiftId((fromUrl ?? manana ?? shifts[0]).id);
     }
   }, [selectedShiftId, shifts, shiftDefinitions]);
 
@@ -281,13 +287,15 @@ export default function PlantaBoard({ initialTab = 'layout' }: PlantaBoardProps)
     }
 
     try {
-      const { data: sourceAssignments, error: sourceError } = await supabase
-        .from('worker_assignments')
-        .select('employee_id, worker_id, machine_id, role, ot_id')
-        .eq('date', sourceDate)
-        .eq('shift_id', selectedShiftId);
-
-      if (sourceError) throw sourceError;
+      // Por la API (la tabla tiene RLS: desde el navegador no se lee nada), y el
+      // turno se compara ya normalizado: copiar un día cargado sobre una fila
+      // archivada también tiene que encontrar su dotación.
+      const sourceAssignments = (await fetchWorkerAssignments({ date: sourceDate })).filter(
+        (a: any) =>
+          (shiftDefinitions.length > 0
+            ? definitionFor(a?.shift, shiftDefinitions, a?.workstation?.type)?.id
+            : a.shift_id) === selectedShiftId
+      );
 
       if (!sourceAssignments || sourceAssignments.length === 0) {
         toast({
@@ -611,7 +619,7 @@ export default function PlantaBoard({ initialTab = 'layout' }: PlantaBoardProps)
       return;
     }
 
-    const shiftAssignments = assignments.filter(a => planShiftOf(a) === selectedShiftId);
+    const shiftAssignments = assignments.filter(a => a.shift_id === selectedShiftId);
     // `worker_assignments.workstation_id` was dropped in the workstations→
     // machines merge — comparing against it always failed, so this capacity
     // check never saw any existing assignment and over-assignment went
@@ -630,11 +638,11 @@ export default function PlantaBoard({ initialTab = 'layout' }: PlantaBoardProps)
       a => a.employee_id === worker.id || a.worker_id === worker.id
     );
     const workerAssignmentInSelectedShift = workerAssignmentsToday.find(
-      a => planShiftOf(a) === selectedShiftId
+      a => a.shift_id === selectedShiftId
     );
 
     const hasAssignmentInOtherShift = workerAssignmentsToday.some(
-      a => planShiftOf(a) !== selectedShiftId
+      a => a.shift_id !== selectedShiftId
     );
 
     if (!assignmentId && workerAssignmentInSelectedShift) {
@@ -722,8 +730,8 @@ export default function PlantaBoard({ initialTab = 'layout' }: PlantaBoardProps)
   };
 
   const currentShiftAssignments = useMemo(
-    () => assignments.filter((assignment: any) => planShiftOf(assignment) === selectedShiftId),
-    [assignments, selectedShiftId, planShiftOf]
+    () => assignments.filter((assignment: any) => assignment.shift_id === selectedShiftId),
+    [assignments, selectedShiftId]
   );
 
   const selectedShiftAssignedWorkerIds = useMemo(
@@ -734,10 +742,10 @@ export default function PlantaBoard({ initialTab = 'layout' }: PlantaBoardProps)
   const workersAssignedOtherShifts = useMemo(
     () => new Set(
       assignments
-        .filter((assignment: any) => planShiftOf(assignment) !== selectedShiftId)
+        .filter((assignment: any) => assignment.shift_id !== selectedShiftId)
         .map((assignment: any) => assignment.employee_id || assignment.worker_id)
     ),
-    [assignments, selectedShiftId, planShiftOf]
+    [assignments, selectedShiftId]
   );
 
   const sortScoreFor = (worker: any, isOvertime: boolean) =>
@@ -957,13 +965,7 @@ export default function PlantaBoard({ initialTab = 'layout' }: PlantaBoardProps)
   const handlePublishWeek = async () => {
     setPublishLoading(true);
     try {
-      const { data: weeklyAssignments, error: assignmentError } = await supabase
-        .from('worker_assignments')
-        .select('id, employee_id, date, shift:shifts(start_time, end_time)')
-        .gte('date', weekStartIso)
-        .lte('date', weekEndIso);
-
-      if (assignmentError) throw assignmentError;
+      const weeklyAssignments = await fetchWorkerAssignments({ from: weekStartIso, to: weekEndIso });
 
       const employeeIds = Array.from(
         new Set((weeklyAssignments || []).map((entry: any) => entry.employee_id).filter(Boolean))
