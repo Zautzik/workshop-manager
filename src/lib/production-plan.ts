@@ -9,7 +9,7 @@
 
 import type { OperatorAjuste } from '@/lib/ajuste';
 import { createShiftResolver, type ShiftModel, type ShiftResolver } from '@/lib/machine-calendar';
-import { calendarForMachineType, plantParts } from '@/lib/plant-calendar';
+import { calendarForMachineType, plantParts, plantWallClockToMs } from '@/lib/plant-calendar';
 import {
 	deriveRoute,
 	inferPlanStep,
@@ -18,7 +18,7 @@ import {
 	type PlanStepKey,
 	type RouteOT,
 } from '@/lib/production-route';
-import type { Pin, SchedMachine, SchedOT } from '@/lib/production-scheduler';
+import type { MaintenanceJob, MaintenanceKind, Pin, SchedMachine, SchedOT } from '@/lib/production-scheduler';
 import { estimateStep, reportedHoursByStatus, type Estimate, type StageHistory, type StageReportRow } from '@/lib/stage-history';
 
 export interface PlanPayload {
@@ -31,8 +31,23 @@ export interface PlanPayload {
 	upcomingOperators?: Array<{ machine_id: string; date: string; name: string }>;
 	/** Definiciones, patrones y dotación de Planta. `null` antes de la migración de turnos. */
 	shiftModel?: ShiftModel | null;
+	/** Órdenes de mantención abiertas y pautas por vencer (`loadMaintenance` en la ruta). */
+	maintenance?: MaintenancePayload[];
 	reports: StageReportRow[];
 	truncated: boolean;
+}
+
+/** Una mantención tal como la manda la API, con fechas YYYY-MM-DD. */
+export interface MaintenancePayload {
+	id: string;
+	machine_id: string;
+	kind: MaintenanceKind;
+	/** Día de la orden o de la pauta; null en las que están en curso. */
+	date: string | null;
+	hours: number;
+	hours_source: MaintenanceJob['hoursSource'];
+	title: string;
+	work_order_id: string | null;
 }
 
 export interface PlanInput {
@@ -43,6 +58,7 @@ export interface PlanInput {
 	estimates: Map<string, Estimate>;
 	/** Turnos de Planta resueltos por máquina; `null` si todavía no hay modelo de turnos. */
 	shifts: ShiftResolver | null;
+	maintenance: MaintenanceJob[];
 }
 
 export function buildPlanInput(payload: PlanPayload): PlanInput {
@@ -102,7 +118,21 @@ export function buildPlanInput(payload: PlanPayload): PlanInput {
 		pins.push({ slotId: p.slotId, otId: p.otId, step, machineId: p.machineId, start, end });
 	}
 
-	return { ots, pins, machines, estimates, shifts };
+	const maintenance: MaintenanceJob[] = (payload.maintenance ?? []).map((m) => {
+		const [y, mo, d] = (m.date ?? '').split('-').map(Number);
+		return {
+			id: m.id,
+			machineId: m.machine_id,
+			kind: m.kind,
+			dayStart: m.date ? plantWallClockToMs(y, mo, d, 0) : null,
+			hours: m.hours,
+			hoursSource: m.hours_source,
+			title: m.title,
+			workOrderId: m.work_order_id,
+		};
+	});
+
+	return { ots, pins, machines, estimates, shifts, maintenance };
 }
 
 /* ─── Formato ─────────────────────────────────────────────────────────────── */

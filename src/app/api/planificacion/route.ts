@@ -7,6 +7,7 @@ import { measureAjuste, plantDate, type AjusteAssignment, type AjusteReport } fr
 import { definitionFor, type ShiftDef, type ShiftModel, type ShiftPattern } from '@/lib/machine-calendar';
 import { buildStageHistory, type StageReportRow } from '@/lib/stage-history';
 import type { RouteOT } from '@/lib/production-route';
+import type { MaintenancePayload } from '@/lib/production-plan';
 
 export const dynamic = 'force-dynamic';
 
@@ -144,6 +145,86 @@ async function loadShiftModel(today: string, machineTypes: Map<string, string>):
 	};
 }
 
+const MAINTENANCE_DEFAULT_HOURS = 1;
+
+/**
+ * La mantención ocupa la máquina como un trabajo, aunque no tenga OT: las
+ * órdenes abiertas y las pautas que vencen en la ventana sin orden todavía.
+ *
+ * Duración: el tiempo estimado de su checklist, si no las horas de la pauta, si
+ * no 1 h supuesta (y lo dice). Una pauta vencida sin orden no se planifica: es
+ * de la pantalla de Mantención generarle la orden, no del Cronograma inventarla.
+ */
+async function loadMaintenance(today: string, machineIds: Set<string>): Promise<MaintenancePayload[]> {
+	const until = new Date(`${today}T12:00:00Z`);
+	until.setUTCDate(until.getUTCDate() + ROSTER_DAYS_AHEAD);
+	const untilKey = until.toISOString().slice(0, 10);
+
+	const [ordersRes, schedulesRes] = await Promise.all([
+		supabaseAdmin
+			.from('maintenance_work_orders')
+			.select('id, machine_id, status, scheduled_date, started_at, title, work_order_type, checklist_id, schedule_id')
+			.in('status', ['pending', 'in_progress']),
+		supabaseAdmin
+			.from('maintenance_schedules')
+			.select('id, machine_id, next_maintenance_date, estimated_duration_hours, checklist_id, maintenance_type, description')
+			.gte('next_maintenance_date', today)
+			.lte('next_maintenance_date', `${untilKey}T23:59:59`),
+	]);
+	if (ordersRes.error) throw new Error(ordersRes.error.message);
+	if (schedulesRes.error) throw new Error(schedulesRes.error.message);
+	const orders = (ordersRes.data ?? []).filter((o) => machineIds.has(o.machine_id));
+	const schedules = (schedulesRes.data ?? []).filter((s) => machineIds.has(s.machine_id));
+
+	const checklistIds = [...new Set([...orders, ...schedules].map((x) => x.checklist_id).filter((x): x is string => !!x))];
+	const checklistMinutes = new Map<string, number>();
+	const checklistName = new Map<string, string>();
+	if (checklistIds.length > 0) {
+		const { data, error } = await supabaseAdmin.from('maintenance_checklists').select('id, name, total_estimated_time').in('id', checklistIds);
+		if (error) throw new Error(error.message);
+		for (const c of data ?? []) {
+			if (c.total_estimated_time > 0) checklistMinutes.set(c.id, c.total_estimated_time);
+			checklistName.set(c.id, c.name);
+		}
+	}
+	const scheduleById = new Map(schedules.map((s) => [s.id, s]));
+	const hoursFor = (checklistId: string | null, scheduleHours: number | null | undefined) => {
+		const minutes = checklistId ? checklistMinutes.get(checklistId) : undefined;
+		if (minutes) return { hours: minutes / 60, hours_source: 'checklist' as const };
+		if (scheduleHours && scheduleHours > 0) return { hours: scheduleHours, hours_source: 'pauta' as const };
+		return { hours: MAINTENANCE_DEFAULT_HOURS, hours_source: 'supuesto' as const };
+	};
+	const label = (type: string | null | undefined, checklistId: string | null, title: string | null | undefined) =>
+		title || (checklistId && checklistName.get(checklistId)) || `Mantención ${type ?? ''}`.trim();
+
+	const out: MaintenancePayload[] = orders.map((o) => {
+		const date = String(o.scheduled_date).slice(0, 10);
+		return {
+			id: `ot-mant:${o.id}`,
+			machine_id: o.machine_id,
+			kind: o.status === 'in_progress' ? 'en_curso' : date < today ? 'vencida' : 'programada',
+			date: o.status === 'in_progress' ? null : date,
+			...hoursFor(o.checklist_id, o.schedule_id ? scheduleById.get(o.schedule_id)?.estimated_duration_hours : null),
+			title: label(o.work_order_type, o.checklist_id, o.title),
+			work_order_id: o.id,
+		};
+	});
+	const withOrder = new Set(orders.map((o) => o.schedule_id).filter(Boolean));
+	for (const s of schedules) {
+		if (withOrder.has(s.id)) continue;
+		out.push({
+			id: `pauta:${s.id}`,
+			machine_id: s.machine_id,
+			kind: 'pauta',
+			date: String(s.next_maintenance_date).slice(0, 10),
+			...hoursFor(s.checklist_id, s.estimated_duration_hours),
+			title: label(s.maintenance_type, s.checklist_id, s.description),
+			work_order_id: null,
+		});
+	}
+	return out;
+}
+
 export async function GET() {
 	const auth = await requireAuth(['supervisor', 'admin', 'manager']);
 	if (isAuthError(auth)) return auth;
@@ -236,6 +317,8 @@ export async function GET() {
 			new Map((machinesRes.data ?? []).map((m: any) => [m.id as string, m.type as string])),
 		);
 
+		const maintenance = await loadMaintenance(today, new Set((machinesRes.data ?? []).map((m: any) => m.id as string)));
+
 		const machines = (machinesRes.data ?? []).map((m: any) => ({
 			id: m.id as string,
 			name: m.name as string,
@@ -266,6 +349,7 @@ export async function GET() {
 			history,
 			upcomingOperators,
 			shiftModel,
+			maintenance,
 			reports: reports.filter((r) => active.has(r.ot_id)).map(({ ot_id, workflow_step, hours }) => ({ ot_id, workflow_step, hours })),
 			truncated: otsRes.truncated || reportsRes.truncated,
 		});

@@ -26,7 +26,7 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { AlertTriangle, Pin as PinIcon, RotateCcw, Unlock, X } from 'lucide-react';
+import { AlertTriangle, Pin as PinIcon, RotateCcw, Unlock, Wrench, X } from 'lucide-react';
 
 import { useAuth } from '@/contexts/AuthContext';
 import { Badge } from '@/components/ui/badge';
@@ -61,7 +61,7 @@ import {
 	type PlanPayload,
 } from '@/lib/production-plan';
 import { PLAN_STEP_BY_KEY } from '@/lib/production-route';
-import { buildSchedule, compareSchedules, lanesForStep, setupFor, type Block, type Lane } from '@/lib/production-scheduler';
+import { buildSchedule, compareSchedules, lanesForStep, setupFor, type Block, type Lane, type MaintenanceBlock } from '@/lib/production-scheduler';
 import type { Estimate } from '@/lib/stage-history';
 import { otStatusBadgeClass, otStatusLabel } from '@/lib/status-labels';
 import { cn } from '@/lib/utils';
@@ -147,14 +147,14 @@ export function OTGanttBoard() {
 	const planNow = Math.floor(now / (15 * 60_000)) * 15 * 60_000;
 	const plan = useMemo(() => (data ? buildPlanInput(data) : null), [data]);
 	const base = useMemo(
-		() => (plan ? buildSchedule({ now: planNow, ots: plan.ots, machines: plan.machines, pins: plan.pins }) : null),
+		() => (plan ? buildSchedule({ now: planNow, ots: plan.ots, machines: plan.machines, pins: plan.pins, maintenance: plan.maintenance }) : null),
 		[plan, planNow],
 	);
 	const simulating = Object.values(delays).some((h) => h > 0);
 	const simulated = useMemo(
 		() =>
 			plan && simulating
-				? buildSchedule({ now: planNow, ots: plan.ots, machines: plan.machines, pins: plan.pins, delays })
+				? buildSchedule({ now: planNow, ots: plan.ots, machines: plan.machines, pins: plan.pins, maintenance: plan.maintenance, delays })
 				: null,
 		[plan, planNow, delays, simulating],
 	);
@@ -456,7 +456,7 @@ export function OTGanttBoard() {
 							rangeEnd={rangeEnd}
 							xOf={xOf}
 							msAt={axis.msAt}
-							blocks={view.blocks.filter((b) => b.laneId === lane.id)}
+							blocks={[...view.blocks, ...view.maintenance].filter((b) => b.laneId === lane.id)}
 							highlight={dropTarget?.lane.id === lane.id ? (dropTarget.valid ? 'ok' : 'bad') : null}
 							instances={plan.shifts && lane.machineId ? plan.shifts.instances(lane.machineId, rangeStart, rangeEnd, lane.station) : null}
 							onClosedClick={canEdit ? offerShift : undefined}
@@ -492,6 +492,39 @@ export function OTGanttBoard() {
 							})}
 						</svg>
 					)}
+
+					{/* Mantención: trabajo sin OT que ocupa la máquina. Rayado gris y una
+					    llave, para que no se confunda con un pedido; no se arrastra (su fecha
+					    se cambia en Mantención, que es donde vive la orden). */}
+					{view.maintenance.map((m) => {
+						const idx = laneIndex.get(m.laneId);
+						if (idx == null || m.end < rangeStart || m.start > rangeEnd) return null;
+						const left = Math.max(xOf(m.start), 0);
+						const width = Math.max(xOf(m.end) - left, 4);
+						return (
+							<div
+								key={m.id}
+								title={maintenanceTitle(m)}
+								className={cn(
+									'absolute z-10 flex select-none items-center gap-1 overflow-hidden rounded-sm px-1 text-[10px] font-medium text-slate-900 dark:text-slate-100',
+									m.kind === 'pauta' ? 'border border-dashed border-slate-500' : 'border border-slate-500',
+									m.kind === 'vencida' && 'outline outline-2 outline-amber-500',
+									m.conflict && 'outline outline-2 outline-red-500',
+									selected && 'opacity-25',
+								)}
+								style={{
+									left: LABEL_W + left,
+									width,
+									top: HEADER_H + idx * LANE_H + 6,
+									height: LANE_H - 12,
+									backgroundImage: 'repeating-linear-gradient(135deg, rgb(148 163 184 / 0.55) 0 4px, rgb(148 163 184 / 0.25) 4px 8px)',
+								}}
+							>
+								<Wrench className="h-3 w-3 shrink-0" />
+								{width > 40 && <span className="truncate">{m.title}</span>}
+							</div>
+						);
+					})}
 
 					{/* Bloques */}
 					{view.blocks.map((b) => {
@@ -758,7 +791,8 @@ function LaneRow({
 	rangeEnd: number;
 	xOf: (ms: number) => number;
 	msAt: (x: number) => number;
-	blocks: Block[];
+	/** Lo que ocupa la máquina: bloques de OT y mantenciones (sólo cuenta inicio y fin). */
+	blocks: Array<{ start: number; end: number }>;
 	highlight: 'ok' | 'bad' | null;
 	/** Los turnos concretos de la máquina (Planta); null = sólo el calendario por tipo. */
 	instances: ShiftInstance[] | null;
@@ -853,6 +887,31 @@ function LaneRow({
 	);
 }
 
+const MAINTENANCE_KIND_LABEL: Record<MaintenanceBlock['kind'], string> = {
+	en_curso: 'En curso: la máquina está parada',
+	programada: 'Programada',
+	vencida: 'Vencida: va antes que la producción pendiente',
+	pauta: 'Pauta que vence sin orden todavía (se genera en Mantención)',
+};
+
+const MAINTENANCE_HOURS_LABEL: Record<MaintenanceBlock['hoursSource'], string> = {
+	checklist: 'tiempo estimado del checklist',
+	pauta: 'horas de la pauta',
+	supuesto: 'supuesto: sin checklist ni horas en la pauta',
+};
+
+function maintenanceTitle(m: MaintenanceBlock): string {
+	return [
+		`Mantención — ${m.title}`,
+		`${formatPlantDateTime(m.start)} → ${formatPlantDateTime(m.end)} (${formatHours(m.hours)}, ${MAINTENANCE_HOURS_LABEL[m.hoursSource]})`,
+		MAINTENANCE_KIND_LABEL[m.kind],
+		m.conflict ? `⚠ ${m.conflict}` : null,
+		'Sin OT: la máquina está ocupada igual.',
+	]
+		.filter(Boolean)
+		.join('\n');
+}
+
 function Legend({ canEdit }: { canEdit: boolean }) {
 	return (
 		<div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-muted-foreground">
@@ -882,6 +941,15 @@ function Legend({ canEdit }: { canEdit: boolean }) {
 					<span className="h-full w-2 bg-blue-600" />
 				</span>
 				OT en espera entre turnos (no suma horas)
+			</span>
+			<span className="flex items-center gap-1">
+				<span
+					className="inline-flex h-3 w-6 items-center justify-center rounded-sm border border-slate-500"
+					style={{ backgroundImage: 'repeating-linear-gradient(135deg, rgb(148 163 184 / 0.55) 0 4px, rgb(148 163 184 / 0.25) 4px 8px)' }}
+				>
+					<Wrench className="h-2.5 w-2.5" />
+				</span>
+				mantención (punteada: pauta sin orden)
 			</span>
 			<span className="flex items-center gap-1">
 				<span className="inline-block h-3 w-px bg-red-500" /> ahora

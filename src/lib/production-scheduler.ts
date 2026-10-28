@@ -183,9 +183,42 @@ export interface OTProjection {
 	blocked: string | null;
 }
 
+/**
+ * Una mantención: trabajo sin OT que ocupa la máquina igual que un pedido.
+ *
+ * - `en_curso`: la orden ya empezó; la máquina está parada desde ahora.
+ * - `programada`: orden con fecha de hoy en adelante; va ese día, al abrir el turno.
+ * - `vencida`: orden con fecha pasada; entra en el primer hueco, después de lo que
+ *   ya está corriendo (no se para una prensa a mitad de tiraje) y ANTES de la
+ *   producción pendiente — la mantención que se debe va primero.
+ * - `pauta`: preventiva que vence en la ventana y todavía no tiene orden.
+ */
+export type MaintenanceKind = 'en_curso' | 'programada' | 'vencida' | 'pauta';
+
+export interface MaintenanceJob {
+	id: string;
+	machineId: string;
+	kind: MaintenanceKind;
+	/** Inicio del día de la fecha (programada, pauta); `null` para en curso y vencida. */
+	dayStart: number | null;
+	hours: number;
+	title: string;
+	/** De dónde salieron las horas: checklist, pauta, o el supuesto de 1 h. */
+	hoursSource: 'checklist' | 'pauta' | 'supuesto';
+	workOrderId: string | null;
+}
+
+export interface MaintenanceBlock extends MaintenanceJob {
+	laneId: string;
+	start: number;
+	end: number;
+	conflict?: string;
+}
+
 export interface Schedule {
 	lanes: Lane[];
 	blocks: Block[];
+	maintenance: MaintenanceBlock[];
 	projections: Map<string, OTProjection>;
 }
 
@@ -194,6 +227,8 @@ export interface ScheduleInput {
 	ots: SchedOT[];
 	machines: SchedMachine[];
 	pins: Pin[];
+	/** Mantenciones abiertas y pautas por vencer (`MaintenanceJob`). */
+	maintenance?: MaintenanceJob[];
 	/** Horas extra por bloque (`Block.id`), para simular atrasos. */
 	delays?: Record<string, number>;
 }
@@ -355,6 +390,29 @@ export function buildSchedule(input: ScheduleInput): Schedule {
 		reserve(busy.get(lane.id)!, pin.start, pin.end);
 	}
 
+	// Mantenciones con hora (en curso, programadas, pautas): se reservan como un
+	// bloque fijado, antes que la producción. Las vencidas esperan a la pasada 1.
+	const maintenance: MaintenanceBlock[] = [];
+	const placeMaintenance = (job: MaintenanceJob, from: number, fixed: boolean) => {
+		const lane = lanes.find((l) => l.machineId === job.machineId);
+		if (!lane) return;
+		const lb = busy.get(lane.id)!;
+		const [start, end] = fixed
+			? (() => {
+					const s = nextWorkingInstant(lane.calendar, from);
+					return [s, addWorkingHours(lane.calendar, s, job.hours)] as [number, number];
+				})()
+			: findSlot(lane, lb, from, job.hours);
+		const clash = fixed && lb.some(([s, e]) => s < end && e > start);
+		reserve(lb, start, end);
+		maintenance.push({ ...job, laneId: lane.id, start, end, conflict: clash ? 'Se pisa con un bloque fijado de producción' : undefined });
+	};
+	const jobs = input.maintenance ?? [];
+	for (const job of jobs) {
+		if (job.kind === 'en_curso') placeMaintenance(job, now, true);
+		else if (job.kind !== 'vencida') placeMaintenance(job, Math.max(job.dayStart ?? now, now), true);
+	}
+
 	const blocks: Block[] = [];
 	const lastEnd = new Map<string, number>();
 
@@ -470,6 +528,8 @@ export function buildSchedule(input: ScheduleInput): Schedule {
 			done.add(`${ot.id}:${step.key}`);
 		});
 	}
+	// La mantención vencida va antes que cualquier producción pendiente.
+	for (const job of jobs) if (job.kind === 'vencida') placeMaintenance(job, now, false);
 	// Pasada 2: el resto, OT por OT, en orden de prioridad y plazo.
 	for (const ot of ots) {
 		ot.steps.forEach((step, i) => {
@@ -492,7 +552,7 @@ export function buildSchedule(input: ScheduleInput): Schedule {
 		});
 	}
 
-	return { lanes, blocks, projections };
+	return { lanes, blocks, maintenance, projections };
 }
 
 export interface Impact {

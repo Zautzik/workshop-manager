@@ -51,8 +51,9 @@ describe('buildSchedule', () => {
 		expect(offset.start).toBe(corte.end);
 		expect(hhmm(offset.end)).toBe('27 12:00');
 		expect(embalaje.start).toBe(offset.end);
-		// Embalaje 12–14, despacho 14–16: el taller cierra a las 16.
-		expect(hhmm(despacho.end)).toBe('27 16:00');
+		// Embalaje 12–13 y, tras la colación del taller, 14–15; despacho 15–17.
+		expect(hhmm(embalaje.end)).toBe('27 15:00');
+		expect(hhmm(despacho.end)).toBe('27 17:00');
 	});
 
 	it('una máquina hace una cosa a la vez', () => {
@@ -126,7 +127,8 @@ describe('buildSchedule', () => {
 		expect(a.note).toMatch(/2 h de turno para 6 h de trabajo/);
 		expect(a.conflict).toBeUndefined();
 		// La cadena y la máquina respetan el fin real, no el de la ventana.
-		expect(s.blocks.find((b) => b.otId === 'A' && b.step === 'embalaje')!.start).toBe(a.end);
+		// El offset termina a las 13, justo en la colación del taller: el embalaje entra a las 14.
+		expect(hhmm(s.blocks.find((b) => b.otId === 'A' && b.step === 'embalaje')!.start)).toBe('27 14:00');
 		expect(s.blocks.find((b) => b.otId === 'B')!.start).toBeGreaterThanOrEqual(a.end);
 	});
 
@@ -152,6 +154,46 @@ describe('buildSchedule', () => {
 		});
 		expect(s.blocks.find((b) => b.otId === 'A')!.conflict).toBeUndefined();
 		expect(s.blocks.find((b) => b.otId === 'B')!.conflict).toMatch(/Se pisa con otro bloque fijado/);
+	});
+
+	describe('mantención: trabajo sin OT que ocupa la máquina', () => {
+		const mant = (kind: 'en_curso' | 'programada' | 'vencida' | 'pauta', hours: number, dayStart: number | null = null) => ({
+			id: `m-${kind}`,
+			machineId: 'offset1',
+			kind,
+			dayStart,
+			hours,
+			title: 'Lubricación',
+			hoursSource: 'checklist' as const,
+			workOrderId: null,
+		});
+
+		it('una en curso para la máquina desde ahora, y la producción espera', () => {
+			const s = buildSchedule({ now: NOW, machines: MACHINES, pins: [], ots: [ot('A', [step('offset', 2)])], maintenance: [mant('en_curso', 3)] });
+			expect(hhmm(s.maintenance[0].start)).toBe('27 07:00');
+			expect(hhmm(s.blocks[0].start)).toBe('27 10:00');
+		});
+
+		it('una vencida va después de lo que ya corre y antes de lo pendiente', () => {
+			const s = buildSchedule({
+				now: NOW,
+				machines: MACHINES,
+				pins: [],
+				ots: [ot('RUN', [step('offset', 2, true)], { status: 'offset_printing' }), ot('URG', [step('offset', 1)], { priority_level: 'urgente' })],
+				maintenance: [mant('vencida', 1)],
+			});
+			const run = s.blocks.find((b) => b.otId === 'RUN')!;
+			const urg = s.blocks.find((b) => b.otId === 'URG')!;
+			expect(s.maintenance[0].start).toBe(run.end);
+			expect(urg.start).toBe(s.maintenance[0].end);
+		});
+
+		it('una programada queda en su día, al abrir el turno, y la producción la rodea', () => {
+			const jueves = plantWallClockToMs(2026, 10, 29, 0);
+			const s = buildSchedule({ now: NOW, machines: MACHINES, pins: [], ots: [], maintenance: [mant('programada', 4, jueves)] });
+			expect(hhmm(s.maintenance[0].start)).toBe('29 07:00');
+			expect(hhmm(s.maintenance[0].end)).toBe('29 11:00');
+		});
 	});
 
 	it('un horario fijado que ya pasó con la etapa abierta se reprograma, conservando la fila', () => {
