@@ -3,6 +3,12 @@
 *2026-10-28 · después de entregar el Cronograma Gantt, el modelo de turnos y el
 ajuste de prensa (commits `1e70d3f`, `4b6cd9a`).*
 
+> **Actualizado el mismo día:** §1 y §5 se escribieron sobre la seed congelada
+> en agosto. La auditoría sobre un escenario de prueba
+> (`auditoria-operacion-2026-10-28.md`) los reemplaza. Encontró que la dotación
+> no estaba vacía por falta de uso: Planta no podía leerla (RLS). Las fases de
+> abajo siguen en pie, en el orden que da esa auditoría.
+
 ## 1. El diagnóstico en una frase
 
 **La app sabe planificar, pero la planta no le está dando los datos, porque
