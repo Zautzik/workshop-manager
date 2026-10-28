@@ -139,10 +139,14 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         // la confianza que el parser le puso al texto.
         confidence: 100,
       });
-      const outcome = await applyFlowProposal(row.ot_id, proposal, {
-        id: auth.id,
-        role: auth.role!,
-      });
+      const outcome = await applyFlowProposal(
+        row.ot_id,
+        proposal,
+        { id: auth.id, role: auth.role! },
+        // Quién mandó el parte y cuándo: el que escribe «ajuste 40» es quien
+        // ajustó, y el mensaje —no la aprobación— fecha el trabajo.
+        { operatorEmployeeId: row.operator_employee_id ?? null, messageTimestamp: row.message_timestamp ?? null },
+      );
       flowResult = { ...outcome, proposal };
       if (outcome.blocked) {
         applyWarning = applyWarning
