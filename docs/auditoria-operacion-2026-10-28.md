@@ -88,6 +88,12 @@ nada. Es el mismo arreglo de `bb6c439`, aplicado a todas las tablas: es el
 "API sweep" que ya estaba pendiente. Una regla de ESLint que prohíba
 `supabase.from('<tabla con RLS>')` fuera de `src/app/api` lo cerraría de raíz.
 
+> **B — resuelta el mismo día.** La planta decidió: la gente cobra sueldo
+> mensual y está en su puesto haya trabajo o no, y una mantención es un trabajo
+> sin OT. La asignación ya no exige OT. Las horas sin OT quedan como no
+> atribuidas (tiempo de planta) en el costeo. Atribuirlas a las OT que la
+> máquina corrió ese turno sigue pendiente.
+
 **B. Asignar exige elegir una OT.** `POST /api/worker-assignments` rechaza una
 asignación a una máquina de producción sin `ot_id` (`assignment-rules.ts`).
 Cargar una semana obliga a decidir por adelantado, por persona y por día, a
@@ -101,6 +107,18 @@ del plan. La regla de costo se mantiene, pero se cumple al cerrar el turno, no
 al planificarlo.
 
 ### Altas
+
+> **C — resuelta en su mayor parte el mismo día.** La mantención es un bloque
+> del Cronograma que ocupa la máquina:
+> - la orden en curso para la máquina desde ahora;
+> - la programada va en su día;
+> - la vencida va antes que la producción pendiente;
+> - la pauta que vence sin orden se muestra punteada.
+>
+> Duración: la del checklist, si no la de la pauta, si no 1 h supuesta. Un
+> choque con un bloque fijado de producción se marca. Queda pendiente arrastrar
+> una mantención para cambiarle la fecha desde el Cronograma; hoy se cambia en
+> Mantención.
 
 **C. Una máquina en mantención se sigue planificando.** Planta marca la
 Digital y la Roland como "En mantención". El Cronograma les programa trabajo
@@ -140,6 +158,13 @@ detecta.
 mediana de la prensa (30 min), pero el sistema sabe quién está: Carlos
 (≈ 20 min) en la Mañana y Luis (≈ 42 min) en la Tarde. El dato por operario
 ya se mide; falta usarlo al colocar el bloque.
+
+> **I — resuelta el mismo día** (migración 20261028120000). Son 8 h y una
+> colación sin goce. `shifts.break_start` / `break_minutes` y una sola regla de
+> horas pagadas (`shift_paid_hours` en la base, `shift-hours.ts` en la app)
+> para la compuerta, la nómina, los topes de Planta y el Cronograma, que ya no
+> planifica la hora de almuerzo. La colación queda de 13:00 a 14:00: la hora
+> es un supuesto y se corrige en la fila del turno.
 
 **I. ¿Taller 07–16 son 9 h u 8 h + colación?** La compuerta cuenta 9 h
 brutas: un contrato de 8 h no puede trabajar Taller, y uno de 45 h no puede
