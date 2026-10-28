@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { createShiftResolver, definitionFor, shiftCovering, shiftLabel, shiftWindow, type ShiftModel } from '../machine-calendar';
+import { createShiftResolver, definitionFor, shiftWorkWindows, shiftCovering, shiftLabel, shiftWindow, type ShiftModel } from '../machine-calendar';
 import { addWorkingHours, CALENDARS, fullDaySegments, plantParts, plantWallClockToMs, workingIntervals } from '../plant-calendar';
 
 const DEFS = [
@@ -168,5 +168,22 @@ describe('definitionFor — dotación cargada sobre filas archivadas', () => {
 	it('sin fila o sin horario no inventa un turno', () => {
 		expect(definitionFor(null, DEFS)).toBeNull();
 		expect(definitionFor({ id: 'x', start_time: '', end_time: '' }, DEFS)).toBeNull();
+	});
+});
+
+describe('colación', () => {
+	const TALLER_CON_COLACION = { ...DEFS[3], break_start: '13:00:00', break_minutes: 60 };
+
+	it('el Taller trabaja 07–13 y 14–16: la hora de almuerzo no es tiempo de máquina', () => {
+		expect(shiftWorkWindows(TALLER_CON_COLACION)).toEqual([
+			{ name: 'Taller', start: 7 * 60, end: 13 * 60 },
+			{ name: 'Taller', start: 14 * 60, end: 16 * 60 },
+		]);
+		const r = createShiftResolver(model({ shifts: [DEFS[0], DEFS[1], DEFS[2], TALLER_CON_COLACION] }));
+		expect(firstIntervals(r.calendarFor('taller', CALENDARS.dos_turnos), at(28, 5), 2)).toEqual(['28 07:00→28 13:00', '28 14:00→28 16:00']);
+	});
+
+	it('una pausa fuera del horario no corta nada', () => {
+		expect(shiftWorkWindows({ ...DEFS[0], break_start: '18:00', break_minutes: 30 })).toEqual([shiftWindow(DEFS[0])]);
 	});
 });

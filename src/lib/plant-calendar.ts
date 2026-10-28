@@ -59,9 +59,14 @@ export const CALENDARS: Record<CalendarKey, PlantCalendar> = {
 	},
 	taller: {
 		key: 'taller',
-		label: 'Taller (07–16)',
+		label: 'Taller (07–16, colación 13–14)',
 		days: LUNES_A_VIERNES,
-		shifts: [{ name: 'Taller', start: 7 * 60, end: 16 * 60 }],
+		// 8 h trabajadas y una colación sin goce (2026-10-28): la hora de almuerzo
+		// no es tiempo de máquina. Mismo supuesto que la definición en `shifts`.
+		shifts: [
+			{ name: 'Taller', start: 7 * 60, end: 13 * 60 },
+			{ name: 'Taller', start: 14 * 60, end: 16 * 60 },
+		],
 	},
 };
 

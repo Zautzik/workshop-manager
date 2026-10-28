@@ -1,6 +1,7 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
+import { shiftPaidHours } from '@/lib/shift-hours';
 import { supabase } from '@/integrations/supabase/client';
 import { ACTIVE_OT_STATUSES } from '@/lib/ot-state-machine';
 
@@ -472,13 +473,8 @@ export function useWorkerMonthlyOvertime(referenceDate?: string) {
         return (Number.isNaN(hours) ? 0 : hours) * 60 + (Number.isNaN(minutes) ? 0 : minutes);
       };
 
-      const getShiftHours = (shift: any) => {
-        const startMinutes = toMinutes(shift?.start_time);
-        const endMinutes = toMinutes(shift?.end_time);
-        let durationMinutes = endMinutes - startMinutes;
-        if (durationMinutes <= 0) durationMinutes += 24 * 60;
-        return durationMinutes / 60;
-      };
+      // Horas PAGADAS: descuenta la colación (Taller 07–16 = 8 h). Ver shift-hours.ts.
+      const getShiftHours = (shift: any) => shiftPaidHours(shift);
 
       const totals: Record<string, { hours: number; shifts: number }> = {};
       const processedShiftKeys = new Set<string>();
@@ -636,13 +632,8 @@ export function useWorkflowWeeklyHours(referenceDate?: string) {
         return (Number.isNaN(hours) ? 0 : hours) * 60 + (Number.isNaN(minutes) ? 0 : minutes);
       };
 
-      const getShiftHours = (shift: any) => {
-        const startMinutes = toMinutes(shift?.start_time);
-        const endMinutes = toMinutes(shift?.end_time);
-        let durationMinutes = endMinutes - startMinutes;
-        if (durationMinutes <= 0) durationMinutes += 24 * 60;
-        return durationMinutes / 60;
-      };
+      // Horas PAGADAS: descuenta la colación (Taller 07–16 = 8 h). Ver shift-hours.ts.
+      const getShiftHours = (shift: any) => shiftPaidHours(shift);
 
       const totals: Record<string, number> = {};
       (data ?? []).forEach((assignment: any) => {

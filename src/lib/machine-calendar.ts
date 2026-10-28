@@ -33,6 +33,9 @@ export interface ShiftDef {
 	end_time: string;
 	is_night_shift?: boolean | null;
 	sort_order?: number | null;
+	/** Pausa no pagada (colación): inicio HH:MM y minutos. Ver `shift-hours.ts`. */
+	break_start?: string | null;
+	break_minutes?: number | null;
 }
 
 export interface ShiftPattern {
@@ -66,6 +69,26 @@ export function shiftWindow(def: ShiftDef): Shift {
 	let end = toMinutes(def.end_time);
 	if (end <= start) end += 24 * 60;
 	return { name: def.name, start, end };
+}
+
+/**
+ * Los tramos en que el turno TRABAJA: su horario menos la colación. El Taller
+ * 07–16 con colación 13:00–14:00 son dos tramos, 07–13 y 14–16 — 8 h, no 9. El
+ * Cronograma no pone trabajo en la hora de almuerzo, y la dibuja como fuera de
+ * turno.
+ */
+export function shiftWorkWindows(def: ShiftDef): Shift[] {
+	const w = shiftWindow(def);
+	const minutes = Math.max(0, def.break_minutes ?? 0);
+	if (!def.break_start || minutes === 0) return [w];
+	let b = toMinutes(def.break_start);
+	if (b < w.start) b += 24 * 60; // pausa después de la medianoche en un turno de noche
+	const e = Math.min(b + minutes, w.end);
+	if (b <= w.start || b >= w.end) return [w];
+	return [
+		{ name: def.name, start: w.start, end: b },
+		...(e < w.end ? [{ name: def.name, start: e, end: w.end }] : []),
+	];
 }
 
 const hour = (min: number) => String(Math.floor((min % 1440) / 60)).padStart(2, '0');
@@ -160,7 +183,7 @@ export function createShiftResolver(model: ShiftModel): ShiftResolver {
 				label: names.length > 0 ? names.map(shiftLabel).join(' + ') : 'Sólo con dotación',
 				days: [],
 				shifts: [],
-				dayShifts: (dateKey, weekday) => shiftsOn(machineId, dateKey, weekday, station).items.map((i) => shiftWindow(i.def)),
+				dayShifts: (dateKey, weekday) => shiftsOn(machineId, dateKey, weekday, station).items.flatMap((i) => shiftWorkWindows(i.def)),
 			};
 		},
 

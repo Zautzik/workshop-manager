@@ -64,7 +64,7 @@ describe('tiempo hábil', () => {
 	});
 
 	it('cuenta horas hábiles entre dos instantes', () => {
-		expect(workingHoursBetween(CALENDARS.taller, at(27, 7), at(28, 7))).toBe(9);
+		expect(workingHoursBetween(CALENDARS.taller, at(27, 7), at(28, 7))).toBe(8); // 07–16 menos la colación 13–14
 		expect(workingHoursBetween(CALENDARS.dos_turnos, at(27, 7), at(28, 7))).toBe(15);
 		expect(workingHoursBetween(CALENDARS.taller, at(28, 7), at(27, 7))).toBe(0);
 	});

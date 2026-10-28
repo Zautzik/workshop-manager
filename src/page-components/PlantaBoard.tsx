@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { definitionFor } from "@/lib/machine-calendar";
+import { shiftPaidHours } from "@/lib/shift-hours";
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 import { supabase } from "@/integrations/supabase/client";
@@ -374,17 +375,8 @@ export default function PlantaBoard({ initialTab = 'layout' }: PlantaBoardProps)
   const shiftHours = useMemo(() => {
     const shift = shifts.find((item: any) => item.id === selectedShiftId);
     if (!shift?.start_time || !shift?.end_time) return 0;
-
-    const toMinutes = (value: string) => {
-      const [hours, minutes] = value.split(':').map(Number);
-      return (Number.isNaN(hours) ? 0 : hours) * 60 + (Number.isNaN(minutes) ? 0 : minutes);
-    };
-
-    const startMinutes = toMinutes(shift.start_time);
-    const endMinutes = toMinutes(shift.end_time);
-    let durationMinutes = endMinutes - startMinutes;
-    if (durationMinutes <= 0) durationMinutes += 24 * 60;
-    return durationMinutes / 60;
+    // Horas pagadas: la colación del Taller no cuenta (shift-hours.ts).
+    return shiftPaidHours(shift);
   }, [shifts, selectedShiftId]);
 
   const compensationByEmployee = useMemo(() => {
