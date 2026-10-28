@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo, useCallback } from "react";
+import { definitionFor } from "@/lib/machine-calendar";
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 import { supabase } from "@/integrations/supabase/client";
@@ -24,6 +25,7 @@ import { SelectedOTBanner } from "./planta-board/SelectedOTBanner";
 import { AgendaSemanalSidebar } from "./planta-board/AgendaSemanalSidebar";
 import { BulkActionsPanel } from "./planta-board/BulkActionsPanel";
 import { QuickRosterPanel } from "./planta-board/QuickRosterPanel";
+import { MachineShiftPatternsPanel } from "./planta-board/MachineShiftPatternsPanel";
 import { CostModelPanel } from "./planta-board/CostModelPanel";
 
 type WorkflowTab = 'en_proceso' | 'ots' | 'clients' | 'layout' | 'shifts' | 'production' | 'hoja_prod' | 'plan_semanal' | 'gantt' | 'calendar' | 'whatsapp';
@@ -93,11 +95,33 @@ export default function PlantaBoard({ initialTab = 'layout' }: PlantaBoardProps)
 
   const canManageCostModel = role === 'admin';
 
-  // Collapse raw shift rows (often stored per-date) into a few clean toggles
-  // (e.g. "Turno Día" / "Turno Tarde") instead of an unwieldy per-date list.
+  // Desde la migración 20261027140000 `/api/shifts` devuelve sólo las
+  // DEFINICIONES (Mañana, Tarde, Noche, Taller), y cada una es un botón con su
+  // horario. Antes, ~500 filas por fecha e incidente se agrupaban adivinando
+  // por el nombre — y el Turno Noche 23–07 caía en «Tarde».
+  const shiftDefinitions = useMemo(() => (shifts as any[]).filter((s) => s?.code), [shifts]);
+
+  // El turno de una asignación tal como se ve en Planta. Una cargada antes de
+  // la migración apunta a una fila archivada («Turno Día 07–15») y, sin esto,
+  // la dotación de ese día desaparecía de la pantalla: se lee como la
+  // definición equivalente (`definitionFor`). La asignación no se toca — la
+  // nómina sigue calculando con su fila original.
+  const planShiftOf = useCallback(
+    (assignment: any): string =>
+      shiftDefinitions.length > 0
+        ? (definitionFor(assignment?.shift, shiftDefinitions, assignment?.workstation?.type)?.id ?? assignment?.shift_id)
+        : assignment?.shift_id,
+    [shiftDefinitions]
+  );
+
   const shiftToggleOptions = useMemo(() => {
-    // The shop runs two logical shifts. Bucket the (often messy) shift rows into
-    // "Día" / "Tarde" by keyword so the toggle stays to two clean options.
+    if (shiftDefinitions.length > 0) {
+      return shiftDefinitions.map((s: any) => ({
+        label: `${s.name} ${String(s.start_time).slice(0, 2)}–${String(s.end_time).slice(0, 2)}`,
+        ids: [s.id as string],
+      }));
+    }
+    // Sin definiciones (antes de la migración): el agrupamiento de siempre.
     const dia = { label: 'Día', ids: [] as string[] };
     const tarde = { label: 'Tarde', ids: [] as string[] };
     for (const s of shifts as any[]) {
@@ -106,7 +130,26 @@ export default function PlantaBoard({ initialTab = 'layout' }: PlantaBoardProps)
       (isTarde ? tarde : dia).ids.push(s.id);
     }
     return [dia, tarde].filter((g) => g.ids.length > 0);
-  }, [shifts]);
+  }, [shifts, shiftDefinitions]);
+
+  // Llegar desde el Cronograma («Abrir en Planta»): fecha, turno y máquina en
+  // la URL. Se lee una vez, de `window.location`, para no obligar a la página a
+  // un límite de Suspense por `useSearchParams`.
+  const [linkedMachine, setLinkedMachine] = useState<string | null>(null);
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const date = params.get('date');
+    if (date && /^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      setSelectedDate(date);
+      setWeekStartDate(startOfIsoWeek(new Date(`${date}T12:00:00`)));
+    }
+    setLinkedMachine(params.get('machine'));
+  }, []);
+  useEffect(() => {
+    const code = new URLSearchParams(window.location.search).get('shift');
+    const def = code ? shiftDefinitions.find((s: any) => s.code === code) : null;
+    if (def) setSelectedShiftId(def.id);
+  }, [shiftDefinitions]);
 
   useEffect(() => {
     setActiveTab(initialTab);
@@ -166,9 +209,11 @@ export default function PlantaBoard({ initialTab = 'layout' }: PlantaBoardProps)
 
   useEffect(() => {
     if (!selectedShiftId && shifts.length > 0) {
-      setSelectedShiftId(shifts[0].id);
+      // La Mañana si hay definiciones; si no, la primera fila (como antes).
+      const manana = shiftDefinitions.find((s: any) => s.code === 'manana');
+      setSelectedShiftId((manana ?? shifts[0]).id);
     }
-  }, [selectedShiftId, shifts]);
+  }, [selectedShiftId, shifts, shiftDefinitions]);
 
   // useCallback con identidad estable: pasa por WorkstationLayout hasta cada
   // tarjeta de operario, y una identidad nueva en cada render de PlantaBoard
@@ -566,7 +611,7 @@ export default function PlantaBoard({ initialTab = 'layout' }: PlantaBoardProps)
       return;
     }
 
-    const shiftAssignments = assignments.filter(a => a.shift_id === selectedShiftId);
+    const shiftAssignments = assignments.filter(a => planShiftOf(a) === selectedShiftId);
     // `worker_assignments.workstation_id` was dropped in the workstations→
     // machines merge — comparing against it always failed, so this capacity
     // check never saw any existing assignment and over-assignment went
@@ -585,11 +630,11 @@ export default function PlantaBoard({ initialTab = 'layout' }: PlantaBoardProps)
       a => a.employee_id === worker.id || a.worker_id === worker.id
     );
     const workerAssignmentInSelectedShift = workerAssignmentsToday.find(
-      a => a.shift_id === selectedShiftId
+      a => planShiftOf(a) === selectedShiftId
     );
 
     const hasAssignmentInOtherShift = workerAssignmentsToday.some(
-      a => a.shift_id !== selectedShiftId
+      a => planShiftOf(a) !== selectedShiftId
     );
 
     if (!assignmentId && workerAssignmentInSelectedShift) {
@@ -677,8 +722,8 @@ export default function PlantaBoard({ initialTab = 'layout' }: PlantaBoardProps)
   };
 
   const currentShiftAssignments = useMemo(
-    () => assignments.filter((assignment: any) => assignment.shift_id === selectedShiftId),
-    [assignments, selectedShiftId]
+    () => assignments.filter((assignment: any) => planShiftOf(assignment) === selectedShiftId),
+    [assignments, selectedShiftId, planShiftOf]
   );
 
   const selectedShiftAssignedWorkerIds = useMemo(
@@ -689,10 +734,10 @@ export default function PlantaBoard({ initialTab = 'layout' }: PlantaBoardProps)
   const workersAssignedOtherShifts = useMemo(
     () => new Set(
       assignments
-        .filter((assignment: any) => assignment.shift_id !== selectedShiftId)
+        .filter((assignment: any) => planShiftOf(assignment) !== selectedShiftId)
         .map((assignment: any) => assignment.employee_id || assignment.worker_id)
     ),
-    [assignments, selectedShiftId]
+    [assignments, selectedShiftId, planShiftOf]
   );
 
   const sortScoreFor = (worker: any, isOvertime: boolean) =>
@@ -1072,6 +1117,19 @@ export default function PlantaBoard({ initialTab = 'layout' }: PlantaBoardProps)
 
 
           <TabsContent value="layout" className="mt-2">
+            {linkedMachine && (
+              <div className="mb-2 flex items-center justify-between gap-2 rounded-md border border-indigo-500/40 bg-indigo-500/10 px-3 py-1.5 text-xs">
+                <span>
+                  Desde el Cronograma: asigna operarios a{' '}
+                  <b>{workstations.find((w: any) => w.id === linkedMachine)?.name ?? 'la máquina'}</b> en el turno{' '}
+                  <b>{shiftToggleOptions.find((o) => o.ids.includes(selectedShiftId || ''))?.label ?? 'elegido'}</b> del{' '}
+                  <b>{selectedDate}</b>. Con alguien asignado, el Cronograma la ve productiva en ese turno.
+                </span>
+                <button className="text-muted-foreground hover:text-foreground" onClick={() => setLinkedMachine(null)} aria-label="Cerrar aviso">
+                  ×
+                </button>
+              </div>
+            )}
             {shiftToggleOptions.length > 0 && (
               <div className="flex items-center gap-1.5 mb-3">
                 <Clock className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
@@ -1129,6 +1187,14 @@ export default function PlantaBoard({ initialTab = 'layout' }: PlantaBoardProps)
                   onNextWeek={goToNextWeek}
                   onPublish={handlePublishWeek}
                   publishLoading={publishLoading}
+                />
+
+                {/* Qué turnos trabaja normalmente cada máquina: lo que el
+                    Cronograma supone cuando ese día no hay dotación cargada. */}
+                <MachineShiftPatternsPanel
+                  machines={workstations}
+                  shifts={shifts as any[]}
+                  canEdit={role === 'admin' || role === 'supervisor'}
                 />
 
                 {/* Weekend shift rotation — two templates rotating weekly */}

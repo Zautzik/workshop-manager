@@ -27,6 +27,8 @@ import { otStatusLabel } from '@/lib/status-labels';
 export interface CierreEtapa {
 	hours: number | null;
 	mermaSheets: number | null;
+	/** Sólo offset: minutos del ajuste (planchas + entonar), por pasada. */
+	ajusteMinutes: number | null;
 	wasteNotes: string;
 	issues: string;
 	observations: string;
@@ -35,6 +37,7 @@ export interface CierreEtapa {
 export const CIERRE_VACIO: CierreEtapa = {
 	hours: null,
 	mermaSheets: null,
+	ajusteMinutes: null,
 	wasteNotes: '',
 	issues: '',
 	observations: '',
@@ -56,6 +59,7 @@ export function cierreToPayload(c: CierreEtapa) {
 	return {
 		hours: c.hours ?? null,
 		merma_sheets: c.mermaSheets,
+		ajuste_minutes: c.ajusteMinutes && c.ajusteMinutes > 0 ? Math.round(c.ajusteMinutes) : null,
 		waste_notes: c.wasteNotes.trim() || null,
 		issues: c.issues.trim() || null,
 		observations: c.observations.trim() || null,
@@ -247,6 +251,35 @@ export function CierreDeEtapa({
 					</p>
 				</div>
 			</div>
+
+			{/* El ajuste sólo existe en offset. Opcional: cerrar la etapa no puede
+			    quedar rehén de él, pero cada número que entra afina lo que el
+			    Cronograma supone para esa prensa y ese operario. */}
+			{stage === 'offset_printing' && (
+				<div className="sm:w-1/2 sm:pr-1.5">
+					<Label htmlFor="cierre-ajuste" className="text-xs">
+						Ajuste (minutos por pasada)
+					</Label>
+					<Input
+						id="cierre-ajuste"
+						type="number"
+						inputMode="numeric"
+						min={1}
+						max={600}
+						step="5"
+						placeholder="Ej: 40"
+						value={value.ajusteMinutes ?? ''}
+						onChange={(e) => {
+							const raw = e.target.value;
+							set({ ajusteMinutes: raw === '' ? null : Math.trunc(Number(raw)) });
+						}}
+						className="h-9 text-sm"
+					/>
+					<p className="text-[11px] mt-1 text-muted-foreground">
+						Montar planchas y entonar hasta el primer pliego bueno. Ya incluido en las horas.
+					</p>
+				</div>
+			)}
 
 			{/* El texto de la merma sólo aparece cuando hay merma que explicar. */}
 			{!!value.mermaSheets && value.mermaSheets > 0 && (

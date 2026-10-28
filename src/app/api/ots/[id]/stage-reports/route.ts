@@ -57,6 +57,7 @@ const CloseSchema = z.object({
 	id: z.string().uuid(),
 	hours: z.coerce.number().positive().max(999_999),
 	merma_sheets: z.coerce.number().int().min(0).optional().nullable(),
+	ajuste_minutes: z.coerce.number().int().positive().max(600).optional().nullable(),
 	waste_notes: z.string().max(2000).optional().nullable(),
 	issues: z.string().max(2000).optional().nullable(),
 	observations: z.string().max(2000).optional().nullable(),
@@ -141,6 +142,7 @@ export async function PATCH(
 		.update({
 			hours: d.hours,
 			merma_sheets: d.merma_sheets ?? null,
+			...(pass.workflow_step === 'offset_printing' && d.ajuste_minutes ? { ajuste_minutes: d.ajuste_minutes } : {}),
 			waste_notes: d.waste_notes?.trim() || null,
 			issues: d.issues?.trim() || null,
 			observations: d.observations?.trim() || null,

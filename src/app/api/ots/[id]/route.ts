@@ -108,6 +108,9 @@ const UpdateOTSchema = z.object({
 	// Production floor tracking
 	proceso_actual: z.string().max(500).optional().nullable(),
 	assigned_machine_id: z.string().uuid().optional().nullable(),
+	// Corrección del ajuste de prensa (min/pasada) para este trabajo, desde el
+	// Cronograma. Manda sobre el de la máquina y el medido.
+	ajuste_minutes: z.number().int().min(0).max(600).optional().nullable(),
 	// `current_workstation_id` se aceptaba acá y la columna no existe desde que
 	// los puestos se fusionaron con las máquinas (agosto 2026). Como el objeto
 	// validado se vuelca entero al `update`, mandarlo hacía fallar el PATCH

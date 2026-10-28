@@ -29,6 +29,8 @@ export interface Machine {
   max_print_width_mm?: number | null;
   max_print_height_mm?: number | null;
   colors?: number | null;
+  /** Minutos de ajuste (planchas + entonar) por pasada, en prensas offset. */
+  ajuste_minutes?: number | null;
   power_kw?: number | null;
   energy_cost_per_hr?: number | null;
   maintenance_cost_monthly?: number | null;

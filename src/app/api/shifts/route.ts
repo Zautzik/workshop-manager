@@ -14,7 +14,15 @@ const fetchShifts = unstable_cache(
 			.order('start_time', { ascending: true });
 
 		if (error) throw new Error(error.message);
-		return data ?? [];
+		// Sólo las DEFINICIONES vigentes (migración 20261027140000): las ~500
+		// filas viejas —copias por día e incidente— quedan archivadas para la
+		// nómina de lo ya trabajado, no para asignar. Antes de la migración
+		// ninguna fila tiene `code` y se devuelve todo, como siempre.
+		const rows = (data ?? []) as Array<Record<string, any>>;
+		const definitions = rows.filter((s) => s.code && !s.archived_at);
+		return definitions.length > 0
+			? definitions.sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
+			: rows;
 	},
 	['shifts-list'],
 	{ tags: ['shifts'], revalidate: 300 },

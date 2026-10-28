@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { requireAuth, isAuthError } from '@/lib/api-middleware';
 import { supabaseAdmin } from '@/integrations/supabase/server';
+import { PLAN_STEP_KEYS } from '@/lib/production-route';
+import { syncAssignedMachine } from '@/lib/schedule-sync';
 
 const ScheduleSlotSchema = z.object({
 	ot_id: z.string().uuid(),
@@ -19,6 +21,7 @@ const ScheduleSlotSchema = z.object({
 	paper_type_label: z.string().max(255).optional().nullable(),
 	sort_order: z.coerce.number().int().min(0).optional(),
 	notes: z.string().max(2000).optional().nullable(),
+	plan_step: z.enum(PLAN_STEP_KEYS).optional().nullable(),
 });
 
 // GET /api/ot-schedule?ot_id=xxx  or  ?machine_id=xxx&date=2026-04-20
@@ -91,9 +94,18 @@ export async function POST(req: NextRequest) {
 	// If no estimated_hours provided, call the estimation RPC
 	let estimated = parsed.data.estimated_hours;
 	if (estimated == null) {
+		// Sin el tipo, el RPC asume 'offset_printer' para todo: un bloque de
+		// guillotina o de despacho se estimaba a velocidad de prensa.
+		const { data: machine, error: machineError } = await supabaseAdmin
+			.from('machines')
+			.select('type')
+			.eq('id', parsed.data.machine_id)
+			.maybeSingle();
+		// Sin el tipo se estima como antes (offset): peor estimación, no un 500.
+		if (machineError) console.warn('No se pudo leer el tipo de máquina para estimar:', machineError.message);
 		const { data: est } = await supabaseAdmin.rpc('estimate_ot_hours', {
 			p_ot_id: parsed.data.ot_id,
-			p_machine_type: undefined,
+			p_machine_type: machine?.type ?? undefined,
 		});
 		const estData = est as { error?: string; estimated_hours?: number } | null;
 		if (estData && !estData.error) {
@@ -123,15 +135,10 @@ export async function POST(req: NextRequest) {
 	// `assigned_machine_id`, así que programar sin fijarlo dejaba el hueco
 	// "máquina asignada" abierto aunque la OT ya tuviera una máquina de verdad
 	// (auditoría 2026-08-31). Sólo se fija si estaba vacío: no se pisa una
-	// asignación explícita con la de un slot programado después.
-	const { error: asignarError } = await supabaseAdmin
-		.from('ots')
-		.update({ assigned_machine_id: parsed.data.machine_id })
-		.eq('id', parsed.data.ot_id)
-		.is('assigned_machine_id', null);
-	if (asignarError) {
-		console.warn('No se pudo fijar assigned_machine_id tras programar:', asignarError.message);
-	}
+	// asignación explícita con la de un slot programado después — salvo que el
+	// slot diga que ES la impresión (`plan_step`), que es justo la asignación
+	// explícita: ver `syncAssignedMachine`.
+	await syncAssignedMachine(parsed.data.ot_id, parsed.data.machine_id, parsed.data.plan_step ?? null);
 
 	return NextResponse.json(data, { status: 201 });
 }

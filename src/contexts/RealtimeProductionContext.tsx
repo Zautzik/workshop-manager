@@ -33,13 +33,17 @@ function invalidateWorkflow(
   queryClient: QueryClient,
   scope: 'ots' | 'schedule' | 'resources' | 'people' | 'hr',
 ) {
+  // El Cronograma (`['planificacion']`) depende de las dos: mover una OT en el
+  // Kanban cambia qué etapas le faltan, y fijar un bloque cambia la agenda.
   if (scope === 'ots') {
     queryClient.invalidateQueries({ queryKey: queryKeys.ots });
+    queryClient.invalidateQueries({ queryKey: ['planificacion'] });
     return;
   }
 
   if (scope === 'schedule') {
     queryClient.invalidateQueries({ queryKey: ['schedule'] });
+    queryClient.invalidateQueries({ queryKey: ['planificacion'] });
     queryClient.invalidateQueries({ queryKey: queryKeys.assignments() });
     queryClient.invalidateQueries({ queryKey: ['assignments', 'monthlyOvertime'] });
     queryClient.invalidateQueries({ queryKey: queryKeys.workflowWeeklyHours() });

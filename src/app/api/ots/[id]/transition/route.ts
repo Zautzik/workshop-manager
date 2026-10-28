@@ -34,6 +34,9 @@ const StageReportSchema = z.object({
   // «Number must be less than or equal to 400» en inglés y sin decir qué hacer.
   hours: z.coerce.number().positive().max(999_999).nullable().optional(),
   merma_sheets: z.coerce.number().int().min(0).optional().nullable(),
+  // Minutos de ajuste por pasada (sólo offset). Alimenta el ajuste medido por
+  // prensa y operario que usa el Cronograma.
+  ajuste_minutes: z.coerce.number().int().positive().max(600).optional().nullable(),
   waste_notes: z.string().max(2000).optional().nullable(),
   issues: z.string().max(2000).optional().nullable(),
   observations: z.string().max(2000).optional().nullable(),
@@ -296,6 +299,7 @@ export async function POST(
         to_status: toStatus,
         hours: r?.hours ?? null,
         merma_sheets: r?.merma_sheets ?? null,
+        ...(fromStatus === 'offset_printing' && r?.ajuste_minutes ? { ajuste_minutes: r.ajuste_minutes } : {}),
         waste_notes: r?.waste_notes?.trim() || null,
         issues: r?.issues?.trim() || null,
         observations: r?.observations?.trim() || null,
