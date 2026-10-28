@@ -80,8 +80,9 @@ export function useWorkersByRating() {
   });
 }
 
-export function useMachines() {
+export function useMachines(options: { enabled?: boolean } = {}) {
   return useQuery<any[]>({
+    enabled: options.enabled ?? true,
     queryKey: ['machines'],
     queryFn: async () => {
       const response = await fetch('/api/machines', {
@@ -117,8 +118,12 @@ export function useMachines() {
  * necesite saber si está viendo todo puede mirar `isTruncated` en vez de
  * confiar a ciegas en 200 filas (auditoría 2026-09-07).
  */
-export function useOTs() {
+export function useOTs(options: { enabled?: boolean } = {}) {
   const query = useQuery({
+    // `enabled: false` no borra lo que ya está en caché: quien lo apaga (la
+    // búsqueda del shell, cerrada) sigue viendo las OT si otra pantalla ya las
+    // trajo, pero no dispara 200 filas por su cuenta.
+    enabled: options.enabled ?? true,
     queryKey: queryKeys.ots,
     queryFn: async () => {
       const res = await fetch('/api/ots?limit=200');

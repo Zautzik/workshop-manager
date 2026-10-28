@@ -17,8 +17,9 @@ const OT_SELECT = `
   machine:machines!assigned_machine_id(id,name,type)
 ` as const;
 
-export function useWorkers() {
+export function useWorkers(options: { enabled?: boolean } = {}) {
   return useQuery({
+    enabled: options.enabled ?? true,
     queryKey: queryKeys.workers(),
     queryFn: async () => {
       // Use the API route so supabaseAdmin bypasses RLS (dev bypass has no JWT).
