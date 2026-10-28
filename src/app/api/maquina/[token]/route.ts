@@ -61,8 +61,12 @@ const COLUMNAS_MAQUINA = 'id, name, type, usage_counter, usage_unit';
 // order.maintenance_checklists.items para armar la lista cuando la orden
 // todavia no tiene completed_items. Sin el, la primera vez que alguien abre una
 // orden desde la etiqueta no veria ningun paso.
+// Sin `machine_id`: la pantalla no lo usa, y todas las ordenes de esta
+// respuesta son de la misma maquina por construccion. `schedule_id` si viaja
+// --la pantalla lo cruza con las pautas para saber cual esta vencida y todavia
+// no tiene orden abierta (page.tsx:272).
 const COLUMNAS_ORDEN =
-	'id, machine_id, schedule_id, status, work_order_type, priority, scheduled_date, ' +
+	'id, schedule_id, status, work_order_type, priority, scheduled_date, ' +
 	'started_at, completed_at, notes, total_time_minutes, completed_items, checklist_id, ' +
 	// La pantalla muestra 'esperando visto bueno' cuando la pauta todavia no se
 	// movio, asi que la columna tiene que viajar.
@@ -111,7 +115,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ tok
 	const { data: pautas, error: errPautas } = await supabaseAdmin
 		.from('maintenance_schedules')
 		.select(
-			'id, machine_id, checklist_id, system_id, frequency_days, next_maintenance_date, ' +
+			'id, checklist_id, system_id, frequency_days, next_maintenance_date, ' +
 			'frequency_usage, last_maintenance_usage',
 		)
 		.eq('machine_id', maq.id);
@@ -137,6 +141,11 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ tok
 
 	// El `id` de la máquina NO viaja en la respuesta: la pantalla no lo dibuja y
 	// es un UUID interno. Se usa sólo acá, del lado del servidor, para filtrar.
+	//
+	// Esto decía lo mismo cuando no era del todo cierto: el id no estaba en
+	// `machine`, pero viajaba igual dentro de cada orden y cada pauta como
+	// `machine_id`. Lo encontró la prueba de integración al afirmar justamente
+	// lo que este comentario promete, que es para lo que sirve escribirlo.
 	return NextResponse.json({
 		machine: {
 			name: maq.name,
