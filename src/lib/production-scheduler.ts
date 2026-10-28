@@ -29,6 +29,7 @@ import {
 	deadlineToMs,
 	MS,
 	nextWorkingInstant,
+	workingHoursBetween,
 	type PlantCalendar,
 } from '@/lib/plant-calendar';
 import { resolveAjuste, type AjusteSource, type AjusteStat } from '@/lib/ajuste';
@@ -65,6 +66,12 @@ export interface SchedMachine {
 	 * `machine-calendar.ts`). Sin él, el supuesto por tipo.
 	 */
 	calendar?: PlantCalendar;
+	/**
+	 * El calendario de cada puesto (1, 2, …) en una máquina de varios puestos:
+	 * un puesto sólo trabaja si ese turno tiene gente para él. Sin esto, todos
+	 * los puestos usan `calendar` — y un solo operario el sábado abría los ocho.
+	 */
+	stationCalendar?: (station: number) => PlantCalendar;
 }
 
 export interface Setup {
@@ -106,6 +113,8 @@ export interface Lane {
 	machineId: string | null;
 	name: string;
 	type: string;
+	/** Puesto dentro de la máquina (1 si tiene uno solo). */
+	station: number;
 	calendar: PlantCalendar;
 	/** Carril sin máquina real detrás: no hay ninguna de ese tipo en la flota. */
 	virtual: boolean;
@@ -226,7 +235,8 @@ export function buildLanes(machines: SchedMachine[], ots: SchedOT[]): Lane[] {
 				machineId: m.id,
 				name: stations > 1 ? `${m.name} #${i + 1}` : m.name,
 				type: m.type,
-				calendar: m.calendar ?? calendarForMachineType(m.type),
+				station: i + 1,
+				calendar: (stations > 1 ? m.stationCalendar?.(i + 1) : undefined) ?? m.calendar ?? calendarForMachineType(m.type),
 				virtual: false,
 				unlimited: false,
 				bodies: m.colors && m.colors > 0 ? m.colors : null,
@@ -245,6 +255,7 @@ export function buildLanes(machines: SchedMachine[], ots: SchedOT[]): Lane[] {
 			name: `${VIRTUAL_NAMES[type] ?? type} (sin máquina)`,
 			type,
 			calendar: calendarForMachineType(type),
+			station: 1,
 			virtual: true,
 			unlimited: false,
 			bodies: null,
@@ -259,6 +270,7 @@ export function buildLanes(machines: SchedMachine[], ots: SchedOT[]): Lane[] {
 			name: 'Tercerizado',
 			type: 'externo',
 			calendar: CALENDARS.taller,
+			station: 1,
 			virtual: true,
 			unlimited: true,
 			bodies: null,
@@ -291,6 +303,9 @@ function compareOTs(a: SchedOT, b: SchedOT): number {
 
 type Busy = Array<[number, number]>;
 
+/** «4,5 h» — igual que `formatHours` (production-plan importa de acá: no se cruza). */
+const formatH = (h: number) => `${h.toLocaleString('es-CL', { maximumFractionDigits: 1 })} h`;
+
 function reserve(busy: Busy, start: number, end: number) {
 	busy.push([start, end]);
 	busy.sort((x, y) => x[0] - y[0]);
@@ -322,7 +337,7 @@ export function buildSchedule(input: ScheduleInput): Schedule {
 	// (típico: una fila de la Hoja de Producción de hace semanas): no ocupa nada
 	// y la etapa se reprograma sola, conservando el `slotId` para que el próximo
 	// arrastre corrija esa fila en vez de crear otra.
-	const pinByBlock = new Map<string, { pin: Pin; laneId: string }>();
+	const pinByBlock = new Map<string, { pin: Pin; laneId: string; overlaps: boolean }>();
 	const stalePinByBlock = new Map<string, Pin>();
 	for (const pin of [...pins].sort((a, b) => a.start - b.start)) {
 		const key = `${pin.otId}:${pin.step}`;
@@ -332,8 +347,11 @@ export function buildSchedule(input: ScheduleInput): Schedule {
 			stalePinByBlock.set(key, pin);
 			continue;
 		}
-		const lane = stations.find((l) => !busy.get(l.id)!.some(([s, e]) => s < pin.end && e > pin.start)) ?? stations[0];
-		pinByBlock.set(key, { pin, laneId: lane.id });
+		// Sin puesto libre, dos bloques fijados se pisan en la misma máquina: se
+		// dibuja igual (es lo que alguien decidió) pero marcado como conflicto.
+		const free = stations.find((l) => !busy.get(l.id)!.some(([s, e]) => s < pin.end && e > pin.start));
+		const lane = free ?? stations[0];
+		pinByBlock.set(key, { pin, laneId: lane.id, overlaps: !free });
 		reserve(busy.get(lane.id)!, pin.start, pin.end);
 	}
 
@@ -363,17 +381,35 @@ export function buildSchedule(input: ScheduleInput): Schedule {
 		if (pinned) {
 			const { pin } = pinned;
 			const lane = laneById.get(pinned.laneId)!;
-			// Un atraso simulado sobre un bloque fijo lo alarga desde donde está.
-			const end = delay > 0 ? addWorkingHours(lane.calendar, pin.end, delay) : pin.end;
-			let conflict: string | undefined;
+			const setup = setupOn(lane);
+			const workHours = step.hours + setup.hours + delay;
+			// Lo fijado es CUÁNDO EMPIEZA y en qué máquina, no cuánto dura el trabajo.
+			// Una ventana más corta que el trabajo hacía que 15 h de troquel
+			// "terminaran" en 4 y toda la cadena siguiente arrancara antes de tiempo:
+			// el bloque se alarga hasta donde de verdad termina, y lo dice. Un atraso
+			// simulado alarga la ventana fijada desde donde está.
+			const windowEnd = delay > 0 ? addWorkingHours(lane.calendar, pin.end, delay) : pin.end;
+			const workEnd = addWorkingHours(lane.calendar, pin.start, workHours);
+			const end = Math.max(windowEnd, workEnd);
+			const conflicts: string[] = [];
+			if (pinned.overlaps) conflicts.push('Se pisa con otro bloque fijado en la misma máquina');
 			const prevEnd = lastEnd.get(ot.id);
 			if (prevEnd != null && pin.start < prevEnd - 60_000 && prevKey) {
-				conflict = `Empieza antes de que termine ${PLAN_STEP_BY_KEY[prevKey].label.toLowerCase()}`;
+				conflicts.push(`Empieza antes de que termine ${PLAN_STEP_BY_KEY[prevKey].label.toLowerCase()}`);
 			}
-			const setup = setupOn(lane);
+			let note: string | undefined;
+			if (workEnd > windowEnd + 60_000) {
+				const windowHours = workingHoursBetween(lane.calendar, pin.start, windowEnd);
+				note = `El horario fijado da ${formatH(windowHours)} de turno para ${formatH(workHours)} de trabajo: el bloque se alarga hasta donde termina`;
+				if (busy.get(lane.id)!.some(([s, e]) => s < end && e > windowEnd)) {
+					conflicts.push('Al alargarse, se pisa con otro bloque fijado');
+				}
+				reserve(busy.get(lane.id)!, windowEnd, end);
+			}
+			const conflict = conflicts.length > 0 ? conflicts.join(' · ') : undefined;
 			blocks.push({
 				...base,
-				hours: step.hours + setup.hours + delay,
+				hours: workHours,
 				setupHours: setup.hours,
 				setup,
 				laneId: lane.id,
@@ -382,6 +418,7 @@ export function buildSchedule(input: ScheduleInput): Schedule {
 				pinned: true,
 				slotId: pin.slotId,
 				conflict,
+				note,
 			});
 			lastEnd.set(ot.id, Math.max(end, now));
 			return;

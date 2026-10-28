@@ -458,7 +458,7 @@ export function OTGanttBoard() {
 							msAt={axis.msAt}
 							blocks={view.blocks.filter((b) => b.laneId === lane.id)}
 							highlight={dropTarget?.lane.id === lane.id ? (dropTarget.valid ? 'ok' : 'bad') : null}
-							instances={plan.shifts && lane.machineId ? plan.shifts.instances(lane.machineId, rangeStart, rangeEnd) : null}
+							instances={plan.shifts && lane.machineId ? plan.shifts.instances(lane.machineId, rangeStart, rangeEnd, lane.station) : null}
 							onClosedClick={canEdit ? offerShift : undefined}
 						/>
 					))}

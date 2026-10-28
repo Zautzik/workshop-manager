@@ -112,6 +112,48 @@ describe('buildSchedule', () => {
 		expect(libre.start).toBe(fija.end);
 	});
 
+	it('un bloque fijado en una ventana más corta que el trabajo se alarga hasta donde termina', () => {
+		// 6 h de offset fijadas de 07 a 09: el turno sigue hasta las 22, así que termina a las 13.
+		const s = buildSchedule({
+			now: NOW,
+			machines: MACHINES,
+			pins: [{ slotId: 's', otId: 'A', step: 'offset', machineId: 'offset1', start: NOW, end: NOW + 2 * H }],
+			ots: [ot('A', [step('offset', 6), step('embalaje', 1)]), ot('B', [step('offset', 1)])],
+		});
+		const a = s.blocks.find((b) => b.otId === 'A' && b.step === 'offset')!;
+		expect(hhmm(a.start)).toBe('27 07:00');
+		expect(hhmm(a.end)).toBe('27 13:00');
+		expect(a.note).toMatch(/2 h de turno para 6 h de trabajo/);
+		expect(a.conflict).toBeUndefined();
+		// La cadena y la máquina respetan el fin real, no el de la ventana.
+		expect(s.blocks.find((b) => b.otId === 'A' && b.step === 'embalaje')!.start).toBe(a.end);
+		expect(s.blocks.find((b) => b.otId === 'B')!.start).toBeGreaterThanOrEqual(a.end);
+	});
+
+	it('una ventana fijada más larga que el trabajo se respeta tal cual', () => {
+		const s = buildSchedule({
+			now: NOW,
+			machines: MACHINES,
+			pins: [{ slotId: 's', otId: 'A', step: 'offset', machineId: 'offset1', start: NOW, end: NOW + 5 * H }],
+			ots: [ot('A', [step('offset', 2)])],
+		});
+		expect(s.blocks[0]).toMatchObject({ start: NOW, end: NOW + 5 * H, note: undefined });
+	});
+
+	it('dos bloques fijados que se pisan en una máquina de un puesto quedan en conflicto', () => {
+		const s = buildSchedule({
+			now: NOW,
+			machines: MACHINES,
+			pins: [
+				{ slotId: 's1', otId: 'A', step: 'offset', machineId: 'offset1', start: NOW, end: NOW + 4 * H },
+				{ slotId: 's2', otId: 'B', step: 'offset', machineId: 'offset1', start: NOW + 2 * H, end: NOW + 6 * H },
+			],
+			ots: [ot('A', [step('offset', 4)]), ot('B', [step('offset', 4)])],
+		});
+		expect(s.blocks.find((b) => b.otId === 'A')!.conflict).toBeUndefined();
+		expect(s.blocks.find((b) => b.otId === 'B')!.conflict).toMatch(/Se pisa con otro bloque fijado/);
+	});
+
 	it('un horario fijado que ya pasó con la etapa abierta se reprograma, conservando la fila', () => {
 		const s = buildSchedule({
 			now: NOW,

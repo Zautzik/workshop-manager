@@ -88,10 +88,17 @@ export interface ShiftInstance {
 export interface ShiftResolver {
 	/** Las definiciones vigentes, en orden. */
 	definitions: ShiftDef[];
-	/** El calendario de la máquina, o `fallback` si no tiene patrón ni dotación. */
-	calendarFor(machineId: string, fallback: PlantCalendar): PlantCalendar;
-	/** Los turnos concretos de la máquina en un rango, con quién está. */
-	instances(machineId: string, fromMs: number, toMs: number): ShiftInstance[];
+	/**
+	 * El calendario de la máquina, o `fallback` si no tiene patrón ni dotación.
+	 *
+	 * `station` (1, 2, …) es el puesto dentro de una máquina de varios puestos
+	 * (el taller manual). Un día con dotación, el puesto n sólo trabaja los turnos
+	 * que tienen al menos n personas: dos operarios el sábado abren dos puestos,
+	 * no los ocho.
+	 */
+	calendarFor(machineId: string, fallback: PlantCalendar, station?: number): PlantCalendar;
+	/** Los turnos concretos de la máquina (o de su puesto `station`) en un rango, con quién está. */
+	instances(machineId: string, fromMs: number, toMs: number, station?: number): ShiftInstance[];
 }
 
 const dateKeyOf = (y: number, m: number, d: number) =>
@@ -123,12 +130,16 @@ export function createShiftResolver(model: ShiftModel): ShiftResolver {
 	}
 	const machinesWithRoster = new Set(model.roster.filter((r) => defById.has(r.shift_id)).map((r) => r.machine_id));
 
-	const shiftsOn = (machineId: string, dateKey: string, weekday: number) => {
+	const shiftsOn = (machineId: string, dateKey: string, weekday: number, station = 1) => {
 		const roster = rosterByMachineDay.get(`${machineId}|${dateKey}`);
 		if (roster && roster.size > 0) {
+			// Puesto n: sólo los turnos con n personas o más, y la persona n en él.
+			// Con un solo puesto (station 1) se ve toda la dotación del turno.
 			return {
 				source: 'dotacion' as const,
-				items: [...roster].map(([id, operators]) => ({ def: defById.get(id)!, operators })),
+				items: [...roster]
+					.filter(([, operators]) => operators.length >= station)
+					.map(([id, operators]) => ({ def: defById.get(id)!, operators: station > 1 ? [operators[station - 1]] : operators })),
 			};
 		}
 		const items = (patternsByMachine.get(machineId) ?? [])
@@ -140,20 +151,20 @@ export function createShiftResolver(model: ShiftModel): ShiftResolver {
 	return {
 		definitions: defs,
 
-		calendarFor(machineId, fallback) {
+		calendarFor(machineId, fallback, station = 1) {
 			const pattern = patternsByMachine.get(machineId) ?? [];
 			if (pattern.length === 0 && !machinesWithRoster.has(machineId)) return fallback;
 			const names = pattern.map((p) => defById.get(p.shift_id)!).sort(bySortOrder);
 			return {
-				key: `maquina:${machineId}`,
+				key: station > 1 ? `maquina:${machineId}#${station}` : `maquina:${machineId}`,
 				label: names.length > 0 ? names.map(shiftLabel).join(' + ') : 'Sólo con dotación',
 				days: [],
 				shifts: [],
-				dayShifts: (dateKey, weekday) => shiftsOn(machineId, dateKey, weekday).items.map((i) => shiftWindow(i.def)),
+				dayShifts: (dateKey, weekday) => shiftsOn(machineId, dateKey, weekday, station).items.map((i) => shiftWindow(i.def)),
 			};
 		},
 
-		instances(machineId, fromMs, toMs) {
+		instances(machineId, fromMs, toMs, station = 1) {
 			const out: ShiftInstance[] = [];
 			// Desde el día anterior: la Noche de ayer puede seguir abierta.
 			const p = plantParts(fromMs);
@@ -163,7 +174,7 @@ export function createShiftResolver(model: ShiftModel): ShiftResolver {
 				const m = date.getUTCMonth() + 1;
 				const d = date.getUTCDate();
 				if (plantWallClockToMs(y, m, d, 0) >= toMs) break;
-				const { source, items } = shiftsOn(machineId, dateKeyOf(y, m, d), date.getUTCDay());
+				const { source, items } = shiftsOn(machineId, dateKeyOf(y, m, d), date.getUTCDay(), station);
 				for (const { def, operators } of items) {
 					const w = shiftWindow(def);
 					const start = plantWallClockToMs(y, m, d, w.start);

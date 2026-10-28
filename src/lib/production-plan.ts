@@ -58,6 +58,7 @@ export function buildPlanInput(payload: PlanPayload): PlanInput {
 		ajuste_minutes,
 		ajuste_measured,
 		calendar: shifts ? shifts.calendarFor(id, calendarForMachineType(type)) : undefined,
+		stationCalendar: shifts ? (station: number) => shifts.calendarFor(id, calendarForMachineType(type), station) : undefined,
 	}));
 	const machineTypeById = new Map(machines.map((m) => [m.id, m.type]));
 	const estimates = new Map<string, Estimate>();

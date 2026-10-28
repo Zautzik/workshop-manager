@@ -103,10 +103,25 @@ async function loadShiftModel(today: string, machineTypes: Map<string, string>):
 				.lte('date', until.toISOString().slice(0, 10))
 				.range(desde, hasta) as any,
 	);
+	// Quien tiene una licencia o vacaciones aprobadas ese día no produce, aunque
+	// su asignación siga cargada (la licencia se aprobó después de armar la
+	// semana). Contarla daba capacidad que no existe.
+	const from = yesterday.toISOString().slice(0, 10);
+	const to = until.toISOString().slice(0, 10);
+	const { data: leaves, error: leaveErr } = await supabaseAdmin
+		.from('leave_requests')
+		.select('employee_id, start_date, end_date')
+		.eq('status', 'approved')
+		.lte('start_date', to)
+		.gte('end_date', from);
+	if (leaveErr) console.warn('No se pudieron leer las licencias para el Cronograma:', leaveErr.message);
+	const onLeave = (a: { employee_id: string; date: string }) =>
+		(leaves ?? []).some((l) => l.employee_id === a.employee_id && l.start_date <= a.date && a.date <= l.end_date);
+
 	// Una dotación cargada antes de la migración apunta a una fila archivada:
 	// se lee como la definición equivalente (`definitionFor`), no se descarta.
 	const relevant = assignments.flatMap((a) => {
-		if (!machineTypes.has(a.machine_id)) return [];
+		if (!machineTypes.has(a.machine_id) || onLeave(a)) return [];
 		const def = definitionFor(rowById.get(a.shift_id), shifts, machineTypes.get(a.machine_id));
 		return def ? [{ ...a, shift_id: def.id }] : [];
 	});

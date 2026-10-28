@@ -100,6 +100,24 @@ describe('dotación de Planta', () => {
 		expect(firstIntervals(r.calendarFor('ryobi', CALENDARS.taller), at(28, 5), 1)).toEqual(['28 07:00→28 22:00']);
 	});
 
+	it('en una máquina de varios puestos, cada puesto necesita su persona', () => {
+		// Sábado 31: dos personas en el Taller. Abren los puestos 1 y 2, no el 3.
+		const r = createShiftResolver(
+			model({
+				roster: [
+					{ machine_id: 'taller', shift_id: 'w', date: '2026-10-31', employee_name: 'Ana' },
+					{ machine_id: 'taller', shift_id: 'w', date: '2026-10-31', employee_name: 'José' },
+				],
+			}),
+		);
+		const sat = (station: number) => firstIntervals(r.calendarFor('taller', CALENDARS.dos_turnos, station), at(31, 5), 1)[0];
+		expect(sat(1)).toBe('31 07:00→31 16:00');
+		expect(sat(2)).toBe('31 07:00→31 16:00');
+		expect(sat(3)).toBe('2 07:00→2 16:00'); // el lunes, por patrón
+		expect(r.instances('taller', at(31, 0), at(31, 23), 2).map((i) => i.operators.join(','))).toEqual(['José']);
+		expect(r.instances('taller', at(31, 0), at(31, 23), 3)).toEqual([]);
+	});
+
 	it('los turnos concretos dicen quién está y de dónde salen', () => {
 		const r = createShiftResolver(
 			model({ roster: [{ machine_id: 'ryobi', shift_id: 'n', date: '2026-10-28', employee_name: 'Carla' }] }),
