@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, useEffect, useMemo, useCallback } from "react";
+import { definitionFor } from "@/lib/machine-calendar";
+import { shiftPaidHours } from "@/lib/shift-hours";
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 import { supabase } from "@/integrations/supabase/client";
@@ -13,7 +15,7 @@ const WorkstationLayout = dynamic(() => import('@/components/workflow/Workstatio
 import { Clock } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
-import { useCompensationRatesForDate, useSchedulingCostModel, useWorkerAssignments, useWorkerMonthlyOvertime, useWorkflowCertificationAlerts, useWorkflowContracts, useWorkflowIncentiveStatuses, useWorkflowLeaveStatuses, useWorkflowWeeklyHours, useWorkersByRating, useWorkstations, useShifts } from "@/hooks/use-workflow-queries";
+import { useCompensationRatesForDate, useSchedulingCostModel, useWorkerAssignments, useWorkerMonthlyOvertime, useWorkflowCertificationAlerts, useWorkflowContracts, useWorkflowIncentiveStatuses, useWorkflowLeaveStatuses, useWorkflowWeeklyHours, useWorkersByRating, useWorkstations, useShifts, fetchWorkerAssignments } from "@/hooks/use-workflow-queries";
 import { useRealtimeProduction } from "@/hooks/use-realtime-production";
 import { DndContext, DragEndEvent, DragOverlay } from "@dnd-kit/core";
 import { isWorkerQualifiedForStation } from "@/lib/workstation-skills";
@@ -24,6 +26,7 @@ import { SelectedOTBanner } from "./planta-board/SelectedOTBanner";
 import { AgendaSemanalSidebar } from "./planta-board/AgendaSemanalSidebar";
 import { BulkActionsPanel } from "./planta-board/BulkActionsPanel";
 import { QuickRosterPanel } from "./planta-board/QuickRosterPanel";
+import { MachineShiftPatternsPanel } from "./planta-board/MachineShiftPatternsPanel";
 import { CostModelPanel } from "./planta-board/CostModelPanel";
 
 type WorkflowTab = 'en_proceso' | 'ots' | 'clients' | 'layout' | 'shifts' | 'production' | 'hoja_prod' | 'plan_semanal' | 'gantt' | 'calendar' | 'whatsapp';
@@ -33,6 +36,7 @@ type WorkflowTab = 'en_proceso' | 'ots' | 'clients' | 'layout' | 'shifts' | 'pro
 // cualquier memo/React.memo río abajo que reciba este valor como prop
 // (auditoría de performance 2026-09, ver WorkstationLayout.tsx).
 const EMPTY_OVERTIME_BY_WORKER: Record<string, { hours: number; shifts: number }> = {};
+const EMPTY_ASSIGNMENTS: any[] = [];
 
 interface PlantaBoardProps {
   /** Retained for compatibility; the board now renders only the planta layout. */
@@ -55,7 +59,7 @@ export default function PlantaBoard({ initialTab = 'layout' }: PlantaBoardProps)
   const { data: workersData = [] } = useWorkersByRating();
   const { data: workstationsData = [] } = useWorkstations();
   const { data: shifts = [] } = useShifts();
-  const { data: assignments = [], refetch: refetchAssignments } = useWorkerAssignments(selectedDate);
+  const { data: rawAssignments = EMPTY_ASSIGNMENTS, refetch: refetchAssignments } = useWorkerAssignments(selectedDate);
   const { data: monthlyOvertimeByWorker = EMPTY_OVERTIME_BY_WORKER } = useWorkerMonthlyOvertime(selectedDate);
   const { data: stationsUnderMaintenance, isError: maintenanceCheckFailed } = useStationsUnderMaintenance();
   const { data: compensationRates = [] } = useCompensationRatesForDate(selectedDate);
@@ -93,11 +97,37 @@ export default function PlantaBoard({ initialTab = 'layout' }: PlantaBoardProps)
 
   const canManageCostModel = role === 'admin';
 
-  // Collapse raw shift rows (often stored per-date) into a few clean toggles
-  // (e.g. "Turno Día" / "Turno Tarde") instead of an unwieldy per-date list.
+  // Desde la migración 20261027140000 `/api/shifts` devuelve sólo las
+  // DEFINICIONES (Mañana, Tarde, Noche, Taller), y cada una es un botón con su
+  // horario. Antes, ~500 filas por fecha e incidente se agrupaban adivinando
+  // por el nombre — y el Turno Noche 23–07 caía en «Tarde».
+  const shiftDefinitions = useMemo(() => (shifts as any[]).filter((s) => s?.code), [shifts]);
+
+  // La dotación tal como se ve en Planta. Una asignación cargada antes de la
+  // migración apunta a una fila archivada («Turno Día 07–15») y, sin esto,
+  // desaparecía de la pantalla: su `shift_id` se lee como la definición
+  // equivalente (`definitionFor`). Se normaliza UNA vez acá para que el tablero
+  // de máquinas, los topes y los filtros vean lo mismo. La fila de la base no se
+  // toca — la nómina sigue calculando con su turno original (`shift`).
+  const assignments = useMemo(
+    () =>
+      shiftDefinitions.length === 0
+        ? rawAssignments
+        : rawAssignments.map((a: any) => {
+            const def = definitionFor(a?.shift, shiftDefinitions, a?.workstation?.type);
+            return def && def.id !== a.shift_id ? { ...a, shift_id: def.id } : a;
+          }),
+    [rawAssignments, shiftDefinitions]
+  );
+
   const shiftToggleOptions = useMemo(() => {
-    // The shop runs two logical shifts. Bucket the (often messy) shift rows into
-    // "Día" / "Tarde" by keyword so the toggle stays to two clean options.
+    if (shiftDefinitions.length > 0) {
+      return shiftDefinitions.map((s: any) => ({
+        label: `${s.name} ${String(s.start_time).slice(0, 2)}–${String(s.end_time).slice(0, 2)}`,
+        ids: [s.id as string],
+      }));
+    }
+    // Sin definiciones (antes de la migración): el agrupamiento de siempre.
     const dia = { label: 'Día', ids: [] as string[] };
     const tarde = { label: 'Tarde', ids: [] as string[] };
     for (const s of shifts as any[]) {
@@ -106,7 +136,21 @@ export default function PlantaBoard({ initialTab = 'layout' }: PlantaBoardProps)
       (isTarde ? tarde : dia).ids.push(s.id);
     }
     return [dia, tarde].filter((g) => g.ids.length > 0);
-  }, [shifts]);
+  }, [shifts, shiftDefinitions]);
+
+  // Llegar desde el Cronograma («Abrir en Planta»): fecha, turno y máquina en
+  // la URL. Se lee una vez, de `window.location`, para no obligar a la página a
+  // un límite de Suspense por `useSearchParams`.
+  const [linkedMachine, setLinkedMachine] = useState<string | null>(null);
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const date = params.get('date');
+    if (date && /^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      setSelectedDate(date);
+      setWeekStartDate(startOfIsoWeek(new Date(`${date}T12:00:00`)));
+    }
+    setLinkedMachine(params.get('machine'));
+  }, []);
 
   useEffect(() => {
     setActiveTab(initialTab);
@@ -166,9 +210,17 @@ export default function PlantaBoard({ initialTab = 'layout' }: PlantaBoardProps)
 
   useEffect(() => {
     if (!selectedShiftId && shifts.length > 0) {
-      setSelectedShiftId(shifts[0].id);
+      // El turno de la URL (`?shift=noche`, desde el Cronograma) y si no, la
+      // Mañana; sin definiciones, la primera fila (como antes). En UN efecto:
+      // eran dos que corrían en el mismo render al llegar los turnos, y el de la
+      // Mañana —con `selectedShiftId` todavía null— pisaba al de la URL.
+      // «Abrir en Planta» la Noche del jueves aterrizaba en la Mañana.
+      const code = new URLSearchParams(window.location.search).get('shift');
+      const fromUrl = code ? shiftDefinitions.find((s: any) => s.code === code) : null;
+      const manana = shiftDefinitions.find((s: any) => s.code === 'manana');
+      setSelectedShiftId((fromUrl ?? manana ?? shifts[0]).id);
     }
-  }, [selectedShiftId, shifts]);
+  }, [selectedShiftId, shifts, shiftDefinitions]);
 
   // useCallback con identidad estable: pasa por WorkstationLayout hasta cada
   // tarjeta de operario, y una identidad nueva en cada render de PlantaBoard
@@ -236,13 +288,15 @@ export default function PlantaBoard({ initialTab = 'layout' }: PlantaBoardProps)
     }
 
     try {
-      const { data: sourceAssignments, error: sourceError } = await supabase
-        .from('worker_assignments')
-        .select('employee_id, worker_id, machine_id, role, ot_id')
-        .eq('date', sourceDate)
-        .eq('shift_id', selectedShiftId);
-
-      if (sourceError) throw sourceError;
+      // Por la API (la tabla tiene RLS: desde el navegador no se lee nada), y el
+      // turno se compara ya normalizado: copiar un día cargado sobre una fila
+      // archivada también tiene que encontrar su dotación.
+      const sourceAssignments = (await fetchWorkerAssignments({ date: sourceDate })).filter(
+        (a: any) =>
+          (shiftDefinitions.length > 0
+            ? definitionFor(a?.shift, shiftDefinitions, a?.workstation?.type)?.id
+            : a.shift_id) === selectedShiftId
+      );
 
       if (!sourceAssignments || sourceAssignments.length === 0) {
         toast({
@@ -321,17 +375,8 @@ export default function PlantaBoard({ initialTab = 'layout' }: PlantaBoardProps)
   const shiftHours = useMemo(() => {
     const shift = shifts.find((item: any) => item.id === selectedShiftId);
     if (!shift?.start_time || !shift?.end_time) return 0;
-
-    const toMinutes = (value: string) => {
-      const [hours, minutes] = value.split(':').map(Number);
-      return (Number.isNaN(hours) ? 0 : hours) * 60 + (Number.isNaN(minutes) ? 0 : minutes);
-    };
-
-    const startMinutes = toMinutes(shift.start_time);
-    const endMinutes = toMinutes(shift.end_time);
-    let durationMinutes = endMinutes - startMinutes;
-    if (durationMinutes <= 0) durationMinutes += 24 * 60;
-    return durationMinutes / 60;
+    // Horas pagadas: la colación del Taller no cuenta (shift-hours.ts).
+    return shiftPaidHours(shift);
   }, [shifts, selectedShiftId]);
 
   const compensationByEmployee = useMemo(() => {
@@ -912,13 +957,7 @@ export default function PlantaBoard({ initialTab = 'layout' }: PlantaBoardProps)
   const handlePublishWeek = async () => {
     setPublishLoading(true);
     try {
-      const { data: weeklyAssignments, error: assignmentError } = await supabase
-        .from('worker_assignments')
-        .select('id, employee_id, date, shift:shifts(start_time, end_time)')
-        .gte('date', weekStartIso)
-        .lte('date', weekEndIso);
-
-      if (assignmentError) throw assignmentError;
+      const weeklyAssignments = await fetchWorkerAssignments({ from: weekStartIso, to: weekEndIso });
 
       const employeeIds = Array.from(
         new Set((weeklyAssignments || []).map((entry: any) => entry.employee_id).filter(Boolean))
@@ -1072,6 +1111,19 @@ export default function PlantaBoard({ initialTab = 'layout' }: PlantaBoardProps)
 
 
           <TabsContent value="layout" className="mt-2">
+            {linkedMachine && (
+              <div className="mb-2 flex items-center justify-between gap-2 rounded-md border border-indigo-500/40 bg-indigo-500/10 px-3 py-1.5 text-xs">
+                <span>
+                  Desde el Cronograma: asigna operarios a{' '}
+                  <b>{workstations.find((w: any) => w.id === linkedMachine)?.name ?? 'la máquina'}</b> en el turno{' '}
+                  <b>{shiftToggleOptions.find((o) => o.ids.includes(selectedShiftId || ''))?.label ?? 'elegido'}</b> del{' '}
+                  <b>{selectedDate}</b>. Con alguien asignado, el Cronograma la ve productiva en ese turno.
+                </span>
+                <button className="text-muted-foreground hover:text-foreground" onClick={() => setLinkedMachine(null)} aria-label="Cerrar aviso">
+                  ×
+                </button>
+              </div>
+            )}
             {shiftToggleOptions.length > 0 && (
               <div className="flex items-center gap-1.5 mb-3">
                 <Clock className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
@@ -1129,6 +1181,14 @@ export default function PlantaBoard({ initialTab = 'layout' }: PlantaBoardProps)
                   onNextWeek={goToNextWeek}
                   onPublish={handlePublishWeek}
                   publishLoading={publishLoading}
+                />
+
+                {/* Qué turnos trabaja normalmente cada máquina: lo que el
+                    Cronograma supone cuando ese día no hay dotación cargada. */}
+                <MachineShiftPatternsPanel
+                  machines={workstations}
+                  shifts={shifts as any[]}
+                  canEdit={role === 'admin' || role === 'supervisor'}
                 />
 
                 {/* Weekend shift rotation — two templates rotating weekly */}

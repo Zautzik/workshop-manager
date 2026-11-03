@@ -2972,6 +2972,7 @@ export type Database = {
       }
       machines: {
         Row: {
+          ajuste_minutes: number | null
           brand: string | null
           colors: number | null
           consumption_mode: string
@@ -3003,6 +3004,7 @@ export type Database = {
           year_manufactured: number | null
         }
         Insert: {
+          ajuste_minutes?: number | null
           brand?: string | null
           colors?: number | null
           consumption_mode?: string
@@ -3034,6 +3036,7 @@ export type Database = {
           year_manufactured?: number | null
         }
         Update: {
+          ajuste_minutes?: number | null
           brand?: string | null
           colors?: number | null
           consumption_mode?: string
@@ -4211,6 +4214,7 @@ export type Database = {
           notes: string | null
           ot_id: string
           paper_type_label: string | null
+          plan_step: string | null
           scheduled_end: string | null
           scheduled_start: string | null
           sheet_height_cm: number | null
@@ -4232,6 +4236,7 @@ export type Database = {
           notes?: string | null
           ot_id: string
           paper_type_label?: string | null
+          plan_step?: string | null
           scheduled_end?: string | null
           scheduled_start?: string | null
           sheet_height_cm?: number | null
@@ -4253,6 +4258,7 @@ export type Database = {
           notes?: string | null
           ot_id?: string
           paper_type_label?: string | null
+          plan_step?: string | null
           scheduled_end?: string | null
           scheduled_start?: string | null
           sheet_height_cm?: number | null
@@ -4664,6 +4670,8 @@ export type Database = {
       }
       ot_stage_reports: {
         Row: {
+          operator_employee_id: string | null
+          ajuste_minutes: number | null
           created_at: string
           hours: number | null
           id: string
@@ -4679,6 +4687,8 @@ export type Database = {
           workflow_step: Database["public"]["Enums"]["ot_status"]
         }
         Insert: {
+          operator_employee_id?: string | null
+          ajuste_minutes?: number | null
           created_at?: string
           hours?: number | null
           id?: string
@@ -4694,6 +4704,8 @@ export type Database = {
           workflow_step: Database["public"]["Enums"]["ot_status"]
         }
         Update: {
+          operator_employee_id?: string | null
+          ajuste_minutes?: number | null
           created_at?: string
           hours?: number | null
           id?: string
@@ -4985,6 +4997,7 @@ export type Database = {
       }
       ots: {
         Row: {
+          ajuste_minutes: number | null
           assigned_machine_id: string | null
           calc_finish_hours: number | null
           calc_ink_kg: number | null
@@ -5064,6 +5077,7 @@ export type Database = {
           width_cm: number | null
         }
         Insert: {
+          ajuste_minutes?: number | null
           assigned_machine_id?: string | null
           calc_finish_hours?: number | null
           calc_ink_kg?: number | null
@@ -5143,6 +5157,7 @@ export type Database = {
           width_cm?: number | null
         }
         Update: {
+          ajuste_minutes?: number | null
           assigned_machine_id?: string | null
           calc_finish_hours?: number | null
           calc_ink_kg?: number | null

@@ -95,6 +95,38 @@ Anotar acá la fecha de la última restauración probada:
 
 ---
 
+## 3b. Las migraciones NO son un respaldo
+
+Hay que decirlo porque es la suposición natural: *"están las 196 migraciones en
+git, con eso se reconstruye la base"*. **No se reconstruye.** Se probó el
+2026-10-19 contra el stack local, partiendo de una base vacía:
+
+- `supabase db reset` se corta en la migración 20 de 196
+  (`20260221143200_hr_backfill_workers_to_employees.sql`), que aborta con
+  *"No workers found in workers table"*. Es una migración que depende de datos:
+  en una base vacía no puede pasar por diseño.
+- Salteando esa, **62 de las 176 restantes fallan**. La mayoría en cascada, pero
+  las raíces son reales: `gin_trgm_ops` sin la extensión, `set_updated_at()` que
+  no existe todavía, un `EXCEPTION WHEN error` que no es una condición válida,
+  un error de sintaxis en un `||`.
+- Y lo más importante: **`maintenance_schedules` y `machine_downtime_logs` no las
+  crea ninguna migración.** Sólo las alteran. Existen en producción porque se
+  crearon fuera del historial. Son la misma deriva inversa que ya detectó
+  `check:rls-drift` (11 objetos en la base que ningún archivo crea); acá se vio
+  qué significa en la práctica.
+
+Consecuencia para este documento: el **dump es el único camino de
+recuperación**. No hay plan B por el lado de las migraciones, así que §3 —probar
+una restauración de verdad— no es prolijidad, es el único eslabón que no está
+verificado.
+
+Un cuidado aparte, para no leer un falso verde: **`supabase db reset` terminó con
+código de salida 0 a pesar de que la migración falló.** El error aparece en la
+salida, pero el código de salida no lo refleja, así que un script que confíe en
+`$?` va a decir que todo salió bien.
+
+---
+
 ## 4. Cuándo
 
 | Cuándo | Qué |

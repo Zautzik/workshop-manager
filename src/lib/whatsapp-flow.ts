@@ -32,8 +32,10 @@
  * una propuesta. Aplicarla es de otro.
  */
 
-import { naturalNextStatuses, type OTWorkflowStatus } from '@/lib/ot-state-machine';
+import { naturalNextStatuses, OTStatusSchema, type OTWorkflowStatus } from '@/lib/ot-state-machine';
 import { promptsStageReport } from '@/lib/stage-report';
+
+const statusIndex = (s: string) => OTStatusSchema.options.indexOf(s as OTWorkflowStatus);
 
 /**
  * Del vocabulario del taller a las etapas del sistema.
@@ -93,6 +95,7 @@ export function resolveCutStage(currentStatus: string): OTWorkflowStatus {
 export interface FlowParse {
 	message_type?: string | null;
 	hours_reported?: number | null;
+	ajuste_minutes?: number | null;
 	merma?: number | null;
 	pliegos_produced?: number | null;
 	processes_mentioned?: readonly string[] | null;
@@ -108,6 +111,14 @@ export interface FlowProposal {
 	nextStatus: OTWorkflowStatus | null;
 	hours: number | null;
 	mermaSheets: number | null;
+	/** Minutos de ajuste de prensa. Sólo se guarda si la pasada es de offset. */
+	ajusteMinutes: number | null;
+	/**
+	 * El parte habla de una etapa que la OT YA DEJÓ. Llega tarde —el operario
+	 * avisa cuando termina el turno, o al día siguiente— y no por eso es menos
+	 * cierto: completa los datos que le falten a esa pasada y no mueve la OT.
+	 */
+	retroactive: boolean;
 	issues: string | null;
 	observations: string | null;
 	/** 0–100, heredada del parser. Decide si se aplica sola o va a revisión. */
@@ -176,6 +187,32 @@ export function resolveFlow(
 
 	const mencionadas = stagesMentioned(parse.processes_mentioned, currentStatus);
 	const naturales = naturalNextStatuses(currentStatus as OTWorkflowStatus);
+	const ajusteMinutes = num(parse.ajuste_minutes);
+
+	// ── Parte retroactivo ────────────────────────────────────────────────────
+	// «Offset 6 horas, ajuste 40» con la OT ya en el troquel: el operario habla de
+	// lo que hizo ayer. La regla de oro de abajo (cerrar la etapa donde la OT
+	// ESTÁ) cargaría esas horas al troquel. Si el mensaje nombra una etapa de
+	// taller que la OT ya dejó y no nombra la actual, se le cree al texto: es la
+	// única forma de que el dato tardío llegue a la etapa correcta. No mueve la
+	// OT — ya se movió.
+	const actual = statusIndex(currentStatus);
+	const pasadas = mencionadas.filter((e) => statusIndex(e) < actual && promptsStageReport(e));
+	if (esFin && pasadas.length > 0 && !mencionadas.includes(currentStatus as OTWorkflowStatus)) {
+		const etapa = pasadas[pasadas.length - 1];
+		return {
+			closeStage: etapa,
+			nextStatus: null,
+			hours,
+			mermaSheets,
+			ajusteMinutes,
+			retroactive: true,
+			issues: texto(parse.problems_reported),
+			observations: null,
+			confidence,
+			reason: `Parte retroactivo de ${etapa}: la OT ya está en ${currentStatus}. Completa esa pasada y no mueve la OT.`,
+		};
+	}
 
 	// A dónde va: primero lo que el mensaje nombra, si es un destino posible.
 	// Un proceso nombrado que NO está en el recorrido siguiente casi siempre es
@@ -209,6 +246,8 @@ export function resolveFlow(
 		nextStatus,
 		hours,
 		mermaSheets,
+		ajusteMinutes,
+		retroactive: false,
 		issues: texto(parse.problems_reported),
 		// `unparsed_notes` NO va a observaciones. Suena a que ahí está lo que el
 		// parser no supo leer, pero en la práctica es el resto del mensaje entero
@@ -236,5 +275,10 @@ export function resolveFlow(
 export const CONFIANZA_PARA_APLICAR_SOLO = 70;
 
 export function appliesWithoutReview(p: FlowProposal): boolean {
+	// Un parte retroactivo le cree al texto por sobre el tablero (ver
+	// `resolveFlow`): justo lo que la regla de oro evita cuando el texto puede
+	// estar mal tipeado. Por eso siempre lo mira una persona, por alta que sea
+	// la confianza del parser.
+	if (p.retroactive) return false;
 	return p.confidence >= CONFIANZA_PARA_APLICAR_SOLO;
 }

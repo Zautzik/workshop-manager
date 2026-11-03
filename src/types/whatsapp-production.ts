@@ -40,6 +40,12 @@ export interface ParsedProductionData {
    * Lo que el operario reporta es una segunda vía al mismo número.
    */
   hours_reported: number | null;
+  /**
+   * Minutos de ajuste de prensa (planchas + entonar) que declaró el operario.
+   * Alimenta el ajuste medido por prensa y operario del Cronograma. Opcional
+   * en el tipo: las capturas guardadas antes de este campo no lo traen.
+   */
+  ajuste_minutes?: number | null;
   /** Processes mentioned: doblado, corte, corchetes, etc. */
   processes_mentioned: string[];
   /** Machine mentioned (if any) */

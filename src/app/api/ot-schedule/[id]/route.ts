@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { requireAuth, isAuthError } from '@/lib/api-middleware';
 import { supabaseAdmin } from '@/integrations/supabase/server';
+import { PLAN_STEP_KEYS } from '@/lib/production-route';
+import { syncAssignedMachine } from '@/lib/schedule-sync';
 
 const UpdateSlotSchema = z.object({
 	machine_id: z.string().uuid().optional(),
@@ -18,6 +20,7 @@ const UpdateSlotSchema = z.object({
 	paper_type_label: z.string().max(255).optional().nullable(),
 	sort_order: z.coerce.number().int().min(0).optional(),
 	notes: z.string().max(2000).optional().nullable(),
+	plan_step: z.enum(PLAN_STEP_KEYS).optional().nullable(),
 });
 
 // PATCH /api/ot-schedule/[id]
@@ -55,6 +58,14 @@ export async function PATCH(
 		return NextResponse.json({ error: 'Failed to update schedule slot' }, { status: 500 });
 	}
 	if (!data) return NextResponse.json({ error: 'Schedule slot not found' }, { status: 404 });
+
+	// Cambiar de máquina un bloque de impresión cambia la prensa de la OT en
+	// toda la app, no sólo en la agenda (`syncAssignedMachine`). Mover un bloque
+	// sólo en el tiempo no toca la asignación.
+	if (parsed.data.machine_id) {
+		const planStep = (data as { plan_step?: string | null }).plan_step ?? null;
+		if (planStep) await syncAssignedMachine(data.ot_id, parsed.data.machine_id, planStep);
+	}
 
 	return NextResponse.json(data);
 }

@@ -37,7 +37,8 @@ export function GlobalSearch({ onOpenChange }: { onOpenChange?: (open: boolean) 
   const [mounted, setMounted] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const results = useGlobalSearchResults(query);
+  // Los datos se piden al abrir la búsqueda, no en cada página (ver el hook).
+  const results = useGlobalSearchResults(query, open);
 
   useEffect(() => setMounted(true), []);
 

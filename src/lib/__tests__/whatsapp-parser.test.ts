@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   classifyMessage,
+  extractAjusteMinutes,
   extractOTNumber,
   parseWhatsAppEvents,
   parseWhatsAppMessage,
@@ -180,5 +181,37 @@ describe('horas declaradas — el dato más frecuente y el que no se extraía', 
     expect(r.production_data?.hours_reported).toBe(6);
     expect(r.production_data?.pliegos_produced).toBe(12000);
     expect(r.production_data?.merma).toBe(340);
+  });
+});
+
+describe('ajuste de prensa — casi siempre llega después del trabajo', () => {
+  it('lee las formas reales, en minutos', () => {
+    const casos: Array<[string, number]> = [
+      ['fin ot 41215 offset 6 horas ajuste 40 min', 40],
+      ['ot 41215 ajuste de 45 minutos', 45],
+      ['fin 41215, 40 min de ajuste, 6 horas', 40],
+      ['ajusté en 1 hora la 41215', 60],
+      ['ot 41215 ajuste 35', 35],
+      ['fin 41215 1,5 h de ajuste', 90],
+    ];
+    for (const [texto, esperado] of casos) {
+      expect(extractAjusteMinutes(texto), texto).toBe(esperado);
+    }
+  });
+
+  it('las horas del ajuste no se confunden con las del trabajo', () => {
+    const r = parseWhatsAppMessage('fin ot 41215, ajuste 1 hora, 6 horas offset');
+    expect(r.production_data?.ajuste_minutes).toBe(60);
+    expect(r.production_data?.hours_reported).toBe(6);
+  });
+
+  it('un mensaje sólo con el ajuste es un parte de lo hecho', () => {
+    expect(classifyMessage('ot 41215 ajuste 40 min')).toBe('end');
+    expect(parseWhatsAppMessage('ot 41215 ajuste 40 min').production_data?.ajuste_minutes).toBe(40);
+  });
+
+  it('sin la palabra ajuste no hay ajuste, y lo absurdo se descarta', () => {
+    expect(extractAjusteMinutes('fin 41215 6 horas offset')).toBeNull();
+    expect(extractAjusteMinutes('ajuste 900 min')).toBeNull();
   });
 });

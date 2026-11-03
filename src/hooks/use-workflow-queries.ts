@@ -1,6 +1,7 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
+import { shiftPaidHours } from '@/lib/shift-hours';
 import { supabase } from '@/integrations/supabase/client';
 import { ACTIVE_OT_STATUSES } from '@/lib/ot-state-machine';
 
@@ -80,8 +81,9 @@ export function useWorkersByRating() {
   });
 }
 
-export function useMachines() {
+export function useMachines(options: { enabled?: boolean } = {}) {
   return useQuery<any[]>({
+    enabled: options.enabled ?? true,
     queryKey: ['machines'],
     queryFn: async () => {
       const response = await fetch('/api/machines', {
@@ -117,8 +119,12 @@ export function useMachines() {
  * necesite saber si está viendo todo puede mirar `isTruncated` en vez de
  * confiar a ciegas en 200 filas (auditoría 2026-09-07).
  */
-export function useOTs() {
+export function useOTs(options: { enabled?: boolean } = {}) {
   const query = useQuery({
+    // `enabled: false` no borra lo que ya está en caché: quien lo apaga (la
+    // búsqueda del shell, cerrada) sigue viendo las OT si otra pantalla ya las
+    // trajo, pero no dispara 200 filas por su cuenta.
+    enabled: options.enabled ?? true,
     queryKey: queryKeys.ots,
     queryFn: async () => {
       const res = await fetch('/api/ots?limit=200');
@@ -400,17 +406,39 @@ export function useSchedulingCostModel() {
   });
 }
 
+/**
+ * Dotación desde `/api/worker-assignments`, nunca directo de la tabla.
+ *
+ * `worker_assignments` tiene RLS sin políticas (migración 20260801160000): leída
+ * desde el navegador devuelve cero filas, sin error. Planta mostraba todas las
+ * máquinas vacías aunque la dotación estuviera cargada, y las horas semanales y
+ * extra que frenan una asignación de más sumaban cero (2026-10-28).
+ */
+export async function fetchWorkerAssignments(
+  params: { date: string } | { from: string; to: string },
+  filters: { shiftId?: string; role?: string } = {},
+): Promise<any[]> {
+  const qs = new URLSearchParams(
+    'date' in params ? { date: params.date } : { from: params.from, to: params.to },
+  );
+  if (filters.shiftId) qs.set('shiftId', filters.shiftId);
+  if (filters.role) qs.set('role', filters.role);
+  const res = await fetch(`/api/worker-assignments?${qs}`, { credentials: 'include' });
+  if (!res.ok) {
+    const body = await res.json().catch(() => null);
+    throw new Error(body?.error ?? `No se pudo leer la dotación (${res.status})`);
+  }
+  const payload = await res.json();
+  return (payload?.assignments ?? []) as any[];
+}
+
 export function useWorkerAssignments(date?: string) {
   const dateValue = date || new Date().toISOString().split('T')[0];
   return useQuery({
     queryKey: queryKeys.assignments(dateValue),
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('worker_assignments')
-        .select('*, employee:employees(*), workstation:machines!machine_id(*), shift:shifts(*)')
-        .eq('date', dateValue);
-      if (error) throw error;
-      return (data ?? []).map((assignment: any) => ({
+      const data = await fetchWorkerAssignments({ date: dateValue });
+      return data.map((assignment: any) => ({
         ...assignment,
         worker: assignment.employee
           ? {
@@ -437,14 +465,7 @@ export function useWorkerMonthlyOvertime(referenceDate?: string) {
   return useQuery({
     queryKey: ['assignments', 'monthlyOvertime', monthStart, monthEnd],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('worker_assignments')
-        .select('employee_id, date, role, shift:shifts(start_time, end_time)')
-        .gte('date', monthStart)
-        .lte('date', monthEnd)
-        .ilike('role', '%overtime%');
-
-      if (error) throw error;
+      const data = await fetchWorkerAssignments({ from: monthStart, to: monthEnd }, { role: 'overtime' });
 
       const toMinutes = (timeValue?: string | null) => {
         if (!timeValue) return 0;
@@ -452,13 +473,8 @@ export function useWorkerMonthlyOvertime(referenceDate?: string) {
         return (Number.isNaN(hours) ? 0 : hours) * 60 + (Number.isNaN(minutes) ? 0 : minutes);
       };
 
-      const getShiftHours = (shift: any) => {
-        const startMinutes = toMinutes(shift?.start_time);
-        const endMinutes = toMinutes(shift?.end_time);
-        let durationMinutes = endMinutes - startMinutes;
-        if (durationMinutes <= 0) durationMinutes += 24 * 60;
-        return durationMinutes / 60;
-      };
+      // Horas PAGADAS: descuenta la colación (Taller 07–16 = 8 h). Ver shift-hours.ts.
+      const getShiftHours = (shift: any) => shiftPaidHours(shift);
 
       const totals: Record<string, { hours: number; shifts: number }> = {};
       const processedShiftKeys = new Set<string>();
@@ -608,12 +624,7 @@ export function useWorkflowWeeklyHours(referenceDate?: string) {
   return useQuery({
     queryKey: queryKeys.workflowWeeklyHours(weekStart, weekEnd),
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('worker_assignments')
-        .select('employee_id, shift:shifts(start_time, end_time)')
-        .gte('date', weekStart)
-        .lte('date', weekEnd);
-      if (error) throw error;
+      const data = await fetchWorkerAssignments({ from: weekStart, to: weekEnd });
 
       const toMinutes = (timeValue?: string | null) => {
         if (!timeValue) return 0;
@@ -621,13 +632,8 @@ export function useWorkflowWeeklyHours(referenceDate?: string) {
         return (Number.isNaN(hours) ? 0 : hours) * 60 + (Number.isNaN(minutes) ? 0 : minutes);
       };
 
-      const getShiftHours = (shift: any) => {
-        const startMinutes = toMinutes(shift?.start_time);
-        const endMinutes = toMinutes(shift?.end_time);
-        let durationMinutes = endMinutes - startMinutes;
-        if (durationMinutes <= 0) durationMinutes += 24 * 60;
-        return durationMinutes / 60;
-      };
+      // Horas PAGADAS: descuenta la colación (Taller 07–16 = 8 h). Ver shift-hours.ts.
+      const getShiftHours = (shift: any) => shiftPaidHours(shift);
 
       const totals: Record<string, number> = {};
       (data ?? []).forEach((assignment: any) => {

@@ -24,7 +24,7 @@
  */
 
 import { supabaseAdmin } from '@/integrations/supabase/server';
-import { validateTransition, type OTWorkflowStatus } from '@/lib/ot-state-machine';
+import { OTStatusSchema, validateTransition, type OTWorkflowStatus } from '@/lib/ot-state-machine';
 import { promptsStageReport } from '@/lib/stage-report';
 import type { FlowProposal } from '@/lib/whatsapp-flow';
 import type { AppRole } from '@/types/app-role';
@@ -32,6 +32,16 @@ import type { AppRole } from '@/types/app-role';
 export interface ApplyActor {
 	id: string | null;
 	role: AppRole;
+}
+
+/**
+ * Lo que la captura sabe del parte además del texto: quién lo mandó y cuándo.
+ * Quien manda «ajuste 40 min» desde su teléfono ES quien ajustó — mejor dato
+ * que deducirlo de la asignación del día (`ajuste.ts`).
+ */
+export interface ApplyEvidence {
+	operatorEmployeeId?: string | null;
+	messageTimestamp?: string | null;
 }
 
 export interface ApplyOutcome {
@@ -52,12 +62,103 @@ export interface ApplyOutcome {
  * abierta que completar. Crear la fila igual es lo correcto — el trabajo se
  * hizo y las horas son reales—; lo que no se hace es inventar el movimiento.
  */
+/** Ajuste y operario: sólo se escriben si hay dato (y el ajuste, sólo en offset). */
+function evidenceFields(stage: string, p: FlowProposal, evidence: ApplyEvidence) {
+	return {
+		...(stage === 'offset_printing' && p.ajusteMinutes ? { ajuste_minutes: Math.round(p.ajusteMinutes) } : {}),
+		...(evidence.operatorEmployeeId ? { operator_employee_id: evidence.operatorEmployeeId } : {}),
+	};
+}
+
+/**
+ * Parte retroactivo: completar la pasada de una etapa que la OT ya dejó.
+ *
+ * Sólo se llenan los campos VACÍOS. Las horas que el supervisor ya cerró en el
+ * tablero son evidencia y no se pisan con las de un mensaje que llegó después;
+ * lo que sí entra es lo que nadie había dicho —típicamente el ajuste, o las
+ * horas de una pasada que quedó abierta—. Ese dato tardío es el que afina las
+ * estimaciones de las OT que vienen.
+ *
+ * Si la etapa no tiene ninguna pasada (la OT la salteó en el tablero sin
+ * cerrar), se crea una con la fecha del MENSAJE, no la de la aprobación: el
+ * día en que se hizo el trabajo es el que dice quién estaba en la máquina.
+ */
+async function enrichPastPass(
+	otId: string,
+	stage: string,
+	p: FlowProposal,
+	actor: ApplyActor,
+	machineId: string | null,
+	evidence: ApplyEvidence,
+): Promise<{ closed: ApplyOutcome['closed']; note: string }> {
+	const { data: rows, error } = await supabaseAdmin
+		.from('ot_stage_reports')
+		.select('*')
+		.eq('ot_id', otId)
+		.eq('workflow_step', stage as never)
+		.order('created_at', { ascending: false })
+		.limit(1);
+	if (error) throw new Error(`No se pudo buscar la pasada de ${stage}: ${error.message}`);
+	const pass = (rows?.[0] ?? null) as Record<string, any> | null;
+
+	const extra = evidenceFields(stage, p, evidence);
+	if (pass) {
+		const patch: {
+			hours?: number;
+			merma_sheets?: number;
+			issues?: string;
+			ajuste_minutes?: number;
+			operator_employee_id?: string;
+			recorded_by?: string | null;
+		} = {};
+		if (pass.hours == null && p.hours) patch.hours = p.hours;
+		if (pass.merma_sheets == null && p.mermaSheets != null) patch.merma_sheets = p.mermaSheets;
+		if (pass.issues == null && p.issues) patch.issues = p.issues;
+		if (pass.ajuste_minutes == null && extra.ajuste_minutes) patch.ajuste_minutes = extra.ajuste_minutes;
+		if (pass.operator_employee_id == null && extra.operator_employee_id) patch.operator_employee_id = extra.operator_employee_id;
+		if (Object.keys(patch).length === 0) {
+			return { closed: null, note: `Parte retroactivo de ${stage}: la pasada ya tenía todos esos datos; no se cambió nada.` };
+		}
+		if (patch.hours != null) patch.recorded_by = actor.id;
+		const { data, error: upErr } = await supabaseAdmin
+			.from('ot_stage_reports')
+			.update(patch)
+			.eq('id', pass.id)
+			.select('id, workflow_step, hours')
+			.maybeSingle();
+		if (upErr) throw new Error(`No se pudo completar la pasada de ${stage}: ${upErr.message}`);
+		return { closed: data ?? null, note: `Parte retroactivo de ${stage}: se completó ${Object.keys(patch).filter((k) => k !== 'recorded_by').join(', ')}.` };
+	}
+
+	if (!p.hours) {
+		return { closed: null, note: `Parte retroactivo de ${stage} sin horas y sin pasada que completar: no se registró.` };
+	}
+	const { data, error: insErr } = await supabaseAdmin
+		.from('ot_stage_reports')
+		.insert({
+			ot_id: otId,
+			workflow_step: stage as never,
+			machine_id: machineId,
+			hours: p.hours,
+			merma_sheets: p.mermaSheets,
+			issues: p.issues,
+			recorded_by: actor.id,
+			...(evidence.messageTimestamp ? { created_at: evidence.messageTimestamp } : {}),
+			...extra,
+		})
+		.select('id, workflow_step, hours')
+		.maybeSingle();
+	if (insErr) throw new Error(`No se pudo registrar la pasada de ${stage}: ${insErr.message}`);
+	return { closed: data ?? null, note: `Parte retroactivo de ${stage}: se registró la pasada con la fecha del mensaje.` };
+}
+
 async function closePass(
 	otId: string,
 	stage: string,
 	p: FlowProposal,
 	actor: ApplyActor,
 	machineId: string | null,
+	evidence: ApplyEvidence,
 ): Promise<ApplyOutcome['closed']> {
 	// La más vieja primero: si un avance parcial dejó dos pasadas abiertas por la
 	// misma etapa, el parte que llega cierra la que lleva más tiempo esperando.
@@ -81,6 +182,7 @@ async function closePass(
 		issues: p.issues,
 		observations: p.observations,
 		recorded_by: actor.id,
+		...evidenceFields(stage, p, evidence),
 	};
 
 	if (abierta) {
@@ -123,6 +225,7 @@ export async function applyFlowProposal(
 	otId: string,
 	proposal: FlowProposal,
 	actor: ApplyActor,
+	evidence: ApplyEvidence = {},
 ): Promise<ApplyOutcome> {
 	const out: ApplyOutcome = { closed: null, moved: null, blocked: null, notes: [] };
 
@@ -145,10 +248,35 @@ export async function applyFlowProposal(
 	}
 
 	const fromStatus = ot.status as OTWorkflowStatus;
+	const order = OTStatusSchema.options;
+
+	// Parte de una etapa que la OT ya dejó: lo dijo el mensaje (`retroactive`) o
+	// la OT se movió entre que llegó el mensaje y que se aprobó. En los dos casos
+	// el dato es cierto y va a la pasada de ESA etapa, sin mover nada. Antes se
+	// descartaba con una nota, y con él el único registro de cuánto tomó.
+	const isPast =
+		proposal.closeStage != null &&
+		promptsStageReport(proposal.closeStage) &&
+		order.indexOf(proposal.closeStage) < order.indexOf(fromStatus);
+	if (proposal.closeStage && (proposal.retroactive || isPast)) {
+		if (!isPast) {
+			out.notes.push(`El parte hablaba de ${proposal.closeStage} y la OT está en ${fromStatus}: no se aplicó.`);
+			return out;
+		}
+		try {
+			const r = await enrichPastPass(otId, proposal.closeStage, proposal, actor, ot.assigned_machine_id ?? null, evidence);
+			out.closed = r.closed;
+			out.notes.push(r.note);
+		} catch (err) {
+			out.notes.push(err instanceof Error ? err.message : 'No se pudo completar la pasada.');
+		}
+		return out;
+	}
 
 	// El parte se resolvió contra el estado que la OT tenía cuando llegó el
-	// mensaje. Si mientras tanto alguien la movió, lo que decía ya no aplica: se
-	// deja constancia en vez de cerrar la pasada equivocada.
+	// mensaje. Si mientras tanto alguien la movió HACIA ATRÁS (un retroceso), lo
+	// que decía ya no aplica: se deja constancia en vez de cerrar la pasada
+	// equivocada.
 	if (proposal.closeStage && proposal.closeStage !== fromStatus) {
 		out.notes.push(
 			`El parte hablaba de ${proposal.closeStage} y la OT ya está en ${fromStatus}: ` +
@@ -165,6 +293,7 @@ export async function applyFlowProposal(
 				proposal,
 				actor,
 				ot.assigned_machine_id ?? null,
+				evidence,
 			);
 			if (!out.closed) out.notes.push('La pasada ya estaba cerrada por otra vía.');
 		} catch (err) {

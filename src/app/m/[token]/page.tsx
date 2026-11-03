@@ -152,7 +152,7 @@ function TarjetaOrden({ token, orden }: { token: string; orden: any }) {
 		patch.mutate({
 			status: 'completed',
 			completed_at: new Date().toISOString(),
-			actual_minutes: minutos > 0 ? minutos : undefined,
+			total_time_minutes: minutos > 0 ? minutos : undefined,
 			completed_items: items,
 		});
 	};

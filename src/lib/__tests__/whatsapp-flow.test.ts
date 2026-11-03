@@ -63,11 +63,23 @@ describe('stagesMentioned — el vocabulario cubre todo el taller', () => {
 });
 
 describe('resolveFlow — qué pasada cierra', () => {
-	it('cierra la etapa donde ESTÁ la OT, no la que el texto nombra', () => {
-		// Un mensaje mal tipeado no debe cargar horas en la etapa equivocada: una
-		// hora en el lugar que no es, es peor que no tenerla.
-		const f = resolveFlow('die_cutting', fin({ processes_mentioned: ['impresion_offset'] }));
-		expect(f.closeStage).toBe('die_cutting');
+	it('cierra la etapa donde ESTÁ la OT cuando el texto la nombra o no nombra ninguna', () => {
+		expect(resolveFlow('die_cutting', fin()).closeStage).toBe('die_cutting');
+		const f = resolveFlow('die_cutting', fin({ processes_mentioned: ['troquelado', 'corte'] }));
+		expect(f).toMatchObject({ closeStage: 'die_cutting', retroactive: false });
+	});
+
+	it('nombrar una etapa que la OT ya dejó es un parte retroactivo: completa esa, no mueve', () => {
+		// Los partes de WhatsApp llegan después del trabajo. «Offset 6 h, ajuste
+		// 40» con la OT ya en el troquel habla del offset, y cargarlo al troquel
+		// ensuciaría las dos estimaciones.
+		const f = resolveFlow('die_cutting', fin({ processes_mentioned: ['impresion_offset'], hours_reported: 6, ajuste_minutes: 40 }));
+		expect(f).toMatchObject({ closeStage: 'offset_printing', nextStatus: null, retroactive: true, hours: 6, ajusteMinutes: 40 });
+	});
+
+	it('un parte retroactivo nunca se aplica solo, por alta que sea la confianza', () => {
+		const f = resolveFlow('die_cutting', fin({ processes_mentioned: ['impresion_offset'], confidence: 100 }));
+		expect(appliesWithoutReview(f)).toBe(false);
 	});
 
 	it('un parte de inicio no cierra ni mueve nada', () => {

@@ -218,6 +218,26 @@ export function MachineProfileEditor({ machine, onSaved, onCancel }: Props) {
               <Field label="Colores" id="colors">
                 <Input id="colors" type="number" min={1} max={12} {...register('colors', { valueAsNumber: true })} placeholder="Ej: 4" />
               </Field>
+              {/* Sólo prensas offset: es lo que el Cronograma suma antes de cada
+                  pasada. Vacío = los 30 min del presupuesto. `setValueAs` y no
+                  `valueAsNumber`: un campo vacío tiene que llegar como null, no
+                  como NaN que el esquema rechaza. */}
+              {watch('type') === 'offset_printer' && (
+                <Field label="Ajuste por pasada (min)" id="ajuste_minutes">
+                  <Input
+                    id="ajuste_minutes"
+                    type="number"
+                    min={0}
+                    max={600}
+                    {...register('ajuste_minutes', {
+                      setValueAs: (v) => (v === '' || v == null || Number.isNaN(Number(v)) ? null : Math.round(Number(v))),
+                    })}
+                    placeholder="30 (presupuesto)"
+                  />
+                  <p className="text-[10px] text-muted-foreground">Montar planchas y entonar color. Se suma una vez por pasada. Vacío = usar lo medido.</p>
+                  <AjusteMedido machineId={machine?.id} />
+                </Field>
+              )}
             </div>
 
             <Separator />
@@ -428,5 +448,28 @@ export function MachineProfileEditor({ machine, onSaved, onCancel }: Props) {
         </Button>
       </div>
     </div>
+  );
+}
+
+/** Lo que el taller midió de verdad en esta prensa, al lado del valor editable. */
+function AjusteMedido({ machineId }: { machineId?: string }) {
+  const { data } = useQuery<{ measured: { medianMinutes: number; samples: number } | null; byOperator: Array<{ name: string; medianMinutes: number; samples: number }> }>({
+    queryKey: ['machine-ajuste', machineId],
+    enabled: !!machineId,
+    queryFn: async () => {
+      const res = await fetch(`/api/machines/${machineId}/ajuste`);
+      if (!res.ok) throw new Error(`No se pudo medir el ajuste (${res.status})`);
+      return res.json();
+    },
+  });
+  if (!machineId || !data) return null;
+  if (!data.measured) {
+    return <p className="text-[10px] text-muted-foreground">Medido: todavía nadie declaró un ajuste al cerrar offset en esta prensa.</p>;
+  }
+  return (
+    <p className="text-[10px] text-muted-foreground">
+      Medido: <b className="text-foreground">{data.measured.medianMinutes} min</b> (mediana, n={data.measured.samples})
+      {data.byOperator.length > 0 && ` · ${data.byOperator.map((o) => `${o.name} ${o.medianMinutes} min (n=${o.samples})`).join(' · ')}`}
+    </p>
   );
 }

@@ -44,6 +44,7 @@ const CreateMachineSchema = z.object({
 	max_print_width_mm: nullableNumber,
 	max_print_height_mm: nullableNumber,
 	colors: nullableNumber,
+	ajuste_minutes: z.number().int().min(0).max(600).nullable().optional(),
 	power_kw: nullableNumber,
 	energy_cost_per_hr: nullableNumber,
 	maintenance_cost_monthly: nullableNumber,

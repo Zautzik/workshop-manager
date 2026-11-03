@@ -175,6 +175,10 @@ export function classifyMessage(raw: string): WhatsAppMessageType {
     return 'end';
   }
 
+  // «OT 41215 ajuste 40 min» llega casi siempre DESPUÉS del trabajo, como
+  // dato suelto. Es un parte de lo hecho, no un aviso de inicio.
+  if (matchAjuste(text)) return 'end';
+
   return 'unknown';
 }
 
@@ -195,8 +199,39 @@ interface QuantityMatch {
  * es un número mal tipeado, y meterla al costo laboral lo dispara sin que nadie
  * lo note.
  */
+/**
+ * El ajuste de prensa —montar planchas y entonar—, en minutos: «ajuste 40 min»,
+ * «ajuste de 45», «40 min de ajuste», «ajusté en 1 hora», «1,5 h ajuste».
+ *
+ * Es un dato aparte de las horas del trabajo, y el que más varía de una prensa
+ * y de un operario a otro: alimenta el ajuste medido que usa el Cronograma.
+ * Sin unidad se entiende minutos («ajuste 40»): nadie ajusta 40 horas. Fuera
+ * de 1–600 minutos es un número mal tipeado y se descarta.
+ */
+const AJUSTE_ANTES = /\bajust\w*\s+(?:de\s+|en\s+|fue\s+(?:de\s+)?)?(\d+(?:[.,]\d+)?)\s*(min(?:utos?)?\b|h\b|hrs?\b|horas?\b)?/;
+const AJUSTE_DESPUES = /(\d+(?:[.,]\d+)?)\s*(min(?:utos?)?\b|h\b|hrs?\b|horas?\b)\s*(?:de\s+|en\s+(?:el\s+)?)?ajust\w*/;
+
+function matchAjuste(normalized: string): RegExpExecArray | null {
+  return AJUSTE_ANTES.exec(normalized) ?? AJUSTE_DESPUES.exec(normalized);
+}
+
+export function extractAjusteMinutes(text: string): number | null {
+  const m = matchAjuste(normalize(text));
+  if (!m) return null;
+  const value = parseFloat(m[1].replace(',', '.'));
+  const unit = m[2] ?? 'min';
+  const minutes = unit.startsWith('min') ? value : value * 60;
+  return Number.isFinite(minutes) && minutes >= 1 && minutes <= 600 ? Math.round(minutes) : null;
+}
+
+/**
+ * Horas del TRABAJO. La frase del ajuste se saca antes de buscar: en «ajuste 1
+ * hora, 6 horas offset» las horas del trabajo son 6, no 1.
+ */
 function extractHours(text: string): number | null {
-  const normalized = normalize(text);
+  const sinAjuste = normalize(text);
+  const ajuste = matchAjuste(sinAjuste);
+  const normalized = ajuste ? sinAjuste.replace(ajuste[0], ' ') : sinAjuste;
   const re = /(\d+(?:[.,]\d+)?)\s*(?:h\b|hrs?\b|horas?\b)/g;
   let match: RegExpExecArray | null;
   while ((match = re.exec(normalized)) !== null) {
@@ -450,6 +485,7 @@ export function parseWhatsAppMessage(rawMessage: string): ParseResult {
     merma: merma?.value ?? null,
     buenos: buenos?.value ?? null,
     hours_reported: extractHours(rawMessage),
+    ajuste_minutes: extractAjusteMinutes(rawMessage),
     processes_mentioned: processes,
     machine_mentioned: machine,
     paper_mentioned: paper,

@@ -58,10 +58,16 @@ function useDebounced<T>(value: T, delayMs: number): T {
   return debounced;
 }
 
-export function useGlobalSearchResults(query: string): ResultItem[] {
-  const { data: otsRaw  = [] } = useOTs();
-  const { data: workers = [] } = useWorkers();
-  const { data: machines = [] } = useMachines();
+/**
+ * @param active la búsqueda está abierta. El campo vive en el shell, montado en
+ *   TODAS las páginas: sin esto, cada carga de la app bajaba 200 OT, 200
+ *   trabajadores y todas las máquinas (~1,1 s en red, 2026-10-28) para una
+ *   búsqueda que casi nunca se abre. Cerrada, sólo lee lo que ya esté en caché.
+ */
+export function useGlobalSearchResults(query: string, active = true): ResultItem[] {
+  const { data: otsRaw  = [] } = useOTs({ enabled: active });
+  const { data: workers = [] } = useWorkers({ enabled: active });
+  const { data: machines = [] } = useMachines({ enabled: active });
   const { role } = useAuth();
 
   const trimmed = query.trim();

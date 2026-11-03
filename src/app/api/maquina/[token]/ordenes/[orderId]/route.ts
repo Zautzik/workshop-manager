@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { supabaseAdmin } from '@/integrations/supabase/server';
-import { applyWorkOrderUpdate } from '@/app/api/maintenance/work-orders/[id]/route';
+import {
+	applyWorkOrderUpdate,
+	type WorkOrderUpdateInput,
+} from '@/app/api/maintenance/work-orders/[id]/route';
 
 export const dynamic = 'force-dynamic';
 
@@ -107,11 +110,35 @@ const CuerpoSchema = z
 		completed_at: z.string().datetime().optional(),
 		// Una semana en minutos. Una orden que dice durar mas que eso es un error
 		// de tipeo o un abuso, y en los dos casos no deberia entrar al costo.
-		actual_minutes: z.coerce.number().min(0).max(10_080).optional(),
+		total_time_minutes: z.coerce.number().min(0).max(10_080).optional(),
 		notes: z.string().max(2000).nullable().optional(),
 		completed_items: z.array(ItemSchema).max(200).optional(),
 	})
 	.refine((v) => Object.keys(v).length > 0, { message: 'Nada que actualizar' });
+
+/**
+ * Guardia de compilacion: esta ruta no puede aceptar un campo que la tabla no
+ * tenga.
+ *
+ * `applyWorkOrderUpdate` pasa `parsed.data` entero al `.update()`, asi que un
+ * nombre de campo que no sea una columna no es un dato ignorado: es un error de
+ * Postgrest, y en esta ruta sale como 500 generico. Paso de verdad —este
+ * esquema aceptaba `actual_minutes` y la columna se llama
+ * `total_time_minutes`— y no lo vio nadie porque la pantalla solo manda ese
+ * campo cuando los items suman minutos estimados. Cerrar desde la etiqueta
+ * fallaba con 500 y el operario perdia el reporte.
+ *
+ * El esquema de aca es a proposito mas angosto que el de la ruta con sesion
+ * (no se puede reasignar ni reabrir), por eso no se reusa tal cual. Lo que si
+ * tiene que valer es que sus campos sean un SUBCONJUNTO de los que esa funcion
+ * sabe escribir. Si alguien agrega uno que no existe, esto no compila.
+ */
+type CamposQueLaTablaNoTiene = Exclude<
+	keyof z.infer<typeof CuerpoSchema>,
+	keyof WorkOrderUpdateInput
+>;
+const SIN_CAMPOS_FANTASMA: CamposQueLaTablaNoTiene extends never ? true : never = true;
+void SIN_CAMPOS_FANTASMA;
 
 export async function PATCH(
 	req: NextRequest,

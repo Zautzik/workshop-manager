@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -26,7 +27,6 @@ import { NotificationCenter } from '@/components/NotificationCenter';
 import { ReportingQuickActions } from '@/components/ReportingQuickActions';
 import { GlobalSearch } from '@/components/GlobalSearch';
 import QuickLinks from '@/components/home/QuickLinks';
-import { useCostOverrunAlerts } from '@/hooks/use-cost-overrun-alerts';
 
 interface SubItem {
   label: string;
@@ -85,7 +85,12 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const toggleExpanded = (href: string) =>
     setExpandedNav(prev => (prev === href ? null : href));
 
-  useCostOverrunAlerts();
+  // Acá corría `useCostOverrunAlerts`, que en CADA carga de la app bajaba 200
+  // OT completas (`/api/ots?limit=200`, con la máquina unida) para comparar
+  // `estimated_cost` contra `actual_cost` — columnas que `ots` no tiene, así
+  // que nunca encontró un desvío. Era el pedido más pesado del shell y no hacía
+  // nada; las alertas de costo de verdad viven en /api/cost-alerts
+  // (`CostOverrunAlerts`). Se sacó el 2026-10-28.
 
   // One menu button for both breakpoints. Reading the media query at click time
   // rather than during render keeps the markup identical on server and client,
@@ -239,21 +244,25 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             const isExpanded = expandedNav === item.href;
             const childActive = hasChildren && item.children!.some(g => g.items.some(s => pathname === s.href || pathname.startsWith(s.href + '/')));
 
-            const button = (
-              <button
+            // Un <Link>, no un <button> con `router.push`: Next precarga la ruta
+            // mientras se pasa el mouse (sin eso cada clic empezaba a bajar el
+            // código recién al soltar), y Ctrl/clic medio abre otra pestaña.
+            //
+            // El módulo SIEMPRE navega. Antes un clic sobre el módulo en que ya
+            // se estaba sólo plegaba su submenú — invisible con el riel
+            // contraído, que es como arranca: el clic no hacía nada y había que
+            // darlo dos veces. Desplegar el submenú es ahora la flecha, aparte.
+            const link = (
+              <Link
                 key={item.href}
+                href={item.href}
                 aria-label={item.label}
                 onClick={() => {
-                  if (hasChildren) {
-                    toggleExpanded(item.href);
-                    if (!isExpanded) { router.push(item.href); }
-                  } else {
-                    router.push(item.href);
-                    setMobileOpen(false);
-                  }
+                  if (hasChildren) setExpandedNav(item.href);
+                  setMobileOpen(false);
                 }}
                 className={cn(
-                  "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all duration-150",
+                  "flex min-w-0 flex-1 items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all duration-150",
                   active || childActive
                     ? cn(item.activeBg, item.activeIcon, "font-semibold")
                     : "text-foreground/40 hover:text-foreground/70 hover:bg-black/5 dark:hover:bg-white/5",
@@ -265,10 +274,21 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                   <span className={cn("absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full border border-card", item.dot)} />
                 </span>
                 {!collapsed && <span className="truncate flex-1 text-left">{item.label}</span>}
-                {!collapsed && hasChildren && (
-                  <ChevronDown className={cn("w-3.5 h-3.5 shrink-0 transition-transform duration-200 opacity-60", isExpanded && "rotate-180")} />
-                )}
-              </button>
+              </Link>
+            );
+            const button = collapsed || !hasChildren ? link : (
+              <div key={item.href} className="flex items-center">
+                {link}
+                <button
+                  type="button"
+                  onClick={() => toggleExpanded(item.href)}
+                  aria-label={isExpanded ? `Plegar ${item.label}` : `Desplegar ${item.label}`}
+                  aria-expanded={isExpanded}
+                  className="shrink-0 rounded-lg p-2 text-foreground/40 hover:bg-black/5 hover:text-foreground/70 dark:hover:bg-white/5"
+                >
+                  <ChevronDown className={cn("w-3.5 h-3.5 transition-transform duration-200", isExpanded && "rotate-180")} />
+                </button>
+              </div>
             );
 
             // Open/close animates via the grid 0fr→1fr trick: it interpolates to the
@@ -293,9 +313,10 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                         {group.items.map((sub) => {
                           const subActive = pathname === sub.href || pathname.startsWith(sub.href + '/');
                           return (
-                            <button
+                            <Link
                               key={sub.href}
-                              onClick={() => { router.push(sub.href); setMobileOpen(false); }}
+                              href={sub.href}
+                              onClick={() => setMobileOpen(false)}
                               className={cn(
                                 "w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs transition-colors",
                                 subActive
@@ -305,7 +326,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                             >
                               <span className={cn("w-1.5 h-1.5 rounded-full shrink-0", subActive ? item.dot : "bg-foreground/20")} />
                               <span className="truncate">{sub.label}</span>
-                            </button>
+                            </Link>
                           );
                         })}
                       </div>
