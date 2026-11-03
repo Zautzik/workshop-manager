@@ -83,6 +83,14 @@ const nextConfig = {
 		root: __dirname,
 	},
 
+	// Upgrade policy for `next upgrade --agent` and for the reminders Next.js
+	// prints during `next dev` / `next build`: 'security' flags only published
+	// advisories affecting the installed version, not every new release.
+	// Set alongside the 16.4.0 → 16.4.5 security patch.
+	experimental: {
+		agentUpgrade: 'security',
+	},
+
 	async headers() {
 		return [
 			{
