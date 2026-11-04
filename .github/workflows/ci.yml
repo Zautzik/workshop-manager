@@ -9,6 +9,9 @@ jobs:
   ci:
     name: Lint · Typecheck · Test
     runs-on: ubuntu-latest
+    env:
+      # `secrets` no se puede leer en un `if:` de paso; un env del job sí.
+      HAS_SUPABASE_SECRETS: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL != '' && secrets.SUPABASE_SERVICE_ROLE_KEY != '' }}
 
     steps:
       - uses: actions/checkout@v4
@@ -31,11 +34,22 @@ jobs:
       - name: Check for duplicate migration definitions
         run: npm run check:migrations
 
+      # Lee el catálogo de la base remota, así que necesita los dos secretos del
+      # repositorio. Un PR de Dependabot o de un fork NUNCA los recibe: fallar ahí
+      # bloqueaba el merge sin que el código tuviera nada que ver (job
+      # 126136143894, 2026-11-04). Sin secretos se omite con un aviso visible en
+      # cada corrida; con secretos corre y falla como siempre si encuentra deriva.
       - name: Check for dead function references
+        if: ${{ env.HAS_SUPABASE_SECRETS == 'true' }}
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: npm run check:functions
+
+      - name: Dead function references (omitido)
+        if: ${{ env.HAS_SUPABASE_SECRETS != 'true' }}
+        run: |
+          echo "::warning title=check:functions omitido::Faltan los secretos NEXT_PUBLIC_SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY (Settings → Secrets and variables → Actions). Normal en PRs de Dependabot o forks; si pasa en un PR propio, los secretos no están configurados. Córrelo local: npm run check:functions"
 
       - name: Test
         run: npm run test
