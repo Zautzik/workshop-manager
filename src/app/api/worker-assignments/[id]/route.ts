@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { requireAuth, isAuthError } from '@/lib/api-middleware';
 import { supabaseAdmin } from '@/integrations/supabase/server';
+import { manualEditPatch, rememberRemovedRotationRows } from '@/lib/rotation-skips';
 
 export const dynamic = 'force-dynamic';
 
@@ -45,9 +46,17 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
       );
     }
 
+    // Editar un turno de rotación lo vuelve manual, y si cambia la persona, la
+    // original queda "saltada" ese día: regenerar no deshace el cambio.
+    const { data: before, error: beforeErr } = await supabaseAdmin.from('worker_assignments').select('*').eq('id', id).maybeSingle();
+    if (beforeErr) return NextResponse.json({ error: beforeErr.message }, { status: 500 });
+    if (before && parsed.data.employee_id && parsed.data.employee_id !== before.employee_id) {
+      await rememberRemovedRotationRows([before as any]);
+    }
+
     const { data, error } = await supabaseAdmin
       .from('worker_assignments')
-      .update(parsed.data)
+      .update({ ...parsed.data, ...(before ? manualEditPatch(before as any) : {}) } as never)
       .eq('id', id)
       .select('*')
       .single();
@@ -72,14 +81,17 @@ export async function DELETE(_req: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ error: 'Assignment ID is required' }, { status: 400 });
   }
 
-  const { error } = await supabaseAdmin
+  const { data: removed, error } = await supabaseAdmin
     .from('worker_assignments')
     .delete()
-    .eq('id', id);
+    .eq('id', id)
+    .select('*');
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
+  // Quitar a alguien de un turno de rotación: regenerar no lo vuelve a poner.
+  await rememberRemovedRotationRows((removed ?? []) as any[]);
 
   return NextResponse.json({ ok: true });
 }

@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { requireAuth, isAuthError } from '@/lib/api-middleware';
 import { supabaseAdmin } from '@/integrations/supabase/server';
 import { fetchAll } from '@/lib/fetch-all';
+import { rememberRemovedRotationRows } from '@/lib/rotation-skips';
 
 export const dynamic = 'force-dynamic';
 
@@ -51,6 +52,7 @@ const ASSIGNMENT_COLUMNS =
  *     /api/worker-assignments?from=YYYY-MM-DD&to=YYYY-MM-DD   → un rango (semana, mes)
  *     /api/worker-assignments?latest=1   → most recent roster on or before today
  *   Filtros opcionales: `shiftId`, `role` (contiene, sin mayúsculas: «overtime»).
+ *   Con `withLeaves=1` (sólo en rango) agrega las licencias aprobadas del período.
  *
  * Planta leía `worker_assignments` directo desde el navegador, y desde la
  * migración 20260801160000 la tabla tiene RLS sin políticas: el navegador
@@ -92,7 +94,20 @@ export async function GET(req: NextRequest) {
       if (roleLike) q = q.ilike('role', `%${roleLike}%`);
       return q.order('date').range(desde, hasta) as any;
     });
-    return NextResponse.json({ from, to, assignments: rows, truncated });
+    // La vista semanal de Planta marca a quien tiene licencia aprobada ese día,
+    // aunque siga asignado (la licencia se aprobó después de armar la semana).
+    let leaves: any[] | undefined;
+    if (searchParams.get('withLeaves') === '1') {
+      const { data, error: leaveErr } = await supabaseAdmin
+        .from('leave_requests')
+        .select('employee_id, leave_type, start_date, end_date')
+        .eq('status', 'approved')
+        .lte('start_date', to)
+        .gte('end_date', from);
+      if (leaveErr) return NextResponse.json({ error: leaveErr.message }, { status: 500 });
+      leaves = data ?? [];
+    }
+    return NextResponse.json({ from, to, assignments: rows, truncated, ...(leaves ? { leaves } : {}) });
   }
 
   let date = explicitDate || today;
@@ -234,15 +249,19 @@ export async function DELETE(req: NextRequest) {
     );
   }
 
-  const { error } = await supabaseAdmin
+  const { data: removed, error } = await supabaseAdmin
     .from('worker_assignments')
     .delete()
     .eq('date', date)
-    .eq('shift_id', shiftId);
+    .eq('shift_id', shiftId)
+    .select('*');
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
+  // Vaciar un turno a mano (p. ej. para copiar otro día encima): los turnos de
+  // rotación que se quitaron no vuelven al regenerar.
+  await rememberRemovedRotationRows((removed ?? []) as any[]);
 
   return NextResponse.json({ ok: true });
 }

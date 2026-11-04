@@ -10,7 +10,6 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { WorkerStatsPanel } from "@/components/workflow/WorkerStatsPanel";
-import { WeekendShiftRotation } from "@/components/workflow/WeekendShiftRotation";
 const WorkstationLayout = dynamic(() => import('@/components/workflow/WorkstationLayout').then((m) => m.WorkstationLayout));
 import { Clock } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -27,6 +26,8 @@ import { AgendaSemanalSidebar } from "./planta-board/AgendaSemanalSidebar";
 import { BulkActionsPanel } from "./planta-board/BulkActionsPanel";
 import { QuickRosterPanel } from "./planta-board/QuickRosterPanel";
 import { MachineShiftPatternsPanel } from "./planta-board/MachineShiftPatternsPanel";
+import { WeekRosterGrid } from "./planta-board/WeekRosterGrid";
+import { RotationsPanel, useShiftRotations } from "./planta-board/RotationsPanel";
 import { CostModelPanel } from "./planta-board/CostModelPanel";
 
 type WorkflowTab = 'en_proceso' | 'ots' | 'clients' | 'layout' | 'shifts' | 'production' | 'hoja_prod' | 'plan_semanal' | 'gantt' | 'calendar' | 'whatsapp';
@@ -142,15 +143,33 @@ export default function PlantaBoard({ initialTab = 'layout' }: PlantaBoardProps)
   // la URL. Se lee una vez, de `window.location`, para no obligar a la página a
   // un límite de Suspense por `useSearchParams`.
   const [linkedMachine, setLinkedMachine] = useState<string | null>(null);
+  // Semana por defecto: así piensa la planta («esta semana A está de mañana»).
+  // El tablero por día queda para las excepciones, y es donde aterriza un enlace
+  // con fecha (desde el Cronograma o un clic en la grilla).
+  const [rosterView, setRosterView] = useState<'semana' | 'dia'>('semana');
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const date = params.get('date');
     if (date && /^\d{4}-\d{2}-\d{2}$/.test(date)) {
       setSelectedDate(date);
       setWeekStartDate(startOfIsoWeek(new Date(`${date}T12:00:00`)));
+      setRosterView('dia');
     }
     setLinkedMachine(params.get('machine'));
   }, []);
+
+  const openDay = useCallback((date: string, shiftId: string | null, machineId: string) => {
+    setSelectedDate(date);
+    if (shiftId) setSelectedShiftId(shiftId);
+    setLinkedMachine(machineId);
+    setRosterView('dia');
+  }, []);
+
+  const { data: rotationsData } = useShiftRotations();
+  const rotationMachineIds = useMemo(
+    () => new Set((rotationsData?.rotations ?? []).filter((r) => r.active).flatMap((r) => r.teams.flatMap((t) => t.members.map((m) => m.machine_id)))),
+    [rotationsData]
+  );
 
   useEffect(() => {
     setActiveTab(initialTab);
@@ -1111,13 +1130,56 @@ export default function PlantaBoard({ initialTab = 'layout' }: PlantaBoardProps)
 
 
           <TabsContent value="layout" className="mt-2">
+            {/* Semana / Día. La semana es la vista de todos los días; el día, la de
+                las excepciones (arrastrar a alguien, cubrir una licencia). */}
+            <div className="mb-3 flex flex-wrap items-center gap-2">
+              <div className="inline-flex rounded-md border border-border p-0.5">
+                {(['semana', 'dia'] as const).map((v) => (
+                  <button
+                    key={v}
+                    type="button"
+                    onClick={() => setRosterView(v)}
+                    className={`rounded px-3 py-1 text-xs font-medium ${rosterView === v ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+                  >
+                    {v === 'semana' ? 'Semana' : 'Día'}
+                  </button>
+                ))}
+              </div>
+              <div className="flex items-center gap-1 text-xs">
+                <Button variant="outline" size="sm" className="h-7 px-2" onClick={goToPreviousWeek} aria-label="Semana anterior">‹</Button>
+                <span className="min-w-[9rem] text-center font-medium">
+                  Semana del {weekDates[0]?.getDate()}/{(weekDates[0]?.getMonth() ?? 0) + 1} al {weekDates[6]?.getDate()}/{(weekDates[6]?.getMonth() ?? 0) + 1}
+                </span>
+                <Button variant="outline" size="sm" className="h-7 px-2" onClick={goToNextWeek} aria-label="Semana siguiente">›</Button>
+              </div>
+              {rosterView === 'dia' && <span className="text-xs text-muted-foreground">Día {selectedDate}</span>}
+            </div>
+
+            {rosterView === 'semana' ? (
+              <div className="space-y-3">
+                <WeekRosterGrid
+                  weekStart={weekStartDate}
+                  machines={workstations}
+                  shiftDefinitions={shiftDefinitions}
+                  rotationMachineIds={rotationMachineIds}
+                  onOpenDay={openDay}
+                />
+                <RotationsPanel
+                  workers={workers}
+                  machines={workstations}
+                  shiftDefinitions={shiftDefinitions}
+                  canEdit={role === 'admin' || role === 'supervisor'}
+                />
+              </div>
+            ) : (
+              <>
             {linkedMachine && (
               <div className="mb-2 flex items-center justify-between gap-2 rounded-md border border-indigo-500/40 bg-indigo-500/10 px-3 py-1.5 text-xs">
                 <span>
-                  Desde el Cronograma: asigna operarios a{' '}
+                  Asigna operarios a{' '}
                   <b>{workstations.find((w: any) => w.id === linkedMachine)?.name ?? 'la máquina'}</b> en el turno{' '}
                   <b>{shiftToggleOptions.find((o) => o.ids.includes(selectedShiftId || ''))?.label ?? 'elegido'}</b> del{' '}
-                  <b>{selectedDate}</b>. Con alguien asignado, el Cronograma la ve productiva en ese turno.
+                  <b>{selectedDate}</b>. Un cambio hecho acá se respeta al regenerar la rotación.
                 </span>
                 <button className="text-muted-foreground hover:text-foreground" onClick={() => setLinkedMachine(null)} aria-label="Cerrar aviso">
                   ×
@@ -1183,45 +1245,46 @@ export default function PlantaBoard({ initialTab = 'layout' }: PlantaBoardProps)
                   publishLoading={publishLoading}
                 />
 
-                {/* Qué turnos trabaja normalmente cada máquina: lo que el
-                    Cronograma supone cuando ese día no hay dotación cargada. */}
-                <MachineShiftPatternsPanel
-                  machines={workstations}
-                  shifts={shifts as any[]}
-                  canEdit={role === 'admin' || role === 'supervisor'}
-                />
-
-                {/* Weekend shift rotation — two templates rotating weekly */}
-                <WeekendShiftRotation workers={workers} weekStart={weekStartDate} />
-
-                {/* Worker Stats */}
-                <WorkerStatsPanel
-                  selectedWorker={selectedWorker}
-                  workers={workers}
-                  onWorkerSelect={handleWorkerSelect}
-                />
-
-                {/* Bulk Actions */}
-                <BulkActionsPanel
-                  selectedShiftId={selectedShiftId}
-                  bulkActionLoading={bulkActionLoading}
-                  onAutoFill={handleBulkAutoFillShift}
-                  onReplaceConflicts={handleReplaceConflictedAssignments}
-                  onRedistributeOT={handleRedistributeOT}
-                />
-
-                {/* Quick Roster */}
-                <QuickRosterPanel
-                  weekDates={weekDates}
-                  selectedDate={selectedDate}
-                  selectedShiftId={selectedShiftId}
-                  quickSetupLoading={quickSetupLoading}
-                  onRepeatLastWeek={handleRepeatLastWeekSetup}
-                  onCopyFromDay={handleCopyFromWeekDay}
-                />
+                {/* Lo que se toca poco, plegado: el día a día es la semana y la
+                    rotación. La rotación de sábados se reemplazó por la regla del
+                    sábado de cada rotación (un equipo por máquina). */}
+                <details className="rounded-md border border-border bg-card px-3 py-2 text-xs">
+                  <summary className="cursor-pointer select-none font-medium text-muted-foreground">Más herramientas</summary>
+                  <div className="mt-2 space-y-3">
+                    {/* Qué turnos trabaja normalmente cada máquina: lo que el
+                        Cronograma supone cuando ese día no hay dotación cargada. */}
+                    <MachineShiftPatternsPanel
+                      machines={workstations}
+                      shifts={shifts as any[]}
+                      canEdit={role === 'admin' || role === 'supervisor'}
+                    />
+                    <WorkerStatsPanel
+                      selectedWorker={selectedWorker}
+                      workers={workers}
+                      onWorkerSelect={handleWorkerSelect}
+                    />
+                    <BulkActionsPanel
+                      selectedShiftId={selectedShiftId}
+                      bulkActionLoading={bulkActionLoading}
+                      onAutoFill={handleBulkAutoFillShift}
+                      onReplaceConflicts={handleReplaceConflictedAssignments}
+                      onRedistributeOT={handleRedistributeOT}
+                    />
+                    <QuickRosterPanel
+                      weekDates={weekDates}
+                      selectedDate={selectedDate}
+                      selectedShiftId={selectedShiftId}
+                      quickSetupLoading={quickSetupLoading}
+                      onRepeatLastWeek={handleRepeatLastWeekSetup}
+                      onCopyFromDay={handleCopyFromWeekDay}
+                    />
+                  </div>
+                </details>
               </div>
             </div>
 
+              </>
+            )}
             {canManageCostModel && (
               <CostModelPanel costModel={costModel} refetchCostModel={refetchCostModel} />
             )}
