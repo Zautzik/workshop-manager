@@ -7,6 +7,7 @@
 'use client';
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { invalidateAfterReview } from './review-cache';
 import type { WhatsAppProductionLog, WhatsAppProductionSummary } from '@/types/whatsapp-production';
 
 /* ─── Query Keys ─────────────────────────────────────────────── */
@@ -86,78 +87,8 @@ export function useWhatsAppLog(id: string | null) {
   });
 }
 
-/* ─── Review Mutation (Approve / Reject) ─────────────────────── */
-
-export function useReviewWhatsAppLog() {
-  const qc = useQueryClient();
-
-  return useMutation({
-    mutationFn: async ({
-      id,
-      action,
-      comments,
-      corrected_data,
-      corrected_costs,
-    }: {
-      id: string;
-      action: 'approve' | 'reject' | 'needs_revision';
-      comments?: string;
-      corrected_data?: Record<string, unknown>;
-      corrected_costs?: Record<string, unknown>;
-    }) => {
-      const res = await fetch(`/api/whatsapp/logs/${id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action, comments, corrected_data, corrected_costs }),
-      });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({ error: 'Failed' }));
-        throw new Error(err.error || 'Review failed');
-      }
-      const data = await res.json();
-      return data as WhatsAppProductionLog & { _warning?: string };
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['whatsapp'] });
-    },
-  });
-}
-
-/* ─── Batch Review Mutation ──────────────────────────────────── */
-
-export function useBatchReviewWhatsApp() {
-  const qc = useQueryClient();
-
-  return useMutation({
-    mutationFn: async ({
-      ids,
-      action,
-      comments,
-    }: {
-      ids: string[];
-      action: 'approve' | 'reject';
-      comments?: string;
-    }) => {
-      const res = await fetch('/api/whatsapp/logs/batch', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ids, action, comments }),
-      });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({ error: 'Failed' }));
-        throw new Error(err.error || 'Batch review failed');
-      }
-      return res.json() as Promise<{
-        updated: number;
-        action: string;
-        feed_results?: { id: string; success: boolean; error?: string }[];
-      }>;
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['whatsapp'] });
-    },
-  });
-}
+/* La revisión (aprobar / rechazar) vive en useReviewCapture / useReviewCaptures
+ * (src/hooks/use-captures.ts), compartidos con la bandeja de Capturas. */
 
 /* ─── Manual Entry Mutation ──────────────────────────────────── */
 

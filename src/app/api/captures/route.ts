@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { isAuthError, requireAuth } from '@/lib/api-middleware';
 import { supabaseAdmin } from '@/integrations/supabase/server';
 import { fetchAll } from '@/lib/fetch-all';
+import { Constants } from '@/integrations/supabase/types';
 
 export const dynamic = 'force-dynamic';
 
@@ -17,14 +18,26 @@ export async function GET(req: NextRequest) {
   const status = sp.get('status');
   const applied = sp.get('applied');
 
+  // Los filtros son enums de la base. Un valor que no existe no es «sin
+  // filtro»: es un error del que pregunta, y se lo dice en vez de devolverle
+  // una bandeja vacía que parece real.
+  const domains = Constants.public.Enums.capture_domain;
+  const statuses = Constants.public.Enums.capture_status;
+  if (domain && !(domains as readonly string[]).includes(domain)) {
+    return NextResponse.json({ error: `Dominio desconocido: ${domain}` }, { status: 400 });
+  }
+  if (status && !(statuses as readonly string[]).includes(status)) {
+    return NextResponse.json({ error: `Estado desconocido: ${status}` }, { status: 400 });
+  }
+
   let query = supabaseAdmin
-    .from('capture_events' as any)
+    .from('capture_events')
     .select('*')
     .order('created_at', { ascending: false })
     .limit(200);
 
-  if (domain) query = query.eq('domain', domain);
-  if (status) query = query.eq('status', status);
+  if (domain) query = query.eq('domain', domain as (typeof domains)[number]);
+  if (status) query = query.eq('status', status as (typeof statuses)[number]);
   if (applied === 'true') query = query.eq('applied', true);
   if (applied === 'false') query = query.eq('applied', false);
 
@@ -39,7 +52,7 @@ export async function GET(req: NextRequest) {
   const { rows, truncated } = await fetchAll<{ domain: string; status: string; applied: boolean }>(
     (desde, hasta) =>
       supabaseAdmin
-        .from('capture_events' as any)
+        .from('capture_events')
         .select('domain, status, applied')
         .range(desde, hasta) as any,
   );

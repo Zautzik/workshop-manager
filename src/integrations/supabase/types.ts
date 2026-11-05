@@ -10,32 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.5"
-  }
-  graphql_public: {
-    Tables: {
-      [_ in never]: never
-    }
-    Views: {
-      [_ in never]: never
-    }
-    Functions: {
-      graphql: {
-        Args: {
-          extensions?: Json
-          operationName?: string
-          query?: string
-          variables?: Json
-        }
-        Returns: Json
-      }
-    }
-    Enums: {
-      [_ in never]: never
-    }
-    CompositeTypes: {
-      [_ in never]: never
-    }
+    PostgrestVersion: "14.1"
   }
   public: {
     Tables: {
@@ -1223,6 +1198,45 @@ export type Database = {
           },
         ]
       }
+      estimator_calibration_proposals: {
+        Row: {
+          applied_at: string | null
+          applied_by: string | null
+          applied_note: string | null
+          based_on: Json | null
+          changes: Json
+          id: string
+          proposed_at: string
+          proposed_by: string | null
+          reason: string
+          status: string
+        }
+        Insert: {
+          applied_at?: string | null
+          applied_by?: string | null
+          applied_note?: string | null
+          based_on?: Json | null
+          changes: Json
+          id?: string
+          proposed_at?: string
+          proposed_by?: string | null
+          reason: string
+          status?: string
+        }
+        Update: {
+          applied_at?: string | null
+          applied_by?: string | null
+          applied_note?: string | null
+          based_on?: Json | null
+          changes?: Json
+          id?: string
+          proposed_at?: string
+          proposed_by?: string | null
+          reason?: string
+          status?: string
+        }
+        Relationships: []
+      }
       hr_compliance_access_logs: {
         Row: {
           access_type: string
@@ -1738,6 +1752,76 @@ export type Database = {
             columns: ["purchase_id"]
             isOneToOne: false
             referencedRelation: "purchases"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      inventory_reconciliation_alerts: {
+        Row: {
+          detected_at: string
+          drift: number
+          item_id: string
+          lot_id: string
+          quantity_available: number
+          quantity_ledger: number
+        }
+        Insert: {
+          detected_at?: string
+          drift: number
+          item_id: string
+          lot_id: string
+          quantity_available: number
+          quantity_ledger: number
+        }
+        Update: {
+          detected_at?: string
+          drift?: number
+          item_id?: string
+          lot_id?: string
+          quantity_available?: number
+          quantity_ledger?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inventory_reconciliation_alerts_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_reconciliation_alerts_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_items_stock_v"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_reconciliation_alerts_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_low_stock_alerts_v"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_reconciliation_alerts_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "material_cost_v"
+            referencedColumns: ["item_id"]
+          },
+          {
+            foreignKeyName: "inventory_reconciliation_alerts_lot_id_fkey"
+            columns: ["lot_id"]
+            isOneToOne: true
+            referencedRelation: "inventory_lots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_reconciliation_alerts_lot_id_fkey"
+            columns: ["lot_id"]
+            isOneToOne: true
+            referencedRelation: "inventory_lots_disponibilidad"
             referencedColumns: ["id"]
           },
         ]
@@ -2537,6 +2621,59 @@ export type Database = {
           },
         ]
       }
+      machine_shift_patterns: {
+        Row: {
+          created_at: string
+          machine_id: string
+          shift_id: string
+          updated_at: string
+          weekdays: number[]
+        }
+        Insert: {
+          created_at?: string
+          machine_id: string
+          shift_id: string
+          updated_at?: string
+          weekdays?: number[]
+        }
+        Update: {
+          created_at?: string
+          machine_id?: string
+          shift_id?: string
+          updated_at?: string
+          weekdays?: number[]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "machine_shift_patterns_machine_id_fkey"
+            columns: ["machine_id"]
+            isOneToOne: false
+            referencedRelation: "machines"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "machine_shift_patterns_machine_id_fkey"
+            columns: ["machine_id"]
+            isOneToOne: false
+            referencedRelation: "planta_live"
+            referencedColumns: ["machine_id"]
+          },
+          {
+            foreignKeyName: "machine_shift_patterns_machine_id_fkey"
+            columns: ["machine_id"]
+            isOneToOne: false
+            referencedRelation: "planta_live"
+            referencedColumns: ["workstation_id"]
+          },
+          {
+            foreignKeyName: "machine_shift_patterns_shift_id_fkey"
+            columns: ["shift_id"]
+            isOneToOne: false
+            referencedRelation: "shifts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       machine_skill_requirements: {
         Row: {
           created_at: string
@@ -2994,6 +3131,7 @@ export type Database = {
           optimal_speed_sheets_hr: number | null
           photo_url: string | null
           power_kw: number | null
+          qr_token: string
           serial_number: string | null
           status: Database["public"]["Enums"]["machine_status"]
           type: Database["public"]["Enums"]["machine_type"]
@@ -3026,6 +3164,7 @@ export type Database = {
           optimal_speed_sheets_hr?: number | null
           photo_url?: string | null
           power_kw?: number | null
+          qr_token?: string
           serial_number?: string | null
           status?: Database["public"]["Enums"]["machine_status"]
           type: Database["public"]["Enums"]["machine_type"]
@@ -3058,6 +3197,7 @@ export type Database = {
           optimal_speed_sheets_hr?: number | null
           photo_url?: string | null
           power_kw?: number | null
+          qr_token?: string
           serial_number?: string | null
           status?: Database["public"]["Enums"]["machine_status"]
           type?: Database["public"]["Enums"]["machine_type"]
@@ -3529,6 +3669,10 @@ export type Database = {
       maintenance_work_orders: {
         Row: {
           assigned_to: string | null
+          avance_aprobado_en: string | null
+          avance_aprobado_por: string | null
+          avance_pendiente: boolean
+          cerrada_desde: string | null
           checklist_id: string | null
           completed_at: string | null
           completed_items: Json | null
@@ -3554,6 +3698,10 @@ export type Database = {
         }
         Insert: {
           assigned_to?: string | null
+          avance_aprobado_en?: string | null
+          avance_aprobado_por?: string | null
+          avance_pendiente?: boolean
+          cerrada_desde?: string | null
           checklist_id?: string | null
           completed_at?: string | null
           completed_items?: Json | null
@@ -3579,6 +3727,10 @@ export type Database = {
         }
         Update: {
           assigned_to?: string | null
+          avance_aprobado_en?: string | null
+          avance_aprobado_por?: string | null
+          avance_pendiente?: boolean
+          cerrada_desde?: string | null
           checklist_id?: string | null
           completed_at?: string | null
           completed_items?: Json | null
@@ -3603,13 +3755,6 @@ export type Database = {
           work_order_type?: string
         }
         Relationships: [
-          {
-            foreignKeyName: "maintenance_work_orders_schedule_id_fkey"
-            columns: ["schedule_id"]
-            isOneToOne: false
-            referencedRelation: "maintenance_schedules"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "maintenance_work_orders_assigned_to_fkey"
             columns: ["assigned_to"]
@@ -3699,6 +3844,13 @@ export type Database = {
             columns: ["part_id"]
             isOneToOne: false
             referencedRelation: "machine_parts_health_v"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "maintenance_work_orders_schedule_id_fkey"
+            columns: ["schedule_id"]
+            isOneToOne: false
+            referencedRelation: "maintenance_schedules"
             referencedColumns: ["id"]
           },
           {
@@ -4330,6 +4482,7 @@ export type Database = {
           category: Database["public"]["Enums"]["ot_operation_category"]
           created_at: string
           id: string
+          is_manual: boolean
           name: string
           ot_id: string
           quantity: number
@@ -4343,6 +4496,7 @@ export type Database = {
           category: Database["public"]["Enums"]["ot_operation_category"]
           created_at?: string
           id?: string
+          is_manual?: boolean
           name: string
           ot_id: string
           quantity?: number
@@ -4356,6 +4510,7 @@ export type Database = {
           category?: Database["public"]["Enums"]["ot_operation_category"]
           created_at?: string
           id?: string
+          is_manual?: boolean
           name?: string
           ot_id?: string
           quantity?: number
@@ -4670,7 +4825,6 @@ export type Database = {
       }
       ot_stage_reports: {
         Row: {
-          operator_employee_id: string | null
           ajuste_minutes: number | null
           created_at: string
           hours: number | null
@@ -4679,6 +4833,7 @@ export type Database = {
           machine_id: string | null
           merma_sheets: number | null
           observations: string | null
+          operator_employee_id: string | null
           ot_id: string
           recorded_by: string | null
           to_status: Database["public"]["Enums"]["ot_status"] | null
@@ -4687,7 +4842,6 @@ export type Database = {
           workflow_step: Database["public"]["Enums"]["ot_status"]
         }
         Insert: {
-          operator_employee_id?: string | null
           ajuste_minutes?: number | null
           created_at?: string
           hours?: number | null
@@ -4696,6 +4850,7 @@ export type Database = {
           machine_id?: string | null
           merma_sheets?: number | null
           observations?: string | null
+          operator_employee_id?: string | null
           ot_id: string
           recorded_by?: string | null
           to_status?: Database["public"]["Enums"]["ot_status"] | null
@@ -4704,7 +4859,6 @@ export type Database = {
           workflow_step: Database["public"]["Enums"]["ot_status"]
         }
         Update: {
-          operator_employee_id?: string | null
           ajuste_minutes?: number | null
           created_at?: string
           hours?: number | null
@@ -4713,6 +4867,7 @@ export type Database = {
           machine_id?: string | null
           merma_sheets?: number | null
           observations?: string | null
+          operator_employee_id?: string | null
           ot_id?: string
           recorded_by?: string | null
           to_status?: Database["public"]["Enums"]["ot_status"] | null
@@ -4741,6 +4896,20 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "planta_live"
             referencedColumns: ["workstation_id"]
+          },
+          {
+            foreignKeyName: "ot_stage_reports_operator_employee_id_fkey"
+            columns: ["operator_employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ot_stage_reports_operator_employee_id_fkey"
+            columns: ["operator_employee_id"]
+            isOneToOne: false
+            referencedRelation: "worker_stats"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "ot_stage_reports_ot_id_fkey"
@@ -5468,6 +5637,9 @@ export type Database = {
       purchase_invoices: {
         Row: {
           amount: number
+          approved_at: string | null
+          approved_by: string | null
+          closure_reason: string | null
           created_at: string
           id: string
           invoice_date: string
@@ -5486,6 +5658,9 @@ export type Database = {
         }
         Insert: {
           amount?: number
+          approved_at?: string | null
+          approved_by?: string | null
+          closure_reason?: string | null
           created_at?: string
           id?: string
           invoice_date?: string
@@ -5504,6 +5679,9 @@ export type Database = {
         }
         Update: {
           amount?: number
+          approved_at?: string | null
+          approved_by?: string | null
+          closure_reason?: string | null
           created_at?: string
           id?: string
           invoice_date?: string
@@ -5687,6 +5865,8 @@ export type Database = {
           status: Database["public"]["Enums"]["oc_status"]
           supplier: string
           supplier_giro: string | null
+          supplier_override_by: string | null
+          supplier_override_reason: string | null
           supplier_rut: string | null
           total_cost: number
           updated_at: string | null
@@ -5708,6 +5888,8 @@ export type Database = {
           status?: Database["public"]["Enums"]["oc_status"]
           supplier: string
           supplier_giro?: string | null
+          supplier_override_by?: string | null
+          supplier_override_reason?: string | null
           supplier_rut?: string | null
           total_cost?: number
           updated_at?: string | null
@@ -5729,6 +5911,8 @@ export type Database = {
           status?: Database["public"]["Enums"]["oc_status"]
           supplier?: string
           supplier_giro?: string | null
+          supplier_override_by?: string | null
+          supplier_override_reason?: string | null
           supplier_rut?: string | null
           total_cost?: number
           updated_at?: string | null
@@ -5906,6 +6090,142 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: []
+      }
+      rotation_members: {
+        Row: {
+          employee_id: string
+          machine_id: string
+          role: string
+          team_id: string
+        }
+        Insert: {
+          employee_id: string
+          machine_id: string
+          role?: string
+          team_id: string
+        }
+        Update: {
+          employee_id?: string
+          machine_id?: string
+          role?: string
+          team_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rotation_members_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rotation_members_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "worker_stats"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rotation_members_machine_id_fkey"
+            columns: ["machine_id"]
+            isOneToOne: false
+            referencedRelation: "machines"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rotation_members_machine_id_fkey"
+            columns: ["machine_id"]
+            isOneToOne: false
+            referencedRelation: "planta_live"
+            referencedColumns: ["machine_id"]
+          },
+          {
+            foreignKeyName: "rotation_members_machine_id_fkey"
+            columns: ["machine_id"]
+            isOneToOne: false
+            referencedRelation: "planta_live"
+            referencedColumns: ["workstation_id"]
+          },
+          {
+            foreignKeyName: "rotation_members_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "rotation_teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      rotation_skips: {
+        Row: {
+          created_at: string
+          date: string
+          employee_id: string
+          rotation_id: string
+        }
+        Insert: {
+          created_at?: string
+          date: string
+          employee_id: string
+          rotation_id: string
+        }
+        Update: {
+          created_at?: string
+          date?: string
+          employee_id?: string
+          rotation_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rotation_skips_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rotation_skips_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "worker_stats"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rotation_skips_rotation_id_fkey"
+            columns: ["rotation_id"]
+            isOneToOne: false
+            referencedRelation: "shift_rotations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      rotation_teams: {
+        Row: {
+          id: string
+          name: string
+          position: number
+          rotation_id: string
+        }
+        Insert: {
+          id?: string
+          name: string
+          position: number
+          rotation_id: string
+        }
+        Update: {
+          id?: string
+          name?: string
+          position?: number
+          rotation_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rotation_teams_rotation_id_fkey"
+            columns: ["rotation_id"]
+            isOneToOne: false
+            referencedRelation: "shift_rotations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       sales_invoices: {
         Row: {
@@ -6094,29 +6414,88 @@ export type Database = {
         }
         Relationships: []
       }
+      shift_rotations: {
+        Row: {
+          active: boolean
+          anchor_week: string
+          created_at: string
+          id: string
+          name: string
+          saturday_shift_id: string | null
+          shift_ids: string[]
+          updated_at: string
+          weekdays: number[]
+        }
+        Insert: {
+          active?: boolean
+          anchor_week: string
+          created_at?: string
+          id?: string
+          name: string
+          saturday_shift_id?: string | null
+          shift_ids: string[]
+          updated_at?: string
+          weekdays?: number[]
+        }
+        Update: {
+          active?: boolean
+          anchor_week?: string
+          created_at?: string
+          id?: string
+          name?: string
+          saturday_shift_id?: string | null
+          shift_ids?: string[]
+          updated_at?: string
+          weekdays?: number[]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shift_rotations_saturday_shift_id_fkey"
+            columns: ["saturday_shift_id"]
+            isOneToOne: false
+            referencedRelation: "shifts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       shifts: {
         Row: {
+          archived_at: string | null
+          break_minutes: number
+          break_start: string | null
+          code: string | null
           created_at: string | null
           end_time: string
           id: string
           is_night_shift: boolean
           name: string
+          sort_order: number
           start_time: string
         }
         Insert: {
+          archived_at?: string | null
+          break_minutes?: number
+          break_start?: string | null
+          code?: string | null
           created_at?: string | null
           end_time: string
           id?: string
           is_night_shift?: boolean
           name: string
+          sort_order?: number
           start_time: string
         }
         Update: {
+          archived_at?: string | null
+          break_minutes?: number
+          break_start?: string | null
+          code?: string | null
           created_at?: string | null
           end_time?: string
           id?: string
           is_night_shift?: boolean
           name?: string
+          sort_order?: number
           start_time?: string
         }
         Relationships: []
@@ -6317,6 +6696,10 @@ export type Database = {
           notes: string | null
           phone: string | null
           rut: string | null
+          status: string
+          status_reason: string | null
+          status_updated_at: string | null
+          status_updated_by: string | null
           supplier_name: string
           updated_at: string
         }
@@ -6330,6 +6713,10 @@ export type Database = {
           notes?: string | null
           phone?: string | null
           rut?: string | null
+          status?: string
+          status_reason?: string | null
+          status_updated_at?: string | null
+          status_updated_by?: string | null
           supplier_name: string
           updated_at?: string
         }
@@ -6343,6 +6730,10 @@ export type Database = {
           notes?: string | null
           phone?: string | null
           rut?: string | null
+          status?: string
+          status_reason?: string | null
+          status_updated_at?: string | null
+          status_updated_by?: string | null
           supplier_name?: string
           updated_at?: string
         }
@@ -7297,7 +7688,9 @@ export type Database = {
           machine_id: string
           ot_id: string | null
           role: string
+          rotation_id: string | null
           shift_id: string
+          source: string
           updated_at: string | null
         }
         Insert: {
@@ -7309,7 +7702,9 @@ export type Database = {
           machine_id: string
           ot_id?: string | null
           role: string
+          rotation_id?: string | null
           shift_id: string
+          source?: string
           updated_at?: string | null
         }
         Update: {
@@ -7321,7 +7716,9 @@ export type Database = {
           machine_id?: string
           ot_id?: string | null
           role?: string
+          rotation_id?: string | null
           shift_id?: string
+          source?: string
           updated_at?: string | null
         }
         Relationships: [
@@ -7393,6 +7790,13 @@ export type Database = {
             columns: ["ot_id"]
             isOneToOne: false
             referencedRelation: "ots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "worker_assignments_rotation_id_fkey"
+            columns: ["rotation_id"]
+            isOneToOne: false
+            referencedRelation: "shift_rotations"
             referencedColumns: ["id"]
           },
           {
@@ -8480,7 +8884,10 @@ export type Database = {
     }
     Functions: {
       accrue_leave_balances: { Args: { target_date?: string }; Returns: number }
-      apply_capture_event: { Args: { p_event_id: string }; Returns: string }
+      apply_capture_event: {
+        Args: { p_actor?: string; p_event_id: string }
+        Returns: string
+      }
       calculate_monthly_payroll: {
         Args: { p_employee_id?: string; p_month?: number; p_year?: number }
         Returns: {
@@ -8575,12 +8982,17 @@ export type Database = {
         Args: never
         Returns: {
           extension_installed: boolean
+          job_name: string
           job_scheduled: boolean
           schedule: string
         }[]
       }
       emitir_oc: {
-        Args: { p_issued_by: string; p_purchase_id: string }
+        Args: {
+          p_issued_by: string
+          p_purchase_id: string
+          p_supplier_override_reason?: string
+        }
         Returns: {
           certification_details: string | null
           created_at: string | null
@@ -8595,6 +9007,8 @@ export type Database = {
           status: Database["public"]["Enums"]["oc_status"]
           supplier: string
           supplier_giro: string | null
+          supplier_override_by: string | null
+          supplier_override_reason: string | null
           supplier_rut: string | null
           total_cost: number
           updated_at: string | null
@@ -8624,11 +9038,6 @@ export type Database = {
       estimate_ot_hours: {
         Args: { p_machine_type?: string; p_ot_id: string }
         Returns: Json
-      }
-      feed_warehouse_to_inventory: { Args: { log_id: string }; Returns: string }
-      feed_whatsapp_to_real_costs: {
-        Args: { log_id: string }
-        Returns: undefined
       }
       generar_numero_lote: { Args: never; Returns: string }
       generate_ot_number: { Args: never; Returns: string }
@@ -8793,20 +9202,20 @@ export type Database = {
       }
       insert_whatsapp_log_idempotent: {
         Args: {
-          p_elapsed_minutes?: number | null
-          p_external_message_id: string | null
+          p_elapsed_minutes?: number
+          p_external_message_id: string
           p_inferred_costs?: Json
           p_message_timestamp: string
           p_message_type: Database["public"]["Enums"]["whatsapp_message_type"]
-          p_operator_employee_id: string | null
-          p_operator_name: string | null
+          p_operator_employee_id: string
+          p_operator_name: string
           p_operator_phone: string
-          p_ot_id: string | null
+          p_ot_id: string
           p_ot_number: string
           p_parsed_data?: Json
           p_raw_message: string
           p_review_status: Database["public"]["Enums"]["whatsapp_review_status"]
-          p_start_log_id?: string | null
+          p_start_log_id?: string
         }
         Returns: {
           id: string
@@ -8880,6 +9289,7 @@ export type Database = {
         }
         Returns: string
       }
+      reconciliar_inventario: { Args: never; Returns: number }
       reemplazar_requisitos: {
         Args: {
           p_by?: string
@@ -8892,6 +9302,7 @@ export type Database = {
       replace_ot_operations: {
         Args: { p_operations: Json; p_ot_id: string }
         Returns: {
+          ajuste_minutes: number | null
           assigned_machine_id: string | null
           calc_finish_hours: number | null
           calc_ink_kg: number | null
@@ -8998,6 +9409,10 @@ export type Database = {
           p_quantity: number
         }
         Returns: Json
+      }
+      shift_paid_hours: {
+        Args: { p_break_minutes: number; p_end: string; p_start: string }
+        Returns: number
       }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
@@ -9274,12 +9689,12 @@ export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -9303,11 +9718,11 @@ export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -9328,11 +9743,11 @@ export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -9353,11 +9768,11 @@ export type Enums<
   DefaultSchemaEnumNameOrOptions extends
     | keyof DefaultSchema["Enums"]
     | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -9370,11 +9785,11 @@ export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
     | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never = never,
+    : never) = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -9384,9 +9799,6 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
-  graphql_public: {
-    Enums: {},
-  },
   public: {
     Enums: {
       app_role: [

@@ -213,7 +213,7 @@ export function resolveWarehousePhoto(input: EntradaFoto): ResolucionFoto {
  * Lo que se le contesta al que mandó la foto. Corto: lo lee de pie.
  *
  * Ninguna foto descuenta sola — bodega o un supervisor la confirma después
- * (ver `PATCH /api/captures/[id]`), así que esto nunca dice «descontando»:
+ * (ver `POST /api/captures/review`), así que esto nunca dice «descontando»:
  * diría que ya pasó cuando todavía está pendiente. Hay tres respuestas
  * posibles, no dos — «pregunto», «sé todo, falta confirmar» y «sé la OT pero
  * no cuánto» son estados distintos y cada uno necesita su propia frase.

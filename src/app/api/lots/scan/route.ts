@@ -55,7 +55,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: leido.problem, code: 'QR_ILEGIBLE' }, { status: 422 });
   }
 
-  const { data, error } = await supabaseAdmin.rpc('consumir_lote' as never, {
+  const { data, error } = await supabaseAdmin.rpc('consumir_lote', {
     p_lot_id: leido.lotId,
     p_ot_id: d.ot_id,
     p_quantity: d.quantity,

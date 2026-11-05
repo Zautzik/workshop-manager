@@ -38,6 +38,13 @@ Each link only exists because the previous one does. That constraint is what mak
 cost reconstructible: you can open any order and walk back to the WhatsApp message the
 operator typed and the supplier invoice the paper came on.
 
+The shop-floor report link is one pipeline in code, with one implementation per step,
+listed in [`src/lib/golden-thread.ts`](src/lib/golden-thread.ts): every channel
+(WhatsApp, simulator, warehouse photo) enters through ingest, every screen reviews
+through `POST /api/captures/review`, and every approved report reaches real costs or
+stock through a single database function, `apply_capture_event`. There are no
+per-channel writers; a function named after one channel is a side door.
+
 Two links in that chain are themselves three-lane ledgers, not single numbers — a
 purchase order is a match between what you ordered, what arrived, and what you were
 billed; a job's cost is a comparison between what it was quoted at and what it actually

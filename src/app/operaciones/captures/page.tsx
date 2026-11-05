@@ -45,8 +45,12 @@ function CapturasInner() {
 
   const act = async (c: CaptureEvent, status: 'approved' | 'rejected') => {
     try {
-      const res: any = await review.mutateAsync({ id: c.id, status });
-      if (res?._warning) toast.warning(res._warning);
+      const res = await review.mutateAsync({
+        source: 'capture',
+        id: c.id,
+        decision: status === 'approved' ? 'approve' : 'reject',
+      });
+      if (res?.warning) toast.warning(res.warning);
       else toast.success(status === 'approved' ? 'Aprobada y aplicada al sistema' : 'Rechazada');
     } catch (e: any) {
       toast.error(e?.message ?? 'Error');

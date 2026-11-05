@@ -1,6 +1,8 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { invalidateAfterReview } from './review-cache';
+import type { CaptureSource, Corrections, ReviewOutcome } from '@/lib/golden-thread';
 
 export interface CaptureEvent {
   id: string;
@@ -51,22 +53,45 @@ export function useCaptures(filters?: { domain?: string; status?: string; applie
   });
 }
 
+/* ─── Revisión — eslabón 2 del hilo dorado (src/lib/golden-thread.ts) ───────
+ *
+ * Un solo par de hooks para todas las pantallas que revisan partes: la bandeja
+ * de Capturas, WhatsApp y bodega. `source` dice de qué tabla es el id que la
+ * pantalla tiene a mano; el servidor encuentra el resto.
+ */
+
+export interface ReviewRequest {
+  source: CaptureSource;
+  decision: 'approve' | 'reject';
+  comments?: string | null;
+}
+
+async function postReview(body: Record<string, unknown>): Promise<ReviewOutcome[]> {
+  const res = await fetch('/api/captures/review', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(json?.error ?? 'No se pudo revisar el parte');
+  return (json.results ?? []) as ReviewOutcome[];
+}
+
+/** Revisar un parte. Devuelve su resultado; `warning` trae lo que no se pudo aplicar. */
 export function useReviewCapture() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ id, ...payload }: { id: string } & Record<string, unknown>) => {
-      const res = await fetch(`/api/captures/${id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-      const json = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(json?.error ?? 'Request failed');
-      return json; // may carry _warning when applied best-effort failed
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['captures'] });
-      qc.invalidateQueries({ queryKey: ['ot-cost-summary'] });
-    },
+    mutationFn: async ({ id, corrections, ...req }: ReviewRequest & { id: string; corrections?: Corrections }) =>
+      (await postReview({ ...req, ids: [id], ...(corrections ? { corrections } : {}) }))[0],
+    onSuccess: () => invalidateAfterReview(qc),
+  });
+}
+
+/** Revisar varios partes con la misma decisión. Un resultado por parte. */
+export function useReviewCaptures() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ ids, ...req }: ReviewRequest & { ids: string[] }) => postReview({ ...req, ids }),
+    onSuccess: () => invalidateAfterReview(qc),
   });
 }

@@ -17,8 +17,8 @@
  * la misma regla.
  *
  * Esto sólo escribe la captura, pendiente. Quien aprueba en
- * `PATCH /api/captures/[id]` —autenticado, con rol— es quien de verdad llama
- * a `consumir_lote`, que es donde viven las verificaciones que hacen que esto
+ * `POST /api/captures/review` —autenticado, con rol— es quien de verdad llega
+ * a `consumir_lote` (vía `apply_capture_event`, src/lib/golden-thread.ts), que es donde viven las verificaciones que hacen que esto
  * sea trazabilidad y no un registro: lote retenido, saldo real, papel
  * comprometido con otra orden, certificado vencido (auditoría 2026-08).
  */
@@ -212,13 +212,13 @@ export async function processWarehousePhoto(input: FotoEntrante): Promise<Result
 	// mismo webhook nunca aplicó nada solo, siempre encoló `pending`; esta
 	// foto es la misma bodega y tiene que valer la misma regla.
 	//
-	// Ahora la foto sólo LEE y RESUELVE. Quien aprueba en `/api/captures/[id]`
+	// Ahora la foto sólo LEE y RESUELVE. Quien aprueba en `/api/captures/review`
 	// —un admin/manager/supervisor autenticado, no un número de teléfono— es
 	// quien de verdad dispara `consumir_lote`, con su propio user id como
 	// `p_by`. Ver ese archivo para la otra mitad de este cambio (auditoría
 	// 2026-08).
 	const pregunta = replyForResolution(resolucion, lote.lot_number);
-	await supabaseAdmin.from('capture_events' as never).insert({
+	await supabaseAdmin.from('capture_events').insert({
 		domain: 'warehouse' as const,
 		event_type: 'use',
 		channel: 'qr' as const,

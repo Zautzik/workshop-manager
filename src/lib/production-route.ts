@@ -285,6 +285,30 @@ export function deriveRoute(ot: RouteOT, machineTypeById: Map<string, string> = 
 	return steps;
 }
 
+/**
+ * La columna siguiente en la ruta de ESTA OT, desde `from`.
+ *
+ * El recorrido genérico (`naturalNextStatuses`) sabe que del primer corte se
+ * sale a una prensa, pero no a cuál: para él es una bifurcación. La ruta de la
+ * OT sí lo sabe —la deduce de la máquina asignada, los colores y las
+ * terminaciones, la misma que usa el planificador—, así que quien necesite
+ * resolver la bifurcación (el parte de WhatsApp) le pregunta a esto y no
+ * vuelve a adivinarla. `null` si la ruta no tiene nada después de `from`.
+ */
+export function nextStatusOnRoute(
+	ot: RouteOT,
+	from: string = ot.status,
+	machineTypeById: Map<string, string> = new Map(),
+): OTWorkflowStatus | null {
+	const current = statusIndex(from);
+	if (current < 0) return null;
+	for (const step of deriveRoute({ ...ot, status: from }, machineTypeById)) {
+		const status = PLAN_STEP_BY_KEY[step.key].status;
+		if (statusIndex(status) > current) return status;
+	}
+	return null;
+}
+
 /** Horas del presupuesto agrupadas por columna del Kanban — lo que compara el historial. */
 export function quoteHoursByStatus(route: RouteStep[]): Map<string, number> {
 	const out = new Map<string, number>();

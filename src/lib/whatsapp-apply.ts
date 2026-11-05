@@ -24,14 +24,74 @@
  */
 
 import { supabaseAdmin } from '@/integrations/supabase/server';
-import { OTStatusSchema, validateTransition, type OTWorkflowStatus } from '@/lib/ot-state-machine';
+import { OTStatusSchema, type OTWorkflowStatus } from '@/lib/ot-state-machine';
 import { promptsStageReport } from '@/lib/stage-report';
-import type { FlowProposal } from '@/lib/whatsapp-flow';
+import { nextStatusOnRoute, type RouteOT } from '@/lib/production-route';
+import { moveOT } from '@/lib/ot-move';
+import type { FlowContext, FlowProposal } from '@/lib/whatsapp-flow';
 import type { AppRole } from '@/types/app-role';
 
 export interface ApplyActor {
 	id: string | null;
 	role: AppRole;
+	name?: string | null;
+}
+
+/* ─── Lo que la OT sabe de sí misma ─────────────────────────────────────── */
+
+/**
+ * La base para resolver un parte contra ESTA OT: su ruta y sus pliegos.
+ *
+ * `stageSheets` son los pliegos de la OT tal como está hoy. `calc_sheets` es
+ * del trabajo entero y `split_ot` lo copia igual a cada fragmento; lo que
+ * cambia es `quantity`. Así que los pliegos de un fragmento son su parte de la
+ * cantidad del grupo, y la misma razón convierte los pliegos del parte en las
+ * unidades que `split_ot` avanza.
+ */
+export interface OTBasis {
+	ctx: FlowContext;
+	/** Unidades (`ots.quantity`) por pliego; null si la OT no tiene pliegos calculados. */
+	unitsPerSheet: number | null;
+	quantity: number;
+}
+
+const ROUTE_FIELDS =
+	'id, status, quantity, product_type, color_front, color_back, calc_sheets, calc_print_hours, calc_finish_hours, ' +
+	'assigned_machine_id, die_id, die_code, flag_paper_arrived, split_group_id, finish_troquelado, finish_plegado, ' +
+	'finish_pegado, finish_laminado, finish_barniz, finish_relieve, finish_perforado, finish_hot_stamping, ' +
+	'finish_uv_localizado, finish_numeracion';
+
+export async function loadOTBasis(otId: string, atStatus?: string): Promise<OTBasis | null> {
+	const { data, error } = await supabaseAdmin.from('ots').select(ROUTE_FIELDS).eq('id', otId).maybeSingle();
+	if (error || !data) return null;
+	const ot = data as unknown as RouteOT & { quantity: number; split_group_id: string | null };
+
+	const [machine, group] = await Promise.all([
+		ot.assigned_machine_id
+			? supabaseAdmin.from('machines').select('id, type').eq('id', ot.assigned_machine_id).maybeSingle()
+			: Promise.resolve({ data: null }),
+		ot.split_group_id
+			? supabaseAdmin.from('ots').select('quantity').eq('split_group_id', ot.split_group_id)
+			: Promise.resolve({ data: null }),
+	]);
+	const machineTypeById = new Map<string, string>();
+	const m = machine.data as { id: string; type: string } | null;
+	if (m?.type) machineTypeById.set(m.id, m.type);
+
+	const quantity = Number(ot.quantity ?? 0);
+	const groupQty =
+		(group.data as { quantity: number }[] | null)?.reduce((sum, r) => sum + Number(r.quantity ?? 0), 0) || quantity;
+	const sheets = Number(ot.calc_sheets ?? 0);
+	const unitsPerSheet = sheets > 0 && groupQty > 0 ? groupQty / sheets : null;
+
+	return {
+		quantity,
+		unitsPerSheet,
+		ctx: {
+			routeNext: nextStatusOnRoute(ot, atStatus ?? ot.status, machineTypeById),
+			stageSheets: unitsPerSheet ? quantity / unitsPerSheet : null,
+		},
+	};
 }
 
 /**
@@ -47,8 +107,8 @@ export interface ApplyEvidence {
 export interface ApplyOutcome {
 	/** Se cerró una pasada con las horas del parte. */
 	closed: { id: string; workflow_step: string; hours: number | null } | null;
-	/** La OT se movió. */
-	moved: { from: string; to: string } | null;
+	/** La OT se movió. En un avance parcial, `fragment` es la parte que avanzó. */
+	moved: { from: string; to: string; fragment?: { id: string; ot_number: string; quantity: number } } | null;
 	/** Por qué no se movió, cuando corresponde. Va a la captura, no se pierde. */
 	blocked: string | null;
 	notes: string[];
@@ -236,8 +296,7 @@ export async function applyFlowProposal(
 		.maybeSingle();
 
 	// "No se pudo verificar" y "no existe" son motivos distintos y uno de los
-	// dos es transitorio — decirle al que mandó el parte que su OT desapareció
-	// por un corte de red sería peor que no contestar nada.
+	// dos es transitorio.
 	if (otErr) {
 		out.blocked = `No se pudo verificar la OT: ${otErr.message}`;
 		return out;
@@ -251,9 +310,8 @@ export async function applyFlowProposal(
 	const order = OTStatusSchema.options;
 
 	// Parte de una etapa que la OT ya dejó: lo dijo el mensaje (`retroactive`) o
-	// la OT se movió entre que llegó el mensaje y que se aprobó. En los dos casos
-	// el dato es cierto y va a la pasada de ESA etapa, sin mover nada. Antes se
-	// descartaba con una nota, y con él el único registro de cuánto tomó.
+	// la OT se movió entre que llegó el mensaje y que se aprobó. El dato es cierto
+	// y va a la pasada de ESA etapa, sin mover nada.
 	const isPast =
 		proposal.closeStage != null &&
 		promptsStageReport(proposal.closeStage) &&
@@ -273,129 +331,90 @@ export async function applyFlowProposal(
 		return out;
 	}
 
-	// El parte se resolvió contra el estado que la OT tenía cuando llegó el
-	// mensaje. Si mientras tanto alguien la movió HACIA ATRÁS (un retroceso), lo
-	// que decía ya no aplica: se deja constancia en vez de cerrar la pasada
-	// equivocada.
+	// Alguien la movió HACIA ATRÁS mientras tanto: lo que decía ya no aplica.
 	if (proposal.closeStage && proposal.closeStage !== fromStatus) {
 		out.notes.push(
-			`El parte hablaba de ${proposal.closeStage} y la OT ya está en ${fromStatus}: ` +
-			'alguien la movió mientras tanto.',
+			`El parte hablaba de ${proposal.closeStage} y la OT ya está en ${fromStatus}: alguien la movió mientras tanto.`,
 		);
-	} else if (proposal.closeStage && promptsStageReport(fromStatus)) {
-		// `closePass` lanza en vez de devolver silencioso ante un error de
-		// lectura/escritura real — acá se atrapa para no perder el resto del
-		// parte (las horas son ciertas aunque cerrar la pasada haya fallado).
+		return out;
+	}
+
+	/** Cerrar la pasada sin mover: las horas son ciertas aunque la OT no avance. */
+	const closeOnly = async () => {
+		if (!proposal.closeStage || !promptsStageReport(fromStatus)) return;
 		try {
-			out.closed = await closePass(
-				otId,
-				proposal.closeStage,
-				proposal,
-				actor,
-				ot.assigned_machine_id ?? null,
-				evidence,
-			);
+			out.closed = await closePass(otId, proposal.closeStage, proposal, actor, ot.assigned_machine_id ?? null, evidence);
 			if (!out.closed) out.notes.push('La pasada ya estaba cerrada por otra vía.');
 		} catch (err) {
 			out.notes.push(err instanceof Error ? err.message : 'No se pudo cerrar la pasada.');
 		}
-	}
+	};
 
-	if (!proposal.nextStatus) return out;
-
-	// Las mismas compuertas que el tablero, incluida la de pasadas abiertas: si
-	// la OT se va a despachar debiendo horas de otra etapa, el parte del que
-	// reparte no la deja pasar tampoco.
-	const [approval, costs, openPasses] = await Promise.all([
-		supabaseAdmin.from('ot_approvals').select('id', { count: 'exact', head: true })
-			.eq('ot_id', otId).eq('status', 'approved'),
-		supabaseAdmin.from('ot_real_costs').select('id', { count: 'exact', head: true })
-			.eq('ot_id', otId),
-		supabaseAdmin.from('ot_stage_reports').select('workflow_step, created_at')
-			.eq('ot_id', otId).is('hours', null),
-	]);
-
-	const check = validateTransition({
-		fromStatus,
-		toStatus: proposal.nextStatus,
-		role: actor.role,
-		hasApprovedApproval: (approval.count ?? 0) > 0,
-		hasAnyRealCosts: (costs.count ?? 0) > 0,
-		openPasses:
-			(openPasses.data as { workflow_step: string; created_at: string }[] | null) ?? undefined,
-	});
-
-	if (!check.ok) {
-		out.blocked = check.message ?? 'La OT no puede avanzar todavía.';
+	if (!proposal.nextStatus) {
+		await closeOnly();
 		return out;
 	}
 
-	const nowIso = new Date().toISOString();
-	const { data: updated, error: updateErr } = await supabaseAdmin
-		.from('ots')
-		.update({
-			status: proposal.nextStatus,
-			updated_at: nowIso,
-			completed_at: proposal.nextStatus === 'completed' ? nowIso : undefined,
-		})
-		.eq('id', otId)
-		// El mismo guardia de concurrencia que la ruta de transición: si otro la
-		// movió entre la validación y esto, no se pisa.
-		.eq('status', fromStatus)
-		.select('id, status')
+	// ── Mover: el MISMO movimiento que el tablero (`moveOT`) ─────────────────
+	//
+	// Mismas compuertas, misma pasada, mismo backflush, mismo aviso. Antes esto
+	// tenía su propia copia de la validación y el UPDATE, y un movimiento por
+	// WhatsApp no descontaba papel ni avisaba a nadie.
+	let partialQuantity: number | null = null;
+	if (proposal.partialSheets) {
+		const basis = await loadOTBasis(otId);
+		const units = basis?.unitsPerSheet ? Math.round(proposal.partialSheets * basis.unitsPerSheet) : null;
+		// Unidades que no dejan resto son un avance completo, no uno parcial.
+		if (units && basis && units > 0 && units < basis.quantity) partialQuantity = units;
+	}
+
+	// Si la etapa ya tiene una pasada sin cerrar ni destino (la OT llegó acá por
+	// el tablero sin horas, o se cerró antes de saber a dónde iba), el parte la
+	// completa en vez de escribir una segunda con las mismas horas.
+	const { data: pendiente, error: pendienteErr } = await supabaseAdmin
+		.from('ot_stage_reports')
+		.select('id')
+		.eq('ot_id', otId)
+		.eq('workflow_step', fromStatus as never)
+		.is('to_status', null)
+		.order('created_at', { ascending: true })
+		.limit(1)
 		.maybeSingle();
-
-	// Cero filas (carrera perdida) y un error real son cosas distintas — la
-	// primera es "otro te ganó", la segunda es "no se pudo ni intentar", y
-	// decirle al prensista que alguien más movió su OT cuando en realidad la
-	// base falló le hace desconfiar de la OT equivocada.
-	if (updateErr) {
-		out.blocked = `No se pudo mover la OT: ${updateErr.message}`;
-		return out;
-	}
-	if (!updated) {
-		out.blocked = 'La OT fue movida por otra operación mientras se aplicaba el parte.';
+	// Sin poder leerlo, mover escribiría una segunda pasada con las mismas horas.
+	if (pendienteErr) {
+		out.blocked = `No se pudo leer la pasada de la etapa: ${pendienteErr.message}`;
 		return out;
 	}
 
-	out.moved = { from: fromStatus, to: proposal.nextStatus };
-
-	// La pasada de la etapa que la OT acaba de dejar, si el parte no la cerró
-	// —porque no traía horas—. Queda abierta: el rastro existe y la deuda se ve.
-	if (promptsStageReport(fromStatus) && !out.closed) {
-		await supabaseAdmin.from('ot_stage_reports').insert({
-			ot_id: otId,
-			workflow_step: fromStatus as never,
-			to_status: proposal.nextStatus,
-			hours: null,
-			machine_id: ot.assigned_machine_id ?? null,
-			recorded_by: actor.id,
-		});
-	} else if (out.closed) {
-		// Se cerró antes de saber a dónde iba: ahora se completa el destino.
-		await supabaseAdmin
-			.from('ot_stage_reports')
-			.update({ to_status: proposal.nextStatus })
-			.eq('id', out.closed.id);
-	}
-
-	// El historial es el mismo que escribe el tablero, con el canal a la vista:
-	// una auditoría tiene que poder distinguir un movimiento decidido por una
-	// persona frente a la pantalla de uno inferido de un mensaje de texto.
-	await supabaseAdmin.from('ot_status_history').insert({
-		ot_id: otId,
-		from_status: fromStatus,
-		to_status: proposal.nextStatus,
-		changed_by: actor.id,
-		changed_by_role: actor.role,
-		reason: 'whatsapp_parte',
-		rollback: false,
-		metadata: {
-			channel: 'whatsapp',
-			confidence: proposal.confidence,
-			resolution: proposal.reason,
+	const moved = await moveOT({
+		otId,
+		toStatus: proposal.nextStatus,
+		actor,
+		partialQuantity,
+		stageReport: {
+			hours: proposal.hours,
+			mermaSheets: proposal.mermaSheets,
+			ajusteMinutes: proposal.ajusteMinutes,
+			issues: proposal.issues,
+			observations: proposal.observations,
+			operatorEmployeeId: evidence.operatorEmployeeId ?? null,
+			passId: (pendiente as { id: string } | null)?.id ?? null,
 		},
+		// El historial distingue un movimiento decidido frente a la pantalla de
+		// uno inferido de un mensaje de texto.
+		reason: 'whatsapp_parte',
+		metadata: { channel: 'whatsapp', confidence: proposal.confidence, resolution: proposal.reason },
 	});
 
+	if (!moved.ok) {
+		// La compuerta dijo que no: no se pierde nada. La pasada se cierra igual y
+		// el motivo vuelve para que quede escrito en la captura.
+		out.blocked = moved.error;
+		await closeOnly();
+		return out;
+	}
+
+	out.moved = { from: fromStatus, to: proposal.nextStatus, ...(moved.fragment ? { fragment: moved.fragment } : {}) };
+	out.notes.push(...moved.warnings);
 	return out;
 }

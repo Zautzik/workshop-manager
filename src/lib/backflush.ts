@@ -111,7 +111,7 @@ export async function tryBackflush(params: {
 	// vigente y el insumo lo exige, `consumir_lote` lo rechaza — correctamente:
 	// backflush no tiene por qué poder saltarse una compuerta de calidad que un
 	// humano tampoco puede saltarse sin motivo escrito.
-	const { error: consumoErr } = await supabaseAdmin.rpc('consumir_lote' as never, {
+	const { error: consumoErr } = await supabaseAdmin.rpc('consumir_lote', {
 		p_lot_id: lot.id,
 		p_ot_id: otId,
 		p_quantity: cantidad,

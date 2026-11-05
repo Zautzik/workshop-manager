@@ -25,7 +25,21 @@ import { checkRateLimit, retryAfterSeconds } from '@/lib/rate-limiter';
 import { resolveMetaMediaUrl } from '@/lib/whatsapp-media';
 import { tryProcessMaintenanceMessage } from '@/lib/whatsapp-maintenance-ingest';
 import logger from '@/lib/logger';
-import type { Json } from '@/integrations/supabase/types';
+import type { Database, Json } from '@/integrations/supabase/types';
+
+type LogArgs = Database['public']['Functions']['insert_whatsapp_log_idempotent']['Args'];
+
+/**
+ * `insert_whatsapp_log_idempotent`, con los nulos que de verdad acepta.
+ *
+ * Postgres no tiene NOT NULL en parámetros, así que `supabase gen types` tipa
+ * cada argumento como obligatorio y no nulo. Éstos sí pueden ir en null —un
+ * mensaje sin OT reconocida, un teléfono sin empleado, un fin sin inicio— y la
+ * función los guarda tal cual. El cast vive acá, una vez, y no en cada llamada.
+ */
+function insertLogIdempotent(args: { [K in keyof LogArgs]: LogArgs[K] | null }) {
+  return supabaseAdmin.rpc('insert_whatsapp_log_idempotent', args as LogArgs);
+}
 
 /* ─── Input Schema ───────────────────────────────────────────── */
 
@@ -300,7 +314,7 @@ async function processEvent(event: ParseResult, ctx: EventContext): Promise<Even
     // `inserted: false` y el id de la fila que ya existía, no un error. Antes
     // esto no tenía NINGUNA deduplicación: cada reintento de Meta creaba una
     // fila 'auto_approved' nueva.
-    const { data: rows, error } = await supabaseAdmin.rpc('insert_whatsapp_log_idempotent', {
+    const { data: rows, error } = await insertLogIdempotent({
       p_external_message_id: messageId,
       p_ot_number: event.ot_number,
       p_ot_id: otId,
@@ -381,7 +395,7 @@ async function processEvent(event: ParseResult, ctx: EventContext): Promise<Even
     // reintento real de Meta tras un corte) pasaba, creaba una segunda fila
     // 'pending', y si un supervisor aprobaba las dos el mismo trabajo se
     // contaba como costo real dos veces.
-    const { data: rows, error } = await supabaseAdmin.rpc('insert_whatsapp_log_idempotent', {
+    const { data: rows, error } = await insertLogIdempotent({
       p_external_message_id: messageId,
       p_ot_number: event.ot_number,
       p_ot_id: otId,

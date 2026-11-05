@@ -37,22 +37,37 @@ import {
   TrendingUp,
   BarChart3,
   Search,
+  Pencil,
+  X,
 } from 'lucide-react';
 import {
   useWhatsAppSummary,
   useWhatsAppPendingReviews,
   useWhatsAppLogs,
-  useReviewWhatsAppLog,
-  useBatchReviewWhatsApp,
   useManualWhatsAppEntry,
 } from '@/hooks/use-whatsapp';
 import { useToast } from '@/hooks/use-toast';
-import type { WhatsAppProductionLog } from '@/types/whatsapp-production';
+import { useReviewCapture, useReviewCaptures } from '@/hooks/use-captures';
+import type { InferredCostData, WhatsAppProductionLog } from '@/types/whatsapp-production';
+import {
+  toEditableData, toDraftLines, rederive, toCorrections,
+  type EditableData, type DraftLine,
+} from '@/lib/review-edits';
 import { formatCLP } from '@/lib/whatsapp-cost-inference';
 import { ConfidenceBadge } from './ConfidenceBadge';
 import { StatusBadge } from './StatusBadge';
 import { CostLineTable } from './CostLineTable';
 import { ReviewCard } from './ReviewCard';
+import { EditableCostLineTable } from './EditableCostLineTable';
+import { EditableParsedData } from './EditableParsedData';
+
+/** Lo que el supervisor está corrigiendo, y contra qué se recalcula. */
+interface ReviewDraft {
+  baseData: EditableData;
+  baseLines: DraftLine[];
+  data: EditableData;
+  lines: DraftLine[];
+}
 
 /* ================================================================ */
 /*  MAIN DASHBOARD COMPONENT                                        */
@@ -61,14 +76,16 @@ import { ReviewCard } from './ReviewCard';
 export default function WhatsAppDashboard() {
   const { data: summary } = useWhatsAppSummary();
   const { data: pendingData } = useWhatsAppPendingReviews();
-  const reviewMutation = useReviewWhatsAppLog();
-  const batchReview = useBatchReviewWhatsApp();
+  const reviewMutation = useReviewCapture();
+  const batchReview = useReviewCaptures();
   const manualEntry = useManualWhatsAppEntry();
   const { toast } = useToast();
 
   const [activeTab, setActiveTab] = useState('pending');
   const [reviewingLog, setReviewingLog] = useState<WhatsAppProductionLog | null>(null);
   const [reviewComments, setReviewComments] = useState('');
+  // null = viendo; un borrador = el supervisor está corrigiendo la interpretación.
+  const [draft, setDraft] = useState<ReviewDraft | null>(null);
   const [manualMessage, setManualMessage] = useState('');
   const [manualName, setManualName] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
@@ -112,13 +129,18 @@ export default function WhatsAppDashboard() {
   const handleBatchReview = async (action: 'approve' | 'reject') => {
     if (selectedIds.size === 0) return;
     try {
-      const result = await batchReview.mutateAsync({
+      const results = await batchReview.mutateAsync({
+        source: 'whatsapp',
         ids: Array.from(selectedIds),
-        action,
+        decision: action,
       });
+      const hechos = results.filter(r => r.ok).length;
+      const avisos = results.filter(r => r.warning || !r.ok);
       toast({
         title: action === 'approve' ? '✅ Aprobados en lote' : '❌ Rechazados en lote',
-        description: `${result.updated} registros ${action === 'approve' ? 'aprobados' : 'rechazados'}`,
+        description: `${hechos} de ${results.length} registros ${action === 'approve' ? 'aprobados' : 'rechazados'}`
+          + (avisos.length > 0 ? ` · ${avisos.length} con aviso: ${avisos[0].warning ?? avisos[0].error}` : ''),
+        variant: avisos.length > 0 ? 'destructive' : 'default',
       });
       setSelectedIds(new Set());
     } catch (err: any) {
@@ -128,33 +150,61 @@ export default function WhatsAppDashboard() {
 
   /* ─── Review Actions ─────────────────────────────────────── */
 
-  const handleReview = async (action: 'approve' | 'reject' | 'needs_revision') => {
+  const closeReview = () => {
+    setReviewingLog(null);
+    setReviewComments('');
+    setDraft(null);
+  };
+
+  /** «Editar e Integrar»: parte de lo último que se dejó como cierto. */
+  const startEditing = () => {
     if (!reviewingLog) return;
+    const parsed = (reviewingLog.corrected_data ?? reviewingLog.parsed_data) as Record<string, unknown> | null;
+    const costs = (reviewingLog.corrected_costs ?? reviewingLog.inferred_costs) as InferredCostData | null;
+    const data = toEditableData(parsed);
+    const lines = toDraftLines(costs?.cost_lines ?? []);
+    setDraft({ baseData: data, baseLines: lines, data, lines });
+  };
+
+  /** Cambiar un dato arrastra las líneas que dependen de él (y que nadie tocó). */
+  const setDraftData = (data: EditableData) =>
+    setDraft(d => d && { ...d, data, lines: rederive(d.lines, d.baseLines, d.baseData, data) });
+
+  // «Solicitar revisión» y «Rechazar» eran la misma decisión con dos nombres:
+  // el parte no se integra. Queda una sola.
+  const handleReview = async (action: 'approve' | 'reject') => {
+    if (!reviewingLog) return;
+
+    // Con edición, viajan los datos corregidos (deciden etapa, horas y destino
+    // de la OT) y las líneas de costo; apply_capture_event integra lo corregido.
+    const corrections = action === 'approve' && draft ? toCorrections(draft.data, draft.lines) : undefined;
 
     try {
       const result = await reviewMutation.mutateAsync({
+        source: 'whatsapp',
         id: reviewingLog.id,
-        action,
+        decision: action,
         comments: reviewComments || undefined,
+        corrections,
       });
 
-      const hasWarning = result && '_warning' in result;
+      const hasWarning = !!result?.warning;
 
       toast({
         title: hasWarning
           ? '⚠️ Aprobado con advertencia'
-          : action === 'approve' ? '✅ Aprobado' : action === 'reject' ? '❌ Rechazado' : '🔄 Revisión solicitada',
+          : action === 'approve' ? (corrections ? '✅ Corregido e integrado' : '✅ Aprobado') : '❌ Rechazado',
         description: hasWarning
-          ? (result as any)._warning
+          ? result.warning
           : `OT-${reviewingLog.ot_number} ${
-            action === 'approve' ? 'aprobado y costos integrados al sistema' :
-            action === 'reject' ? 'rechazado' : 'devuelto para revisión'
+            action === 'approve'
+              ? (corrections ? 'corregido e integrado al sistema' : 'aprobado y costos integrados al sistema')
+              : 'rechazado'
           }`,
         variant: hasWarning ? 'destructive' : 'default',
       });
 
-      setReviewingLog(null);
-      setReviewComments('');
+      closeReview();
     } catch (err: any) {
       toast({ title: 'Error', description: err.message, variant: 'destructive' });
     }
@@ -481,7 +531,7 @@ export default function WhatsAppDashboard() {
       </Tabs>
 
       {/* ── Review Dialog ──────────────────────────────────── */}
-      <Dialog open={!!reviewingLog} onOpenChange={(open) => !open && setReviewingLog(null)}>
+      <Dialog open={!!reviewingLog} onOpenChange={(open) => !open && closeReview()}>
         <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           {reviewingLog && (() => {
             const parsedData = reviewingLog.parsed_data as any;
@@ -495,7 +545,7 @@ export default function WhatsAppDashboard() {
                     Revisar Reporte — OT-{reviewingLog.ot_number}
                   </DialogTitle>
                   <DialogDescription>
-                    Revisa los datos extraídos y costos inferidos. Puedes aprobar, rechazar o solicitar revisión.
+                    Revisa los datos extraídos y costos inferidos. Puedes rechazarlo, integrarlo tal cual, o corregir la interpretación (datos y costos) e integrarla.
                   </DialogDescription>
                 </DialogHeader>
 
@@ -545,7 +595,15 @@ export default function WhatsAppDashboard() {
                   </div>
 
                   {/* Parsed Data */}
-                  {parsedData && (
+                  {draft ? (
+                    <>
+                      <h4 className="font-semibold text-sm flex items-center gap-2">
+                        <Pencil className="h-4 w-4 text-amber-500" />
+                        Editando datos extraídos
+                      </h4>
+                      <EditableParsedData data={draft.data} onChange={setDraftData} />
+                    </>
+                  ) : parsedData && (
                     <>
                       <div className="flex items-center justify-between">
                         <h4 className="font-semibold text-sm">Datos Extraídos</h4>
@@ -617,7 +675,18 @@ export default function WhatsAppDashboard() {
                   <Separator />
 
                   {/* Inferred Costs */}
-                  {(() => {
+                  {draft ? (
+                    <>
+                      <h4 className="font-semibold text-sm flex items-center gap-2">
+                        <Pencil className="h-4 w-4 text-amber-500" />
+                        Editando costos inferidos
+                      </h4>
+                      <EditableCostLineTable
+                        lines={draft.lines}
+                        onChange={lines => setDraft(d => d && { ...d, lines })}
+                      />
+                    </>
+                  ) : (() => {
                     const displayedCosts = reviewingLog.corrected_costs ?? inferredCosts;
                     const hasCorrected = !!reviewingLog.corrected_costs;
                     return displayedCosts?.cost_lines?.length > 0 ? (
@@ -655,33 +724,57 @@ export default function WhatsAppDashboard() {
                   </div>
                 </div>
 
-                <DialogFooter className="flex gap-2 sm:gap-2">
-                  <Button
-                    variant="outline"
-                    onClick={() => handleReview('needs_revision')}
-                    disabled={reviewMutation.isPending}
-                    className="gap-1"
-                  >
-                    <RotateCcw className="h-4 w-4" />
-                    Solicitar Revisión
-                  </Button>
-                  <Button
-                    variant="destructive"
-                    onClick={() => handleReview('reject')}
-                    disabled={reviewMutation.isPending}
-                    className="gap-1"
-                  >
-                    <ThumbsDown className="h-4 w-4" />
-                    Rechazar
-                  </Button>
-                  <Button
-                    onClick={() => handleReview('approve')}
-                    disabled={reviewMutation.isPending}
-                    className="gap-1 bg-green-600 hover:bg-green-700"
-                  >
-                    <ThumbsUp className="h-4 w-4" />
-                    {reviewMutation.isPending ? 'Procesando...' : 'Aprobar e Integrar'}
-                  </Button>
+                <DialogFooter className="flex flex-wrap gap-2 sm:gap-2">
+                  {draft ? (
+                    <>
+                      <Button
+                        variant="outline"
+                        onClick={() => setDraft(null)}
+                        disabled={reviewMutation.isPending}
+                        className="gap-1"
+                      >
+                        <X className="h-4 w-4" />
+                        Descartar cambios
+                      </Button>
+                      <Button
+                        onClick={() => handleReview('approve')}
+                        disabled={reviewMutation.isPending}
+                        className="gap-1 bg-green-600 hover:bg-green-700"
+                      >
+                        <ThumbsUp className="h-4 w-4" />
+                        {reviewMutation.isPending ? 'Procesando...' : 'Guardar e Integrar'}
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      <Button
+                        variant="destructive"
+                        onClick={() => handleReview('reject')}
+                        disabled={reviewMutation.isPending}
+                        className="gap-1"
+                      >
+                        <ThumbsDown className="h-4 w-4" />
+                        Rechazar
+                      </Button>
+                      <Button
+                        variant="outline"
+                        onClick={startEditing}
+                        disabled={reviewMutation.isPending}
+                        className="gap-1"
+                      >
+                        <Pencil className="h-4 w-4" />
+                        Editar e Integrar
+                      </Button>
+                      <Button
+                        onClick={() => handleReview('approve')}
+                        disabled={reviewMutation.isPending}
+                        className="gap-1 bg-green-600 hover:bg-green-700"
+                      >
+                        <ThumbsUp className="h-4 w-4" />
+                        {reviewMutation.isPending ? 'Procesando...' : 'Aprobar e Integrar'}
+                      </Button>
+                    </>
+                  )}
                 </DialogFooter>
               </>
             );

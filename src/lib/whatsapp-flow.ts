@@ -72,6 +72,13 @@ const PROCESO_A_ETAPA: Record<string, OTWorkflowStatus> = {
 	tercerizado: 'outsourced',
 };
 
+/**
+ * Los procesos que el recorrido entiende, para que el supervisor corrija los
+ * que el parser leyó. «corte» va aparte porque su etapa depende de dónde está
+ * la OT (`resolveCutStage`).
+ */
+export const PROCESOS_CONOCIDOS: readonly string[] = [...Object.keys(PROCESO_A_ETAPA), 'corte'];
+
 /** Etapas donde «corte» significa el primer corte, no el final. */
 const ANTES_DE_IMPRIMIR: readonly string[] = [
 	'paper_purchase',
@@ -119,6 +126,12 @@ export interface FlowProposal {
 	 * cierto: completa los datos que le falten a esa pasada y no mueve la OT.
 	 */
 	retroactive: boolean;
+	/**
+	 * Avance parcial: los pliegos que el parte dice que salieron de la etapa,
+	 * cuando son claramente menos que los que la etapa tiene. Esos pasan a
+	 * `nextStatus`; el resto se queda. `null` = la OT entera.
+	 */
+	partialSheets: number | null;
 	issues: string | null;
 	observations: string | null;
 	/** 0–100, heredada del parser. Decide si se aplica sola o va a revisión. */
@@ -167,9 +180,30 @@ export function stagesMentioned(
  * El texto sí decide a DÓNDE VA, que es la parte que el sistema no puede saber
  * solo cuando hay una bifurcación.
  */
+/**
+ * Lo que la OT sabe de sí misma y el texto no: a dónde sigue SU ruta y cuántos
+ * pliegos tiene la etapa. Sin esto el parte resuelve sólo con el recorrido
+ * genérico, como antes.
+ */
+export interface FlowContext {
+	/** `nextStatusOnRoute` (production-route.ts): la columna siguiente en la ruta de esta OT. */
+	routeNext?: OTWorkflowStatus | null;
+	/** Pliegos que la etapa tiene hoy (los de este fragmento, si la OT ya se dividió). */
+	stageSheets?: number | null;
+}
+
+/**
+ * Por debajo de esta fracción de los pliegos de la etapa, el parte es un avance
+ * parcial. No es «cualquier número menor»: un tiraje termina con algo menos de
+ * lo calculado por la merma y el redondeo de la imposición, y partir la OT por
+ * ese 3% dejaría un fragmento fantasma esperando pliegos que no existen.
+ */
+export const FRACCION_PARCIAL = 0.95;
+
 export function resolveFlow(
 	currentStatus: string,
 	parse: FlowParse,
+	ctx: FlowContext = {},
 ): FlowProposal {
 	const confidence = typeof parse.confidence === 'number' ? parse.confidence : 0;
 	const hours = num(parse.hours_reported);
@@ -207,6 +241,7 @@ export function resolveFlow(
 			mermaSheets,
 			ajusteMinutes,
 			retroactive: true,
+			partialSheets: null,
 			issues: texto(parse.problems_reported),
 			observations: null,
 			confidence,
@@ -218,14 +253,26 @@ export function resolveFlow(
 	// Un proceso nombrado que NO está en el recorrido siguiente casi siempre es
 	// el que se acaba de terminar («listo el troquelado» estando en el troquel),
 	// y por eso no se toma como destino.
+	//
+	// La ruta de la OT cuenta como destino posible aunque el recorrido genérico
+	// no la tenga como paso inmediato: una OT troquelada salta el corte final, y
+	// eso lo sabe su ruta, no el recorrido.
+	const routeNext = ctx.routeNext ?? null;
+	const posibles = routeNext && !naturales.includes(routeNext) ? [...naturales, routeNext] : naturales;
 	let nextStatus: OTWorkflowStatus | null =
-		mencionadas.find((e) => naturales.includes(e)) ?? null;
+		mencionadas.find((e) => posibles.includes(e)) ?? null;
 	let reason: string;
 
 	if (!esFin) {
 		reason = 'Parte de inicio: no mueve la OT.';
 	} else if (nextStatus) {
 		reason = `El parte nombra ${nextStatus}, que es uno de los pasos posibles desde acá.`;
+	} else if (routeNext) {
+		// El mensaje no dice a dónde, pero la OT sí: su ruta (máquina asignada,
+		// colores, terminaciones) es la misma que usa el planificador. Preguntarle
+		// al supervisor algo que la OT ya sabe era la bifurcación que no movía nada.
+		nextStatus = routeNext;
+		reason = `La ruta de la OT sigue en ${routeNext}.`;
 	} else if (naturales.length === 1) {
 		// Sin bifurcación no hay nada que preguntar: el recorrido tiene un solo
 		// paso siguiente y el operario ya dijo que terminó.
@@ -241,6 +288,20 @@ export function resolveFlow(
 		reason = 'La OT ya está al final del recorrido.';
 	}
 
+	// ── ¿La OT entera, o una parte? ──────────────────────────────────────────
+	// «fin 41221 500 pliegos» de un tiraje de 57.696 no terminó la etapa:
+	// terminó 500 pliegos. Esos avanzan y el resto sigue en la máquina — lo
+	// mismo que hace el supervisor con el avance parcial del tablero.
+	const sheets = num(parse.pliegos_produced);
+	const stageSheets = num(ctx.stageSheets);
+	const partialSheets =
+		esFin && nextStatus && sheets && stageSheets && sheets < stageSheets * FRACCION_PARCIAL
+			? Math.round(sheets)
+			: null;
+	if (partialSheets) {
+		reason += ` Avance parcial: ${partialSheets} de ${Math.round(stageSheets!)} pliegos.`;
+	}
+
 	return {
 		closeStage,
 		nextStatus,
@@ -248,6 +309,7 @@ export function resolveFlow(
 		mermaSheets,
 		ajusteMinutes,
 		retroactive: false,
+		partialSheets,
 		issues: texto(parse.problems_reported),
 		// `unparsed_notes` NO va a observaciones. Suena a que ahí está lo que el
 		// parser no supo leer, pero en la práctica es el resto del mensaje entero
