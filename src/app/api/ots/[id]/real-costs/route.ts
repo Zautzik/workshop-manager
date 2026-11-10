@@ -4,11 +4,20 @@ import { requireAuth, isAuthError } from '@/lib/api-middleware';
 import { supabaseAdmin } from '@/integrations/supabase/server';
 import { buildRateLimitActor, enforceRouteRateLimit } from '@/lib/api-rate-limit';
 import { OPERATION_MONEY_FIELDS, redactMoney } from '@/lib/money-fields';
+import { MAQUINA_VIA_PASADA, MATERIAL_VIA_CONSUMO } from '@/lib/material-policy';
 
+// Sin 'materiales' ni 'impresion': el material cuesta cuando sale de bodega, al
+// precio real de su lote; la máquina, cuando se cierra la pasada
+// (material-policy.ts). La base los rechaza igual; esto da el motivo en vez de
+// un 500.
 const RealCostSchema = z.object({
 	operation_code: z.string().min(1).max(50),
 	description: z.string().min(1).max(500),
-	category: z.enum(['materiales', 'impresion', 'terminaciones', 'tercerizado', 'otros']).default('otros'),
+	category: z
+		.enum(['materiales', 'impresion', 'terminaciones', 'tercerizado', 'otros'])
+		.refine((c) => c !== 'materiales', MATERIAL_VIA_CONSUMO)
+		.refine((c) => c !== 'impresion', MAQUINA_VIA_PASADA)
+		.default('otros'),
 	quantity: z.coerce.number().min(0),
 	unit: z.string().max(50).default('unit'),
 	unit_cost: z.coerce.number().min(0),
@@ -99,11 +108,16 @@ export async function POST(
 		// (delete → insert) lost the step's existing costs whenever the insert
 		// failed (2026-07 audit). Now a failed insert leaves the old rows intact;
 		// the worst case of a failed cleanup is visible duplicates, not loss.
-		const { data: previousRows } = await supabaseAdmin
+		const { data: previousRows, error: previousError } = await supabaseAdmin
 			.from('ot_real_costs')
 			.select('id')
 			.eq('ot_id', id)
 			.eq('workflow_step', workflow_step);
+		// Sin saber qué había, «reemplazar» sería agregar duplicados.
+		if (previousError) {
+			console.error('Error reading previous real costs:', previousError);
+			return NextResponse.json({ error: 'No se pudieron registrar los costos reales' }, { status: 500 });
+		}
 		const previousIds = (previousRows ?? []).map((r) => r.id);
 
 		const rows = costs.map((c) => ({

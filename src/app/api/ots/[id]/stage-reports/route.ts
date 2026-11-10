@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { requireAuth, isAuthError } from '@/lib/api-middleware';
 import { supabaseAdmin } from '@/integrations/supabase/server';
 import { estimatedHoursFor, firstProblem, validateStageReport } from '@/lib/stage-report';
+import { valueStagePassesSafely } from '@/lib/stage-valuation';
 
 /**
  * GET /api/ots/[id]/stage-reports — los cierres de etapa de una OT.
@@ -164,5 +165,7 @@ export async function PATCH(
 		);
 	}
 
-	return NextResponse.json(updated);
+	// Las horas recién declaradas se vuelven costo de máquina (stage-valuation.ts).
+	const warning = await valueStagePassesSafely(id);
+	return NextResponse.json(warning ? { ...updated, warning } : updated);
 }

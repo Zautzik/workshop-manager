@@ -28,6 +28,7 @@ import { OTStatusSchema, type OTWorkflowStatus } from '@/lib/ot-state-machine';
 import { promptsStageReport } from '@/lib/stage-report';
 import { nextStatusOnRoute, type RouteOT } from '@/lib/production-route';
 import { moveOT } from '@/lib/ot-move';
+import { valueStagePassesSafely } from '@/lib/stage-valuation';
 import type { FlowContext, FlowProposal } from '@/lib/whatsapp-flow';
 import type { AppRole } from '@/types/app-role';
 
@@ -289,6 +290,13 @@ export async function applyFlowProposal(
 ): Promise<ApplyOutcome> {
 	const out: ApplyOutcome = { closed: null, moved: null, blocked: null, notes: [] };
 
+	/** Horas que se acaban de escribir en una pasada → costo de máquina (stage-valuation.ts). */
+	async function valueClosed() {
+		if (out.closed?.hours == null) return;
+		const w = await valueStagePassesSafely(otId);
+		if (w) out.notes.push(w);
+	}
+
 	const { data: ot, error: otErr } = await supabaseAdmin
 		.from('ots')
 		.select('id, status, assigned_machine_id')
@@ -328,6 +336,7 @@ export async function applyFlowProposal(
 		} catch (err) {
 			out.notes.push(err instanceof Error ? err.message : 'No se pudo completar la pasada.');
 		}
+		await valueClosed();
 		return out;
 	}
 
@@ -348,6 +357,7 @@ export async function applyFlowProposal(
 		} catch (err) {
 			out.notes.push(err instanceof Error ? err.message : 'No se pudo cerrar la pasada.');
 		}
+		await valueClosed();
 	};
 
 	if (!proposal.nextStatus) {

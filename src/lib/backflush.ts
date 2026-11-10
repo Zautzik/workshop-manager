@@ -92,14 +92,32 @@ export async function tryBackflush(params: {
 	}
 	const item = candidatos[0];
 
-	const { data: lots, error: lotsErr } = await supabaseAdmin
-		.from('inventory_lots')
-		.select('id, lot_number, quantity_available, received_date, certification_expires_on')
-		.eq('item_id', item.id)
-		.gt('quantity_available', 0)
-		.is('blocked_reason', null)
-		.order('received_date', { ascending: true })
-		.limit(1);
+	// Primero el lote RESERVADO para esta OT: lo que se compró para ella
+	// (receive_oc_into_lot lo reserva al recibir) es lo que físicamente sale, y
+	// su precio es el costo real del trabajo — el material se cuesta al
+	// consumirse, al costo del lote usado. Sin reserva, el más viejo (FIFO).
+	const { data: reservas, error: resErr } = await supabaseAdmin
+		.from('inventory_reservations')
+		.select('lot_id')
+		.eq('ot_id', otId)
+		.eq('status', 'activa')
+		.gt('expires_at', new Date().toISOString());
+	if (resErr) return FAILED('No se pudo consultar las reservas de la OT');
+	const reservados = (reservas ?? []).map((r) => r.lot_id);
+
+	const lotesDe = (soloReservados: boolean) => {
+		let q = supabaseAdmin
+			.from('inventory_lots')
+			.select('id, lot_number, quantity_available, received_date, certification_expires_on')
+			.eq('item_id', item.id)
+			.gt('quantity_available', 0)
+			.is('blocked_reason', null);
+		if (soloReservados) q = q.in('id', reservados);
+		return q.order('received_date', { ascending: true }).limit(1);
+	};
+
+	let { data: lots, error: lotsErr } = reservados.length > 0 ? await lotesDe(true) : { data: [], error: null };
+	if (!lotsErr && (!lots || lots.length === 0)) ({ data: lots, error: lotsErr } = await lotesDe(false));
 	if (lotsErr) return FAILED('No se pudo consultar los lotes disponibles');
 	if (!lots || lots.length === 0) return SKIP(`Sin stock disponible de ${item.name}`);
 

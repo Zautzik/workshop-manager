@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth, isAuthError } from '@/lib/api-middleware';
 import { supabaseAdmin } from '@/integrations/supabase/server';
+import { MAQUINA_VIA_PASADA, MATERIAL_VIA_CONSUMO } from '@/lib/material-policy';
 import { rollupFromDbAggregates, aggregateRollup, rollupByClient, hasClientConflict, type DbCostAggregate, type OTRevenue } from '@/lib/cost-rollup';
 
 export const dynamic = 'force-dynamic';
@@ -109,7 +110,15 @@ export async function POST(req: NextRequest) {
   const otId = body?.ot_id;
   if (!otId) return NextResponse.json({ error: 'ot_id is required' }, { status: 400 });
 
-  const rows = (Array.isArray(body?.lines) ? body.lines : [])
+  const lines = Array.isArray(body?.lines) ? body.lines : [];
+  if (lines.some((l: any) => l?.category === 'material')) {
+    return NextResponse.json({ error: MATERIAL_VIA_CONSUMO }, { status: 400 });
+  }
+  if (lines.some((l: any) => l?.category === 'machine')) {
+    return NextResponse.json({ error: MAQUINA_VIA_PASADA }, { status: 400 });
+  }
+
+  const rows = lines
     .filter((l: any) => Number(l?.unit_cost) > 0)
     .map((l: any) => ({
       ot_id: otId,

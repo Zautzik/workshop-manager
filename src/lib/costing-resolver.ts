@@ -195,3 +195,60 @@ export function resolveCostOverrides(
 
   return out;
 }
+
+/* ─── La tarifa de una etapa ───────────────────────────────────────────────
+ *
+ * El hilo dorado tenía cuatro precios para una hora de prensa (presupuesto por
+ * defecto 25.000, inferencia de WhatsApp 55.000, catálogo 85.000, y el costo
+ * derivado de la máquina) — auditoría 2026-11-05, C-1. El estimado y el real se
+ * valorizaban con tarjetas distintas, así que la variación entre ellos medía la
+ * diferencia de tarifas y no la del trabajo.
+ *
+ * Ahora la hora de una etapa sale de ACÁ, de la misma resolución con la que se
+ * cotiza (`resolveCostOverrides`). Es costeo estándar: el real valoriza las
+ * horas REALES a la tarifa con la que se cotizó, y la variación queda limpia —
+ * horas de más o de menos. Lo que la máquina cuesta de verdad contra el
+ * catálogo es otra pregunta, y ya tiene su pantalla (Equipos → Economía,
+ * `compareToCatalog`).
+ *
+ * Sólo las etapas de MÁQUINA tienen tarifa por hora. El operario no está acá:
+ * su costo real viene de los turnos (labor-attribution), y sumarlo también acá
+ * lo contaría dos veces. Digital se cobra por click, no por hora; taller,
+ * revisión y despacho son mano de obra.
+ */
+
+const STAGE_ENGINE_KEY: Partial<Record<string, { key: keyof CostOverrides; label: string }>> = {
+  offset_printing:      { key: 'offset_print_per_hour', label: 'Impresión offset' },
+  guillotine_first_cut: { key: 'cut_per_hour',          label: 'Primer corte' },
+  guillotine_final_cut: { key: 'cut_per_hour',          label: 'Corte final' },
+  die_cutting:          { key: 'troquelado_per_hour',   label: 'Troquelado' },
+};
+
+export interface StageRate {
+  /** CLP por hora de máquina. */
+  rate: number;
+  label: string;
+  /** `catalogo` = resuelta del catálogo como una cotización; `supuesto` = el defecto del motor. */
+  source: 'catalogo' | 'supuesto';
+}
+
+/**
+ * La tarifa por hora de máquina de una etapa del tablero, o null si la etapa
+ * no se cobra por hora de máquina.
+ *
+ * @param fallback los defectos del motor (`DEFAULT_COSTS`), inyectados para
+ *   que este módulo no importe valores de `ot-calculations` (sólo su tipo).
+ */
+export function stageMachineRate(
+  stage: string,
+  spec: CostSpec,
+  catalog: CostCenterItem[],
+  fallback: Required<Pick<CostOverrides, 'offset_print_per_hour' | 'cut_per_hour' | 'troquelado_per_hour'>>,
+): StageRate | null {
+  const def = STAGE_ENGINE_KEY[stage];
+  if (!def) return null;
+  const resolved = resolveCostOverrides(catalog, spec)[def.key];
+  if (typeof resolved === 'number' && resolved > 0) return { rate: resolved, label: def.label, source: 'catalogo' };
+  const assumed = fallback[def.key as keyof typeof fallback];
+  return assumed > 0 ? { rate: assumed, label: def.label, source: 'supuesto' } : null;
+}

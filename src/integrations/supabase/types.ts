@@ -1643,6 +1643,7 @@ export type Database = {
           id: string
           item_id: string
           lot_number: string
+          oc_unit_cost: number | null
           purchase_id: string | null
           qr_printed_at: string | null
           quantity_available: number
@@ -1665,6 +1666,7 @@ export type Database = {
           id?: string
           item_id: string
           lot_number: string
+          oc_unit_cost?: number | null
           purchase_id?: string | null
           qr_printed_at?: string | null
           quantity_available: number
@@ -1687,6 +1689,7 @@ export type Database = {
           id?: string
           item_id?: string
           lot_number?: string
+          oc_unit_cost?: number | null
           purchase_id?: string | null
           qr_printed_at?: string | null
           quantity_available?: number

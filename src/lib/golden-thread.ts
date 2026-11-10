@@ -173,6 +173,10 @@ function decisionPatch(r: Resolved, input: ReviewInput, actor: ApplyActor): Row 
 		const cost_lines = c.costLines.map((l) => ({ ...l, total_cost: Math.round(l.quantity * l.unit_cost) }));
 		patch.corrected_costs = {
 			...(r.homeRow.corrected_costs ?? r.homeRow.inferred_costs ?? {}),
+			// Un parte viejo trae papel y tinta inferidos; el material entra al
+			// consumirse (material-policy.ts), así que el resumen no los arrastra.
+			paper_cost: 0,
+			ink_cost: 0,
 			cost_lines,
 			total_inferred_cost: cost_lines.reduce((s, l) => s + l.total_cost, 0),
 		};

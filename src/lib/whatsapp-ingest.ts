@@ -21,6 +21,8 @@ import { z } from 'zod';
 import { supabaseAdmin } from '@/integrations/supabase/server';
 import { parseWhatsAppEvents, type ParseResult } from '@/lib/whatsapp-parser';
 import { inferProductionCosts, type OTContext } from '@/lib/whatsapp-cost-inference';
+import { loadRateInputs, ratesFor } from '@/lib/rate-card';
+import type { CostOverrides } from '@/lib/ot-calculations';
 import { checkRateLimit, retryAfterSeconds } from '@/lib/rate-limiter';
 import { resolveMetaMediaUrl } from '@/lib/whatsapp-media';
 import { tryProcessMaintenanceMessage } from '@/lib/whatsapp-maintenance-ingest';
@@ -246,7 +248,7 @@ async function processEvent(event: ParseResult, ctx: EventContext): Promise<Even
   const otNum = event.ot_number;
   const { data: otData, error: otLookupError } = await supabaseAdmin
     .from('ots')
-    .select('id, ot_number, quantity, substrate_type, grammage_gsm, width_cm, height_cm, client_name, product_name, status')
+    .select('id, ot_number, quantity, substrate_type, grammage_gsm, width_cm, height_cm, client_name, product_name, status, color_front, color_back')
     .in('ot_number', [otNum, `OT-${otNum}`])
     .limit(1)
     .maybeSingle();
@@ -387,7 +389,26 @@ async function processEvent(event: ParseResult, ctx: EventContext): Promise<Even
       elapsedMinutes = Number(((endTime.getTime() - startTime.getTime()) / 60000).toFixed(2));
     }
 
-    const inferredCosts = inferProductionCosts(event.production_data, elapsedMinutes, otContext);
+    // Las tarifas de la cotización (rate-card.ts), no una tabla propia. Si el
+    // catálogo no se puede leer, los defectos del motor — los mismos que usa la
+    // cotización en ese caso — y queda escrito en el log.
+    let rates: CostOverrides = {};
+    if (otData) {
+      try {
+        rates = ratesFor(
+          {
+            color_front: otData.color_front ?? 'sin_impresion',
+            color_back: otData.color_back ?? 'sin_impresion',
+            substrate_type: otData.substrate_type ?? '',
+            grammage_gsm: Number(otData.grammage_gsm ?? 0),
+          },
+          await loadRateInputs(),
+        );
+      } catch (err) {
+        logger.warn({ err, ot: event.ot_number }, 'Rate card unavailable; inferring with engine defaults');
+      }
+    }
+    const inferredCosts = inferProductionCosts(event.production_data, elapsedMinutes, otContext, rates);
 
     // Mismo camino atómico que START. Esto es lo que de verdad protege
     // ot_real_costs: la ventana de 60 segundos que había acá antes sólo

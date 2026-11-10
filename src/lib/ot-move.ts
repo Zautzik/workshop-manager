@@ -31,6 +31,7 @@ import { loadRoleAccess } from '@/lib/transition-rules';
 import { dispatchNotifications, emitDomainEvent } from '@/lib/domain-events';
 import { tryBackflush } from '@/lib/backflush';
 import { cuentaParaCalidadInterna } from '@/lib/ot-approval-origin';
+import { valueStagePassesSafely } from '@/lib/stage-valuation';
 import type { AppRole } from '@/types/app-role';
 
 // Las mismas tres etapas donde /operaciones/escanear ofrece el recordatorio
@@ -251,6 +252,11 @@ export async function moveOT(input: MoveInput): Promise<MoveResult> {
 				});
 		if (reportError) {
 			warnings.push('La OT avanzó, pero la pasada por la etapa no quedó registrada. Avisá para que se cargue a mano.');
+		} else if (r?.hours != null) {
+			// Las horas de la pasada se vuelven costo de máquina, a la tarifa con
+			// que se cotizó (stage-valuation.ts).
+			const w = await valueStagePassesSafely(otId);
+			if (w) warnings.push(w);
 		}
 	}
 

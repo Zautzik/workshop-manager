@@ -32,11 +32,7 @@ export function CostLineRow({
 
   return (
     <div
-      className={`grid grid-cols-[60px_1fr_120px_90px_80px_100px_100px_36px] gap-2 items-end p-2 rounded-md border ${
-        line._is_merma_auto
-          ? 'bg-amber-500/10 border-amber-500/40'
-          : 'bg-card border-border'
-      }`}
+      className="grid grid-cols-[60px_1fr_120px_90px_80px_100px_100px_36px] gap-2 items-end p-2 rounded-md border bg-card border-border"
     >
       {/* Code */}
       <div>
@@ -52,23 +48,6 @@ export function CostLineRow({
       <div>
         <Label className="text-xs text-muted-foreground flex items-center gap-1">
           Descripción
-          {line._is_merma_auto && (
-            <Badge
-              variant="outline"
-              className={
-                line._merma_sin_costo
-                  ? 'border-red-500/50 text-red-600 dark:text-red-400 text-[10px] px-1.5 py-0 h-4'
-                  : 'border-amber-500/50 text-amber-600 dark:text-amber-400 text-[10px] px-1.5 py-0 h-4'
-              }
-              title={
-                line._merma_sin_costo
-                  ? 'Se agregó sola al declarar merma, pero esta OT no tiene presupuesto de papel del cual sacar un costo — completalo a mano'
-                  : 'Se agregó sola al declarar merma en el cierre de etapa — revisala'
-              }
-            >
-              {line._merma_sin_costo ? 'merma · sin costo' : 'merma · auto'}
-            </Badge>
-          )}
         </Label>
         <Input
           value={line.description}
@@ -89,7 +68,10 @@ export function CostLineRow({
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            {OPERATION_CATEGORIES.map((c) => (
+            {/* Sin «Materiales» ni «Impresión»: el material se carga al salir de
+                bodega, al costo de su lote; la máquina, al cerrar la etapa
+                (material-policy.ts). */}
+            {OPERATION_CATEGORIES.filter((c) => c.value !== 'materiales' && c.value !== 'impresion').map((c) => (
               <SelectItem key={c.value} value={c.value}>
                 {c.label}
               </SelectItem>

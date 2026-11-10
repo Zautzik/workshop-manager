@@ -50,7 +50,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useReviewCapture, useReviewCaptures } from '@/hooks/use-captures';
 import type { InferredCostData, WhatsAppProductionLog } from '@/types/whatsapp-production';
 import {
-  toEditableData, toDraftLines, rederive, toCorrections,
+  toEditableData, toDraftLines, toCorrections,
   type EditableData, type DraftLine,
 } from '@/lib/review-edits';
 import { formatCLP } from '@/lib/whatsapp-cost-inference';
@@ -166,9 +166,9 @@ export default function WhatsAppDashboard() {
     setDraft({ baseData: data, baseLines: lines, data, lines });
   };
 
-  /** Cambiar un dato arrastra las líneas que dependen de él (y que nadie tocó). */
-  const setDraftData = (data: EditableData) =>
-    setDraft(d => d && { ...d, data, lines: rederive(d.lines, d.baseLines, d.baseData, data) });
+  // Un dato ya no arrastra ninguna línea: los pliegos y las horas van a la
+  // pasada, que es la que valoriza la máquina (review-edits.ts).
+  const setDraftData = (data: EditableData) => setDraft(d => d && { ...d, data });
 
   // «Solicitar revisión» y «Rechazar» eran la misma decisión con dos nombres:
   // el parte no se integra. Queda una sola.

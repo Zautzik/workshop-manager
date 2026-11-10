@@ -92,8 +92,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     p_lot_number: d.lot_number ?? null,
     p_cert_code: d.cert_code ?? null,
     p_cert_expires: d.cert_expires ?? null,
-    // Receipt against an OT-linked OC auto-records the material as a real
-    // cost (workflow_step 'oc_receipt') — attribute it to the acting user.
+    // Receiving is not consuming: an OT-linked OC reserves the lot for that OT
+    // and the OT is costed when it's consumed (20261110120000). The receiver is
+    // recorded on the lot and the reservation.
     p_recorded_by: auth.id,
     p_variance_reason: d.variance_reason ?? null,
     p_cert_override_reason: d.cert_override_reason ?? null,

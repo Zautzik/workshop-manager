@@ -161,18 +161,21 @@ describe('hilo dorado — correcciones (H3′)', () => {
 			decision: 'approve',
 			corrections: {
 				data: { hours_reported: 8 },
-				costLines: [{ category: 'papel', description: 'Papel', quantity: 10, unit: 'kg', unit_cost: 1500, source: 'parsed' }],
+				costLines: [{ category: 'terminaciones', description: 'Plastificado externo', quantity: 10, unit: 'un', unit_cost: 1500, source: 'parsed' }],
 			},
 		}, actor);
 		const log = db.whatsapp_production_logs[0];
 		expect(log.corrected_data).toEqual({ hours_reported: 8, unparsed_notes: '500 pliegos 6 horas' });
-		expect(log.corrected_costs).toMatchObject({ paper_cost: 1, total_inferred_cost: 15000 });
+		// El papel inferido del parte original no sobrevive en el resumen.
+		expect(log.corrected_costs).toMatchObject({ paper_cost: 0, ink_cost: 0, total_inferred_cost: 15000 });
 		expect(log.corrected_costs.cost_lines[0].total_cost).toBe(15000);
 		expect(flow.mock.calls[0][0]).toMatchObject({ parsed: { hours_reported: 8 }, eventType: 'end' });
 	});
 
 	it.each([
-		['un total escrito a mano', { costLines: [{ category: 'papel', description: 'x', quantity: 1, unit: 'kg', unit_cost: 1, total_cost: 9e9 }] }],
+		['un total escrito a mano', { costLines: [{ category: 'otros', description: 'x', quantity: 1, unit: 'un', unit_cost: 1, total_cost: 9e9 }] }],
+		['papel (el material entra al consumirse)', { costLines: [{ category: 'papel', description: 'x', quantity: 1, unit: 'kg', unit_cost: 1 }] }],
+		['tinta (el material entra al consumirse)', { costLines: [{ category: 'tinta', description: 'x', quantity: 1, unit: 'kg', unit_cost: 1 }] }],
 		['una categoría inventada', { costLines: [{ category: 'propina', description: 'x', quantity: 1, unit: 'un', unit_cost: 1 }] }],
 		['un costo negativo', { costLines: [{ category: 'otros', description: 'x', quantity: 1, unit: 'un', unit_cost: -5 }] }],
 		['un campo de datos que no es editable', { data: { confidence: 100 } }],
