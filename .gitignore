@@ -37,6 +37,8 @@ next-env.d.ts
 # supabase
 supabase/.branches
 supabase/.temp
+# cloud dump for the local stack: holds auth password hashes (scripts/local-db-restore.ps1)
+supabase/.dump
 
 
 nul

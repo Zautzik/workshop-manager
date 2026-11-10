@@ -8,6 +8,10 @@
 	},
 	"scripts": {
 		"dev": "next dev",
+		"db:local:restore": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/local-db-restore.ps1",
+		"db:local:refresh": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/local-db-restore.ps1 -Refresh",
+		"db:use:local": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/use-db.ps1 local",
+		"db:use:cloud": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/use-db.ps1 cloud",
 		"prebuild": "node scripts/verify-node-env.cjs",
 		"build": "next build",
 		"start": "next start",
