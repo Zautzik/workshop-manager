@@ -4,6 +4,7 @@ import { requireAuth, isAuthError } from '@/lib/api-middleware';
 import { buildRateLimitActor, enforceRouteRateLimit } from '@/lib/api-rate-limit';
 import { isValidStatus, type OTWorkflowStatus } from '@/lib/ot-state-machine';
 import { moveOT } from '@/lib/ot-move';
+import { PaperIssueSchema, toPaperIssueLines } from '@/lib/paper-issue-schema';
 
 // El cierre de la etapa que el fragmento deja atrás. Un avance parcial es una
 // PASADA propia —se cortaron tres mil hoy y los otros tres mil salen mañana— y
@@ -21,12 +22,14 @@ const SplitSchema = z.object({
   advance_quantity: z.number().positive(),
   target_status: z.string().min(1),
   stage_report: StageReportSchema.optional().nullable(),
+  // El papel del fragmento, si entra a la primera etapa de la ruta.
+  paper_issue: PaperIssueSchema,
 });
 
 // POST /api/ots/[id]/split
 // Avance parcial: una parte de la OT pasa a `target_status` y el resto se queda.
 // Es el mismo movimiento que una transición (`moveOT`, src/lib/ot-move.ts) —
-// mismas compuertas, misma pasada, mismo backflush, mismo aviso—; sólo cambia
+// mismas compuertas, misma pasada, misma salida de papel, mismo aviso—; sólo cambia
 // que avanza un fragmento (`split_ot`, atómico en la base).
 export async function POST(
   request: NextRequest,
@@ -49,7 +52,7 @@ export async function POST(
   if (!parsed.success) {
     return NextResponse.json({ error: 'Invalid payload', details: parsed.error.flatten() }, { status: 400 });
   }
-  const { advance_quantity, target_status, stage_report } = parsed.data;
+  const { advance_quantity, target_status, stage_report, paper_issue } = parsed.data;
   if (!isValidStatus(target_status)) {
     return NextResponse.json({ error: 'Estado destino inválido.' }, { status: 400 });
   }
@@ -58,6 +61,7 @@ export async function POST(
     otId,
     toStatus: target_status as OTWorkflowStatus,
     partialQuantity: advance_quantity,
+    paperIssue: toPaperIssueLines(paper_issue),
     actor: { id: auth.id, role: auth.role!, name: auth.name ?? auth.email },
     stageReport: stage_report
       ? {

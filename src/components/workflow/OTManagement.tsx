@@ -18,6 +18,7 @@ import { SplitOTDialog } from "./SplitOTDialog";
 import { naturalNextStatuses, type OTWorkflowStatus } from '@/lib/ot-state-machine';
 import { useQuery } from '@tanstack/react-query';
 import type { StageReportPayload } from './CierreDeEtapa';
+import type { PaperIssuePayload } from '@/lib/paper-issue-schema';
 import { PasadasPendientes } from './PasadasPendientes';
 import {
   STATUS_FLOW, KANBAN_GROUPS, BOARD_PAD, LANE_RESERVE, WIDTH_UNITS, HEIGHT_UNITS, MOBILE_MAX_W, MOBILE_GAP,
@@ -175,6 +176,7 @@ export function OTManagement({ onOTSelect }: OTManagementProps) {
     newStatus: string,
     rollback = false,
     stageReport: StageReportPayload | null = null,
+    paperIssue: PaperIssuePayload[] | null = null,
   ) => {
     // 1. Snapshot the current list before we touch anything.
     // `useOTs()` envuelve su data en `{ rows, total, isTruncated }` (auditoría
@@ -199,6 +201,8 @@ export function OTManagement({ onOTSelect }: OTManagementProps) {
         // El cierre de la etapa viaja con el movimiento, no en un pedido
         // aparte: si fueran dos, la que falla deja la OT movida sin horas.
         stage_report: stageReport,
+        // El papel que sale al entrar a la primera etapa de la ruta.
+        paper_issue: paperIssue,
       }),
     });
 
@@ -255,7 +259,11 @@ export function OTManagement({ onOTSelect }: OTManagementProps) {
 
     setCostEntryOT(ot); setCostEntryTarget({ key, label });
   };
-  const confirmAdvance = async (movedQuantity: number, stageReport: StageReportPayload | null) => {
+  const confirmAdvance = async (
+    movedQuantity: number,
+    stageReport: StageReportPayload | null,
+    paperIssue: PaperIssuePayload[] | null,
+  ) => {
     if (!costEntryOT || !costEntryTarget) return;
 
     const totalQty = Number(costEntryOT.quantity ?? 0);
@@ -269,6 +277,7 @@ export function OTManagement({ onOTSelect }: OTManagementProps) {
           advance_quantity: movedQuantity,
           target_status: costEntryTarget.key,
           stage_report: stageReport,
+          paper_issue: paperIssue,
         }),
       });
 
@@ -290,7 +299,7 @@ export function OTManagement({ onOTSelect }: OTManagementProps) {
       refetchOTs();
       refetchOpenPasses();
     } else {
-      await updateOTStatus(costEntryOT.id, costEntryTarget.key, false, stageReport);
+      await updateOTStatus(costEntryOT.id, costEntryTarget.key, false, stageReport, paperIssue);
     }
 
     setCostEntryOT(null);

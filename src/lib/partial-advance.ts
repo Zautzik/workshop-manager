@@ -95,21 +95,5 @@ export function materialForPartial(input: PartialInput): PartialMaterial {
 	};
 }
 
-/**
- * Las etapas donde avanzar significa CONSUMIR papel.
- *
- * Salir de bodega hacia el primer corte o hacia una prensa es el momento en que
- * el papel deja de ser inventario. Las etapas posteriores mueven producto
- * semiterminado, no pliegos: volver a descontar ahí sería contar dos veces el
- * mismo papel.
- */
-export const ETAPAS_QUE_CONSUMEN: readonly string[] = [
-	'guillotine_first_cut',
-	'offset_printing',
-	'digital_printing',
-];
-
-/** ¿Este salto saca papel de bodega? */
-export function consumeMaterial(fromStatus: string, toStatus: string): boolean {
-	return fromStatus === 'in_storage' && ETAPAS_QUE_CONSUMEN.includes(toStatus);
-}
+// Dónde sale el papel ya no es una lista fija de tres etapas: es la primera
+// etapa de la ruta de CADA OT, una vez (paperEntryStatus, paper-issue.ts).

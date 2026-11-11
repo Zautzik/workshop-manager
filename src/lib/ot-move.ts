@@ -15,11 +15,20 @@
  *                     requisitos, pasadas abiertas, calidad interna y precio;
  *   2. el movimiento — UPDATE con guardia de concurrencia, o split_ot si es
  *                     parcial (el fragmento avanza, el resto se queda);
+ *   1b. el papel     — entrar a la primera etapa de la ruta saca el papel de
+ *                     bodega (paper-issue-server.ts): se exige el lote y los
+ *                     pliegos, y sale ANTES de mover — si el lote está
+ *                     retenido o sin certificado, la OT no se mueve;
+ *   2. el movimiento — UPDATE con guardia de concurrencia, o split_ot si es
+ *                     parcial (el fragmento avanza, el resto se queda);
  *   3. la pasada     — ot_stage_reports de la etapa que se deja (o se completa
- *                     una que ya existía, si quien mueve la cerró antes);
- *   4. backflush     — el papel que sale de bodega al dejar la etapa;
+ *                     una que ya existía, si quien mueve la cerró antes), y
+ *                     con ella la máquina y la mano de obra (stage-valuation.ts);
  *   5. historial     — ot_status_history, con el canal a la vista;
  *   6. aviso         — el evento de dominio y sus notificaciones.
+ *
+ * El backflush (descontar los pliegos cotizados al DEJAR la etapa) se retiró
+ * el 2026-11-11: el papel sale una vez, al entrar, con lo que de verdad salió.
  */
 
 import { supabaseAdmin } from '@/integrations/supabase/server';
@@ -29,14 +38,13 @@ import { buildOTSpec, type OTSpec } from '@/lib/ot-spec';
 import { estimatedHoursFor, promptsStageReport } from '@/lib/stage-report';
 import { loadRoleAccess } from '@/lib/transition-rules';
 import { dispatchNotifications, emitDomainEvent } from '@/lib/domain-events';
-import { tryBackflush } from '@/lib/backflush';
 import { cuentaParaCalidadInterna } from '@/lib/ot-approval-origin';
 import { valueStagePassesSafely } from '@/lib/stage-valuation';
+import { resolvePassMachine } from '@/lib/stage-machine';
+import { issuePaper, planPaperIssue, returnIssuedPaper, type PaperIssueLine } from '@/lib/paper-issue-server';
 import type { AppRole } from '@/types/app-role';
 
-// Las mismas tres etapas donde /operaciones/escanear ofrece el recordatorio
-// de escanear un lote (ver CierreDeEtapa.tsx) — es donde el papel deja bodega.
-const BACKFLUSH_STAGES = new Set<OTWorkflowStatus>(['guillotine_first_cut', 'offset_printing', 'digital_printing']);
+export const PAPER_ISSUE_REQUIRED = 'PAPER_ISSUE_REQUIRED';
 
 /** La ficha entera: las compuertas de completitud necesitan saber qué sabe la OT, no sólo dónde está. */
 export const OT_MOVE_SELECT =
@@ -83,6 +91,11 @@ export interface MoveInput {
 	stageReport?: StageReportInput | null;
 	/** Avance parcial: unidades (las de `ots.quantity`) que pasan a `toStatus`; el resto se queda. */
 	partialQuantity?: number | null;
+	/**
+	 * El papel que sale al entrar a la primera etapa de la ruta: de qué lote y
+	 * cuántos pliegos. Obligatorio sólo ahí (si queda papel por sacar).
+	 */
+	paperIssue?: PaperIssueLine[] | null;
 	rollback?: boolean;
 	reason?: string | null;
 	metadata?: Record<string, unknown>;
@@ -179,6 +192,54 @@ export async function moveOT(input: MoveInput): Promise<MoveResult> {
 	});
 	if (!check.ok) return { ok: false, status: 400, error: check.message ?? 'Transición no permitida.', code: check.code };
 
+	// ── 1b. El papel sale al entrar ────────────────────────────────────────
+	//
+	// El pliego que entra a la primera etapa de la ruta es el mismo que sigue
+	// por todas las demás: sale de bodega acá, una vez. Antes de mover, para que
+	// un lote retenido o sin certificado deje la OT donde estaba.
+	const warnings: string[] = [];
+	let paperTx: string[] = [];
+	if (!rollback) {
+		let plan;
+		try {
+			plan = await planPaperIssue({ otId, toStatus, movedUnits: partial ?? Number(o.quantity ?? 0) });
+		} catch (err) {
+			return { ok: false, status: 500, error: err instanceof Error ? err.message : 'No se pudo calcular el papel que sale.' };
+		}
+		const lines = (input.paperIssue ?? []).filter((l) => l && l.lotId && l.sheets > 0);
+		if (plan.required) {
+			if (lines.length === 0) {
+				return {
+					ok: false,
+					status: 400,
+					code: PAPER_ISSUE_REQUIRED,
+					error:
+						`Entrar a ${plan.entryLabel} saca el papel de bodega: falta de qué lote y cuántos pliegos` +
+						(plan.sheets > 0 ? ` (corresponden ${plan.sheets.toLocaleString('es-CL')}).` : '.'),
+				};
+			}
+			try {
+				const issued = await issuePaper({ ownerOtId: plan.ownerOtId, lines, actorId: actor.id, stage: toStatus });
+				// Éxito: no va a `warnings` — el Tablero muestra cualquier aviso como
+				// «cierre no guardado».
+				paperTx = issued.txIds;
+			} catch (err) {
+				return { ok: false, status: 400, error: err instanceof Error ? err.message : 'No se pudo sacar el papel.' };
+			}
+		} else if (lines.length > 0) {
+			warnings.push(
+				plan.entryStatus === toStatus
+					? 'El papel de este trabajo ya había salido de bodega: no se volvió a descontar.'
+					: `El papel sale al entrar a ${plan.entryLabel ?? 'la primera etapa'}, no acá: no se descontó.`,
+			);
+		}
+	}
+	/** Si el papel ya salió y la OT no se pudo mover, vuelve a bodega. */
+	const undoPaper = async (result: MoveResult): Promise<MoveResult> => {
+		const w = await returnIssuedPaper(paperTx, actor.id);
+		return w && !result.ok ? { ...result, error: `${result.error} ${w}` } : result;
+	};
+
 	// ── 2. El movimiento ───────────────────────────────────────────────────
 	const nowIso = new Date().toISOString();
 	let moved: { id: string; ot_number: string; status: string; updated_at?: string };
@@ -190,7 +251,7 @@ export async function moveOT(input: MoveInput): Promise<MoveResult> {
 		const { data, error } = await supabaseAdmin.rpc('split_ot', {
 			p_ot_id: otId, p_advance_quantity: partial, p_target_status: toStatus,
 		});
-		if (error) return { ok: false, status: 400, error: error.message };
+		if (error) return undoPaper({ ok: false, status: 400, error: error.message });
 		split = data as Record<string, unknown>;
 		const f = (split as { split?: { id: string; ot_number: string; quantity: number } }).split;
 		if (f?.id) fragment = { id: f.id, ot_number: f.ot_number, quantity: Number(f.quantity) };
@@ -211,14 +272,12 @@ export async function moveOT(input: MoveInput): Promise<MoveResult> {
 			.eq('status', fromStatus)
 			.select('id, ot_number, status, updated_at')
 			.maybeSingle();
-		if (updateError) return { ok: false, status: 500, error: 'No se pudo actualizar el estado de la OT' };
+		if (updateError) return undoPaper({ ok: false, status: 500, error: 'No se pudo actualizar el estado de la OT' });
 		if (!updatedOt) {
-			return { ok: false, status: 409, error: 'La OT fue modificada por otra operación. Vuelve a intentarlo.', code: 'CONCURRENT_MODIFICATION' };
+			return undoPaper({ ok: false, status: 409, error: 'La OT fue modificada por otra operación. Vuelve a intentarlo.', code: 'CONCURRENT_MODIFICATION' });
 		}
 		moved = updatedOt;
 	}
-
-	const warnings: string[] = [];
 
 	// ── 3. La pasada por la etapa ──────────────────────────────────────────
 	//
@@ -245,8 +304,9 @@ export async function moveOT(input: MoveInput): Promise<MoveResult> {
 					ot_id: otId,
 					workflow_step: fromStatus,
 					hours: null,
-					// La máquina que corrió la etapa: lo que después convierte las horas en plata.
-					machine_id: o.assigned_machine_id ?? null,
+					// La máquina que corrió la etapa —la guillotina en el corte, no la prensa
+					// asignada—: de ella salen la tarifa y la gente de Planta (stage-machine.ts).
+					machine_id: await resolvePassMachine(otId, fromStatus, o.assigned_machine_id),
 					recorded_by: actor.id,
 					...fields,
 				});
@@ -254,24 +314,10 @@ export async function moveOT(input: MoveInput): Promise<MoveResult> {
 			warnings.push('La OT avanzó, pero la pasada por la etapa no quedó registrada. Avisá para que se cargue a mano.');
 		} else if (r?.hours != null) {
 			// Las horas de la pasada se vuelven costo de máquina, a la tarifa con
-			// que se cotizó (stage-valuation.ts).
+			// que se cotizó, y de mano de obra, por la gente que Planta tenía en la
+			// máquina en ese turno (stage-valuation.ts).
 			const w = await valueStagePassesSafely(otId);
 			if (w) warnings.push(w);
-		}
-	}
-
-	// ── 4. Backflush ───────────────────────────────────────────────────────
-	// Silencioso cuando no aplica (el caso normal: 'scan' es el default); se
-	// avisa sólo cuando SÍ se intentó. `bf.reason` ya dice si fue completo o
-	// parcial y cuánto faltó.
-	if (BACKFLUSH_STAGES.has(fromStatus) && !rollback) {
-		const bf = await tryBackflush({ otId, stage: fromStatus });
-		if (bf.attempted) {
-			warnings.push(
-				bf.consumed
-					? `Backflush: ${bf.reason} — ${Math.round(bf.quantity ?? 0)} pliegos de ${bf.itemName} (lote ${bf.lotNumber}).`
-					: `Backflush no pudo descontar: ${bf.reason}.`,
-			);
 		}
 	}
 

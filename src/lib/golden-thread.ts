@@ -38,10 +38,11 @@
 
 import { z } from 'zod';
 import { supabaseAdmin } from '@/integrations/supabase/server';
-import { applyApprovedProductionReport, type ApprovedReportResult } from '@/lib/apply-approved-report';
+import { applyApprovedProductionReport, previewProductionMove, type ApprovedReportResult } from '@/lib/apply-approved-report';
 import { PROCESOS_CONOCIDOS } from '@/lib/whatsapp-flow';
 import { COST_CATEGORIES } from '@/lib/review-edits';
 import type { ApplyActor } from '@/lib/whatsapp-apply';
+import { PaperIssueLineSchema } from '@/lib/paper-issue-schema';
 
 /* ─── Correcciones ───────────────────────────────────────────────────────── */
 
@@ -67,6 +68,11 @@ export const CorrectionsSchema = z.object({
 		unit_cost: z.number().min(0).max(1_000_000_000),
 		source: z.enum(['parsed', 'inferred', 'default']).default('default'),
 	}).strict()).max(30).optional(),
+	/**
+	 * Producción: el papel que sale si el parte hace entrar la OT a la primera
+	 * etapa de su ruta (paper-issue.ts). Lo confirma quien revisa.
+	 */
+	paperIssue: z.array(PaperIssueLineSchema).min(1).max(10).optional(),
 	/** Bodega. */
 	quantity: z.number().positive().max(10_000_000).optional(),
 	unitCost: z.number().min(0).max(1_000_000_000).optional(),
@@ -166,8 +172,13 @@ function decisionPatch(r: Resolved, input: ReviewInput, actor: ApplyActor): Row 
 		review_comments: input.comments ?? null,
 	};
 
-	if (c.data) {
-		patch.corrected_data = { ...(r.homeRow.corrected_data ?? r.homeRow.parsed_data ?? {}), ...c.data };
+	if (c.data || c.paperIssue) {
+		patch.corrected_data = {
+			...(r.homeRow.corrected_data ?? r.homeRow.parsed_data ?? {}),
+			...(c.data ?? {}),
+			// Viaja con el parte: applyApprovedProductionReport lo lee de acá.
+			...(c.paperIssue ? { paper_issue: c.paperIssue } : {}),
+		};
 	}
 	if (c.costLines) {
 		const cost_lines = c.costLines.map((l) => ({ ...l, total_cost: Math.round(l.quantity * l.unit_cost) }));
@@ -256,4 +267,29 @@ export async function reviewCapture(
 	}
 
 	return { ok: true, captureId, applied: 'now', flow, warnings };
+}
+
+/**
+ * Adónde movería la OT este parte si se aprobara con `data` (las correcciones
+ * en curso de la revisión). No escribe nada. Para pedir el papel antes de
+ * aprobar cuando el parte hace entrar la OT a la primera etapa de su ruta.
+ */
+export async function previewReviewMove(
+	source: CaptureSource,
+	id: string,
+	data?: Corrections['data'],
+): Promise<{ ok: true; otId: string | null; toStatus: string | null; movedUnits: number | null } | { ok: false; status: number; error: string }> {
+	const r = await resolve(source, id);
+	if ('error' in r) return { ok: false, status: r.status, error: r.error };
+	const p = r.homeRow;
+	if (r.capture.domain !== 'production' || !p.ot_id || isApplied(r)) {
+		return { ok: true, otId: p.ot_id ?? null, toStatus: null, movedUnits: null };
+	}
+	const move = await previewProductionMove({
+		otId: p.ot_id,
+		eventType: (p.message_type ?? p.event_type ?? null) as string | null,
+		parsed: { ...(p.corrected_data ?? p.parsed_data ?? {}), ...(data ?? {}) } as Record<string, unknown>,
+		messageTimestamp: p.message_timestamp ?? null,
+	});
+	return { ok: true, otId: p.ot_id, ...move };
 }

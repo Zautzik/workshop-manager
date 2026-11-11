@@ -53,6 +53,8 @@ const ROUTE_FIELDS = [
 	'finish_hot_stamping',
 	'finish_uv_localizado',
 	'finish_numeracion',
+	// La ruta declarada al crear la OT: si está, manda sobre la deducida.
+	'route_steps',
 ].join(', ');
 
 const OT_FIELDS = `${ROUTE_FIELDS}, ot_number, client_name, product_name, deadline, priority_level, created_at`;

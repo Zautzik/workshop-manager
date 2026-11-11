@@ -16,7 +16,7 @@
  * un precio de catálogo, al lado del mismo papel ya cargado por la recepción
  * de la OC y por el diálogo del tablero: OT 41221 llegó a $5,4 M de material
  * contra $960.000 comprados. Regla del dueño: el material cuesta cuando SE
- * CONSUME, al precio real del lote usado (escaneo, backflush o captura de
+ * CONSUME, al precio real del lote usado (salida de papel, escaneo o captura de
  * bodega → consumir_lote → trg_cost_ot_material_movement). Un parte aporta
  * cantidades —pliegos, merma, horas—, nunca pesos de material.
  *

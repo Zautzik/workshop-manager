@@ -5229,6 +5229,7 @@ export type Database = {
           production_detail: Json | null
           quantity: number
           relieve_matrix_code: string | null
+          route_steps: string[] | null
           salesman_id: string | null
           share_token: string
           sin_arte: boolean
@@ -5309,6 +5310,7 @@ export type Database = {
           production_detail?: Json | null
           quantity?: number
           relieve_matrix_code?: string | null
+          route_steps?: string[] | null
           salesman_id?: string | null
           share_token?: string
           sin_arte?: boolean
@@ -5389,6 +5391,7 @@ export type Database = {
           production_detail?: Json | null
           quantity?: number
           relieve_matrix_code?: string | null
+          route_steps?: string[] | null
           salesman_id?: string | null
           share_token?: string
           sin_arte?: boolean

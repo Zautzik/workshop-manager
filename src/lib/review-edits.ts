@@ -17,16 +17,20 @@
  * - Horas, pliegos y merma → la pasada de la etapa (`ot_stage_reports`), vía
  *   `corrected_data`. La pasada cerrada es el consumo de máquina y la única que
  *   lo valoriza: horas × tarifa, o clics en digital (stage-valuation.ts).
+ *
+ * - Mano de obra → tampoco es una línea del parte. Sale de la misma pasada:
+ *   la gente que Planta asignó a la máquina, por las horas que la OT estuvo en
+ *   su turno (labor-from-shifts.ts, migración 20261111120000).
  */
 
 import type { InferredCostLine } from '@/types/whatsapp-production';
 
-/** Las categorías que una línea de costo de un parte puede tener. Una sola lista: la usa el editor y la valida el servidor. Sin material ni máquina: ver arriba. */
-export const COST_CATEGORIES = ['terminaciones', 'mano_de_obra', 'energia', 'otros'] as const;
+/** Las categorías que una línea de costo de un parte puede tener. Una sola lista: la usa el editor y la valida el servidor. Sin material, máquina ni mano de obra: ver arriba. */
+export const COST_CATEGORIES = ['terminaciones', 'energia', 'otros'] as const;
 export type CostCategory = (typeof COST_CATEGORIES)[number];
 
-/** Material y máquina: entran por el consumo y la pasada, nunca por un parte. Partes viejos todavía las traen. */
-const CONSUMED_CATEGORIES = new Set(['papel', 'tinta', 'materiales', 'impresion', 'guillotina']);
+/** Material, máquina y mano de obra: entran por el consumo y la pasada, nunca por un parte. Partes viejos todavía las traen. */
+const CONSUMED_CATEGORIES = new Set(['papel', 'tinta', 'materiales', 'impresion', 'guillotina', 'mano_de_obra']);
 const isConsumed = (l: { category: string }) => CONSUMED_CATEGORIES.has(l.category);
 
 const asCategory = (c: string): CostCategory =>

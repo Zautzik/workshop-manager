@@ -33,12 +33,29 @@
  * valoriza acá: su consumo son clics —los pliegos de las unidades que movió la
  * pasada, más su merma— a la tarifa de clic con que se cotiza. Antes los
  * escribía el parte de WhatsApp, aparte de la pasada.
+ *
+ * ── Y también la mano de obra (2026-11-11) ────────────────────────────────
+ *
+ * Regla del dueño: la mano de obra real es la gente que Planta asignó a la
+ * máquina, por las horas que la OT estuvo en su turno (labor-from-shifts.ts).
+ * Sale de la misma pasada cerrada, así que el Tablero y «Aprobar e Integrar»
+ * la cargan igual, y por el mismo único escritor. La base rechaza cualquier
+ * otra línea de mano de obra real.
  */
 
 import { supabaseAdmin } from '@/integrations/supabase/server';
 import { resolveCostOverrides, stageMachineRate, type CostSpec } from '@/lib/costing-resolver';
 import { DEFAULT_COSTS } from '@/lib/ot-calculations';
 import type { CostCenterItem } from '@/types/work-category';
+import { passMachineCandidates, type MachineRow, type ScheduleRow } from '@/lib/stage-machine';
+import {
+	LABOR_LOOKBACK_DAYS,
+	laborForPass,
+	plantDate,
+	type CrewAssignment,
+	type RateRow,
+	type ShiftDef,
+} from '@/lib/labor-from-shifts';
 
 export const STAGE_PASS_REF = 'stage_pass';
 
@@ -49,9 +66,145 @@ export interface ValuationResult {
 	total: number;
 	/** Alguna tarifa salió del defecto del motor y no del catálogo. */
 	assumed: boolean;
+	/** Total de mano de obra en el libro para la OT, CLP. */
+	laborTotal: number;
+	/** Horas de pasada que no cayeron en un turno con gente asignada en Planta. */
+	laborUncoveredHours: number;
+	/** Personas asignadas sin tarifa vigente: su línea queda en $0. */
+	laborMissingRates: number;
 }
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
+const DAY_MS = 86_400_000;
+
+interface PassForLabor {
+	id: string;
+	workflow_step: string;
+	hours: number | null;
+	machine_id: string | null;
+	operator_employee_id?: string | null;
+	created_at: string;
+	recorded_by: string | null;
+}
+
+/**
+ * Las líneas de mano de obra de las pasadas de una OT: quién tenía Planta en
+ * la máquina, por las horas de la pasada que cayeron en su turno.
+ */
+async function laborRows(otId: string, passes: PassForLabor[]) {
+	const timed = passes.filter((p) => Number(p.hours) > 0);
+	if (timed.length === 0) return { rows: [], uncovered: 0, missingRates: 0 };
+
+	// La máquina de cada pasada: la que guardó si es del tipo de la etapa; si no
+	// (las viejas guardaban la prensa para todo), la agendada o las de ese tipo
+	// (stage-machine.ts). Entre varias desempata la dotación, más abajo.
+	const [machinesRes, scheduleRes] = await Promise.all([
+		supabaseAdmin.from('machines').select('id, type, is_active'),
+		supabaseAdmin.from('ot_machine_schedule').select('machine_id, plan_step, scheduled_start').eq('ot_id', otId),
+	]);
+	const failed0 = machinesRes.error ?? scheduleRes.error;
+	if (failed0) throw new Error(`No se pudieron leer las máquinas de la OT: ${failed0.message}`);
+	const candidatesByPass = new Map(
+		timed.map((p) => [
+			p.id,
+			passMachineCandidates({
+				workflowStep: p.workflow_step,
+				assignedMachineId: p.machine_id,
+				machines: (machinesRes.data ?? []) as MachineRow[],
+				schedule: (scheduleRes.data ?? []) as ScheduleRow[],
+			}),
+		]),
+	);
+
+	const closes = timed.map((p) => Date.parse(p.created_at));
+	const fromDate = plantDate(Math.min(...closes) - (LABOR_LOOKBACK_DAYS + 1) * DAY_MS);
+	const toDate = plantDate(Math.max(...closes));
+	const machineIds = [...new Set([...candidatesByPass.values()].flat())];
+	if (machineIds.length === 0) {
+		return { rows: [], uncovered: round2(timed.reduce((s, p) => s + Number(p.hours), 0)), missingRates: 0 };
+	}
+
+	const [assignRes, shiftsRes] = await Promise.all([
+		supabaseAdmin
+			.from('worker_assignments')
+			.select('employee_id, machine_id, date, shift_id')
+			.in('machine_id', machineIds)
+			.gte('date', fromDate)
+			.lte('date', toDate),
+		supabaseAdmin.from('shifts').select('id, name, start_time, end_time, break_start, break_minutes'),
+	]);
+	const failed = assignRes.error ?? shiftsRes.error;
+	if (failed) throw new Error(`No se pudo leer la dotación de Planta: ${failed.message}`);
+
+	const assignments = (assignRes.data ?? []).filter((a) => a.employee_id && a.shift_id) as Array<
+		CrewAssignment & { machine_id: string }
+	>;
+	const employeeIds = [...new Set(assignments.map((a) => a.employee_id))];
+	const [ratesRes, peopleRes] = employeeIds.length
+		? await Promise.all([
+				supabaseAdmin
+					.from('compensation_rates')
+					.select('employee_id, hourly_rate, effective_from, effective_to')
+					.in('employee_id', employeeIds),
+				supabaseAdmin.from('employees').select('id, full_name').in('id', employeeIds),
+			])
+		: [{ data: [], error: null }, { data: [], error: null }];
+	const failed2 = ratesRes.error ?? peopleRes.error;
+	if (failed2) throw new Error(`No se pudieron leer las tarifas de Planta: ${failed2.message}`);
+
+	const shifts = new Map((shiftsRes.data ?? []).map((s) => [s.id, s as ShiftDef]));
+	const rates = (ratesRes.data ?? []) as RateRow[];
+	const nameById = new Map((peopleRes.data ?? []).map((p) => [p.id, p.full_name as string]));
+
+	const rows = [];
+	let uncovered = 0;
+	let missingRates = 0;
+	for (const p of timed) {
+		const forMachine = (machineId: string) =>
+			laborForPass({
+				closedAtMs: Date.parse(p.created_at),
+				hours: Number(p.hours),
+				assignments: assignments.filter((a) => a.machine_id === machineId),
+				shifts,
+				rates,
+			});
+		// Varias candidatas (tres guillotinas): vale la única que tenía gente en
+		// esas horas. Si ninguna o más de una, no se adivina quién estaba.
+		let staffed = (candidatesByPass.get(p.id) ?? []).map(forMachine).filter((x) => x.lines.length > 0);
+		// Y si el operario de la pasada es conocido (el que mandó el parte), su
+		// máquina es la que tenía asignado a él.
+		if (staffed.length > 1 && p.operator_employee_id) {
+			const mine = staffed.filter((x) => x.lines.some((l) => l.employee_id === p.operator_employee_id));
+			if (mine.length === 1) staffed = mine;
+		}
+		if (staffed.length !== 1) {
+			uncovered += Number(p.hours);
+			continue;
+		}
+		const r = staffed[0];
+		uncovered += r.uncoveredHours;
+		for (const l of r.lines) {
+			if (l.rate == null) missingRates++;
+			const who = nameById.get(l.employee_id) ?? 'Operario';
+			const shiftLabel = /^turno\b/i.test(l.shift_name) ? l.shift_name : `turno ${l.shift_name}`;
+			rows.push({
+				ot_id: otId,
+				kind: 'actual' as const,
+				category: 'labor' as const,
+				source: STAGE_PASS_REF,
+				ref_type: STAGE_PASS_REF,
+				ref_id: p.id,
+				description: `Mano de obra — ${who} (${l.hours} h, ${shiftLabel} ${l.date}${l.rate == null ? ', sin tarifa en Planta' : ''})`,
+				quantity: l.hours,
+				unit: 'hrs',
+				unit_cost: l.rate ?? 0,
+				occurred_at: p.created_at,
+				recorded_by: p.recorded_by,
+			});
+		}
+	}
+	return { rows, uncovered: round2(uncovered), missingRates };
+}
 
 /**
  * Las pasadas de un fragmento cuelgan del PADRE (moveOT las escribe contra la
@@ -67,7 +220,7 @@ export async function valueStagePasses(otId: string): Promise<ValuationResult> {
 			.maybeSingle(),
 		supabaseAdmin
 			.from('ot_stage_reports')
-			.select('id, workflow_step, to_status, hours, units_moved, merma_sheets, recorded_by, created_at')
+			.select('id, workflow_step, to_status, hours, units_moved, merma_sheets, machine_id, operator_employee_id, recorded_by, created_at')
 			.eq('ot_id', otId),
 		supabaseAdmin.from('cost_catalog').select('id, catalog_key, name, category, unit, unit_cost, is_active'),
 		supabaseAdmin.from('ot_cost_lines').select('id').eq('ot_id', otId).eq('ref_type', STAGE_PASS_REF),
@@ -76,7 +229,7 @@ export async function valueStagePasses(otId: string): Promise<ValuationResult> {
 	// cualquier lectura fallida corta antes de tocar el libro.
 	const failed = otRes.error ?? passesRes.error ?? catalogRes.error ?? oldRes.error;
 	if (failed) throw new Error(`No se pudo valorizar el tiempo de máquina: ${failed.message}`);
-	if (!otRes.data) return { valued: 0, total: 0, assumed: false };
+	if (!otRes.data) return { valued: 0, total: 0, assumed: false, laborTotal: 0, laborUncoveredHours: 0, laborMissingRates: 0 };
 
 	const ot = otRes.data;
 	const spec: CostSpec = {
@@ -147,10 +300,16 @@ export async function valueStagePasses(otId: string): Promise<ValuationResult> {
 		});
 	}
 
+	const machineTotal = Math.round(rows.reduce((s, r) => s + r.quantity * r.unit_cost, 0));
+	const valued = rows.length;
+	const labor = await laborRows(otId, (passesRes.data ?? []) as PassForLabor[]);
+	const allRows = [...rows, ...labor.rows];
+
 	// Insertar primero, borrar después: entre las dos llamadas el libro puede
-	// tener las dos versiones un instante, nunca ninguna.
-	if (rows.length > 0) {
-		const { error } = await supabaseAdmin.from('ot_cost_lines').insert(rows);
+	// tener las dos versiones un instante, nunca ninguna. Las líneas viejas de
+	// la pasada (máquina y mano de obra) se reemplazan juntas.
+	if (allRows.length > 0) {
+		const { error } = await supabaseAdmin.from('ot_cost_lines').insert(allRows);
 		if (error) throw new Error(`No se pudo escribir el tiempo de máquina: ${error.message}`);
 	}
 	const oldIds = (oldRes.data ?? []).map((r) => r.id);
@@ -159,7 +318,14 @@ export async function valueStagePasses(otId: string): Promise<ValuationResult> {
 		if (error) throw new Error(`Se escribió el tiempo de máquina nuevo pero no se borró el anterior: ${error.message}`);
 	}
 
-	return { valued: rows.length, total: Math.round(rows.reduce((s, r) => s + r.quantity * r.unit_cost, 0)), assumed };
+	return {
+		valued,
+		total: machineTotal,
+		assumed,
+		laborTotal: Math.round(labor.rows.reduce((s, r) => s + r.quantity * r.unit_cost, 0)),
+		laborUncoveredHours: labor.uncovered,
+		laborMissingRates: labor.missingRates,
+	};
 }
 
 /**

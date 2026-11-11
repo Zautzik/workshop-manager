@@ -24,6 +24,7 @@ import { useToast } from '@/hooks/use-toast';
 import { EMPTY_UNIFIED_FORM, UNIFIED_STEPS, type UnifiedOTForm } from '@/types/ot-unified';
 import { handoffSummary, takeHandoff, toWizardForm } from '@/lib/ot-handoff';
 import { validateStep, validateAllSteps, canJumpToStep } from '@/lib/ot-wizard-validation';
+import { effectiveRoute } from '@/lib/ot-route-form';
 import { CATEGORY_DEFAULTS, WORK_CATEGORIES, type WorkCategoryKey } from '@/types/work-category';
 import type { OtTemplateRow } from './unified-wizard/UsarPlantilla';
 import {
@@ -488,6 +489,8 @@ export function UnifiedOTWizard({ onClose, onSuccess }: Props) {
           .join('\n') || null,
         // Machine assignment from Machines module
         assigned_machine_id: form.machine.machine_id || null,
+        // Las etapas por las que pasa: la elegida, o la sugerida si nadie la tocó.
+        route_steps: effectiveRoute(form),
         // Full production bundle — persisted to the DB (was localStorage-only).
         production_detail: {
           production_detail: form.production_detail,

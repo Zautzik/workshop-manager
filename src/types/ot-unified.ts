@@ -83,6 +83,13 @@ export interface UnifiedOTForm {
 
   /* ─ Step 5: Machine ──────────────────────────────────────── */
   machine: OTMachineConfig;
+  /**
+   * Las etapas por las que pasa la OT (claves de PLAN_STEPS). 
+ull = la
+   * sugerida por la ficha (ot-route-form.ts), hasta que alguien la toque. El
+   * papel sale de bodega al entrar a la primera.
+   */
+  route_steps: string[] | null;
 
   /* ─ Step 6: Finishing ────────────────────────────────────── */
   finishing: OTFinishing;
@@ -137,6 +144,7 @@ export const EMPTY_UNIFIED_FORM: UnifiedOTForm = {
   },
   attachments: [],
   sin_arte: false,
+  route_steps: null,
 
   production_detail: {
     production_description: '',

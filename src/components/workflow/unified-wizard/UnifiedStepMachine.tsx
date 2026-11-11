@@ -17,6 +17,7 @@ import { cn } from '@/lib/utils';
 import { MACHINE_TYPES, PAYMENT_CATEGORIES, type OTMachineType } from '@/types/ot-production';
 import type { UnifiedOTForm } from '@/types/ot-unified';
 import { useMachines, MACHINE_TYPE_LABELS, MACHINE_STATUS_COLOR } from '@/hooks/use-machines';
+import { RouteStepsPicker } from './RouteStepsPicker';
 
 interface Props {
   form: UnifiedOTForm;
@@ -123,6 +124,10 @@ export function UnifiedStepMachine({ form, updateForm }: Props) {
           </p>
         )}
       </Card>
+
+      {/* Por qué etapas pasa: se pregunta acá, al lado de la máquina, porque la
+          máquina decide offset o digital. Y la primera etapa es donde sale el papel. */}
+      <RouteStepsPicker form={form} updateForm={updateForm} />
 
       <div className="text-center mb-4">
         <h2 className="text-2xl font-bold text-foreground flex items-center justify-center gap-2">

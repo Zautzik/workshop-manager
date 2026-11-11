@@ -4,6 +4,7 @@ import { isAuthError, requireAuth } from '@/lib/api-middleware';
 import { buildRateLimitActor, enforceRouteRateLimit } from '@/lib/api-rate-limit';
 import { isValidStatus, type OTWorkflowStatus } from '@/lib/ot-state-machine';
 import { moveOT } from '@/lib/ot-move';
+import { PaperIssueSchema, toPaperIssueLines } from '@/lib/paper-issue-schema';
 
 /**
  * El cierre de la etapa que termina. Viaja CON la transición y no por una ruta
@@ -31,6 +32,8 @@ const TransitionSchema = z.object({
   metadata: z.record(z.any()).optional(),
   rollback: z.boolean().optional(),
   stage_report: StageReportSchema.optional().nullable(),
+  // El papel que sale al entrar a la primera etapa de la ruta (paper-issue.ts).
+  paper_issue: PaperIssueSchema,
 });
 
 // POST /api/ots/[id]/transition
@@ -73,6 +76,7 @@ export async function POST(
       rollback: parsed.data.rollback ?? false,
       reason: parsed.data.reason ?? null,
       metadata: parsed.data.metadata ?? {},
+      paperIssue: toPaperIssueLines(parsed.data.paper_issue),
       stageReport: r
         ? {
             hours: r.hours ?? null,

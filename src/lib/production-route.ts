@@ -143,6 +143,12 @@ export interface RouteOT {
 	finish_hot_stamping?: boolean | null;
 	finish_uv_localizado?: boolean | null;
 	finish_numeracion?: boolean | null;
+	/**
+	 * La ruta declarada al crear la OT (2026-11-11). Si está, manda: no toda OT
+	 * pasa por todas las etapas, y adivinarlo de la ficha se equivoca justo en
+	 * los casos raros. `null` = OT de antes; la ruta se deduce como siempre.
+	 */
+	route_steps?: string[] | null;
 }
 
 export type EstimateSource = 'presupuesto' | 'supuesto';
@@ -191,6 +197,8 @@ function printsAtAll(ot: RouteOT): boolean {
  * orden, la columna en que está y el tipo de la máquina asignada.
  */
 function isDigital(ot: RouteOT, machineTypeById: Map<string, string>): boolean {
+	const declared = declaredRoute(ot);
+	if (declared) return declared.includes('digital') && !declared.includes('offset');
 	if (ot.status === 'digital_printing') return true;
 	if (ot.status === 'offset_printing') return false;
 	const assigned = ot.assigned_machine_id ? machineTypeById.get(ot.assigned_machine_id) : undefined;
@@ -199,11 +207,74 @@ function isDigital(ot: RouteOT, machineTypeById: Map<string, string>): boolean {
 
 const OTHER_FINISHES = ['barniz', 'relieve', 'perforado', 'hot_stamping', 'uv_localizado', 'numeracion'] as const;
 
+/** La ruta declarada, válida y en orden de flujo; `null` si la OT no la declaró. */
+export function declaredRoute(ot: Pick<RouteOT, 'route_steps'>): PlanStepKey[] | null {
+	const keys = (ot.route_steps ?? []).filter(isPlanStepKey);
+	if (keys.length === 0) return null;
+	return PLAN_STEP_KEYS.filter((k) => keys.includes(k));
+}
+
 /**
  * La ruta completa de la OT, de principio a fin, ignorando dónde está hoy.
  * `remainingRoute` recorta lo ya hecho.
+ *
+ * Si la OT declaró su ruta, son ESAS etapas: las horas de cada una salen igual
+ * que siempre, y una etapa declarada que la ficha no hubiera deducido (un corte
+ * inicial en una digital, un tercerizado) toma su estimación por defecto.
  */
 export function deriveRoute(ot: RouteOT, machineTypeById: Map<string, string> = new Map()): RouteStep[] {
+	const declared = declaredRoute(ot);
+	if (!declared) return inferRoute(ot, machineTypeById);
+
+	const inferred = new Map(inferRoute(ot, machineTypeById).map((s) => [s.key, s]));
+	// La otra rama de impresión, por si la declarada no es la que la ficha suponía.
+	const forced = (status: OTWorkflowStatus) =>
+		new Map(inferRoute({ ...ot, route_steps: null, status }, machineTypeById).map((s) => [s.key, s]));
+	const sheets = sheetsOf(ot);
+	const units = Math.max(0, Number(ot.quantity ?? 0));
+
+	return declared.map((key): RouteStep => {
+		const hit = inferred.get(key);
+		if (hit) return hit;
+		switch (key) {
+			case 'offset':
+				return forced('offset_printing').get('offset') ?? { key, quoteHours: 0, source: 'supuesto' };
+			case 'digital':
+				return forced('digital_printing').get('digital') ?? { key, quoteHours: 0, source: 'supuesto' };
+			case 'corte_inicial':
+			case 'corte_final':
+				return { key, quoteHours: finishHoursFor('corte', sheets), source: 'supuesto' };
+			case 'laminado':
+			case 'troquelado':
+			case 'plegado':
+				return { key, quoteHours: finishHoursFor(key, sheets), source: 'supuesto' };
+			case 'desglose': {
+				const r = ASSUMED_RATES.desglose;
+				return { key, quoteHours: round2(r.setupH + sheets / r.sheetsPerHour), source: 'supuesto' };
+			}
+			case 'revision_etiquetas': {
+				const r = ASSUMED_RATES.revision_etiquetas;
+				return { key, quoteHours: round2(r.setupH + units / r.unitsPerHour), source: 'supuesto' };
+			}
+			case 'embalaje': {
+				const r = ASSUMED_RATES.embalaje;
+				return { key, quoteHours: round2(r.setupH + units / r.unitsPerHour), source: 'supuesto' };
+			}
+			case 'tercerizado':
+				return { key, quoteHours: ASSUMED_RATES.tercerizadoH, source: 'supuesto' };
+			case 'despacho':
+				return { key, quoteHours: ASSUMED_RATES.despachoH, source: 'supuesto' };
+			default:
+				return { key, quoteHours: 0, source: 'supuesto' };
+		}
+	});
+}
+
+/**
+ * La ruta deducida de la ficha: lo que se hacía antes de que la OT declarara
+ * la suya, y la sugerencia con que el asistente de creación la pre-llena.
+ */
+export function inferRoute(ot: RouteOT, machineTypeById: Map<string, string> = new Map()): RouteStep[] {
 	const sheets = sheetsOf(ot);
 	const units = Math.max(0, Number(ot.quantity ?? 0));
 	const steps: RouteStep[] = [];

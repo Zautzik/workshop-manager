@@ -3,7 +3,6 @@
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ChevronLeft, ChevronRight, CalendarDays, UploadCloud, CheckCircle2, ShieldAlert } from 'lucide-react';
-import { CerrarDiaDialog } from '@/components/workflow/CerrarDiaDialog';
 import { dateToLocalIso } from '@/lib/week-dates';
 
 const calendarLocale = 'es-CL';
@@ -57,8 +56,6 @@ export function AgendaSemanalSidebar({
             <UploadCloud className="w-3 h-3 mr-1" />
             {publishLoading ? '...' : 'Publicar'}
           </Button>
-          {/* Turns the day's clock marks into real labour cost on each OT. */}
-          <CerrarDiaDialog date={selectedDate} />
         </div>
       </div>
       <div className="grid grid-cols-4 gap-1 mb-2">

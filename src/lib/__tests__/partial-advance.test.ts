@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { consumeMaterial, materialForPartial } from '../partial-advance';
+import { materialForPartial } from '../partial-advance';
 
 describe('materialForPartial', () => {
 	// El caso del enunciado.
@@ -68,24 +68,5 @@ describe('materialForPartial', () => {
 
 	it('un total en cero no rompe la división', () => {
 		expect(() => materialForPartial({ movedUnits: 5, totalUnits: 0, totalSheets: 100 })).not.toThrow();
-	});
-});
-
-describe('consumeMaterial', () => {
-	it('salir de bodega hacia corte o prensa consume papel', () => {
-		expect(consumeMaterial('in_storage', 'guillotine_first_cut')).toBe(true);
-		expect(consumeMaterial('in_storage', 'offset_printing')).toBe(true);
-		expect(consumeMaterial('in_storage', 'digital_printing')).toBe(true);
-	});
-
-	// Las etapas posteriores mueven producto semiterminado: volver a descontar
-	// sería contar dos veces el mismo papel.
-	it('los saltos posteriores no vuelven a descontar', () => {
-		expect(consumeMaterial('offset_printing', 'die_cutting')).toBe(false);
-		expect(consumeMaterial('die_cutting', 'workshop')).toBe(false);
-	});
-
-	it('llegar a bodega no consume nada', () => {
-		expect(consumeMaterial('paper_purchase', 'in_storage')).toBe(false);
 	});
 });

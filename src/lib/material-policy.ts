@@ -18,4 +18,12 @@ export const MAQUINA_VIA_PASADA =
 	'El tiempo de máquina se carga a la OT al cerrar la etapa que lo usó (sus horas, o los clics en digital) — no como costo manual.';
 
 export const MATERIAL_VIA_CONSUMO =
-	'El material se carga a la OT cuando se consume desde bodega (escaneo, backflush o captura), al costo real de su lote — no como costo manual.';
+	'El material se carga a la OT cuando se consume desde bodega (el papel, al entrar a su primera etapa; lo demás, al escanear el lote), al costo real de su lote — no como costo manual.';
+
+/**
+ * Y la mano de obra (2026-11-11): la gente que Planta asignó a la máquina, por
+ * las horas que la OT estuvo en su turno — también desde la pasada cerrada
+ * (labor-from-shifts.ts, migración 20261111120000).
+ */
+export const MANO_DE_OBRA_VIA_PLANTA =
+	'La mano de obra se carga a la OT al cerrar la etapa: la gente que Planta asignó a la máquina, por las horas que la OT estuvo en su turno — no como costo manual.';

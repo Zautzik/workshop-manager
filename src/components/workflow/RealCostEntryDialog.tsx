@@ -19,9 +19,8 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from '@/hooks/use-toast';
 import { Plus, ArrowRight, DollarSign, AlertCircle, SkipForward, Upload, X, Image as ImageIcon } from 'lucide-react';
 import { type OTOperationCategory } from '@/types/ot';
-import { consumeMaterial } from '@/lib/partial-advance';
-import { colorCount, makeReadySheets, pressPasses } from '@/lib/ot-calculations';
-import { MaterialQueAvanza, type ConsumoElegido } from './MaterialQueAvanza';
+import { SalidaDePapel, type SalidaDePapelState } from './SalidaDePapel';
+import type { PaperIssuePayload } from '@/lib/paper-issue-schema';
 import { estimatedHoursFor, firstProblem, promptsStageReport, validateStageReport } from '@/lib/stage-report';
 import {
   CierreDeEtapa, CIERRE_VACIO, cierreToInput, cierreToPayload,
@@ -64,7 +63,11 @@ interface RealCostEntryDialogProps {
    * cierre viaja hasta el mismo pedido que mueve la OT: dos llamadas separadas
    * dejarían, cuando una falla, una OT movida sin horas o al revés.
    */
-  onConfirm: (movedQuantity: number, stageReport: StageReportPayload | null) => Promise<void> | void;
+  onConfirm: (
+    movedQuantity: number,
+    stageReport: StageReportPayload | null,
+    paperIssue: PaperIssuePayload[] | null,
+  ) => Promise<void> | void;
 }
 
 export function RealCostEntryDialog({
@@ -96,15 +99,25 @@ export function RealCostEntryDialog({
   const [cierre, setCierre] = useState<CierreEtapa>(CIERRE_VACIO);
   const [showCierreErrors, setShowCierreErrors] = useState(false);
 
-  // ── El papel se mueve con las unidades ────────────────────────────────────
+  // ── El papel sale al entrar a la primera etapa de la ruta ────────────────
   //
-  // Este diálogo preguntaba sólo por las unidades y el material se quedaba
-  // quieto: se cortaban tres mil de seis mil y el inventario seguía mostrando
-  // los pliegos completos. El fragmento que salió no quedaba atado a ningún
-  // lote, así que su trazabilidad no existía.
-  const consume = consumeMaterial(ot.status, targetStatus);
+  // Una vez: el pliego que entra a la guillotina es el mismo que sigue a la
+  // prensa y al troquel (regla del dueño, 2026-11-11). El bloque aparece sólo
+  // en esa entrada y es obligatorio —el servidor (moveOT) lo exige igual—.
   const otAny = ot as unknown as Record<string, any>;
-  const [consumo, setConsumo] = useState<ConsumoElegido | null>(null);
+  const [papel, setPapel] = useState<SalidaDePapelState>({ loading: false, required: false, lines: null, problem: null });
+  /** ¿Se puede mover con el papel como está? Si no, avisa por qué. */
+  const takePaper = (): { ok: boolean; lines: PaperIssuePayload[] | null } => {
+    if (papel.loading) {
+      toast({ title: 'Un momento', description: 'Todavía se está calculando el papel que sale.' });
+      return { ok: false, lines: null };
+    }
+    if (papel.required && !papel.lines) {
+      toast({ title: 'Falta el papel que sale', description: papel.problem ?? 'Indicá de qué lote y cuántos pliegos.', variant: 'destructive' });
+      return { ok: false, lines: null };
+    }
+    return { ok: true, lines: papel.required ? papel.lines : null };
+  };
 
   // Contra qué se juzga el cierre: los pliegos del trabajo dicen si la merma es
   // el arreglo o un problema, y lo estimado hace saltar un 40 escrito donde se
@@ -227,8 +240,11 @@ export function RealCostEntryDialog({
     // porque es el rastro de que la OT estuvo acá.
     const closure = takeClosure();
     if (!closure.ok) return;
+    // Omitir costos no omite el papel: si la OT entra a donde el papel sale, sale.
+    const paper = takePaper();
+    if (!paper.ok) return;
     if (isVistoGood && imageFile) await uploadImage();
-    await onConfirm(movedQuantity, closure.payload);
+    await onConfirm(movedQuantity, closure.payload, paper.lines);
     onOpenChange(false);
   };
 
@@ -256,6 +272,8 @@ export function RealCostEntryDialog({
     // cuál mitad.
     const closure = takeClosure();
     if (!closure.ok) return;
+    const paper = takePaper();
+    if (!paper.ok) return;
 
     // Puede no haber nada que guardar acá: si esta OT ya recorrió etapas
     // anteriores, sus líneas de presupuesto ya se registraron ahí y el
@@ -307,38 +325,9 @@ export function RealCostEntryDialog({
       }
       if (isVistoGood && imageFile) await uploadImage();
 
-      // ── El papel se declara si se puede, y si no, no se frena ──────────
-      //
-      // Antes esto exigía escanear un pallet para poder mover la OT. Estaba
-      // mal por dos motivos. Uno: `/operaciones/escanear` existe para eso, al
-      // lado de la máquina y con guantes puestos — pedirlo también acá le
-      // reclama al supervisor un dato que el operario declara mejor. Dos: el
-      // botón «Omitir» de este mismo diálogo ya se lo saltaba, así que el
-      // requisito era obligatorio y evitable a la vez, que es la peor de las
-      // dos cosas.
-      //
-      // Cuando SÍ hay un lote escaneado el consumo va antes del avance: si el
-      // lote está retenido o el certificado venció, la OT no tiene que haberse
-      // movido. Esa verificación no se relaja; lo que se relajó es exigirla.
-      if (consume && consumo) {
-        const res = await fetch('/api/lots/scan', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            qr: consumo.qr,
-            ot_id: ot.id,
-            quantity: consumo.sheets,
-            stage: targetStatus,
-            override_reason: consumo.overrideReason,
-          }),
-        });
-        if (!res.ok) {
-          const b = await res.json().catch(() => null);
-          throw new Error(b?.error ?? 'No se pudo registrar el papel que sale.');
-        }
-      }
-
-      await onConfirm(movedQuantity, closure.payload);
+      // El papel viaja con el movimiento: moveOT lo saca antes de mover, todo o
+      // nada, y si el lote está retenido o sin certificado la OT no se mueve.
+      await onConfirm(movedQuantity, closure.payload, paper.lines);
       onOpenChange(false);
     } catch (err: any) {
       toast({
@@ -437,23 +426,10 @@ export function RealCostEntryDialog({
           />
         )}
 
-        {/* Sólo cuando el salto saca papel de bodega. Las etapas posteriores
-            mueven producto semiterminado y volver a descontar contaría dos
-            veces el mismo pliego. */}
-        {consume && (
-          <MaterialQueAvanza
-            movedUnits={movedQuantity}
-            totalUnits={totalQuantity}
-            totalSheets={Number((ot as { calc_sheets?: number }).calc_sheets ?? 0) || totalQuantity}
-            // El arreglo NO sale de una columna —no existe— sino de la misma
-            // función que lo cobra. Leerlo de `ot.setup_sheets` daba siempre
-            // cero y la regla del primer fragmento no se disparaba nunca.
-            makeReadySheets={makeReadySheets(
-              pressPasses(colorCount(otAny.color_front), colorCount(otAny.color_back), otAny.press_bodies ?? 4),
-              { finish_troquelado: !!otAny.finish_troquelado, finish_hot_stamping: !!otAny.finish_hot_stamping },
-            )}
-            onChange={setConsumo}
-          />
+        {/* El papel sale al entrar a la primera etapa de la ruta, una vez:
+            el bloque decide solo si corresponde (y no se muestra si no). */}
+        {open && (
+          <SalidaDePapel otId={ot.id} toStatus={targetStatus} movedUnits={movedQuantity} onChange={setPapel} />
         )}
 
         <ScrollArea className="flex-1 max-h-[50vh] pr-2">

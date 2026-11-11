@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
+import { PLAN_STEP_KEYS } from '@/lib/production-route';
 import { requireAuth, isAuthError } from '@/lib/api-middleware';
 import { supabaseAdmin } from '@/integrations/supabase/server';
 import { resolveSalesScope, scopeFilterId } from '@/lib/sales-scope';
@@ -121,6 +122,9 @@ const CreateOTSchema = z.object({
 	// dropped for months (not in the schema → Zod stripped it), which is why
 	// every OT showed machine: null (2026-07 audit).
 	assigned_machine_id: z.string().uuid().optional().nullable(),
+	// Las etapas por las que pasa la OT, declaradas al crearla (2026-11-11). El
+	// papel sale de bodega al entrar a la primera; no toda OT pasa por todas.
+	route_steps: z.array(z.enum(PLAN_STEP_KEYS)).min(1, 'Elegí por qué etapas pasa la OT').max(PLAN_STEP_KEYS.length),
 	// Operations (child rows)
 	operations: z.array(OTOperationSchema).optional(),
 	notes: z.string().max(5000).optional().nullable(),
@@ -306,6 +310,8 @@ export async function POST(req: NextRequest) {
 					total_price: d.total_price || 0,
 					unit_price: d.unit_price || 0,
 					assigned_machine_id: d.assigned_machine_id || null,
+					// En orden de flujo y sin repetidos, venga como venga.
+					route_steps: PLAN_STEP_KEYS.filter((k) => d.route_steps.includes(k)),
 					notes: d.notes || null,
 					production_detail: d.production_detail ?? null,
 				},

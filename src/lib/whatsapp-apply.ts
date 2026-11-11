@@ -28,7 +28,9 @@ import { OTStatusSchema, type OTWorkflowStatus } from '@/lib/ot-state-machine';
 import { promptsStageReport } from '@/lib/stage-report';
 import { nextStatusOnRoute, type RouteOT } from '@/lib/production-route';
 import { moveOT } from '@/lib/ot-move';
+import type { PaperIssueLine } from '@/lib/paper-issue-server';
 import { valueStagePassesSafely } from '@/lib/stage-valuation';
+import { resolvePassMachine } from '@/lib/stage-machine';
 import type { FlowContext, FlowProposal } from '@/lib/whatsapp-flow';
 import type { AppRole } from '@/types/app-role';
 
@@ -60,7 +62,7 @@ const ROUTE_FIELDS =
 	'id, status, quantity, product_type, color_front, color_back, calc_sheets, calc_print_hours, calc_finish_hours, ' +
 	'assigned_machine_id, die_id, die_code, flag_paper_arrived, split_group_id, finish_troquelado, finish_plegado, ' +
 	'finish_pegado, finish_laminado, finish_barniz, finish_relieve, finish_perforado, finish_hot_stamping, ' +
-	'finish_uv_localizado, finish_numeracion';
+	'finish_uv_localizado, finish_numeracion, route_steps';
 
 export async function loadOTBasis(otId: string, atStatus?: string): Promise<OTBasis | null> {
 	const { data, error } = await supabaseAdmin.from('ots').select(ROUTE_FIELDS).eq('id', otId).maybeSingle();
@@ -103,6 +105,11 @@ export async function loadOTBasis(otId: string, atStatus?: string): Promise<OTBa
 export interface ApplyEvidence {
 	operatorEmployeeId?: string | null;
 	messageTimestamp?: string | null;
+	/**
+	 * El papel que sale si el parte hace entrar la OT a la primera etapa de su
+	 * ruta: lo confirma quien revisa el parte (corrected_data.paper_issue).
+	 */
+	paperIssue?: PaperIssueLine[] | null;
 }
 
 export interface ApplyOutcome {
@@ -330,7 +337,8 @@ export async function applyFlowProposal(
 			return out;
 		}
 		try {
-			const r = await enrichPastPass(otId, proposal.closeStage, proposal, actor, ot.assigned_machine_id ?? null, evidence);
+			const machine = await resolvePassMachine(otId, proposal.closeStage, ot.assigned_machine_id);
+			const r = await enrichPastPass(otId, proposal.closeStage, proposal, actor, machine, evidence);
 			out.closed = r.closed;
 			out.notes.push(r.note);
 		} catch (err) {
@@ -352,7 +360,8 @@ export async function applyFlowProposal(
 	const closeOnly = async () => {
 		if (!proposal.closeStage || !promptsStageReport(fromStatus)) return;
 		try {
-			out.closed = await closePass(otId, proposal.closeStage, proposal, actor, ot.assigned_machine_id ?? null, evidence);
+			const machine = await resolvePassMachine(otId, proposal.closeStage, ot.assigned_machine_id);
+			out.closed = await closePass(otId, proposal.closeStage, proposal, actor, machine, evidence);
 			if (!out.closed) out.notes.push('La pasada ya estaba cerrada por otra vía.');
 		} catch (err) {
 			out.notes.push(err instanceof Error ? err.message : 'No se pudo cerrar la pasada.');
@@ -367,7 +376,7 @@ export async function applyFlowProposal(
 
 	// ── Mover: el MISMO movimiento que el tablero (`moveOT`) ─────────────────
 	//
-	// Mismas compuertas, misma pasada, mismo backflush, mismo aviso. Antes esto
+	// Mismas compuertas, misma pasada, misma salida de papel, mismo aviso. Antes esto
 	// tenía su propia copia de la validación y el UPDATE, y un movimiento por
 	// WhatsApp no descontaba papel ni avisaba a nadie.
 	let partialQuantity: number | null = null;
@@ -401,6 +410,7 @@ export async function applyFlowProposal(
 		toStatus: proposal.nextStatus,
 		actor,
 		partialQuantity,
+		paperIssue: evidence.paperIssue ?? null,
 		stageReport: {
 			hours: proposal.hours,
 			mermaSheets: proposal.mermaSheets,

@@ -288,3 +288,14 @@ estimating breadth per product type, and accounting export beyond DTE.
 | **Next** | C-3 portal through `moveOT`; C-5 policy module; S-3 golden-thread e2e | Closes the last side door; makes permissions changeable in one place; locks the thread with a test. |
 | **Next** | G-3 OEE | Data already there; owner-visible. |
 | **Later** | C-4 spine as write target (legacy tables → views); G-1 DTE when Nubox credentials arrive; G-4 offline station; G-2 JDF for capable presses | Larger migrations or external dependencies. |
+
+## 2026-11-11 — Mano de obra por Planta, ruta declarada, papel al entrar
+
+Decisiones del dueño:
+
+- **Mano de obra** = la gente que Planta asignó a la máquina, por las horas que la OT estuvo en su turno. Se deduce de la pasada cerrada (`labor-from-shifts.ts`, dentro de `stage-valuation.ts`), así que el Tablero y «Aprobar e Integrar» la cargan por el mismo camino. Las horas se colocan hacia atrás desde el cierre, sólo dentro de los turnos de esa máquina (menos colación). Lo que no cae en un turno con gente queda como «sin dotación», no se inventa. El guard `trg_actual_cost_only_when_consumed` ahora también rechaza mano de obra real que no venga de una pasada (migración 20261111120000). Se retiró el «Cerrar día» del kiosco y la categoría «Mano de obra» del parte.
+- **La máquina de la pasada** es la que hace la etapa (`stage-machine.ts`): antes toda pasada guardaba la prensa asignada, también la del primer corte. Entre varias guillotinas desempata la que Planta tenía con gente, o el operario del parte; si sigue ambiguo, las horas quedan sin dotación.
+- **Ruta declarada**: `ots.route_steps`, preguntada en el paso Máquina del asistente (pre-llenada con `inferRoute`). Las OT existentes se rellenaron con `scripts/backfill-route-steps.mts`. Los fragmentos la heredan del padre (trigger).
+- **El papel sale una vez, al entrar a la primera etapa de la ruta** (la guillotina, si tiene primer corte; si no, la primera que trabaja el pliego). `moveOT` lo exige (`PAPER_ISSUE_REQUIRED`) y lo saca ANTES de mover con `emitir_papel` (todos los lotes o ninguno, por `consumir_lote`); si la OT no puede moverse, `devolver_salida_papel` lo devuelve. Pliegos → kg por el área y gramaje del ítem. El Tablero y la revisión del parte muestran el mismo bloque (`SalidaDePapel`), pre-llenado con el lote reservado para la OT. Se retiró el backflush.
+
+Seed local (verificado): mano de obra $92,3 M desde 220 pasadas; 22,9 h sin dotación en 5 OT (guillotinas ambiguas y turnos vacíos).

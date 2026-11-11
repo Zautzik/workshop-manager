@@ -60,6 +60,10 @@ import { CostLineTable } from './CostLineTable';
 import { ReviewCard } from './ReviewCard';
 import { EditableCostLineTable } from './EditableCostLineTable';
 import { EditableParsedData } from './EditableParsedData';
+import { ReviewPaperIssue } from './ReviewPaperIssue';
+import type { SalidaDePapelState } from './SalidaDePapel';
+
+const PAPEL_VACIO: SalidaDePapelState = { loading: false, required: false, lines: null, problem: null };
 
 /** Lo que el supervisor está corrigiendo, y contra qué se recalcula. */
 interface ReviewDraft {
@@ -86,6 +90,8 @@ export default function WhatsAppDashboard() {
   const [reviewComments, setReviewComments] = useState('');
   // null = viendo; un borrador = el supervisor está corrigiendo la interpretación.
   const [draft, setDraft] = useState<ReviewDraft | null>(null);
+  // El papel que sale si aprobar mueve la OT a la primera etapa de su ruta.
+  const [papel, setPapel] = useState<SalidaDePapelState>(PAPEL_VACIO);
   const [manualMessage, setManualMessage] = useState('');
   const [manualName, setManualName] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
@@ -151,6 +157,7 @@ export default function WhatsAppDashboard() {
   /* ─── Review Actions ─────────────────────────────────────── */
 
   const closeReview = () => {
+    setPapel(PAPEL_VACIO);
     setReviewingLog(null);
     setReviewComments('');
     setDraft(null);
@@ -177,7 +184,19 @@ export default function WhatsAppDashboard() {
 
     // Con edición, viajan los datos corregidos (deciden etapa, horas y destino
     // de la OT) y las líneas de costo; apply_capture_event integra lo corregido.
-    const corrections = action === 'approve' && draft ? toCorrections(draft.data, draft.lines) : undefined;
+    // Y si aprobar hace entrar la OT a la primera etapa de su ruta, el papel
+    // que sale: sin él, la OT no avanza (moveOT lo exige igual que el Tablero).
+    if (action === 'approve' && papel.loading) {
+      toast({ title: 'Un momento', description: 'Todavía se está calculando el papel que sale.' });
+      return;
+    }
+    if (action === 'approve' && papel.required && !papel.lines) {
+      toast({ title: 'Falta el papel que sale', description: papel.problem ?? 'Indicá de qué lote y cuántos pliegos.', variant: 'destructive' });
+      return;
+    }
+    const paperIssue = action === 'approve' && papel.required && papel.lines ? papel.lines : undefined;
+    const edited = action === 'approve' && draft ? toCorrections(draft.data, draft.lines) : undefined;
+    const corrections = edited || paperIssue ? { ...(edited ?? {}), ...(paperIssue ? { paperIssue } : {}) } : undefined;
 
     try {
       const result = await reviewMutation.mutateAsync({
@@ -711,6 +730,14 @@ export default function WhatsAppDashboard() {
                   })()}
 
                   <Separator />
+
+                  {/* El papel, si aprobar hace entrar la OT a la primera etapa de su ruta. */}
+                  <ReviewPaperIssue
+                    source="whatsapp"
+                    id={reviewingLog.id}
+                    data={draft ? toCorrections(draft.data, draft.lines).data : undefined}
+                    onChange={setPapel}
+                  />
 
                   {/* Review Comments */}
                   <div>

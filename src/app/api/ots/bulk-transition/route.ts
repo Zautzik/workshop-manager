@@ -14,7 +14,7 @@ const BulkTransitionSchema = z.object({
 
 /**
  * Cuántas OT se mueven a la vez. Cada una pasa por `moveOT` —las mismas
- * compuertas, pasada, backflush y aviso que el tablero—, que hace sus propias
+ * compuertas, pasada, salida de papel y aviso que el tablero—, que hace sus propias
  * consultas. Antes este bulk validaba todo en lote para no caer en N+1, y por
  * eso era otra implementación: contaba como calidad interna lo firmado en el
  * portal del cliente, no miraba el precio, no escribía la pasada, no descontaba

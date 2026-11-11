@@ -15,6 +15,7 @@
  */
 
 import type { UnifiedOTForm } from '@/types/ot-unified';
+import { effectiveRoute } from '@/lib/ot-route-form';
 
 export interface StepCheck {
 	ok: boolean;
@@ -75,6 +76,11 @@ export function validateStep(step: number, form: UnifiedOTForm): StepCheck {
 				return no(
 					'Elige la máquina. De ella salen el área máxima de impresión, la velocidad y los cuerpos de color: sin eso el montaje y el costeo se calculan sobre una prensa que no existe.'
 				);
+			}
+			// La ruta: no toda OT pasa por todas las etapas, y el papel sale al
+			// entrar a la primera. Sin ninguna, el Tablero no sabe adónde va.
+			if (effectiveRoute(form).length === 0) {
+				return no('Marca al menos una etapa por la que pasa la OT.');
 			}
 			return OK;
 		}

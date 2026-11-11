@@ -21,6 +21,7 @@ import { supabaseAdmin } from '@/integrations/supabase/server';
 import { resolveFlow } from '@/lib/whatsapp-flow';
 import { applyFlowProposal, loadOTBasis, type ApplyActor, type ApplyOutcome } from '@/lib/whatsapp-apply';
 import type { FlowProposal } from '@/lib/whatsapp-flow';
+import { parsePaperIssue } from '@/lib/paper-issue-schema';
 
 export interface ApprovedReport {
 	otId: string;
@@ -61,6 +62,42 @@ export async function statusAt(otId: string, at: string | null | undefined, curr
 	return current;
 }
 
+/**
+ * Adónde movería la OT este parte si se aprobara ahora, sin tocar nada.
+ *
+ * La revisión lo necesita para pedir el papel ANTES de aprobar: si el parte
+ * hace entrar la OT a la primera etapa de su ruta, el papel sale, y quien
+ * revisa confirma de qué lote. Resuelve igual que la aprobación (mismo estado
+ * del momento del mensaje, misma ruta, mismo parcial).
+ */
+export async function previewProductionMove(
+	report: ApprovedReport,
+): Promise<{ toStatus: string | null; movedUnits: number | null }> {
+	const { data: ot, error } = await supabaseAdmin.from('ots').select('status, quantity').eq('id', report.otId).maybeSingle();
+	if (error) throw new Error(`No se pudo leer la OT: ${error.message}`);
+	if (!ot) return { toStatus: null, movedUnits: null };
+
+	const resolvedAgainst = await statusAt(report.otId, report.messageTimestamp, ot.status);
+	// Un parte de una etapa que la OT ya dejó completa su pasada y no mueve.
+	if (resolvedAgainst !== ot.status) return { toStatus: null, movedUnits: null };
+
+	const basis = await loadOTBasis(report.otId, resolvedAgainst);
+	const proposal = resolveFlow(
+		resolvedAgainst,
+		{ ...report.parsed, message_type: report.eventType ?? undefined, confidence: 100 },
+		basis?.ctx ?? {},
+	);
+	if (!proposal.nextStatus || proposal.retroactive) return { toStatus: null, movedUnits: null };
+
+	// El mismo parcial que applyFlowProposal: pliegos del parte → unidades.
+	let movedUnits = Number(ot.quantity ?? 0);
+	if (proposal.partialSheets && basis?.unitsPerSheet) {
+		const units = Math.round(proposal.partialSheets * basis.unitsPerSheet);
+		if (units > 0 && units < basis.quantity) movedUnits = units;
+	}
+	return { toStatus: proposal.nextStatus, movedUnits };
+}
+
 export async function applyApprovedProductionReport(
 	report: ApprovedReport,
 	actor: ApplyActor,
@@ -93,6 +130,9 @@ export async function applyApprovedProductionReport(
 		// ajustó, y el mensaje —no la aprobación— fecha el trabajo.
 		operatorEmployeeId: report.operatorEmployeeId ?? null,
 		messageTimestamp: report.messageTimestamp ?? null,
+		// Si el parte hace entrar la OT a la primera etapa de su ruta, el papel
+		// sale: el lote y los pliegos los confirmó quien revisó el parte.
+		paperIssue: parsePaperIssue(report.parsed.paper_issue),
 	});
 
 	return {
