@@ -489,8 +489,9 @@ export interface OrderLaborMarginRow {
  * fecha de vigencia— quedaba sin usar. Dos motores de costo laboral: el probado
  * desconectado, el conectado sin probar.
  *
- * Ahora llama a `/api/analytics/labor-margin`, que usa el motor bueno del lado
- * del servidor. De paso las tarifas por hora dejan de viajar al navegador.
+ * Ahora llama a `/api/analytics/labor-margin`, que lee la mano de obra del
+ * libro: la que se carga al cerrar cada etapa, por la gente que Planta tenía en
+ * la máquina (2026-11-11). Es la misma que suma el margen de Rentabilidad.
  */
 export function useOrderLaborMargin(otId?: string, startDate?: string, endDate?: string) {
   const hasValidStartDate = Boolean(startDate && /^\d{4}-\d{2}-\d{2}$/.test(startDate));
@@ -517,9 +518,10 @@ export function useOrderLaborMargin(otId?: string, startDate?: string, endDate?:
 
 /** Por qué no hay margen laboral, cuando no lo hay. */
 export interface LaborDiagnostics {
-  assignments_total: number;
-  assignments_with_ot: number;
-  clock_events: number;
+  /** Etapas cerradas con horas en el período. */
+  passes_with_hours: number;
+  /** De ésas, las que cayeron en un turno con gente asignada en Planta. */
+  passes_with_labor: number;
   rates: number;
   blocked: boolean;
   reasons: string[];

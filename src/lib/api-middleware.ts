@@ -32,7 +32,7 @@ async function resolveDevBypassUser(): Promise<SessionUser> {
 		id = data?.user_id ?? null;
 	}
 
-	devBypassUser = {
+	const user = {
 		// Nil UUID only as a last resort (empty database) — FK inserts will fail
 		// there, but reads keep working.
 		id: id ?? '00000000-0000-0000-0000-000000000000',
@@ -40,7 +40,13 @@ async function resolveDevBypassUser(): Promise<SessionUser> {
 		name: 'Dev Admin',
 		role: 'admin' as const,
 	};
-	return devBypassUser;
+	// Sólo se recuerda un admin real. Antes se guardaba también el UUID nulo:
+	// si la base local estaba caída en el primer pedido (Docker apagado), el
+	// servidor quedaba hasta reiniciarse escribiendo con un usuario que no
+	// existe, y toda salida de papel o línea de costo fallaba por FK
+	// (2026-11-12).
+	if (id) devBypassUser = user;
+	return user;
 }
 
 /**

@@ -2,179 +2,149 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth, isAuthError } from '@/lib/api-middleware';
 import { supabaseAdmin } from '@/integrations/supabase/server';
 import { fetchAll } from '@/lib/fetch-all';
-import {
-  attributeLabor, groupLinesByOt,
-  type ClockEvent, type AssignmentRow, type RateRow,
-} from '@/lib/labor-attribution';
+import { STAGE_PASS_REF } from '@/lib/stage-valuation';
 
 export const dynamic = 'force-dynamic';
 
 /**
- * GET /api/analytics/labor-margin
+ * GET /api/analytics/labor-margin — la mano de obra por OT, desde el libro.
  *
- * El margen laboral por OT, calculado con el MISMO motor que usa el resto del
- * taller: `labor-attribution.ts`, puro y con 20 tests, que resuelve el operario
- * que olvida marcar salida, el turno que cruza medianoche y la tarifa con fecha
- * de vigencia.
+ * La mano de obra real de una OT es la gente que Planta asignó a la máquina,
+ * por las horas que la OT estuvo en su turno, y se escribe en `ot_cost_lines`
+ * al cerrar cada pasada (stage-valuation.ts, regla del dueño 2026-11-11). Esta
+ * pestaña lee ESAS líneas: las mismas que suma el margen de Rentabilidad.
  *
- * Antes esto se recalculaba en el navegador, en unas 300 líneas sin un solo
- * test, mientras el motor probado quedaba sin usar. Dos motores de costo
- * laboral: uno probado y desconectado, otro conectado y sin probar — y el que
- * alimentaba la pantalla del dueño era el segundo.
+ * Antes recalculaba la mano de obra por su cuenta desde las marcas del kiosco
+ * (labor-attribution.ts) — una segunda verdad que no coincidía con el margen
+ * y que, sin marcas de reloj, dejaba la pestaña vacía aunque el libro tuviera
+ * la mano de obra cargada (2026-11-12).
  *
- * Además el cálculo pasa al servidor porque para hacerlo hay que leer
- * `compensation_rates`, y no hay razón para que las tarifas de cada persona
- * viajen al navegador sólo para sumarlas.
- *
- * DIAGNÓSTICO. Cuando no puede atribuir, dice POR QUÉ en vez de devolver una
- * lista vacía y dejar que la pantalla muestre "sin datos". Hoy la respuesta
- * honesta es que el eslabón no existe: ninguna asignación de trabajo tiene OT.
+ * DIAGNÓSTICO. Cuando no hay filas, dice POR QUÉ: no hay pasadas cerradas con
+ * horas, o las pasadas cayeron en turnos sin gente asignada en Planta, o
+ * faltan tarifas.
  */
+
+/** «Mano de obra — Ana Soto (2 h, turno Mañana 2026-11-12)» → «Ana Soto». */
+const personOf = (description: string): string | null => {
+	const m = /^Mano de obra — (.+?) \(/.exec(description ?? '');
+	return m ? m[1] : null;
+};
+
 export async function GET(req: NextRequest) {
-  const auth = await requireAuth(['admin', 'manager', 'supervisor']);
-  if (isAuthError(auth)) return auth;
+	const auth = await requireAuth(['admin', 'manager', 'supervisor']);
+	if (isAuthError(auth)) return auth;
 
-  const { searchParams } = new URL(req.url);
-  const from = searchParams.get('from');
-  const to = searchParams.get('to');
-  const otId = searchParams.get('ot_id');
+	const { searchParams } = new URL(req.url);
+	const from = searchParams.get('from');
+	const to = searchParams.get('to');
+	const otId = searchParams.get('ot_id');
 
-  // Paginado: 1.768 turnos en cuatro meses, y PostgREST entrega 1.000. Sin esto
-  // la mano de obra de la app quedaba en dos tercios de la real — y como el
-  // costo bajaba, el margen subía.
-  const asignacionesPagina = (desde: number, hasta: number) => {
-    let q = supabaseAdmin
-      .from('worker_assignments')
-      .select('employee_id, machine_id, ot_id, date, role');
-    if (from) q = q.gte('date', from);
-    if (to) q = q.lte('date', to);
-    if (otId) q = q.eq('ot_id', otId);
-    return q.range(desde, hasta) as any;
-  };
+	const linesPage = (desde: number, hasta: number) => {
+		let q = supabaseAdmin
+			.from('ot_cost_lines')
+			.select('ot_id, ref_id, description, quantity, unit_cost, total, occurred_at')
+			.eq('kind', 'actual')
+			.eq('category', 'labor')
+			.eq('ref_type', STAGE_PASS_REF);
+		if (from) q = q.gte('occurred_at', from);
+		if (to) q = q.lte('occurred_at', `${to}T23:59:59.999Z`);
+		if (otId) q = q.eq('ot_id', otId);
+		return q.range(desde, hasta) as any;
+	};
+	const passesPage = (desde: number, hasta: number) => {
+		let q = supabaseAdmin.from('ot_stage_reports').select('id, ot_id').gt('hours', 0);
+		if (from) q = q.gte('created_at', from);
+		if (to) q = q.lte('created_at', `${to}T23:59:59.999Z`);
+		if (otId) q = q.eq('ot_id', otId);
+		return q.range(desde, hasta) as any;
+	};
 
-  const [{ rows: asignaciones }, { rows: eventos }, { data: tarifas }, { data: empleados }] =
-    await Promise.all([
-      fetchAll<any>(asignacionesPagina),
-      fetchAll<any>((desde, hasta) => supabaseAdmin
-        .from('attendance_events')
-        .select('employee_id, machine_id, event_type, at')
-        .range(desde, hasta) as any),
-      supabaseAdmin
-        .from('compensation_rates')
-        .select('employee_id, hourly_rate, currency_code, overtime_multiplier_50, effective_from, effective_to'),
-      supabaseAdmin.from('employees').select('id, full_name'),
-    ]);
+	let lines: any[];
+	let passes: any[];
+	let ratesCount: number;
+	try {
+		const [l, p, r] = await Promise.all([
+			fetchAll<any>(linesPage),
+			fetchAll<any>(passesPage),
+			supabaseAdmin.from('compensation_rates').select('id', { count: 'exact', head: true }),
+		]);
+		if (r.error) throw new Error(r.error.message);
+		lines = l.rows;
+		passes = p.rows;
+		ratesCount = r.count ?? 0;
+	} catch (err) {
+		return NextResponse.json(
+			{ error: `No se pudo leer la mano de obra: ${err instanceof Error ? err.message : 'error desconocido'}` },
+			{ status: 500 },
+		);
+	}
 
-  const conOt = asignaciones.filter((a: any) => a.ot_id);
+	const passesWithLabor = new Set(lines.map((l) => l.ref_id));
+	const reasons: string[] = [];
+	if (passes.length === 0) {
+		reasons.push('No hay etapas cerradas con horas en el período: la mano de obra se carga al cerrar la etapa.');
+	} else if (passesWithLabor.size === 0) {
+		reasons.push(
+			`Ninguna de las ${passes.length} etapas cerradas cayó en un turno con gente asignada a su máquina en Planta. ` +
+				'Sin dotación no se sabe quién trabajó: se completa asignando personal a la máquina en Planta.',
+		);
+	}
+	if (ratesCount === 0) {
+		reasons.push('No hay tarifas por hora cargadas: sin ellas las horas no se pueden convertir a plata.');
+	}
 
-  // ── Por qué no se puede atribuir, cuando no se puede ──
-  const bloqueos: string[] = [];
-  if ((asignaciones ?? []).length === 0) {
-    bloqueos.push('No hay partes de trabajo en el período.');
-  } else if (conOt.length === 0) {
-    bloqueos.push(
-      `Ninguno de los ${(asignaciones ?? []).length} partes de trabajo del período tiene OT asociada. ` +
-      'Sin ese enlace no se puede saber a qué trabajo cargarle las horas. Se completa al asignar la ' +
-      'persona a la OT en Planta.'
-    );
-  }
-  if ((eventos ?? []).length === 0) {
-    bloqueos.push('No hay marcas de reloj (entrada/salida) registradas: sin ellas no hay horas reales que atribuir.');
-  }
-  if ((tarifas ?? []).length === 0) {
-    bloqueos.push('No hay tarifas por hora cargadas: sin ellas las horas no se pueden convertir a plata.');
-  }
+	// Agrupado por OT.
+	const byOt = new Map<string, { hours: number; cost: number; people: Set<string> }>();
+	for (const l of lines) {
+		const g = byOt.get(l.ot_id) ?? { hours: 0, cost: 0, people: new Set<string>() };
+		g.hours += Number(l.quantity ?? 0);
+		g.cost += Number(l.total ?? 0);
+		const who = personOf(l.description);
+		if (who) g.people.add(who);
+		byOt.set(l.ot_id, g);
+	}
 
-  const clockEvents: ClockEvent[] = (eventos ?? [])
-    .filter((e) => e.employee_id)
-    .map((e) => ({
-      employee_id: e.employee_id as string,
-      machine_id: e.machine_id,
-      at: e.at as string,
-      event_type: e.event_type as string,
-    }));
+	const otIds = [...byOt.keys()];
+	const otById = new Map<string, any>();
+	// De a 100: una lista de cientos de ids no entra en la URL del pedido.
+	for (let i = 0; i < otIds.length; i += 100) {
+		const { data, error } = await supabaseAdmin
+			.from('ots')
+			.select('id, ot_number, client_name, total_price')
+			.in('id', otIds.slice(i, i + 100));
+		if (error) return NextResponse.json({ error: `No se pudieron leer las OT: ${error.message}` }, { status: 500 });
+		for (const o of data ?? []) otById.set(o.id, o);
+	}
 
-  const assignments: AssignmentRow[] = conOt.map((a) => ({
-    employee_id: a.employee_id as string,
-    machine_id: a.machine_id,
-    ot_id: a.ot_id,
-    date: a.date,
-    role: a.role,
-  }));
+	const rows = [...byOt.entries()]
+		.map(([ot_id, g]) => {
+			const o = otById.get(ot_id);
+			const revenue = Number(o?.total_price ?? 0);
+			return {
+				ot_id,
+				ot_number: o?.ot_number ?? null,
+				client_name: o?.client_name ?? null,
+				revenue,
+				total_hours: Math.round(g.hours * 100) / 100,
+				// Las horas extra no se separan todavía: la línea va a la tarifa base.
+				overtime_hours: 0,
+				total_labor_cost: Math.round(g.cost),
+				labor_pct_of_revenue: revenue > 0 ? Math.round((g.cost / revenue) * 1000) / 10 : null,
+				people: [...g.people],
+			};
+		})
+		.sort((a, b) => b.total_labor_cost - a.total_labor_cost);
 
-  const rates: RateRow[] = (tarifas ?? []).map((r) => ({
-    employee_id: r.employee_id,
-    hourly_rate: Number(r.hourly_rate ?? 0),
-    currency_code: r.currency_code,
-    overtime_multiplier_50: r.overtime_multiplier_50,
-    effective_from: r.effective_from,
-    effective_to: r.effective_to,
-  }));
-
-  // El motor trabaja DÍA por DÍA a propósito: así resuelve el turno que cruza
-  // medianoche y el tope de jornada dentro de su propio marco. Se le pasa cada
-  // día por separado y se acumulan las líneas.
-  const dias = [...new Set(assignments.map((a) => a.date))].sort();
-  const lines = [];
-  const warnings = [];
-  let unattributedHours = 0;
-
-  for (const date of dias) {
-    const delDia = attributeLabor({
-      date,
-      events: clockEvents.filter((e) => String(e.at).slice(0, 10) === date),
-      assignments: assignments.filter((a) => a.date === date),
-      rates,
-    });
-    lines.push(...delDia.lines);
-    warnings.push(...delDia.warnings);
-    unattributedHours += delDia.unattributedHours;
-  }
-
-  const resultado = { lines, warnings, unattributedHours };
-  const porOt = groupLinesByOt(resultado.lines);
-
-  const nombre = new Map((empleados ?? []).map((e) => [e.id, e.full_name]));
-
-  const otIds = [...porOt.keys()];
-  const { data: ots } = otIds.length
-    ? await supabaseAdmin.from('ots').select('id, ot_number, client_name, total_price').in('id', otIds)
-    : { data: [] };
-  const otById = new Map((ots ?? []).map((o) => [o.id, o]));
-
-  const rows = [...porOt.entries()].map(([ot_id, lineas]) => {
-    const o = otById.get(ot_id);
-    const total_labor_cost = lineas.reduce((a, l) => a + l.cost, 0);
-    const revenue = Number(o?.total_price ?? 0);
-    return {
-      ot_id,
-      ot_number: o?.ot_number ?? null,
-      client_name: o?.client_name ?? null,
-      revenue,
-      total_hours: Math.round(lineas.reduce((a, l) => a + l.hours, 0) * 100) / 100,
-      overtime_hours: Math.round(lineas.reduce((a, l) => a + l.overtimeHours, 0) * 100) / 100,
-      total_labor_cost: Math.round(total_labor_cost),
-      labor_pct_of_revenue: revenue > 0 ? Math.round((total_labor_cost / revenue) * 1000) / 10 : null,
-      people: [...new Set(lineas.map((l) => nombre.get(l.employee_id) ?? l.employee_id))],
-    };
-  });
-
-  rows.sort((a, b) => b.total_labor_cost - a.total_labor_cost);
-
-  return NextResponse.json({
-    rows,
-    // Las advertencias del motor, que son parte del resultado y no un detalle:
-    // un turno sin salida marcada cambia lo que se le cobra a una OT.
-    warnings: resultado.warnings,
-    unattributed_hours: resultado.unattributedHours,
-    diagnostics: {
-      assignments_total: (asignaciones ?? []).length,
-      assignments_with_ot: conOt.length,
-      clock_events: (eventos ?? []).length,
-      rates: (tarifas ?? []).length,
-      blocked: bloqueos.length > 0,
-      // Que la pantalla pueda decir qué falta en vez de "sin datos disponibles".
-      reasons: bloqueos,
-    },
-  });
+	return NextResponse.json({
+		rows,
+		warnings: [],
+		unattributed_hours: null,
+		diagnostics: {
+			passes_with_hours: passes.length,
+			passes_with_labor: passesWithLabor.size,
+			rates: ratesCount,
+			blocked: reasons.length > 0 && rows.length === 0,
+			reasons,
+		},
+	});
 }

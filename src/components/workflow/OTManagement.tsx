@@ -500,7 +500,7 @@ export function OTManagement({ onOTSelect }: OTManagementProps) {
           ot={hoveredOT.ot}
           anchorRect={hoveredOT.rect}
           onClose={() => setHoveredOT(null)}
-          nextStatuses={getAllNextStatuses(hoveredOT.ot.status)}
+          nextStatuses={getAllNextStatuses(hoveredOT.ot)}
           onAdvance={(ot, key, label) => requestAdvance(ot, key, label)}
           onSplit={(ot, key, label) => { setSplitOT(ot); setSplitTarget({ key, label }); }}
           onEdit={(ot) => { setEditingOT(ot); setShowEditDialog(true); }}

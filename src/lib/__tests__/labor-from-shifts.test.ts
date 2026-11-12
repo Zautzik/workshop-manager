@@ -44,6 +44,8 @@ describe('laborForPass', () => {
 			rates,
 		});
 		expect(r.uncoveredHours).toBe(0);
+		// Pegada al cierre: 3 h antes de las 15:00.
+		expect(r.placedFromMs).toBe(at(10, 12));
 		expect(r.lines).toEqual([
 			{ employee_id: 'ana', date: '2026-11-10', shift_name: 'Mañana', hours: 2, rate: 10000 },
 			{ employee_id: 'beto', date: '2026-11-10', shift_name: 'Tarde', hours: 1, rate: 13000 },
@@ -79,6 +81,8 @@ describe('laborForPass', () => {
 			shifts,
 			rates,
 		});
+		// Tuvo que saltar la noche: empezó a las 20:00 del día anterior.
+		expect(r.placedFromMs).toBe(at(9, 20));
 		expect(r.lines).toEqual([
 			{ employee_id: 'beto', date: '2026-11-09', shift_name: 'Tarde', hours: 2, rate: 12000 },
 			{ employee_id: 'ana', date: '2026-11-10', shift_name: 'Mañana', hours: 2, rate: 10000 },
@@ -129,7 +133,7 @@ describe('laborForPass', () => {
 	});
 
 	it('cero horas, nada', () => {
-		expect(laborForPass({ closedAtMs: at(10, 9), hours: 0, assignments: [], shifts, rates })).toEqual({ lines: [], uncoveredHours: 0 });
+		expect(laborForPass({ closedAtMs: at(10, 9), hours: 0, assignments: [], shifts, rates })).toEqual({ lines: [], uncoveredHours: 0, placedFromMs: null });
 		expect(H).toBeGreaterThan(0);
 	});
 });

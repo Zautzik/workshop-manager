@@ -51,15 +51,16 @@ export async function GET(req: NextRequest) {
 	);
 	const ots = otsResult.rows;
 
-	const ids = ots.map((o) => o.id);
 	const costByOt = new Map<string, { revenue: number; actual: number; margin: number }>();
 	let costTruncationMsg: string | null = null;
-	if (ids.length > 0) {
+	if (ots.length > 0) {
+		// La vista tiene una fila por OT: se lee entera. Filtrarla con
+		// `.in('ot_id', <todas las OT>)` armaba una URL más larga de lo que el
+		// servidor acepta con ~250 OT, y Tendencias respondía 500 (2026-11-12).
 		const costResult = await fetchAll<any>((desde, hasta) =>
 			supabaseAdmin
 				.from('ot_cost_summary')
 				.select('ot_id, revenue, actual_cost, gross_margin')
-				.in('ot_id', ids)
 				.range(desde, hasta) as any,
 		);
 		costTruncationMsg = truncationNote(costResult, 'líneas de costo');

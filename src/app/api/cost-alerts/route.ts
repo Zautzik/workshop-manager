@@ -59,14 +59,15 @@ export async function GET(_req: NextRequest) {
     .select('id, ot_number, client_name, total_price');
   if (otsError) return NextResponse.json({ error: otsError.message }, { status: 500 });
 
-  const otIds = (ots ?? []).map((o) => o.id);
   // Paginado: las mismas 4.256 líneas que truncaban la pantalla de Rentabilidad.
-  const { rows: lines } = otIds.length
+  // Sin filtrar por OT: se quieren las de todas, y `.in('ot_id', <todas>)`
+  // armaba una URL más larga de lo que el servidor acepta con ~250 OT, y la
+  // ruta respondía 500 (2026-11-12).
+  const { rows: lines } = (ots ?? []).length
     ? await fetchAll<any>((desde, hasta) =>
         supabaseAdmin
           .from('ot_cost_lines')
           .select('ot_id, kind, category, total, source')
-          .in('ot_id', otIds)
           .range(desde, hasta) as any,
       )
     : { rows: [] as any[] };

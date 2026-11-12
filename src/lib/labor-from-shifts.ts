@@ -61,6 +61,12 @@ export interface PassLabor {
 	lines: LaborLine[];
 	/** Horas de la pasada que no cayeron en un turno con gente asignada. */
 	uncoveredHours: number;
+	/**
+	 * Desde cuándo hubo que ir hacia atrás para colocar las horas (ms). Igual a
+	 * cierre − horas si la máquina tuvo gente todo ese rato; antes, si hubo que
+	 * saltar huecos. Sirve para desempatar entre máquinas iguales.
+	 */
+	placedFromMs: number | null;
 }
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
@@ -116,7 +122,7 @@ export function laborForPass(args: {
 }): PassLabor {
 	const { closedAtMs, assignments, shifts, rates } = args;
 	let remainingMs = Math.max(0, args.hours) * HOUR_MS;
-	if (remainingMs === 0) return { lines: [], uncoveredHours: 0 };
+	if (remainingMs === 0) return { lines: [], uncoveredHours: 0, placedFromMs: null };
 
 	// Un tramo por (día, turno) con su gente.
 	const windows = new Map<string, { date: string; shift: ShiftDef; crew: Set<string>; spans: Array<[number, number]> }>();
@@ -147,6 +153,7 @@ export function laborForPass(args: {
 	// que lo cubren.
 	const bounds = [...new Set(pieces.flatMap((p) => [p.s, p.e]))].sort((a, b) => b - a);
 	const hoursBy = new Map<string, LaborLine>();
+	let placedFromMs: number | null = null;
 	for (let i = 0; i + 1 < bounds.length && remainingMs > 0; i++) {
 		const end = bounds[i];
 		const start = bounds[i + 1];
@@ -168,13 +175,14 @@ export function laborForPass(args: {
 			}
 		}
 		remainingMs -= takeMs;
+		placedFromMs = end - takeMs;
 	}
 
 	const lines = [...hoursBy.values()]
 		.map((l) => ({ ...l, hours: round2(l.hours) }))
 		.filter((l) => l.hours > 0)
 		.sort((a, b) => a.date.localeCompare(b.date) || a.shift_name.localeCompare(b.shift_name));
-	return { lines, uncoveredHours: round2(remainingMs / HOUR_MS) };
+	return { lines, uncoveredHours: round2(remainingMs / HOUR_MS), placedFromMs };
 }
 
 /** El día de planta (YYYY-MM-DD) de un instante: para acotar qué asignaciones traer. */

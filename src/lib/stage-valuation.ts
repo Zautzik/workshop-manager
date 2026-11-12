@@ -177,6 +177,22 @@ async function laborRows(otId: string, passes: PassForLabor[]) {
 			const mine = staffed.filter((x) => x.lines.some((l) => l.employee_id === p.operator_employee_id));
 			if (mine.length === 1) staffed = mine;
 		}
+		// Y si una sola tuvo gente durante toda la pasada, es esa: la OT no pudo
+		// estar en una guillotina vacía. Una pasada que cruza de Mañana (dos
+		// guillotinas con gente) a Tarde (sólo la #1) estuvo en la #1. Empate
+		// real = no se adivina.
+		if (staffed.length > 1) {
+			const best = Math.min(...staffed.map((x) => x.uncoveredHours));
+			let top = staffed.filter((x) => x.uncoveredHours === best);
+			// Cubrir no basta: en una máquina con menos turnos las horas se
+			// deslizan hacia atrás a un turno anterior. Gana la que tuvo gente
+			// pegada al cierre (la que menos tuvo que retroceder).
+			if (top.length > 1) {
+				const latest = Math.max(...top.map((x) => x.placedFromMs ?? -Infinity));
+				top = top.filter((x) => (x.placedFromMs ?? -Infinity) === latest);
+			}
+			if (top.length === 1) staffed = top;
+		}
 		if (staffed.length !== 1) {
 			uncovered += Number(p.hours);
 			continue;

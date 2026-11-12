@@ -1,4 +1,5 @@
-import { naturalNextStatuses, type OTWorkflowStatus } from '@/lib/ot-state-machine';
+import { naturalNextStatuses, OTStatusSchema, type OTWorkflowStatus } from '@/lib/ot-state-machine';
+import { declaredRoute, nextStatusOnRoute, type RouteOT } from '@/lib/production-route';
 import { PRODUCTION_PHASES } from '@/lib/production-phases';
 
 export const STATUS_FLOW = [
@@ -51,7 +52,25 @@ export function getPriorityRing(p: number) {
   return 'ring-blue-500/30';
 }
 export function getStatusInfo(key: string) { return STATUS_FLOW.find(s => s.key === key) ?? STATUS_FLOW[0]; }
-export function getAllNextStatuses(currentStatus: string) {
-  return naturalNextStatuses(currentStatus as OTWorkflowStatus)
-    .map(getStatusInfo);
+/**
+ * Los botones de avance de una tarjeta.
+ *
+ * Desde bodega en adelante, la OT sigue SU ruta (`route_steps`, declarada al
+ * crearla, 2026-11-11): no toda OT pasa por todas las columnas, y ofrecer
+ * «Impresión Digital» a un trabajo offset o «Troquelado» a uno que va a corte
+ * final invitaba a moverla por donde no va. Es la misma respuesta que usa el
+ * parte de WhatsApp (`nextStatusOnRoute`). Antes de bodega (pre-prensa, visto
+ * bueno, compras) y al final de la ruta manda el recorrido de siempre.
+ */
+export function getAllNextStatuses(ot: string | (RouteOT & { status: string })) {
+  const status = typeof ot === 'string' ? ot : ot.status;
+  const natural = naturalNextStatuses(status as OTWorkflowStatus);
+  if (typeof ot !== 'string' && declaredRoute(ot)) {
+    const order = OTStatusSchema.options as readonly string[];
+    if (order.indexOf(status) >= order.indexOf('in_storage')) {
+      const onRoute = nextStatusOnRoute(ot, status);
+      if (onRoute) return [getStatusInfo(onRoute)];
+    }
+  }
+  return natural.map(getStatusInfo);
 }

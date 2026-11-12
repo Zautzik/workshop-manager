@@ -28,15 +28,20 @@ export async function GET(_req: NextRequest) {
 
 	if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-	const ids = (ots ?? []).map((o: any) => o.id);
+	// La vista tiene una fila por OT: se lee entera. Antes se filtraba con
+	// `.in('ot_id', <todas las OT>)`; con 250 ids la URL del pedido se pasa del
+	// largo que acepta el servidor, el pedido fallaba, y como no se miraba el
+	// error, todas las OT salían «sin costo real» y la cola no se podía ordenar
+	// (2026-11-12).
 	const costos = new Map<string, number>();
-	if (ids.length > 0) {
-		const { data: resumen } = await supabaseAdmin
-			.from('ot_cost_summary')
-			.select('ot_id, actual_cost')
-			.in('ot_id', ids);
-		for (const r of (resumen ?? []) as any[]) costos.set(r.ot_id, Number(r.actual_cost ?? 0));
+	const { data: resumen, error: resumenError } = await supabaseAdmin
+		.from('ot_cost_summary')
+		.select('ot_id, actual_cost')
+		.range(0, 9999);
+	if (resumenError) {
+		return NextResponse.json({ error: `No se pudo leer el costo real: ${resumenError.message}` }, { status: 500 });
 	}
+	for (const r of (resumen ?? []) as any[]) costos.set(r.ot_id, Number(r.actual_cost ?? 0));
 
 	const filas = (ots ?? []).map((o: any) => {
 		const cost = costos.get(o.id) ?? 0;

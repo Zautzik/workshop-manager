@@ -226,8 +226,8 @@ export function OrderLaborMarginAnalysis() {
                       nombre: antes iban en una línea monoespaciada seguida. */}
                   <dl className="flex flex-wrap gap-x-6 gap-y-2 rounded-lg border border-border bg-muted/30 px-3 py-2">
                     {[
-                      { k: 'Partes con OT', v: `${diagnostics.assignments_with_ot} de ${diagnostics.assignments_total}`, mal: diagnostics.assignments_with_ot === 0 },
-                      { k: 'Marcas de reloj', v: String(diagnostics.clock_events), mal: diagnostics.clock_events === 0 },
+                      { k: 'Etapas cerradas con horas', v: String(diagnostics.passes_with_hours), mal: diagnostics.passes_with_hours === 0 },
+                      { k: 'Con gente en Planta', v: `${diagnostics.passes_with_labor} de ${diagnostics.passes_with_hours}`, mal: diagnostics.passes_with_labor === 0 },
                       { k: 'Tarifas cargadas', v: String(diagnostics.rates), mal: diagnostics.rates === 0 },
                     ].map((d) => (
                       <div key={d.k}>
