@@ -534,6 +534,25 @@ export async function findEmployeeByPhone(from: string): Promise<EmployeeMatch |
   );
 }
 
+/**
+ * La llave de idempotencia de UN evento dentro de un mensaje.
+ *
+ * Un mensaje compuesto —«Fin OT 40879, 7600 pliegos, entro OT 40965»— es un
+ * wamid y dos eventos. `idx_wa_logs_external_message_id` es único sobre la
+ * llave sola, así que con el wamid pelado el FIN insertaba y el INICIO chocaba
+ * contra él: salía como «duplicado» y la OT siguiente nunca se abría (H1 en
+ * docs/capture-understanding-phase0.md). Cada evento lleva su posición.
+ *
+ * El mensaje de un solo evento conserva el wamid tal cual: es el caso común,
+ * y las filas que ya existen siguen calzando con sus reentregas. La posición
+ * es estable entre reentregas porque el parser es determinista sobre el mismo
+ * texto.
+ */
+export function eventMessageId(wamid: string | null, index: number, total: number): string | null {
+  if (!wamid) return null;
+  return total > 1 ? `${wamid}#${index}` : wamid;
+}
+
 export async function processMessage(input: InboundMessage): Promise<ProcessResult> {
   const { from, body, timestamp } = input;
 
@@ -581,8 +600,10 @@ export async function processMessage(input: InboundMessage): Promise<ProcessResu
   };
 
   const outcomes: EventOutcome[] = [];
-  for (const event of events) {
-    outcomes.push(await processEvent(event, ctx));
+  for (const [i, event] of events.entries()) {
+    outcomes.push(
+      await processEvent(event, { ...ctx, messageId: eventMessageId(ctx.messageId, i, events.length) }),
+    );
   }
 
   // ── Photo evidence: attach to the first event that hit a real OT ──

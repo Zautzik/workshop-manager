@@ -7333,6 +7333,24 @@ export type Database = {
         }
         Relationships: []
       }
+      whatsapp_inbound_claims: {
+        Row: {
+          channel: string
+          claimed_at: string
+          wamid: string
+        }
+        Insert: {
+          channel: string
+          claimed_at?: string
+          wamid: string
+        }
+        Update: {
+          channel?: string
+          claimed_at?: string
+          wamid?: string
+        }
+        Relationships: []
+      }
       whatsapp_production_logs: {
         Row: {
           corrected_costs: Json | null

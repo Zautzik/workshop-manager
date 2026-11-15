@@ -8,15 +8,20 @@
  * src/lib/whatsapp-ingest.ts and is shared with the in-app simulator
  * (/api/whatsapp/simulate).
  *
+ * Idempotency: every message is claimed by its wamid BEFORE it is processed
+ * (src/lib/whatsapp-claim.ts → whatsapp_inbound_claims). A redelivery of a
+ * wamid that is already claimed is acknowledged with 200 and nothing runs —
+ * not the maintenance reply, not the parser, not the photo download. The
+ * per-row guard in insert_whatsapp_log_idempotent() stays as a second line
+ * for production logs.
+ *
  * Photo evidence (Graph API download + Storage upload) runs via `after()`,
  * scheduled once the ack below is already on the wire — Meta doesn't wait on
- * it, and a slow/failed download can't turn into a retried, duplicated
- * delivery of the message itself. Idempotency for the message itself is
- * external_message_id (the wamid) — see insert_whatsapp_log_idempotent().
+ * it, and a slow/failed download can't turn into a retried delivery.
  *
  * POST /api/whatsapp/webhook
  *   meta:    Meta Cloud API envelope (entry[].changes[].value.messages[])
- *   generic: { from: string, body: string, timestamp?, media_url? }
+ *   generic: { from: string, body: string, timestamp?, media_url?, message_id? }
  *
  * GET /api/whatsapp/webhook
  *   Webhook verification (Meta hub.challenge handshake)
@@ -29,7 +34,14 @@ import {
   verifyWhatsAppSignature,
   extractMetaInbound,
 } from '@/lib/whatsapp-intake';
-import { InboundMessageSchema, processMessage } from '@/lib/whatsapp-ingest';
+import {
+  InboundMessageSchema,
+  processMessage,
+  redactPhone,
+  type InboundMessage,
+  type ProcessResult,
+} from '@/lib/whatsapp-ingest';
+import { runUnderClaim } from '@/lib/whatsapp-claim';
 import logger from '@/lib/logger';
 
 /* ─── GET: Webhook Verification ──────────────────────────────── */
@@ -54,6 +66,13 @@ export async function GET(req: NextRequest) {
 // the parse -- every other request queued behind it waits (auditoría de
 // rendimiento 2026-09-08).
 const MAX_WEBHOOK_BYTES = 256 * 1024;
+
+/* ─── Idempotency lock ───────────────────────────────────────── */
+
+/** Procesa un mensaje bajo el candado de su wamid (ver `runUnderClaim`). */
+function processUnderLock(wamid: string, message: InboundMessage) {
+  return runUnderClaim<ProcessResult>('production', wamid, () => processMessage(message));
+}
 
 /* ─── POST: Receive Message ──────────────────────────────────── */
 
@@ -102,16 +121,37 @@ export async function POST(req: NextRequest) {
           results.push({ status: 'invalid', details: parsed.error.flatten() });
           continue;
         }
-        const result = await processMessage(parsed.data);
-        results.push(result.payload);
+
+        // Estricto: sin wamid no hay candado, y sin candado no se procesa.
+        // Meta manda `id` en todo mensaje real; uno que llega sin él no se
+        // puede deduplicar, así que no entra.
+        const wamid = parsed.data.message_id;
+        if (!wamid) {
+          logger.warn(
+            { phone: redactPhone(parsed.data.from) },
+            'WhatsApp webhook: mensaje de Meta sin wamid, no se procesa',
+          );
+          results.push({ status: 'ignored', reason: 'Mensaje sin wamid' });
+          continue;
+        }
+
+        // Si esto lanza, sale por el catch de abajo con 500 y Meta reintenta
+        // el sobre entero: los mensajes que ya se procesaron conservan su
+        // candado y se saltan; el que falló lo soltó y vuelve a entrar.
+        const outcome = await processUnderLock(wamid, parsed.data);
+        if (outcome.duplicate) {
+          results.push({ status: 'duplicate', message_id: wamid });
+          continue;
+        }
+
+        results.push(outcome.result.payload);
         // Media (Graph API download + Storage upload) happens AFTER Meta gets
         // its ack, not before -- see the audit note on processMessage.
-        if (result.mediaTask) after(result.mediaTask);
+        if (outcome.result.mediaTask) after(outcome.result.mediaTask);
       }
 
       // Always 200 toward Meta: a non-2xx makes the Cloud API retry the whole
-      // envelope, re-running messages that already succeeded. Per-message
-      // errors are in the payload and logged server-side.
+      // envelope. Per-message errors are in the payload and logged server-side.
       return NextResponse.json(
         results.length === 1 ? results[0] : { status: 'batch', results },
       );
@@ -127,11 +167,28 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const result = await processMessage(parsed.data);
-    if (result.mediaTask) after(result.mediaTask);
-    return NextResponse.json(result.payload, {
-      status: result.status,
-      headers: result.headers,
+    // El proveedor genérico (curl, relays internos) puede no mandar id. Con
+    // `message_id` se aplica el mismo candado; sin él se procesa como antes,
+    // sin deduplicación -- no hay llave con la que hacerla.
+    const wamid = parsed.data.message_id;
+    if (!wamid) {
+      const result = await processMessage(parsed.data);
+      if (result.mediaTask) after(result.mediaTask);
+      return NextResponse.json(result.payload, {
+        status: result.status,
+        headers: result.headers,
+      });
+    }
+
+    const outcome = await processUnderLock(wamid, parsed.data);
+    if (outcome.duplicate) {
+      return NextResponse.json({ status: 'duplicate', message_id: wamid });
+    }
+
+    if (outcome.result.mediaTask) after(outcome.result.mediaTask);
+    return NextResponse.json(outcome.result.payload, {
+      status: outcome.result.status,
+      headers: outcome.result.headers,
     });
   } catch (error) {
     logger.error({ err: error }, 'WhatsApp webhook error');
