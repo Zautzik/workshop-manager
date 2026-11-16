@@ -615,7 +615,6 @@ async function escribirTrabajos(
 		actual_start: enTiempo(j.startedOn, 8),
 		actual_end: j.finishedOn ? enTiempo(j.finishedOn, 17) : null,
 		estimated_hours: j.calcs.calc_print_hours,
-		actual_hours: j.closed ? Math.round(j.pressHours * 100) / 100 : null,
 		calc_sheets: j.calcs.calc_sheets,
 		sheet_width_cm: j.form.imposition?.format_w ?? null,
 		sheet_height_cm: j.form.imposition?.format_h ?? null,

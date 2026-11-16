@@ -2287,70 +2287,6 @@ export type Database = {
           },
         ]
       }
-      machine_cost_entries: {
-        Row: {
-          created_at: string
-          energy_cost: number | null
-          energy_kwh: number | null
-          id: string
-          machine_id: string
-          maintenance_cost: number | null
-          notes: string | null
-          other_cost: number | null
-          period_month: string
-          recorded_by: string | null
-          supplies_cost: number | null
-        }
-        Insert: {
-          created_at?: string
-          energy_cost?: number | null
-          energy_kwh?: number | null
-          id?: string
-          machine_id: string
-          maintenance_cost?: number | null
-          notes?: string | null
-          other_cost?: number | null
-          period_month: string
-          recorded_by?: string | null
-          supplies_cost?: number | null
-        }
-        Update: {
-          created_at?: string
-          energy_cost?: number | null
-          energy_kwh?: number | null
-          id?: string
-          machine_id?: string
-          maintenance_cost?: number | null
-          notes?: string | null
-          other_cost?: number | null
-          period_month?: string
-          recorded_by?: string | null
-          supplies_cost?: number | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "machine_cost_entries_machine_id_fkey"
-            columns: ["machine_id"]
-            isOneToOne: false
-            referencedRelation: "machines"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "machine_cost_entries_machine_id_fkey"
-            columns: ["machine_id"]
-            isOneToOne: false
-            referencedRelation: "planta_live"
-            referencedColumns: ["machine_id"]
-          },
-          {
-            foreignKeyName: "machine_cost_entries_machine_id_fkey"
-            columns: ["machine_id"]
-            isOneToOne: false
-            referencedRelation: "planta_live"
-            referencedColumns: ["workstation_id"]
-          },
-        ]
-      }
       machine_costs: {
         Row: {
           created_at: string | null
@@ -4357,7 +4293,6 @@ export type Database = {
       ot_machine_schedule: {
         Row: {
           actual_end: string | null
-          actual_hours: number | null
           actual_start: string | null
           calc_sheets: number | null
           created_at: string
@@ -4379,7 +4314,6 @@ export type Database = {
         }
         Insert: {
           actual_end?: string | null
-          actual_hours?: number | null
           actual_start?: string | null
           calc_sheets?: number | null
           created_at?: string
@@ -4401,7 +4335,6 @@ export type Database = {
         }
         Update: {
           actual_end?: string | null
-          actual_hours?: number | null
           actual_start?: string | null
           calc_sheets?: number | null
           created_at?: string

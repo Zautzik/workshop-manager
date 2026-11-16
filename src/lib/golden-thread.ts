@@ -18,6 +18,23 @@
  *   5. Refresco     invalidateAfterReview     src/hooks/review-cache.ts
  *                   todas las pantallas que el parte toca
  *
+ * ── Un dueño por dato (2026-11-16) ──────────────────────────────────────────
+ *
+ * El mismo principio, aplicado a lo que el parte produce. Antes de agregar una
+ * columna, una tabla o una búsqueda de tarifa, mirar acá: si el dato ya tiene
+ * dueño, se lee de ahí.
+ *
+ *   Horas trabajadas     ot_stage_reports.hours — la única copia. De ahí salen
+ *                        el costo (stage-valuation.ts) y el historial con que
+ *                        `estimate_ot_hours` afina el Cronograma.
+ *   Tarifa de la hora    stageMachineRate / machineHourRate (costing-resolver.ts)
+ *                        — cotizar, valorizar una pasada y Equipos → Economía
+ *                        preguntan lo mismo al mismo lugar.
+ *   Costo real           ot_cost_lines — el libro. Las vistas y la analítica
+ *                        leen de ahí, no de copias.
+ *   Aviso a las demás    TABLE_SCOPE (RealtimeProductionContext.tsx) + la
+ *   pantallas            publicación supabase_realtime: una lista de tablas.
+ *
  * ── Dónde se escribe la decisión ────────────────────────────────────────────
  *
  * Un mensaje de WhatsApp vive en su log legado y el disparador

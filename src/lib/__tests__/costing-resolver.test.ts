@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { resolveCostOverrides } from '@/lib/costing-resolver';
+import { resolveCostOverrides, machineHourRate } from '@/lib/costing-resolver';
 import type { CostCenterItem } from '@/types/work-category';
 import type { MaterialCost } from '@/hooks/use-cost-catalog';
 
@@ -91,5 +91,58 @@ describe('cordura de precios de sustrato', () => {
     }];
     const o = resolveCostOverrides(CATALOG, { ...SPEC, substrate_type: 'bond', grammage_gsm: 80 }, material);
     expect(o.substrate_per_kg).toBeCloseTo(1150, 0);
+  });
+});
+
+/**
+ * Equipos → Economía compara el costo real de la máquina contra ESTA tarifa.
+ * Antes buscaba la suya y terminaba usando el sueldo del operario de prensa
+ * ($8.500/h) para todas las máquinas, guillotinas incluidas.
+ */
+describe('machineHourRate', () => {
+  const FALLBACK = { offset_print_per_hour: 25000, cut_per_hour: 15000, troquelado_per_hour: 20000 };
+  const WITH_WAGE: CostCenterItem[] = [
+    ...CATALOG,
+    { ...cat('Operador de Prensa', 'mano_de_obra', 8500), catalog_key: 'operador_prensa' } as CostCenterItem,
+  ];
+
+  it('a guillotine is charged the cutting rate, not the press rate', () => {
+    expect(machineHourRate({ type: 'guillotine' }, WITH_WAGE, FALLBACK)).toMatchObject({ rate: 18000, source: 'catalogo' });
+  });
+
+  it('a die cutter is charged the die-cutting rate', () => {
+    expect(machineHourRate({ type: 'die_cutter' }, WITH_WAGE, FALLBACK)).toMatchObject({ rate: 25000, source: 'catalogo' });
+  });
+
+  it('a press is charged by its own colour count', () => {
+    expect(machineHourRate({ type: 'offset_printer', colors: 1 }, WITH_WAGE, FALLBACK)?.rate).toBe(35000);
+    expect(machineHourRate({ type: 'offset_printer', colors: 2 }, WITH_WAGE, FALLBACK)?.rate).toBe(55000);
+    expect(machineHourRate({ type: 'offset_printer', colors: 4 }, WITH_WAGE, FALLBACK)?.rate).toBe(85000);
+  });
+
+  it('a press with no colour count uses the four-colour rate', () => {
+    expect(machineHourRate({ type: 'offset_printer', colors: null }, WITH_WAGE, FALLBACK)?.rate).toBe(85000);
+  });
+
+  it("never returns the operator's wage as a machine rate", () => {
+    for (const type of ['guillotine', 'die_cutter', 'offset_printer']) {
+      expect(machineHourRate({ type, colors: 4 }, WITH_WAGE, FALLBACK)?.rate).not.toBe(8500);
+    }
+  });
+
+  it('machine types the ledger does not charge by the hour have no rate', () => {
+    for (const type of ['folder', 'laminator', 'manual_workshop', 'delivery', 'digital_printer']) {
+      expect(machineHourRate({ type }, WITH_WAGE, FALLBACK)).toBeNull();
+    }
+  });
+
+  it('flags the engine default when the catalog has no rate', () => {
+    expect(machineHourRate({ type: 'guillotine' }, [], FALLBACK)).toMatchObject({ rate: 15000, source: 'supuesto' });
+  });
+
+  it('matches what a closed stage pass is valued at', () => {
+    const spec = { color_front: 'cmyk', color_back: 'sin_impresion', substrate_type: '', grammage_gsm: 0 };
+    expect(machineHourRate({ type: 'guillotine' }, WITH_WAGE, FALLBACK)?.rate)
+      .toBe(resolveCostOverrides(WITH_WAGE, spec).cut_per_hour);
   });
 });

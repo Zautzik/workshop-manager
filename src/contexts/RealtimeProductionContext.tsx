@@ -22,6 +22,7 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from '
 import { useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { queryKeys } from '@/hooks/use-workflow-queries';
+import { invalidateAfterReview } from '@/hooks/review-cache';
 
 interface RealtimeProductionValue {
   isConnected: boolean;
@@ -29,10 +30,51 @@ interface RealtimeProductionValue {
 
 const RealtimeProductionCtx = createContext<RealtimeProductionValue | null>(null);
 
-function invalidateWorkflow(
-  queryClient: QueryClient,
-  scope: 'ots' | 'schedule' | 'resources' | 'people' | 'hr',
-) {
+type Scope = 'ots' | 'schedule' | 'resources' | 'people' | 'hr' | 'thread';
+
+/**
+ * Qué tabla refresca qué. UNA lista: agregar una tabla acá es todo lo que hace
+ * falta para que el channel la escuche. La tabla además tiene que estar en la
+ * publicación `supabase_realtime` (migración 20261116121000) — sin eso Postgres
+ * no emite el cambio y la suscripción queda muda sin dar error. Así estuvo este
+ * channel entero hasta el 2026-11-16: la publicación estaba vacía.
+ *
+ * `workstations` y `workers` estaban en esta lista y ya no existen (se
+ * fusionaron en `machines` y `employees`, migraciones 20260802120000/140000).
+ */
+const TABLE_SCOPE: ReadonlyArray<readonly [table: string, scope: Scope]> = [
+  ['ots', 'ots'],
+  ['ot_machine_schedule', 'schedule'],
+  ['worker_assignments', 'schedule'],
+  ['machines', 'resources'],
+  ['shifts', 'people'],
+  ['employees', 'people'],
+  ['compensation_rates', 'people'],
+  ['leave_requests', 'hr'],
+  ['employee_incentives', 'hr'],
+  ['hr_documents', 'hr'],
+  ['employment_contracts', 'hr'],
+  // El hilo dorado: una pasada cerrada y las líneas de costo que produce. Sin
+  // estas dos, las horas declaradas en el taller no llegaban a ninguna otra
+  // pantalla abierta hasta que alguien recargaba.
+  ['ot_stage_reports', 'thread'],
+  ['ot_cost_lines', 'thread'],
+];
+
+/** Cerrar una pasada escribe varias líneas de costo seguidas: una sola recarga. */
+const DEBOUNCE_MS = 300;
+
+function invalidateWorkflow(queryClient: QueryClient, scope: Scope) {
+  // Lo que cambia cuando el taller declara horas: la misma lista que usa quien
+  // aprueba un parte (review-cache.ts), más las pantallas que derivan del costo.
+  if (scope === 'thread') {
+    invalidateAfterReview(queryClient);
+    queryClient.invalidateQueries({ queryKey: ['planificacion'] });
+    queryClient.invalidateQueries({ queryKey: ['analytics'] });
+    queryClient.invalidateQueries({ queryKey: ['analytics-trends'] });
+    return;
+  }
+
   // El Cronograma (`['planificacion']`) depende de las dos: mover una OT en el
   // Kanban cambia qué etapas le faltan, y fijar un bloque cambia la agenda.
   if (scope === 'ots') {
@@ -73,32 +115,41 @@ function invalidateWorkflow(
   queryClient.invalidateQueries({ queryKey: queryKeys.workflowContracts() });
 }
 
-/** Monta el channel único. Se pone una vez, en src/app/operaciones/layout.tsx. */
+/** Monta el channel único. Se pone en el layout de cada sección que muestra datos del taller (operaciones, analitica, equipos); sólo hay una montada a la vez. */
 export function RealtimeProductionProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient();
   const [isConnected, setIsConnected] = useState(false);
 
   useEffect(() => {
-    const channel = supabase
-      .channel('production-floor-live')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'ots' }, () => invalidateWorkflow(queryClient, 'ots'))
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'ot_machine_schedule' }, () => invalidateWorkflow(queryClient, 'schedule'))
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'workstations' }, () => invalidateWorkflow(queryClient, 'resources'))
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'machines' }, () => invalidateWorkflow(queryClient, 'resources'))
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'worker_assignments' }, () => invalidateWorkflow(queryClient, 'schedule'))
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'shifts' }, () => invalidateWorkflow(queryClient, 'people'))
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'employees' }, () => invalidateWorkflow(queryClient, 'people'))
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'workers' }, () => invalidateWorkflow(queryClient, 'people'))
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'compensation_rates' }, () => invalidateWorkflow(queryClient, 'people'))
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'leave_requests' }, () => invalidateWorkflow(queryClient, 'hr'))
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'employee_incentives' }, () => invalidateWorkflow(queryClient, 'hr'))
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'hr_documents' }, () => invalidateWorkflow(queryClient, 'hr'))
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'employment_contracts' }, () => invalidateWorkflow(queryClient, 'hr'))
-      .subscribe((status) => {
-        setIsConnected(status === 'SUBSCRIBED');
-      });
+    // Un temporizador por alcance: varias escrituras seguidas de la misma
+    // operación terminan en una sola invalidación.
+    const pending = new Map<Scope, ReturnType<typeof setTimeout>>();
+    const schedule = (scope: Scope) => {
+      const running = pending.get(scope);
+      if (running) clearTimeout(running);
+      pending.set(
+        scope,
+        setTimeout(() => {
+          pending.delete(scope);
+          invalidateWorkflow(queryClient, scope);
+        }, DEBOUNCE_MS),
+      );
+    };
+
+    let channel = supabase.channel('production-floor-live');
+    for (const [table, scope] of TABLE_SCOPE) {
+      channel = channel.on('postgres_changes', { event: '*', schema: 'public', table }, () => schedule(scope));
+    }
+    channel.subscribe((status) => {
+      setIsConnected(status === 'SUBSCRIBED');
+      // Antes un channel caído sólo apagaba un indicador; ahora queda dicho por qué.
+      if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+        console.warn(`[realtime] production-floor-live: ${status}. Las pantallas no se actualizarán solas hasta reconectar.`);
+      }
+    });
 
     return () => {
+      for (const t of pending.values()) clearTimeout(t);
       supabase.removeChannel(channel);
     };
   }, [queryClient]);
@@ -114,7 +165,7 @@ export function RealtimeProductionProvider({ children }: { children: ReactNode }
 export function useRealtimeProductionContext(): RealtimeProductionValue {
   const ctx = useContext(RealtimeProductionCtx);
   if (!ctx) {
-    throw new Error('useRealtimeProduction se usó fuera de <RealtimeProductionProvider> (ver src/app/operaciones/layout.tsx).');
+    throw new Error('useRealtimeProduction se usó fuera de <RealtimeProductionProvider> (ver los layouts de operaciones, analitica y equipos).');
   }
   return ctx;
 }

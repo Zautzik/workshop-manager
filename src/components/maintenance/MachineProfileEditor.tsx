@@ -17,8 +17,6 @@ import {
   useMachineSupplies,
   useUpsertMachineSupply,
   useDeleteMachineSupply,
-  useMachineCostEntries,
-  useUpsertMachineCost,
   MACHINE_TYPE_LABELS,
   MACHINE_STATUS_LABELS,
   type Machine,
@@ -27,7 +25,7 @@ import {
 } from '@/hooks/use-machines';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { Cpu, Zap, Package, DollarSign, Settings, Plus, Trash2, AlertTriangle, Gauge, Scan } from 'lucide-react';
+import { Cpu, Zap, Package, Settings, Plus, Trash2, AlertTriangle, Gauge, Scan } from 'lucide-react';
 import {
   MACHINE_USAGE_UNIT_VALUES,
   USAGE_UNIT_LABEL,
@@ -56,8 +54,6 @@ export function MachineProfileEditor({ machine, onSaved, onCancel }: Props) {
   const { data: supplies = [] } = useMachineSupplies(machine?.id);
   const upsertSupply = useUpsertMachineSupply();
   const deleteSupply = useDeleteMachineSupply();
-  const { data: costEntries = [] } = useMachineCostEntries(machine?.id);
-  const upsertCost = useUpsertMachineCost();
 
   // Inventory items for supply selector
   const { data: inventoryItems = [] } = useQuery({
@@ -84,7 +80,6 @@ export function MachineProfileEditor({ machine, onSaved, onCancel }: Props) {
   });
 
   const [newSupply, setNewSupply] = useState({ inventory_item_id: '', consumption_rate: 0, rate_unit: 'per_1000_sheets', is_critical: false, notes: '' });
-  const [newCost, setNewCost] = useState({ period_month: '', energy_kwh: '', energy_cost: '', maintenance_cost: '', supplies_cost: '', other_cost: '', notes: '' });
 
   const onSubmit = async (values: Machine) => {
     try {
@@ -112,26 +107,6 @@ export function MachineProfileEditor({ machine, onSaved, onCancel }: Props) {
     await deleteSupply.mutateAsync({ id, machineId: machine.id });
   };
 
-  const addCost = async () => {
-    if (!machine?.id || !newCost.period_month) return;
-    try {
-      await upsertCost.mutateAsync({
-        machine_id: machine.id,
-        period_month: newCost.period_month + '-01',
-        energy_kwh: newCost.energy_kwh ? Number(newCost.energy_kwh) : null,
-        energy_cost: newCost.energy_cost ? Number(newCost.energy_cost) : null,
-        maintenance_cost: newCost.maintenance_cost ? Number(newCost.maintenance_cost) : null,
-        supplies_cost: newCost.supplies_cost ? Number(newCost.supplies_cost) : null,
-        other_cost: newCost.other_cost ? Number(newCost.other_cost) : null,
-        notes: newCost.notes || null,
-      });
-      setNewCost({ period_month: '', energy_kwh: '', energy_cost: '', maintenance_cost: '', supplies_cost: '', other_cost: '', notes: '' });
-      toast({ title: 'Costo registrado' });
-    } catch (err: any) {
-      toast({ title: 'Error', description: err.message, variant: 'destructive' });
-    }
-  };
-
   const Field = ({ label, id, children }: { label: string; id: string; children: React.ReactNode }) => (
     <div className="space-y-1">
       <Label htmlFor={id} className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{label}</Label>
@@ -142,11 +117,10 @@ export function MachineProfileEditor({ machine, onSaved, onCancel }: Props) {
   return (
     <div className="space-y-2">
       <Tabs defaultValue="identity">
-        <TabsList className="w-full grid grid-cols-4">
+        <TabsList className="w-full grid grid-cols-3">
           <TabsTrigger value="identity" className="gap-1 text-xs"><Cpu className="h-3 w-3" />Identidad</TabsTrigger>
           <TabsTrigger value="productivity" className="gap-1 text-xs"><Settings className="h-3 w-3" />Productividad</TabsTrigger>
           <TabsTrigger value="supplies" className="gap-1 text-xs"><Package className="h-3 w-3" />Insumos</TabsTrigger>
-          <TabsTrigger value="costs" className="gap-1 text-xs"><DollarSign className="h-3 w-3" />Costos</TabsTrigger>
         </TabsList>
 
         {/* ── IDENTITY ─────────────────────────────────── */}
@@ -393,46 +367,6 @@ export function MachineProfileEditor({ machine, onSaved, onCancel }: Props) {
           </div>
         </TabsContent>
 
-        {/* ── COSTS ────────────────────────────────────── */}
-        <TabsContent value="costs">
-          <div className="space-y-4 pt-3">
-            {!machine?.id ? (
-              <p className="text-sm text-muted-foreground italic">Guarda la máquina primero para registrar costos.</p>
-            ) : (
-              <>
-                <p className="text-xs text-muted-foreground">Registro de costos reales mensuales: energía, mantenimiento, insumos y otros.</p>
-                <div className="space-y-2 max-h-48 overflow-y-auto">
-                  {costEntries.map(c => {
-                    const total = [c.energy_cost, c.maintenance_cost, c.supplies_cost, c.other_cost]
-                      .reduce((sum: number, v: number | null | undefined) => sum + (v ?? 0), 0);
-                    return (
-                      <div key={c.id} className="flex items-center gap-3 p-2 rounded border text-sm bg-muted/20">
-                        <span className="font-medium w-20">{c.period_month?.slice(0, 7)}</span>
-                        <span className="text-muted-foreground text-xs flex-1">E: {c.energy_cost ?? '—'} | M: {c.maintenance_cost ?? '—'} | I: {c.supplies_cost ?? '—'}</span>
-                        <span className="font-semibold text-emerald-600">${total.toFixed(2)}</span>
-                      </div>
-                    );
-                  })}
-                  {costEntries.length === 0 && <p className="text-xs text-muted-foreground italic py-2">Sin registros de costos aún.</p>}
-                </div>
-                <Separator />
-                <p className="text-xs font-semibold">Registrar mes</p>
-                <div className="grid grid-cols-3 gap-2">
-                  <Input type="month" value={newCost.period_month} onChange={e => setNewCost(p => ({ ...p, period_month: e.target.value }))} className="col-span-3" />
-                  <Input placeholder="kWh" value={newCost.energy_kwh} onChange={e => setNewCost(p => ({ ...p, energy_kwh: e.target.value }))} />
-                  <Input placeholder="$ Energía" value={newCost.energy_cost} onChange={e => setNewCost(p => ({ ...p, energy_cost: e.target.value }))} />
-                  <Input placeholder="$ Mantención" value={newCost.maintenance_cost} onChange={e => setNewCost(p => ({ ...p, maintenance_cost: e.target.value }))} />
-                  <Input placeholder="$ Insumos" value={newCost.supplies_cost} onChange={e => setNewCost(p => ({ ...p, supplies_cost: e.target.value }))} />
-                  <Input placeholder="$ Otros" value={newCost.other_cost} onChange={e => setNewCost(p => ({ ...p, other_cost: e.target.value }))} />
-                  <Input placeholder="Notas" value={newCost.notes} onChange={e => setNewCost(p => ({ ...p, notes: e.target.value }))} />
-                </div>
-                <Button size="sm" onClick={addCost} disabled={!newCost.period_month || upsertCost.isPending} className="gap-1">
-                  <Plus className="h-3 w-3" />Registrar mes
-                </Button>
-              </>
-            )}
-          </div>
-        </TabsContent>
       </Tabs>
 
       {/* Actions */}

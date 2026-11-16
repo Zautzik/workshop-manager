@@ -163,7 +163,6 @@ const TOLERADAS = new Map([
   ['jobs',                        'policy USING(true) — trabajos del taller'],
   ['worker_assignments',          'policy USING(true) — asignaciones de turno'],
   ['maintenance_work_orders',     'policy USING(true) — órdenes de mantención'],
-  ['machine_cost_entries',        'policy USING(true) — costos por máquina'],
   ['machine_supply_requirements', 'policy USING(true) — insumos por máquina'],
   ['batches',                     'SIN RLS — quedó fuera de 20261014120000'],
 ]);
