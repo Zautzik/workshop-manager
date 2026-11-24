@@ -459,25 +459,25 @@ export function useEmployeeCostTimeline(
   });
 }
 
+/**
+ * Una fila de `/api/analytics/labor-margin` — exactamente lo que el endpoint
+ * devuelve. La forma vieja (order_date, incentive_cost, gross_margin…) venía de
+ * la RPC get_order_labor_margin; cuando el endpoint pasó a leer el libro
+ * (2026-11-12) el tipo quedó mintiendo y la pestaña reventaba con
+ * `new Date(undefined)` (2026-11-24).
+ */
 export interface OrderLaborMarginRow {
   ot_id: string;
-  ot_number: string;
-  client_name: string;
-  order_date: string;
-  completion_date: string | null;
+  ot_number: string | null;
+  client_name: string | null;
   revenue: number;
-  base_labor_cost: number;
-  overtime_premium: number;
-  night_differential: number;
-  weekend_differential: number;
-  total_labor_cost: number;
-  incentive_cost: number;
-  total_cost: number;
-  gross_margin: number;
-  margin_percentage: number;
-  labor_hours: number;
+  last_labor_at: string | null;
+  total_hours: number;
   overtime_hours: number;
-  cost_per_hour: number;
+  total_labor_cost: number;
+  /** null cuando la OT no tiene precio: no hay contra qué dividir. */
+  labor_pct_of_revenue: number | null;
+  people: string[];
 }
 
 /**

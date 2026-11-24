@@ -9,8 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useOrderLaborMargin } from '@/hooks/use-financial-queries';
 import { useOTs } from '@/hooks/use-operations-queries';
-import { ArrowRight, Info, Loader2, TrendingUp, TrendingDown, DollarSign, AlertCircle, CheckCircle } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
+import { ArrowRight, Info, Loader2, DollarSign, Percent, Clock } from 'lucide-react';
 
 export function OrderLaborMarginAnalysis() {
   const { data: ots, isLoading: otsLoading } = useOTs();
@@ -34,46 +33,41 @@ export function OrderLaborMarginAnalysis() {
   const margins = marginData?.rows;
   const diagnostics = marginData?.diagnostics;
 
-  // Calculate summary stats
+  // Sólo lo que el libro tiene: horas y plata de mano de obra por OT. El margen
+  // completo (material + máquina + gente contra el precio) vive en la pestaña
+  // "Margen por trabajo"; acá se mira la parte de la gente.
   const summary = margins?.reduce(
     (acc, row) => ({
-      totalRevenue: acc.totalRevenue + row.revenue,
-      totalLaborCost: acc.totalLaborCost + row.total_labor_cost,
-      totalIncentiveCost: acc.totalIncentiveCost + row.incentive_cost,
-      totalCost: acc.totalCost + row.total_cost,
-      totalMargin: acc.totalMargin + row.gross_margin,
-      totalHours: acc.totalHours + row.labor_hours,
-      totalOTHours: acc.totalOTHours + row.overtime_hours,
+      revenue: acc.revenue + (row.revenue ?? 0),
+      laborCost: acc.laborCost + (row.total_labor_cost ?? 0),
+      hours: acc.hours + (row.total_hours ?? 0),
     }),
-    { 
-      totalRevenue: 0, 
-      totalLaborCost: 0, 
-      totalIncentiveCost: 0, 
-      totalCost: 0, 
-      totalMargin: 0,
-      totalHours: 0,
-      totalOTHours: 0,
-    }
+    { revenue: 0, laborCost: 0, hours: 0 },
   );
-
-  const avgMarginPercentage = summary && summary.totalRevenue > 0 
-    ? (summary.totalMargin / summary.totalRevenue) * 100 
-    : 0;
 
   const formatCurrency = (value: number) =>
     `$${Math.round(value).toLocaleString('es-CL')}`;
 
-  const formatPercentage = (value: number) => `${Math.round(value)}%`;
+  const formatHours = (value: number) =>
+    `${value.toLocaleString('es-CL', { maximumFractionDigits: 1 })} h`;
 
-  const formatHours = (value: number) => `${Math.round(value)}h`;
-
-  const getMarginStatus = (percentage: number) => {
-    if (percentage >= 30) return { label: 'Excellent', color: 'bg-green-500', icon: CheckCircle };
-    if (percentage >= 20) return { label: 'Good', color: 'bg-blue-500', icon: TrendingUp };
-    if (percentage >= 10) return { label: 'Fair', color: 'bg-yellow-500', icon: AlertCircle };
-    if (percentage >= 0) return { label: 'Low', color: 'bg-orange-500', icon: AlertCircle };
-    return { label: 'Loss', color: 'bg-red-500', icon: TrendingDown };
+  // Una fecha que no se puede leer se muestra como "—", no tumba la tabla.
+  const formatDate = (iso: string | null) => {
+    if (!iso) return '—';
+    const d = new Date(iso);
+    return Number.isNaN(d.getTime()) ? '—' : format(d, 'd MMM yyyy');
   };
+
+  // Qué tanto del precio se come la gente. Umbrales de imprenta: bajo 15% sano,
+  // 15–30% a mirar, sobre 30% la mano de obra ya se comió el trabajo.
+  const pctTone = (pct: number | null) => {
+    if (pct == null) return 'text-muted-foreground';
+    if (pct > 30) return 'text-red-600 dark:text-red-400';
+    if (pct > 15) return 'text-amber-600 dark:text-amber-400';
+    return 'text-emerald-600 dark:text-emerald-400';
+  };
+
+  const totalPct = summary && summary.revenue > 0 ? (summary.laborCost / summary.revenue) * 100 : null;
 
   return (
     <div className="space-y-6">
@@ -82,7 +76,7 @@ export function OrderLaborMarginAnalysis() {
         <CardHeader>
           <CardTitle>Margen laboral por orden</CardTitle>
           <CardDescription>
-            Cuánto queda de cada trabajo después de pagar las horas de la gente que lo hizo, incluidos sobretiempo e incentivos.
+            Cuánto costó la gente en cada trabajo: las horas que Planta tenía asignadas a la máquina mientras la OT pasaba, a su tarifa.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -126,70 +120,47 @@ export function OrderLaborMarginAnalysis() {
         </CardContent>
       </Card>
 
-      {/* Summary Cards */}
+      {/* Tres cifras, todas del libro. Sin "incentivos" ni "sobretiempo":
+          nada los separa todavía, y una tarjeta en $0 se lee como un hecho. */}
       {margins && margins.length > 0 && summary && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Ingresos totales</CardTitle>
-              <DollarSign className="h-4 w-4 text-green-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{formatCurrency(summary.totalRevenue)}</div>
-              <p className="text-xs text-muted-foreground">
-                {formatCurrency(summary.totalRevenue / margins.length)} prom/orden
-              </p>
-            </CardContent>
-          </Card>
-
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Costo de mano de obra</CardTitle>
               <DollarSign className="h-4 w-4 text-orange-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{formatCurrency(summary.totalLaborCost)}</div>
+              <div className="text-2xl font-bold tabular-nums">{formatCurrency(summary.laborCost)}</div>
               <p className="text-xs text-muted-foreground">
-                {((summary.totalLaborCost / summary.totalRevenue) * 100).toFixed(1)}% de ingresos
+                en {margins.length} {margins.length === 1 ? 'OT' : 'OTs'}
               </p>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Costo de incentivos</CardTitle>
-              <DollarSign className="h-4 w-4 text-blue-600" />
+              <CardTitle className="text-sm font-medium">Parte del precio</CardTitle>
+              <Percent className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{formatCurrency(summary.totalIncentiveCost)}</div>
+              <div className={`text-2xl font-bold tabular-nums ${pctTone(totalPct)}`}>
+                {totalPct == null ? '—' : `${totalPct.toFixed(1)}%`}
+              </div>
               <p className="text-xs text-muted-foreground">
-                {((summary.totalIncentiveCost / summary.totalRevenue) * 100).toFixed(1)}% de ingresos
+                de {formatCurrency(summary.revenue)} vendidos en esas OTs
               </p>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Margen bruto</CardTitle>
-              <TrendingUp className="h-4 w-4 text-green-600" />
+              <CardTitle className="text-sm font-medium">Horas cargadas</CardTitle>
+              <Clock className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{formatCurrency(summary.totalMargin)}</div>
+              <div className="text-2xl font-bold tabular-nums">{formatHours(summary.hours)}</div>
               <p className="text-xs text-muted-foreground">
-                {formatPercentage(avgMarginPercentage)} de margen
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Horas de mano de obra</CardTitle>
-              <AlertCircle className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{formatHours(summary.totalHours)}</div>
-              <p className="text-xs text-muted-foreground">
-                {formatPercentage((summary.totalOTHours / summary.totalHours) * 100)} OT
+                {summary.hours > 0 ? `${formatCurrency(summary.laborCost / summary.hours)} por hora en promedio` : 'sin horas'}
               </p>
             </CardContent>
           </Card>
@@ -257,62 +228,33 @@ export function OrderLaborMarginAnalysis() {
                   <TableRow>
                     <TableHead>OT</TableHead>
                     <TableHead>Cliente</TableHead>
-                    <TableHead>Fecha</TableHead>
-                    <TableHead className="text-right">Ingresos</TableHead>
-                    <TableHead className="text-right">Mano de obra</TableHead>
-                    <TableHead className="text-right">Sobretiempo</TableHead>
-                    <TableHead className="text-right">Incentivos</TableHead>
-                    <TableHead className="text-right">Costo total</TableHead>
-                    <TableHead className="text-right">Margen</TableHead>
-                    <TableHead className="text-center">Estado</TableHead>
+                    <TableHead>Última carga</TableHead>
+                    <TableHead>Quiénes</TableHead>
                     <TableHead className="text-right">Horas</TableHead>
-                    <TableHead className="text-right">$/hora</TableHead>
+                    <TableHead className="text-right">Mano de obra</TableHead>
+                    <TableHead className="text-right">Precio</TableHead>
+                    <TableHead className="text-right">% del precio</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {margins.map((row) => {
-                    const status = getMarginStatus(row.margin_percentage);
-                    const StatusIcon = status.icon;
-                    return (
-                      <TableRow key={row.ot_id}>
-                        <TableCell className="font-medium">{row.ot_number}</TableCell>
-                        <TableCell>{row.client_name}</TableCell>
-                        <TableCell>{format(new Date(row.order_date), 'MMM d, yyyy')}</TableCell>
-                        <TableCell className="text-right font-semibold text-green-700">
-                          {formatCurrency(row.revenue)}
-                        </TableCell>
-                        <TableCell className="text-right">{formatCurrency(row.base_labor_cost)}</TableCell>
-                        <TableCell className="text-right text-orange-600">
-                          {formatCurrency(row.overtime_premium)}
-                        </TableCell>
-                        <TableCell className="text-right text-blue-600">
-                          {formatCurrency(row.incentive_cost)}
-                        </TableCell>
-                        <TableCell className="text-right font-semibold">
-                          {formatCurrency(row.total_cost)}
-                        </TableCell>
-                        <TableCell className="text-right font-bold">
-                          <div>{formatCurrency(row.gross_margin)}</div>
-                          <div className="text-xs text-muted-foreground">
-                            {formatPercentage(row.margin_percentage)}
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-center">
-                          <Badge variant="outline" className={`${status.color} text-white border-none`}>
-                            <StatusIcon className="h-3 w-3 mr-1" />
-                            {status.label}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-right text-sm">
-                          <div>{formatHours(row.labor_hours)}</div>
-                          <div className="text-xs text-orange-600">
-                            {formatHours(row.overtime_hours)} OT
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-right">{formatCurrency(row.cost_per_hour)}</TableCell>
-                      </TableRow>
-                    );
-                  })}
+                  {margins.map((row) => (
+                    <TableRow key={row.ot_id}>
+                      <TableCell className="font-medium">{row.ot_number ?? '—'}</TableCell>
+                      <TableCell>{row.client_name ?? '—'}</TableCell>
+                      <TableCell className="whitespace-nowrap text-muted-foreground">{formatDate(row.last_labor_at)}</TableCell>
+                      <TableCell className="max-w-[16rem] truncate text-sm" title={row.people.join(', ')}>
+                        {row.people.length > 0 ? row.people.join(', ') : '—'}
+                      </TableCell>
+                      <TableCell className="whitespace-nowrap text-right tabular-nums">{formatHours(row.total_hours)}</TableCell>
+                      <TableCell className="whitespace-nowrap text-right font-semibold tabular-nums">{formatCurrency(row.total_labor_cost)}</TableCell>
+                      <TableCell className="whitespace-nowrap text-right tabular-nums text-muted-foreground">
+                        {row.revenue > 0 ? formatCurrency(row.revenue) : 'sin precio'}
+                      </TableCell>
+                      <TableCell className={`text-right font-semibold tabular-nums ${pctTone(row.labor_pct_of_revenue)}`}>
+                        {row.labor_pct_of_revenue == null ? '—' : `${row.labor_pct_of_revenue.toFixed(1)}%`}
+                      </TableCell>
+                    </TableRow>
+                  ))}
                 </TableBody>
               </Table>
             </div>

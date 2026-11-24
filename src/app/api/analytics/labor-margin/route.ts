@@ -94,11 +94,12 @@ export async function GET(req: NextRequest) {
 	}
 
 	// Agrupado por OT.
-	const byOt = new Map<string, { hours: number; cost: number; people: Set<string> }>();
+	const byOt = new Map<string, { hours: number; cost: number; people: Set<string>; last: string | null }>();
 	for (const l of lines) {
-		const g = byOt.get(l.ot_id) ?? { hours: 0, cost: 0, people: new Set<string>() };
+		const g = byOt.get(l.ot_id) ?? { hours: 0, cost: 0, people: new Set<string>(), last: null };
 		g.hours += Number(l.quantity ?? 0);
 		g.cost += Number(l.total ?? 0);
+		if (l.occurred_at && (!g.last || l.occurred_at > g.last)) g.last = l.occurred_at;
 		const who = personOf(l.description);
 		if (who) g.people.add(who);
 		byOt.set(l.ot_id, g);
@@ -125,6 +126,8 @@ export async function GET(req: NextRequest) {
 				ot_number: o?.ot_number ?? null,
 				client_name: o?.client_name ?? null,
 				revenue,
+				// Cuándo se cargó la última hora a esta OT (cierre de etapa).
+				last_labor_at: g.last,
 				total_hours: Math.round(g.hours * 100) / 100,
 				// Las horas extra no se separan todavía: la línea va a la tarifa base.
 				overtime_hours: 0,
