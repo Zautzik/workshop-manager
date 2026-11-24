@@ -140,9 +140,8 @@ export const MODULES: NavModule[] = [
         items: [
           { label: 'Inventario', href: '/operaciones/inventario',  description: 'Stock, materiales y movimientos de almacén',   icon: Package,      color: 'bg-teal-500/10 text-teal-400' },
           { label: 'Compras',    href: '/operaciones/compras',     description: 'Órdenes de compra, cotizaciones y proveedores (incluye proveedores)', icon: ShoppingCart, color: 'bg-orange-500/10 text-orange-400' },
-          // Absorbido por la pestaña Lotes de Inventario — el destino cambió,
-          // no la entrada del menú (auditoría 2026-08).
-          { label: 'Lotes', href: '/operaciones/inventario?tab=lots', description: 'Etiquetas de lo recién recibido y qué lote no se puede usar', icon: Archive, color: 'bg-teal-500/10 text-teal-400' },
+          // Lotes no tiene tile propio: es la pestaña "Lotes" de Inventario.
+          // /operaciones/lotes sigue redirigiendo ahí para marcadores viejos.
         ],
       },
       {
@@ -151,8 +150,8 @@ export const MODULES: NavModule[] = [
         items: [
           { label: 'Capturas',  href: '/operaciones/captures', description: 'Bandeja unificada: producción y bodega vía WhatsApp / QR', icon: Inbox,         color: 'bg-green-500/10 text-green-400' },
           { label: 'WhatsApp', href: '/operaciones/whatsapp', description: 'Captura de producción en campo en tiempo real', icon: MessageSquare, color: 'bg-green-500/10 text-green-400' },
-          // Mismo defecto que Lotes: la pantalla de escaneo de QR para
-          // consumir papel existía sin puerta de entrada (auditoría 2026-08).
+          // La pantalla de escaneo de QR para consumir papel existía sin
+          // puerta de entrada (auditoría 2026-08).
           { label: 'Escanear', href: '/operaciones/escanear', description: 'Consumir papel escaneando el QR del lote en cada etapa', icon: QrCode, color: 'bg-green-500/10 text-green-400' },
         ],
       },
