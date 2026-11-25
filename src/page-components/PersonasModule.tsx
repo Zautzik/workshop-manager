@@ -227,7 +227,7 @@ export default function PersonasModule({ embedded = false }: { embedded?: boolea
             <Users className="h-5 w-5" />
             <span className="text-xs font-semibold uppercase tracking-widest">Personas</span>
           </div>
-          <h1 className="text-2xl font-bold text-foreground">Módulo de Personas</h1>
+          <h1 className="text-xl sm:text-2xl font-bold text-foreground">Módulo de Personas</h1>
           <p className="text-sm text-muted-foreground">
             Una consola operativa para el día a día y un centro de desarrollo de talento, como secciones distintas.
           </p>

@@ -9,6 +9,7 @@ export function CostLineTable({ lines, confidence }: { lines: InferredCostLine[]
 
   return (
     <div className="rounded-lg border border-border overflow-hidden">
+      <div className="overflow-x-auto">
       <table className="w-full text-sm">
         <thead>
           <tr className="bg-muted/50">
@@ -53,6 +54,7 @@ export function CostLineTable({ lines, confidence }: { lines: InferredCostLine[]
           </tr>
         </tfoot>
       </table>
+      </div>
     </div>
   );
 }

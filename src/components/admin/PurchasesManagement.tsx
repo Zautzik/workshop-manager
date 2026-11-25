@@ -2,7 +2,7 @@
 import { useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { KpiCard } from '@/components/ui/kpi-card';
+import { StatsBar } from '@/components/ui/stats-bar';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -251,12 +251,14 @@ const PurchasesManagement = () => {
       </CardHeader>
       <CardContent className="space-y-5">
         {/* KPIs */}
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <KpiCard label="Comprometido (en OT)" value={formatCLP(kpis.committed)} tone="info" />
-          <KpiCard label="Facturado" value={formatCLP(kpis.invoiced)} tone="success" />
-          <KpiCard label="Cobran de más" value={String(kpis.discrepancies)} tone={kpis.discrepancies > 0 ? 'warning' : 'default'} />
-          <KpiCard label="Certificado vencido" value={String(kpis.certVencidos)} tone={kpis.certVencidos > 0 ? 'critical' : 'default'} />
-        </div>
+        <StatsBar
+          stats={[
+            { label: 'Comprometido (en OT)', value: formatCLP(kpis.committed), tone: 'info' },
+            { label: 'Facturado', value: formatCLP(kpis.invoiced), tone: 'success' },
+            { label: 'Cobran de más', value: String(kpis.discrepancies), count: kpis.discrepancies, tone: 'warning', hideWhenZero: true },
+            { label: 'Certificado vencido', value: String(kpis.certVencidos), count: kpis.certVencidos, tone: 'critical', hideWhenZero: true },
+          ]}
+        />
 
         {/* El registro completo ya se trae server-side (fetchAll); esto sólo
             avisa en el único caso en que igual no alcanzó. */}

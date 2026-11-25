@@ -188,7 +188,10 @@ export function ItemsTab({
         >
           {coverageDays == null ? '—' : `≈${coverageDays}d`}
         </span>
-        <span className="w-20 shrink-0 text-right text-xs text-muted-foreground">
+        {/* Cost drops below sm: at 390 px the four fixed columns left the item
+            name no room at all (layout crawl 2026-11-25). Stock and coverage
+            stay — they are what someone on the floor opens this for. */}
+        <span className="hidden w-20 shrink-0 text-right text-xs text-muted-foreground sm:block">
           {formatCLP(Number(item.weighted_unit_cost || item.estimated_unit_cost || 0))}
         </span>
         <div className="flex shrink-0 items-center">
@@ -439,7 +442,7 @@ export function ItemsTab({
             <span className="flex-1">Ítem</span>
             <span className="w-28 shrink-0 text-right">Stock / mín.</span>
             <span className="w-16 shrink-0 text-right" title="Días de cobertura al ritmo de consumo real de los últimos 30 días">Cobertura</span>
-            <span className="w-20 shrink-0 text-right">Costo</span>
+            <span className="hidden w-20 shrink-0 text-right sm:block">Costo</span>
             <span className="w-14 shrink-0" />
           </div>
           {isSearching ? (

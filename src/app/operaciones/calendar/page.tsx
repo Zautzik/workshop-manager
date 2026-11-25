@@ -10,6 +10,7 @@ import { OTGanttBoard } from '@/components/workflow/OTGanttBoard';
 import { ShiftManagement } from '@/components/workflow/ShiftManagement';
 import { UnifiedCalendar } from '@/components/UnifiedCalendar';
 import { PlanSemanal } from '@/components/workflow/PlanSemanal';
+import { PageShell } from '@/components/layout/PageShell';
 
 const VALID_TABS = ['cronograma', 'maquinas', 'calendario', 'semanal'] as const;
 type TabKey = (typeof VALID_TABS)[number];
@@ -43,7 +44,7 @@ function PlanificacionTabs() {
 
   return (
     <Tabs value={active} onValueChange={onChange} className="w-full">
-      <TabsList className="grid w-full max-w-2xl grid-cols-4">
+      <TabsList>
         <TabsTrigger value="cronograma" className="gap-2">
           <GanttChart className="h-4 w-4" /> Cronograma
         </TabsTrigger>
@@ -77,9 +78,9 @@ function PlanificacionTabs() {
 export default function PlanificacionPage() {
   return (
     <ProtectedRoute allowedRoles={['admin', 'supervisor', 'manager', 'hr_manager']}>
-      <div className="p-6 space-y-6">
+      <PageShell>
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Planificación</h1>
+          <h1 className="text-xl sm:text-2xl font-bold text-foreground">Planificación</h1>
           <p className="text-sm text-muted-foreground mt-1">
             Cronograma de OTs, programación de máquinas, calendario y plan semanal
           </p>
@@ -87,7 +88,7 @@ export default function PlanificacionPage() {
         <Suspense fallback={<Skeleton className="h-96 w-full" />}>
           <PlanificacionTabs />
         </Suspense>
-      </div>
+      </PageShell>
     </ProtectedRoute>
   );
 }

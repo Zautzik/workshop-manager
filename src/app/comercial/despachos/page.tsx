@@ -19,6 +19,8 @@ import {
   useCreateGuide, useUpdateGuide, useCreateInvoice, useUpdateInvoice,
   type OTFulfillment, type DispatchGuide,
 } from '@/hooks/use-dispatch-queries';
+import { PageShell } from '@/components/layout/PageShell';
+import { StatsBar } from '@/components/ui/stats-bar';
 
 const GUIDE_STATUS: Record<string, { label: string; cls: string }> = {
   draft:      { label: 'Borrador',  cls: 'bg-slate-500/15 text-slate-500' },
@@ -47,12 +49,14 @@ function DespachosInner() {
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <KpiCard label="Por despachar" value={String(kpis.pendientes)} hint="OT con saldo pendiente" tint="text-teal-600" />
-        <KpiCard label="Facturado" value={formatCLP(kpis.facturado)} hint="facturas de venta emitidas" tint="text-sky-600" />
-        <KpiCard label="Cobrado" value={formatCLP(kpis.cobrado)} hint="facturas pagadas" tint="text-emerald-600" />
-        <KpiCard label="Por cobrar" value={formatCLP(kpis.porCobrar)} hint="emitido − pagado" tint="text-amber-600" />
-      </div>
+      <StatsBar
+        stats={[
+          { label: 'Por despachar', value: String(kpis.pendientes), hint: 'OT con saldo pendiente', tone: 'primary' },
+          { label: 'Facturado', value: formatCLP(kpis.facturado), hint: 'facturas de venta emitidas', tone: 'info' },
+          { label: 'Cobrado', value: formatCLP(kpis.cobrado), hint: 'facturas pagadas', tone: 'success' },
+          { label: 'Por cobrar', value: formatCLP(kpis.porCobrar), hint: 'emitido − pagado', tone: 'warning' },
+        ]}
+      />
 
       <Card>
         <CardHeader><CardTitle className="text-base">OT en despacho</CardTitle></CardHeader>
@@ -97,16 +101,6 @@ function DespachosInner() {
       </Card>
 
       <ManageDialog ot={manage} onClose={() => setManage(null)} />
-    </div>
-  );
-}
-
-function KpiCard({ label, value, hint, tint }: { label: string; value: string; hint: string; tint: string }) {
-  return (
-    <div className="rounded-lg border bg-card/60 p-3">
-      <p className="text-xs uppercase tracking-wider text-muted-foreground">{label}</p>
-      <p className={`text-xl font-bold ${tint}`}>{value}</p>
-      <p className="text-[11px] text-muted-foreground mt-0.5">{hint}</p>
     </div>
   );
 }
@@ -202,7 +196,7 @@ function ManageDialog({ ot, onClose }: { ot: OTFulfillment | null; onClose: () =
             {/* Nueva guía */}
             <div className="rounded-lg border bg-muted/30 p-3 space-y-2">
               <p className="text-xs font-medium">Nueva guía {remaining > 0 && <span className="text-muted-foreground">(saldo {remaining.toLocaleString('es-CL')} u.)</span>}</p>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
                 <div className="space-y-1">
                   <Label className="text-xs">Cantidad</Label>
                   <Input type="number" value={qty || ''} placeholder={String(remaining)} onChange={(e) => setQty(parseInt(e.target.value) || 0)} />
@@ -277,13 +271,13 @@ function ManageDialog({ ot, onClose }: { ot: OTFulfillment | null; onClose: () =
 export default function DespachosPage() {
   return (
     <ProtectedRoute allowedRoles={['admin', 'manager', 'supervisor']}>
-      <div className="p-6 space-y-6">
+      <PageShell>
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Despachos & Facturación</h1>
+          <h1 className="text-xl sm:text-2xl font-bold text-foreground">Despachos & Facturación</h1>
           <p className="text-sm text-muted-foreground mt-1">Guía de despacho → factura de venta, con entregas parciales por OT.</p>
         </div>
         <DespachosInner />
-      </div>
+      </PageShell>
     </ProtectedRoute>
   );
 }

@@ -83,9 +83,9 @@ const WorkerStatsReport = () => {
       {/* Worker Grid */}
       <Card className="border-manager/20">
         <CardHeader>
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-2">
             <CardTitle className="text-manager">Estadísticas de Trabajadores</CardTitle>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               {/* Antes eran cinco claves en inglés que nunca calzaron con el
                   texto libre real de employees.department — el filtro volvía
                   vacío para cualquier opción menos "Todos" (2026-08 audit).

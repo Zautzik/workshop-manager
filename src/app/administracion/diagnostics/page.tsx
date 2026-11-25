@@ -5,13 +5,14 @@
 
 import ProtectedRoute from '@/components/ProtectedRoute';
 import AppDiagnostics from '@/components/admin/AppDiagnostics';
+import { PageShell } from '@/components/layout/PageShell';
 
 export default function DiagnosticsPage() {
 	return (
 		<ProtectedRoute allowedRoles={['admin']}>
-			<div className="p-6 md:p-8">
+			<PageShell>
 				<AppDiagnostics />
-			</div>
+			</PageShell>
 		</ProtectedRoute>
 	);
 }

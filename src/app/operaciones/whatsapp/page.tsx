@@ -21,11 +21,12 @@
 import ProtectedRoute from '@/components/ProtectedRoute';
 import WhatsAppDashboard from '@/components/workflow/WhatsAppDashboard';
 import WhatsAppSimulatorPanel from '@/components/workflow/WhatsAppSimulatorPanel';
+import { PageShell } from '@/components/layout/PageShell';
 
 export default function WhatsAppPage() {
   return (
     <ProtectedRoute allowedRoles={['admin', 'supervisor', 'manager']}>
-      <div className="p-6 space-y-6">
+      <PageShell>
         <div>
           <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
             📱 WhatsApp — Control de Producción
@@ -37,7 +38,7 @@ export default function WhatsAppPage() {
         {/* Dev/demo only — hides itself when the simulator API is disabled */}
         <WhatsAppSimulatorPanel />
         <WhatsAppDashboard />
-      </div>
+      </PageShell>
     </ProtectedRoute>
   );
 }

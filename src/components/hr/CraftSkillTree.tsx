@@ -415,13 +415,13 @@ export default function CraftSkillTree() {
   return (
     <div className="relative rounded-xl overflow-hidden border border-[#1e293b] bg-[#0a0a14]">
       {/* ── Top controls bar ─────────────────────────────────────── */}
-      <div className="flex items-center justify-between gap-3 px-4 py-3 bg-[#0d1117]/90 border-b border-[#1e293b] backdrop-blur z-10 relative">
+      <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 bg-[#0d1117]/90 border-b border-[#1e293b] backdrop-blur z-10 relative">
         <div className="flex items-center gap-3">
           <Award className="w-5 h-5 text-amber-500" />
           <h2 className="text-sm font-semibold text-slate-200">Rutas de oficios</h2>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           {/* Employee selector */}
           <div className="flex items-center gap-2">
             <User className="w-4 h-4 text-slate-500" />

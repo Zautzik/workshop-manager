@@ -10,6 +10,7 @@ import { PautasPanel } from '@/components/maintenance/PautasPanel';
 import { OrdenesPanel } from '@/components/maintenance/OrdenesPanel';
 import MaintenanceChecklistEditor from '@/components/maintenance/MaintenanceChecklistEditor';
 import { MachineMaintenanceMatrix } from '@/components/maintenance/MachineMaintenanceMatrix';
+import { PageShell } from '@/components/layout/PageShell';
 
 const VALID_TABS = ['vencimientos', 'ordenes', 'pautas', 'checklists', 'matriz'] as const;
 type TabKey = (typeof VALID_TABS)[number];
@@ -30,7 +31,7 @@ function MantencionTabs() {
 
   return (
     <Tabs value={active} onValueChange={onChange} className="w-full">
-      <TabsList className="grid w-full max-w-2xl grid-cols-5">
+      <TabsList>
         <TabsTrigger value="vencimientos" className="gap-2">
           <TriangleAlert className="h-4 w-4" /> Vencimientos
         </TabsTrigger>
@@ -70,15 +71,15 @@ function MantencionTabs() {
 export default function MaintenanceOrdenesPage() {
   return (
     <ProtectedRoute allowedRoles={['admin', 'manager', 'supervisor']}>
-      <div className="p-6 space-y-6">
+      <PageShell>
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Mantenimiento</h1>
+          <h1 className="text-xl sm:text-2xl font-bold text-foreground">Mantenimiento</h1>
           <p className="text-sm text-muted-foreground mt-1">Qué necesita atención, y el historial completo de órdenes</p>
         </div>
         <Suspense fallback={<div className="space-y-3">{[...Array(5)].map((_, i) => <Skeleton key={i} className="h-20 w-full" />)}</div>}>
           <MantencionTabs />
         </Suspense>
-      </div>
+      </PageShell>
     </ProtectedRoute>
   );
 }

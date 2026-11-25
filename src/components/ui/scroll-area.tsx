@@ -11,6 +11,10 @@ const ScrollArea = React.forwardRef<
   <ScrollAreaPrimitive.Root ref={ref} className={cn("relative overflow-hidden", className)} {...props}>
     <ScrollAreaPrimitive.Viewport className="h-full w-full rounded-[inherit]">{children}</ScrollAreaPrimitive.Viewport>
     <ScrollBar />
+    {/* Without this Radix hides horizontal overflow outright: a table wider than
+        the box (Clientes at 390 px) was cut off with no way to reach it.
+        Radix only shows it when the content is actually wider. */}
+    <ScrollBar orientation="horizontal" />
     <ScrollAreaPrimitive.Corner />
   </ScrollAreaPrimitive.Root>
 ));

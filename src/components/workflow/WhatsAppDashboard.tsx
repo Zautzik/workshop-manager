@@ -319,7 +319,7 @@ export default function WhatsAppDashboard() {
 
       {/* ── Main Content ───────────────────────────────────── */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid grid-cols-3 w-full max-w-lg">
+        <TabsList>
           <TabsTrigger value="pending" className="gap-1">
             <Clock className="h-4 w-4" />
             Pendientes
@@ -629,7 +629,7 @@ export default function WhatsAppDashboard() {
                         <ConfidenceBadge confidence={parsedData.confidence ?? 0} />
                       </div>
 
-                      <div className="grid grid-cols-3 gap-3">
+                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                         {parsedData.pliegos_produced !== null && (
                           <Card>
                             <CardContent className="p-3 text-center">

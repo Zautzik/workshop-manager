@@ -34,7 +34,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { KpiCard } from '@/components/ui/kpi-card';
+import { StatsBar } from '@/components/ui/stats-bar';
 import { useToast } from '@/hooks/use-toast';
 import {
   useMaintenanceWorkOrdersByStatus,
@@ -358,9 +358,7 @@ export function VencimientosPanel() {
   if (loadingSchedules || loadingOrders) {
     return (
       <div className="space-y-6">
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-24 w-full" />)}
-        </div>
+        <Skeleton className="h-16 w-full" />
         <Skeleton className="h-64 w-full" />
       </div>
     );
@@ -373,12 +371,15 @@ export function VencimientosPanel() {
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <KpiCard icon={TriangleAlert} label="Pautas vencidas" value={String(summary.vencidas ?? 0)} tone={Number(summary.vencidas ?? 0) > 0 ? 'critical' : 'default'} />
-        <KpiCard icon={CalendarClock} label="Pautas próximas" value={String(summary.proximas ?? 0)} tone={Number(summary.proximas ?? 0) > 0 ? 'warning' : 'default'} />
-        <KpiCard icon={TriangleAlert} label="Órdenes vencidas" value={String(overdueOrders.length)} tone={overdueOrders.length > 0 ? 'critical' : 'default'} hint="Emitidas, sin iniciar" />
-        <KpiCard icon={CalendarClock} label="Órdenes próximas" value={String(upcomingOrders.length)} tone={upcomingOrders.length > 0 ? 'warning' : 'default'} hint="Emitidas, sin iniciar" />
-      </div>
+      <StatsBar
+        allClear="Sin pautas ni órdenes vencidas o próximas."
+        stats={[
+          { icon: TriangleAlert, label: 'Pautas vencidas', value: String(summary.vencidas ?? 0), count: Number(summary.vencidas ?? 0), tone: 'critical', hideWhenZero: true },
+          { icon: CalendarClock, label: 'Pautas próximas', value: String(summary.proximas ?? 0), count: Number(summary.proximas ?? 0), tone: 'warning', hideWhenZero: true },
+          { icon: TriangleAlert, label: 'Órdenes vencidas', value: String(overdueOrders.length), count: overdueOrders.length, tone: 'critical', hint: 'Emitidas, sin iniciar', hideWhenZero: true },
+          { icon: CalendarClock, label: 'Órdenes próximas', value: String(upcomingOrders.length), count: upcomingOrders.length, tone: 'warning', hint: 'Emitidas, sin iniciar', hideWhenZero: true },
+        ]}
+      />
       <SchedulesSection schedules={schedules} summary={summary} />
       <EstaSemanaPorFrecuencia schedules={schedules} />
       <PendingOrdersSection overdue={overdueOrders} upcoming={upcomingOrders} />

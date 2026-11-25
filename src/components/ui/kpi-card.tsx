@@ -23,7 +23,7 @@ export interface KpiCardProps {
 	children?: ReactNode;
 }
 
-const TONE_CLASSES: Record<NonNullable<KpiCardProps['tone']>, { text: string; border: string }> = {
+export const TONE_CLASSES: Record<NonNullable<KpiCardProps['tone']>, { text: string; border: string }> = {
 	default: { text: 'text-foreground', border: 'border-border' },
 	primary: { text: 'text-primary', border: 'border-primary/20' },
 	warning: { text: 'text-amber-600 dark:text-amber-400', border: 'border-amber-500/30' },

@@ -1,5 +1,6 @@
 'use client';
 
+import { useLayoutEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import WatercolorBackdrop from '@/components/branding/WatercolorBackdrop';
 import { useAuth } from '@/contexts/AuthContext';
@@ -254,6 +255,27 @@ function HexCell({ action, onClick, isDark }: HexCellProps) {
   );
 }
 
+/**
+ * Scale for a fixed-size drawing so it fits the width its container offers.
+ * The honeycomb is ~470 px wide; a 390 px phone has ~358 px, and the
+ * overflow-hidden page cut the outer hexes in half (layout crawl 2026-11-25).
+ * Never scales up — on a desktop the cluster keeps its designed size.
+ */
+function useFitScale(naturalWidth: number) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [scale, setScale] = useState(1);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el || !naturalWidth) return;
+    const update = () => setScale(Math.min(1, el.clientWidth / naturalWidth));
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [naturalWidth]);
+  return { ref, scale };
+}
+
 export default function HomeDashboard() {
   const { user, role } = useAuth();
   const { theme } = useTheme();
@@ -285,6 +307,8 @@ export default function HomeDashboard() {
     ? Math.max(...placed.map((p) => p.y - minY + HEX_H))
     : 0;
 
+  const { ref: fitRef, scale } = useFitScale(honeyWidth);
+
   const getGreeting = () => {
     const hour = new Date().getHours();
     if (hour < 12) return 'Buenos días';
@@ -295,7 +319,7 @@ export default function HomeDashboard() {
   const firstName = user?.name?.split(' ')[0] || user?.email?.split('@')[0] || '';
 
   return (
-    <div className="relative min-h-full flex flex-col items-center justify-center gap-10 overflow-hidden px-6 py-10 md:px-12">
+    <div className="relative min-h-full flex flex-col items-center justify-center gap-8 overflow-hidden px-4 py-8 sm:gap-10 sm:px-6 sm:py-10 md:px-12">
       <WatercolorBackdrop intensity="ambient" />
 
       {/* Quick links live in the app top bar (AppShell), alongside search and
@@ -306,13 +330,16 @@ export default function HomeDashboard() {
         <p className="text-sm font-medium text-muted-foreground mb-2">
           {getGreeting()}, <span className="text-foreground capitalize">{firstName}</span>
         </p>
-        <h1 className="text-3xl md:text-4xl font-bold text-foreground tracking-tight">
+        <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-foreground tracking-tight">
           ¿Cómo puedo ayudarte hoy?
         </h1>
       </div>
 
-      {/* Interlaced organ honeycomb — tight cluster, absolutely positioned */}
-      <div style={{ position: 'relative', width: honeyWidth, height: honeyHeight }}>
+      {/* Interlaced organ honeycomb — tight cluster, absolutely positioned,
+          scaled down as a whole when the screen is narrower than the cluster. */}
+      <div ref={fitRef} className="flex w-full justify-center">
+      <div style={{ position: 'relative', width: honeyWidth * scale, height: honeyHeight * scale }}>
+      <div style={{ position: 'absolute', left: 0, top: 0, width: honeyWidth, height: honeyHeight, transform: `scale(${scale})`, transformOrigin: 'top left' }}>
         {placed.map(({ action, x, y }) => (
           <div key={action.href} style={{ position: 'absolute', left: x, top: y - minY }}>
             <HexCell
@@ -322,6 +349,8 @@ export default function HomeDashboard() {
             />
           </div>
         ))}
+      </div>
+      </div>
       </div>
     </div>
   );

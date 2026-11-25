@@ -10,6 +10,7 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { MIN_PASSWORD_LENGTH, MAX_PASSWORD_LENGTH, COMMON_PASSWORD_COUNT } from '@/lib/password-policy';
 import { CostOverrunAlerts } from '@/components/financial/CostOverrunAlerts';
 import { useCostAlerts } from '@/hooks/use-cost-alerts';
+import { PageShell } from '@/components/layout/PageShell';
 
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -40,9 +41,9 @@ export default function AdminSettingsPage() {
 
   return (
     <ProtectedRoute allowedRoles={['admin']}>
-      <div className="p-6 space-y-6">
+      <PageShell>
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Configuración del Sistema</h1>
+          <h1 className="text-xl sm:text-2xl font-bold text-foreground">Configuración del Sistema</h1>
           <p className="text-sm text-muted-foreground mt-1">Parámetros generales de la aplicación</p>
         </div>
 
@@ -152,7 +153,7 @@ export default function AdminSettingsPage() {
         <p className="text-xs text-muted-foreground">
           El tema se aplica al instante. El resto de los parámetros se gestiona en su módulo correspondiente.
         </p>
-      </div>
+      </PageShell>
     </ProtectedRoute>
   );
 }

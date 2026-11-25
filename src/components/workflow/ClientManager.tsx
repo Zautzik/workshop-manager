@@ -24,6 +24,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { MobileCardList, MobileCard } from '@/components/layout/MobileCardList';
 import { useToast } from '@/hooks/use-toast';
 import {
   Building2,
@@ -257,14 +258,14 @@ export function ClientManager() {
             {filtered.length} cliente{filtered.length !== 1 ? 's' : ''}
           </p>
         </div>
-        <div className="flex items-center gap-3">
-          <div className="relative">
+        <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:gap-3">
+          <div className="relative w-full sm:w-auto">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Buscar cliente..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-9 w-64 bg-input border-border"
+              className="pl-9 w-full sm:w-64 bg-input border-border"
             />
           </div>
           <Button
@@ -295,7 +296,32 @@ export function ClientManager() {
               <p>No se encontraron clientes</p>
             </div>
           ) : (
-            <ScrollArea className="max-h-[600px]">
+            <>
+            <MobileCardList>
+              {filtered.map((client) => (
+                <MobileCard
+                  key={client.id}
+                  muted={!client.is_active}
+                  leading={<Building2 className="h-4 w-4" />}
+                  title={client.name}
+                  badge={!client.is_active && (
+                    <Badge variant="outline" className="text-[10px] border-amber-500/40 text-amber-400">Inactivo</Badge>
+                  )}
+                  meta={[client.rut, client.contact_name, client.city]}
+                  onClick={() => openEdit(client)}
+                  actions={client.is_active ? (
+                    <Button variant="ghost" size="sm" className="h-9 w-9 p-0 text-muted-foreground hover:text-red-400" aria-label="Desactivar" onClick={() => handleDeactivate(client)}>
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  ) : (
+                    <Button variant="ghost" size="sm" className="h-9 text-xs text-amber-400" onClick={() => handleReactivate(client)}>
+                      Reactivar
+                    </Button>
+                  )}
+                />
+              ))}
+            </MobileCardList>
+            <ScrollArea className="hidden max-h-[600px] md:block">
               <Table>
                 <TableHeader>
                   <TableRow className="bg-muted/30">
@@ -380,6 +406,7 @@ export function ClientManager() {
                 </TableBody>
               </Table>
             </ScrollArea>
+            </>
           )}
         </CardContent>
       </Card>

@@ -10,6 +10,7 @@ import { MecanicaPanel } from '@/components/maintenance/MecanicaPanel';
 import { CompetenciasPanel } from '@/components/maintenance/CompetenciasPanel';
 import { ConsumiblesPanel } from '@/components/maintenance/ConsumiblesPanel';
 import { PartCalibrationPanel } from '@/components/maintenance/PartCalibrationPanel';
+import { PageShell } from '@/components/layout/PageShell';
 
 const VALID_TABS = ['piezas', 'consumibles', 'competencias', 'calibracion'] as const;
 type TabKey = (typeof VALID_TABS)[number];
@@ -30,7 +31,7 @@ function MecanicaTabs() {
 
   return (
     <Tabs value={active} onValueChange={onChange} className="w-full">
-      <TabsList className="grid w-full max-w-3xl grid-cols-4">
+      <TabsList>
         <TabsTrigger value="piezas" className="gap-2">
           <Wrench className="h-4 w-4" /> Piezas y repuestos
         </TabsTrigger>
@@ -64,9 +65,9 @@ function MecanicaTabs() {
 export default function MecanicaPage() {
   return (
     <ProtectedRoute allowedRoles={['admin', 'manager', 'supervisor']}>
-      <div className="space-y-6 p-6">
+      <PageShell>
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Mecánica y Abastecimiento</h1>
+          <h1 className="text-xl sm:text-2xl font-bold text-foreground">Mecánica y Abastecimiento</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             Cada máquina por sistema, y dentro de cada sistema sus piezas: cuánta vida les
             queda, cuánto demora el repuesto y si todavía se alcanza a pedir. Una máquina
@@ -76,7 +77,7 @@ export default function MecanicaPage() {
         <Suspense fallback={<Skeleton className="h-96 w-full" />}>
           <MecanicaTabs />
         </Suspense>
-      </div>
+      </PageShell>
     </ProtectedRoute>
   );
 }

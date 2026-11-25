@@ -117,7 +117,7 @@ export function MachineProfileEditor({ machine, onSaved, onCancel }: Props) {
   return (
     <div className="space-y-2">
       <Tabs defaultValue="identity">
-        <TabsList className="w-full grid grid-cols-3">
+        <TabsList>
           <TabsTrigger value="identity" className="gap-1 text-xs"><Cpu className="h-3 w-3" />Identidad</TabsTrigger>
           <TabsTrigger value="productivity" className="gap-1 text-xs"><Settings className="h-3 w-3" />Productividad</TabsTrigger>
           <TabsTrigger value="supplies" className="gap-1 text-xs"><Package className="h-3 w-3" />Insumos</TabsTrigger>

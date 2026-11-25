@@ -121,6 +121,7 @@ export function MachineShiftPatternsPanel({
           Lo que el Cronograma supone cuando no hay dotación cargada. Para abrir una noche puntual, asigna operarios al turno
           Noche ese día.
         </p>
+        <div className="overflow-x-auto">
         <table className="w-full text-[10px]">
           <thead>
             <tr className="text-muted-foreground">
@@ -167,6 +168,7 @@ export function MachineShiftPatternsPanel({
             ))}
           </tbody>
         </table>
+        </div>
       </div>
     </details>
   );
