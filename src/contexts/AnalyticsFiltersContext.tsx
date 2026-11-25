@@ -116,8 +116,7 @@ export function useAnalyticsFilters(): AnalyticsFiltersValue {
 /**
  * Like useAnalyticsFilters but tolerant of being rendered outside a provider —
  * falls back to the default "this month" window. Lets shared components (e.g.
- * ExecutiveOverview, used both inside Analítica and on the legacy admin page)
- * compute deltas without hard-requiring the provider.
+ * ResumenEjecutivo) compute deltas without hard-requiring the provider.
  */
 export function useAnalyticsFiltersOptional(): AnalyticsFiltersValue {
   const ctx = useContext(AnalyticsFiltersContext);
