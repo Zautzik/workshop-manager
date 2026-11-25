@@ -10,6 +10,11 @@ const optStr = (max: number) =>
 		(v) => (typeof v === 'string' && v.trim() === '' ? null : v),
 		z.string().max(max).nullable().optional()
 	);
+const optCode = (re: RegExp, msg: string) =>
+	z.preprocess(
+		(v) => (typeof v === 'string' && v.trim() === '' ? null : v),
+		z.string().regex(re, msg).nullable().optional()
+	);
 const optEmail = () =>
 	z.preprocess(
 		(v) => (typeof v === 'string' && v.trim() === '' ? null : v),
@@ -25,6 +30,10 @@ const CreateClientSchema = z.object({
 	address: optStr(500),
 	city: optStr(100),
 	payment_terms: optStr(100),
+	// Datos del receptor para la factura electrónica (migración 20261125120000).
+	giro: optStr(40),
+	region_code: optCode(/^\d{1,2}$/, 'Región: código de 1 o 2 dígitos'),
+	comuna_code: optCode(/^\d{5}$/, 'Comuna: código de 5 dígitos'),
 	notes: optStr(2000),
 });
 
@@ -108,7 +117,9 @@ export async function POST(req: NextRequest) {
 
 		const { data, error } = await supabaseAdmin
 			.from('clients')
-			.insert([parsed.data])
+			// `as any`: giro / region_code / comuna_code (migración 20261125120000)
+			// todavía no están en los tipos generados.
+			.insert([parsed.data as any])
 			.select('*')
 			.single();
 

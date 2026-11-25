@@ -49,6 +49,9 @@ interface ClientFormState {
   city: string;
   payment_terms: string;
   notes: string;
+  giro: string;
+  region_code: string;
+  comuna_code: string;
 }
 
 const EMPTY_FORM: ClientFormState = {
@@ -61,7 +64,22 @@ const EMPTY_FORM: ClientFormState = {
   city: '',
   payment_terms: '30 días',
   notes: '',
+  giro: '',
+  region_code: '',
+  comuna_code: '',
 };
+
+// Códigos de región del SII / INE, en orden norte → sur.
+const REGIONES: { code: string; name: string }[] = [
+  { code: '15', name: 'Arica y Parinacota' }, { code: '1', name: 'Tarapacá' },
+  { code: '2', name: 'Antofagasta' }, { code: '3', name: 'Atacama' },
+  { code: '4', name: 'Coquimbo' }, { code: '5', name: 'Valparaíso' },
+  { code: '13', name: 'Metropolitana' }, { code: '6', name: "O'Higgins" },
+  { code: '7', name: 'Maule' }, { code: '16', name: 'Ñuble' },
+  { code: '8', name: 'Biobío' }, { code: '9', name: 'La Araucanía' },
+  { code: '14', name: 'Los Ríos' }, { code: '10', name: 'Los Lagos' },
+  { code: '11', name: 'Aysén' }, { code: '12', name: 'Magallanes' },
+];
 
 export function ClientManager() {
   const { toast } = useToast();
@@ -71,6 +89,10 @@ export function ClientManager() {
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<ClientFormState>(EMPTY_FORM);
+  // Los campos del DTE aparecen sólo si la base ya tiene sus columnas
+  // (migración 20261125120000): la API devuelve `select *`, así que basta mirar
+  // una fila. Antes de la migración, mandarlos haría fallar el guardado.
+  const dteFields = clients.length > 0 && 'comuna_code' in clients[0];
   const [saving, setSaving] = useState(false);
   const [showInactive, setShowInactive] = useState(false);
 
@@ -124,6 +146,9 @@ export function ClientManager() {
       city: client.city || '',
       payment_terms: client.payment_terms || '30 días',
       notes: client.notes || '',
+      giro: client.giro || '',
+      region_code: client.region_code || '',
+      comuna_code: client.comuna_code || '',
     });
     setShowForm(true);
   };
@@ -146,6 +171,14 @@ export function ClientManager() {
         city: form.city.trim() || null,
         payment_terms: form.payment_terms.trim() || null,
         notes: form.notes.trim() || null,
+        // Sólo se mandan si la base ya tiene las columnas (ver `dteFields`).
+        ...(dteFields
+          ? {
+              giro: form.giro.trim() || null,
+              region_code: form.region_code || null,
+              comuna_code: form.comuna_code.trim() || null,
+            }
+          : {}),
       };
 
       const url = editingId ? `/api/clients/${editingId}` : '/api/clients';
@@ -436,6 +469,47 @@ export function ClientManager() {
                   className="mt-1"
                 />
               </div>
+              {dteFields && (
+                <>
+                  <div className="col-span-2">
+                    <Label className="text-xs font-medium">Giro</Label>
+                    <Input
+                      value={form.giro}
+                      maxLength={40}
+                      onChange={(e) => updateField('giro', e.target.value)}
+                      placeholder="Actividad principal, como figura en el SII"
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs font-medium">Región</Label>
+                    <select
+                      value={form.region_code}
+                      onChange={(e) => updateField('region_code', e.target.value)}
+                      className="mt-1 h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                    >
+                      <option value="">Elegir…</option>
+                      {REGIONES.map((r) => (
+                        <option key={r.code} value={r.code}>{r.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <Label className="text-xs font-medium">Código de comuna</Label>
+                    <Input
+                      value={form.comuna_code}
+                      inputMode="numeric"
+                      maxLength={5}
+                      onChange={(e) => updateField('comuna_code', e.target.value.replace(/\D/g, ''))}
+                      placeholder="13101 (Santiago)"
+                      className="mt-1"
+                    />
+                  </div>
+                  <p className="col-span-2 -mt-1 text-[11px] text-muted-foreground">
+                    Giro, región y comuna los exige el SII para la factura electrónica.
+                  </p>
+                </>
+              )}
               <div className="col-span-2">
                 <Label className="text-xs font-medium">Condición de Pago</Label>
                 <Input
