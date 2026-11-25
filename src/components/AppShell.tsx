@@ -144,7 +144,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     // taller, sin sesion. Lo que autoriza es el token de la etiqueta, no una
     // cuenta. Sin esto rebota a /login, el mismo bug que tenia /track/.
     pathname.startsWith('/m/');
-  const isFullscreenRoute = pathname === '/estacion' || pathname === '/operaciones/whatsapp/operator' || pathname.startsWith('/track/') || pathname.startsWith('/legal/') || pathname.startsWith('/m/');
+  const isFullscreenRoute = pathname === '/operaciones/whatsapp/operator' || pathname.startsWith('/track/') || pathname.startsWith('/legal/') || pathname.startsWith('/m/');
 
   // Kick unauthenticated visitors off protected routes. This runs in an effect
   // because navigating during render updates the Router while AppShell is still

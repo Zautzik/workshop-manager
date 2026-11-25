@@ -14,7 +14,7 @@ import type { AppRole } from '@/types/app-role';
 import {
   Home, Factory, Users, Wrench, TrendingUp, ShieldCheck, Target,
   ClipboardList, GanttChart, FileSpreadsheet, Archive, FileStack,
-  Clock, Calendar, CalendarRange,
+  Calendar, CalendarRange,
   Package, ShoppingCart, MessageSquare,
   UserCheck, Wallet, Network, GraduationCap, HardHat,
   Cpu, AlertCircle, BarChart3, PieChart, DollarSign,
@@ -129,7 +129,6 @@ export const MODULES: NavModule[] = [
         label: 'Piso & Planificación',
         color: 'from-emerald-500/10 to-teal-500/5', border: 'border-emerald-500/20', heading: 'text-emerald-400',
         items: [
-          { label: 'Estación',      href: '/estacion',             description: 'Kiosko de fichaje por credencial QR (sin login)', icon: Clock,        color: 'bg-cyan-500/10 text-cyan-400' },
           { label: 'Planta',        href: '/operaciones/planta',   description: 'Estaciones y asignación de operarios',           icon: Factory,       color: 'bg-emerald-500/10 text-emerald-400' },
           { label: 'Planificación', href: '/operaciones/calendar', description: 'Cronograma de OTs, máquinas, calendario y plan semanal', icon: CalendarRange, color: 'bg-sky-500/10 text-sky-400' },
         ],

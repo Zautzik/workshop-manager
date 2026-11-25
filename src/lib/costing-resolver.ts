@@ -212,7 +212,7 @@ export function resolveCostOverrides(
  * `compareToCatalog`).
  *
  * Sólo las etapas de MÁQUINA tienen tarifa por hora. El operario no está acá:
- * su costo real viene de los turnos (labor-attribution), y sumarlo también acá
+ * su costo real viene de los turnos (labor-from-shifts), y sumarlo también acá
  * lo contaría dos veces. Digital se cobra por click, no por hora; taller,
  * revisión y despacho son mano de obra.
  */

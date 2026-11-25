@@ -15,7 +15,7 @@ export const dynamic = 'force-dynamic';
  * pestaña lee ESAS líneas: las mismas que suma el margen de Rentabilidad.
  *
  * Antes recalculaba la mano de obra por su cuenta desde las marcas del kiosco
- * (labor-attribution.ts) — una segunda verdad que no coincidía con el margen
+ * (labor-attribution.ts, borrado con el kiosco el 2026-11-25) — una segunda verdad que no coincidía con el margen
  * y que, sin marcas de reloj, dejaba la pestaña vacía aunque el libro tuviera
  * la mano de obra cargada (2026-11-12).
  *

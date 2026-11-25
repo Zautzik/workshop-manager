@@ -155,25 +155,6 @@ function useLatestRoster() {
   });
 }
 
-/**
- * Who is clocked in right now, straight from the /estacion QR kiosk.
- * Short staleTime: this is a live floor signal, not reference data.
- */
-function usePresentNow() {
-  return useQuery<Set<string>>({
-    queryKey: ['personas', 'present-now'],
-    queryFn: async () => {
-      const res = await fetch('/api/attendance/clock', { credentials: 'include' });
-      if (!res.ok) return new Set<string>();
-      const payload = await res.json().catch(() => null);
-      const present: Array<{ employee_id: string }> = payload?.present ?? [];
-      return new Set(present.map((p) => p.employee_id));
-    },
-    staleTime: 30 * 1000,
-    refetchInterval: 60 * 1000,
-  });
-}
-
 function rosterLabel(date: string): string {
   if (!date) return 'Asignado';
   const today = new Date().toISOString().split('T')[0];
@@ -201,7 +182,6 @@ const DEV_LINKS = [
 export default function PersonasModule({ embedded = false }: { embedded?: boolean } = {}) {
   const { data: people = [], isLoading, isError, error, refetch } = useConsolidatedPeople();
   const { data: roster } = useLatestRoster();
-  const { data: presentNow } = usePresentNow();
   const [search, setSearch] = useState('');
   const [dept, setDept] = useState('all');
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -351,7 +331,6 @@ export default function PersonasModule({ embedded = false }: { embedded?: boolea
                       contractType={contractType}
                       hrsWeek={hrsWeek}
                       assignment={rosterByEmployee.get(p.id) ?? null}
-                      presentNow={presentNow?.has(p.id) ?? false}
                       onSaved={() => refetch()}
                       onToggle={() => setExpandedId(expanded ? null : p.id)}
                     />

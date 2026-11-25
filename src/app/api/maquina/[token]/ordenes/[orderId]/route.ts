@@ -35,8 +35,7 @@ export const dynamic = 'force-dynamic';
  * ítems y cerrar órdenes de esa máquina desde cualquier parte, y el registro no
  * dirá quién fue. Son evidencia bajo FSSC 22000. El token acota el daño a una
  * máquina y se puede revocar regenerándolo, pero si hace falta saber QUIÉN, el
- * paso siguiente es pedir la credencial del operario como hace
- * `/api/attendance/clock`. Está anotado en la migración 20261016150000.
+ * paso siguiente es pedir la credencial del operario (`employees.badge_code`). Está anotado en la migración 20261016150000.
  *
  * Por eso esta ruta NO acepta todo lo que acepta el PATCH con sesión: sólo lo
  * que el operario hace frente a la máquina.

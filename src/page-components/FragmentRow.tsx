@@ -7,13 +7,12 @@ import { CONTRACT_LABEL, formatMoney, type MergedPerson, type TodayAssignment } 
 import { ScoreBar } from './ScoreBar';
 import { EditableFicha } from './EditableFicha';
 
-export function FragmentRow({ person: p, expanded, contractType, hrsWeek, assignment, presentNow, onToggle, onSaved }: {
+export function FragmentRow({ person: p, expanded, contractType, hrsWeek, assignment, onToggle, onSaved }: {
   person: MergedPerson;
   expanded: boolean;
   contractType?: string;
   hrsWeek?: number;
   assignment: TodayAssignment | null;
-  presentNow: boolean;
   onToggle: () => void;
   onSaved: () => void;
 }) {
@@ -28,18 +27,8 @@ export function FragmentRow({ person: p, expanded, contractType, hrsWeek, assign
           <ChevronRight className={`h-4 w-4 transition-transform ${expanded ? 'rotate-90' : ''}`} />
         </td>
         <td className="py-3 px-2">
-          <div className="flex items-center gap-1.5">
-            {/* Live from the station kiosk — green means clocked in right now. */}
-            <span
-              title={presentNow ? 'Presente ahora (marcó entrada)' : 'Sin marca de entrada activa'}
-              aria-label={presentNow ? 'Presente ahora' : 'Ausente'}
-              className={`h-2 w-2 shrink-0 rounded-full ${
-                presentNow ? 'bg-emerald-500' : 'bg-muted-foreground/25'
-              }`}
-            />
-            <span className="font-semibold text-foreground text-[15px]">{p.full_name}</span>
-          </div>
-          {p.employee_code && <div className="text-xs text-muted-foreground font-mono pl-3.5">{p.employee_code}</div>}
+          <div className="font-semibold text-foreground text-[15px]">{p.full_name}</div>
+          {p.employee_code && <div className="text-xs text-muted-foreground font-mono">{p.employee_code}</div>}
         </td>
         <td className="py-3 px-2 text-muted-foreground">{p.department || '—'}</td>
         <td className="py-3 px-2">

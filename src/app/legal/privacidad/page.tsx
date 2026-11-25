@@ -144,8 +144,7 @@ export default function PoliticaPrivacidadPage() {
 					</li>
 					<li>remuneración: tarifa por hora, recargos, bonos e incentivos, y su historial;</li>
 					<li>
-						marcas de entrada y salida en las estaciones, y el código de la credencial con que
-						se registran;
+						los turnos asignados y las horas registradas en cada pasada de producción;
 					</li>
 					<li>competencias y certificaciones, con su fecha de evaluación y de vencimiento;</li>
 					<li>licencias, permisos y ausencias, y los documentos de personal que la ley obliga a conservar.</li>

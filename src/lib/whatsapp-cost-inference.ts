@@ -10,7 +10,7 @@
  * Tiempo (auditoría 2026-11-05, C-1/C-2). Prensa, guillotina, terminaciones,
  * operario y energía tienen su único dueño:
  *   - máquina: las horas de la pasada × la tarifa cotizada (stage-valuation.ts);
- *   - operario: los turnos (labor-attribution.ts).
+ *   - operario: los turnos (labor-from-shifts.ts).
  *
  * Material (auditoría 2026-11-09). Papel y tinta se inferían de los pliegos a
  * un precio de catálogo, al lado del mismo papel ya cargado por la recepción

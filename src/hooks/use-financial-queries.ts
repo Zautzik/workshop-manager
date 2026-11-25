@@ -287,7 +287,7 @@ export function useMonthlyPayroll(year: number, month: number) {
         // no overtime real ese día. `hours_worked` en `worker_assignments`
         // es lo que de verdad se registró para ESA asignación, y es lo que
         // ya usa el motor de acumulación de habilidades (skill-accrual.ts) y
-        // el modelo de sobretiempo real (labor-attribution.ts). Nómina tenía
+        // el cálculo por turnos (labor-from-shifts.ts). Nómina tenía
         // su propia segunda cuenta de "cuántas horas trabajó esta persona",
         // que podía discrepar de las otras dos cada vez que alguien hacía
         // horas extra o salía antes (auditoría 2026-08). El horario nominal
@@ -484,7 +484,7 @@ export interface OrderLaborMarginRow {
  * Margen laboral por OT.
  *
  * Antes esto recalculaba el costo laboral EN EL NAVEGADOR, en 312 líneas sin
- * un solo test, mientras `labor-attribution.ts` —el motor puro con 20 tests que
+ * un solo test, mientras `labor-attribution.ts` (ya borrado) —el motor puro con 20 tests que
  * resuelve el turno sin salida marcada, el cruce de medianoche y la tarifa con
  * fecha de vigencia— quedaba sin usar. Dos motores de costo laboral: el probado
  * desconectado, el conectado sin probar.
