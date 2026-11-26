@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
+import { amountCLP } from '@/lib/limits';
 import { isAuthError, requireAuth } from '@/lib/api-middleware';
 import { supabaseAdmin } from '@/integrations/supabase/server';
 import { threeWayMatch } from '@/lib/purchasing';
@@ -8,7 +9,7 @@ const OPS = ['admin', 'manager', 'supervisor'] as const;
 
 const UpdateFacturaSchema = z.object({
   invoice_number: z.string().min(1).max(100).optional(),
-  amount: z.coerce.number().min(0).optional(),
+  amount: amountCLP().optional(),
   invoice_date: z.string().optional(),
   status: z.enum(['received', 'matched', 'disputed', 'paid']).optional(),
   notes: z.string().max(2000).optional().nullable(),

@@ -17,7 +17,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useCompensationRatesForDate, useSchedulingCostModel, useWorkerAssignments, useWorkerMonthlyOvertime, useWorkflowCertificationAlerts, useWorkflowContracts, useWorkflowIncentiveStatuses, useWorkflowLeaveStatuses, useWorkflowWeeklyHours, useWorkersByRating, useWorkstations, useShifts, fetchWorkerAssignments } from "@/hooks/use-workflow-queries";
 import { useRealtimeProduction } from "@/hooks/use-realtime-production";
 import { DndContext, DragEndEvent, DragOverlay } from "@dnd-kit/core";
-import { isWorkerQualifiedForStation } from "@/lib/workstation-skills";
+import { getWorkerQualificationScore, isWorkerQualifiedForStation } from "@/lib/workstation-skills";
 import { isWorkerEligibleForStation, workerConflictFlags, workerSortScore } from "@/lib/worker-eligibility";
 import { useStationsUnderMaintenance } from "@/hooks/use-maintenance-queries";
 import { dateToLocalIso, startOfIsoWeek, weekDatesFrom } from "@/lib/week-dates";
@@ -496,11 +496,16 @@ export default function PlantaBoard({ initialTab = 'layout' }: PlantaBoardProps)
       const hasAwardedIncentive = incentives.some((item: any) =>
         ['approved', 'paid'].includes(String(item.status || '').toLowerCase())
       );
+      // Eligibility needs real evaluations; a score nobody entered is not a 75
+      // (audit C4) — it is "not evaluated", and that is what the board says.
+      const evaluated = worker?.attendance_score != null && worker?.overall_rating != null;
       const incentiveStatus = hasAwardedIncentive
         ? 'Awarded this month'
-        : Number(worker?.attendance_score ?? 0) >= 90 && Number(worker?.overall_rating ?? 0) >= 75
-          ? 'Eligible'
-          : 'Review';
+        : !evaluated
+          ? 'Not evaluated'
+          : Number(worker.attendance_score) >= 90 && Number(worker.overall_rating) >= 75
+            ? 'Eligible'
+            : 'Review';
       const incentiveTone = hasAwardedIncentive
         ? 'ok'
         : incentiveStatus === 'Eligible'
@@ -759,8 +764,10 @@ export default function PlantaBoard({ initialTab = 'layout' }: PlantaBoardProps)
     [assignments, selectedShiftId]
   );
 
-  const sortScoreFor = (worker: any, isOvertime: boolean) =>
-    workerSortScore(worker, Number(compensationByEmployee?.[worker?.id]?.hourly_rate || 0), isOvertime);
+  // Rank by the skill THIS station asks for, then cost (audit C4: no more
+  // overall_rating, which nothing writes).
+  const sortScoreFor = (worker: any, isOvertime: boolean, station: any) =>
+    workerSortScore(getWorkerQualificationScore(worker, station), Number(compensationByEmployee?.[worker?.id]?.hourly_rate || 0), isOvertime);
 
   const handleBulkAutoFillShift = async () => {
     if (!selectedShiftId) {
@@ -805,7 +812,7 @@ export default function PlantaBoard({ initialTab = 'layout' }: PlantaBoardProps)
             return { worker, isOvertime };
           })
           .filter(({ worker, isOvertime }: { worker: any; isOvertime: boolean }) => isWorkerEligibleForStation(worker, station, isOvertime, workerIndicatorsById?.[worker.id]))
-          .sort((a: { worker: any; isOvertime: boolean }, b: { worker: any; isOvertime: boolean }) => sortScoreFor(b.worker, b.isOvertime) - sortScoreFor(a.worker, a.isOvertime));
+          .sort((a: { worker: any; isOvertime: boolean }, b: { worker: any; isOvertime: boolean }) => sortScoreFor(b.worker, b.isOvertime, station) - sortScoreFor(a.worker, a.isOvertime, station));
 
         for (const candidate of candidates.slice(0, capacityLeft)) {
           const role = candidate.isOvertime ? 'overtime_operator_50' : 'operator';
@@ -875,7 +882,7 @@ export default function PlantaBoard({ initialTab = 'layout' }: PlantaBoardProps)
             return { worker, isOvertime };
           })
           .filter(({ worker, isOvertime }: { worker: any; isOvertime: boolean }) => isWorkerEligibleForStation(worker, station, isOvertime, workerIndicatorsById?.[worker.id]))
-          .sort((a: { worker: any; isOvertime: boolean }, b: { worker: any; isOvertime: boolean }) => sortScoreFor(b.worker, b.isOvertime) - sortScoreFor(a.worker, a.isOvertime))[0];
+          .sort((a: { worker: any; isOvertime: boolean }, b: { worker: any; isOvertime: boolean }) => sortScoreFor(b.worker, b.isOvertime, station) - sortScoreFor(a.worker, a.isOvertime, station))[0];
 
         if (!replacement) {
           unresolved += 1;
@@ -937,7 +944,7 @@ export default function PlantaBoard({ initialTab = 'layout' }: PlantaBoardProps)
           .filter((worker: any) => !workersAssignedOtherShifts.has(worker.id))
           .map((worker: any): { worker: any; isOvertime: boolean } => ({ worker, isOvertime: false }))
           .filter(({ worker, isOvertime }: { worker: any; isOvertime: boolean }) => isWorkerEligibleForStation(worker, station, isOvertime, workerIndicatorsById?.[worker.id]))
-          .sort((a: { worker: any; isOvertime: boolean }, b: { worker: any; isOvertime: boolean }) => sortScoreFor(b.worker, false) - sortScoreFor(a.worker, false))[0];
+          .sort((a: { worker: any; isOvertime: boolean }, b: { worker: any; isOvertime: boolean }) => sortScoreFor(b.worker, false, station) - sortScoreFor(a.worker, false, station))[0];
 
         if (!replacement) {
           remaining += 1;

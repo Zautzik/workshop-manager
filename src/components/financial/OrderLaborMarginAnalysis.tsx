@@ -8,12 +8,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useOrderLaborMargin } from '@/hooks/use-financial-queries';
-import { useOTs } from '@/hooks/use-operations-queries';
 import { ArrowRight, Info, Loader2, DollarSign, Percent, Clock } from 'lucide-react';
 
 export function OrderLaborMarginAnalysis() {
-  const { data: ots, isLoading: otsLoading } = useOTs();
-
   // State
   const [selectedOtId, setSelectedOtId] = useState<string>('all');
   const [rangeMonths, setRangeMonths] = useState<number>(6);
@@ -31,6 +28,15 @@ export function OrderLaborMarginAnalysis() {
     format(endDate, 'yyyy-MM-dd')
   );
   const margins = marginData?.rows;
+  // The OT filter lists the OTs that HAVE labour in the period — the same
+  // rows, unfiltered (shared cache with the "all" view). It used to list "the
+  // first 200 OTs", most with nothing to show (audit C2).
+  const { data: allData, isLoading: otsLoading } = useOrderLaborMargin(
+    undefined,
+    format(startDate, 'yyyy-MM-dd'),
+    format(endDate, 'yyyy-MM-dd')
+  );
+  const ots = allData?.rows.map((r) => ({ id: r.ot_id, ot_number: r.ot_number, client_name: r.client_name }));
   const diagnostics = marginData?.diagnostics;
 
   // Sólo lo que el libro tiene: horas y plata de mano de obra por OT. El margen

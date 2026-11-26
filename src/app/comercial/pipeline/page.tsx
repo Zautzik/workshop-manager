@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { FileSpreadsheet, PenLine, CheckCircle2, Factory } from 'lucide-react';
 import { useVistosBuenos } from '@/hooks/use-commercial-queries';
-import { useOTs } from '@/hooks/use-operations-queries';
+import { useActiveOTs } from '@/hooks/use-operations-queries';
 import { formatCLP } from '@/lib/format';
 import { PageShell } from '@/components/layout/PageShell';
 
@@ -18,7 +18,7 @@ const STAGE_BADGE: Record<string, string> = {
 
 function PipelineInner() {
   const { data: vbs = [] } = useVistosBuenos();
-  const { data: ots = [] } = useOTs();
+  const { data: ots = [] } = useActiveOTs();
 
   const f = useMemo(() => {
     const sum = (s: string) => vbs.filter((v) => v.status === s).reduce((a, v) => a + Number(v.total_price || 0), 0);

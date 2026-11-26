@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { useOtCostSummary, type OtCostSummaryRow } from '@/hooks/use-financial-queries';
 import { marginConfidence } from '@/lib/margin-confidence';
 import { RentabilidadPanorama } from '@/components/financial/RentabilidadPanorama';
-import { useOTs } from '@/hooks/use-operations-queries';
+import { useActiveOTs } from '@/hooks/use-operations-queries';
 import { formatCLP } from '@/lib/format';
 import { useAnalyticsFilters } from '@/contexts/AnalyticsFiltersContext';
 
@@ -82,7 +82,7 @@ export const OTFinancialTracking = () => {
   // decir "el margen subió 4 puntos" en vez de mostrar un número suelto.
   const { data: rows = [] } = useOtCostSummary({ from: range.from.toISOString(), to: range.to.toISOString() });
   const { data: comparisonRows = [] } = useOtCostSummary({ from: comparison.from.toISOString(), to: comparison.to.toISOString() });
-  const { data: ots = [] } = useOTs();
+  const { data: ots = [] } = useActiveOTs();
 
   const [selectedOtId, setSelectedOtId] = useState('');
   const [amounts, setAmounts] = useState<Record<CostKey, number>>({

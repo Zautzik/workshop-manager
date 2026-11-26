@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
+import { amountCLP } from '@/lib/limits';
 import { isAuthError, requireAuth } from '@/lib/api-middleware';
 import { supabaseAdmin } from '@/integrations/supabase/server';
 
@@ -33,7 +34,7 @@ const CreateInvoiceSchema = z.object({
   // las guías y del precio de la OT. Sólo se usa en una factura suelta, sin
   // guías. Opcional para que un llamador que factura guías no tenga que
   // mandar un número que no se va a mirar.
-  net_amount: z.coerce.number().min(0).optional().default(0),
+  net_amount: amountCLP().optional().default(0),
   due_date: z.string().optional().nullable(),
   guide_ids: z.array(z.string().uuid()).optional().default([]),
   notes: z.string().max(2000).optional().nullable(),

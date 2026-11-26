@@ -99,7 +99,8 @@ export { useMachines } from '@/hooks/use-workflow-queries';
  * ya esperan los ~14 consumidores de ESTE archivo (todos desestructuran
  * `{ data: x = [] }`), más `total`/`isTruncated` de regalo.
  */
-export { useOTs } from '@/hooks/use-workflow-queries';
+// useOTs (the first 200) is gone — see the note above useBoardOTs (audit C2).
+export { useActiveOTs, useBoardOTs, useOTSearch } from '@/hooks/use-workflow-queries';
 
 export function useBatchesAvailable() {
   return useQuery<any[]>({

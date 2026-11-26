@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import { format, parseISO, isValid, formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { useOTs } from '@/hooks/use-operations-queries';
+import { useOTSearch } from '@/hooks/use-operations-queries';
 import { useCycleAnalytics, useOTHistory } from '@/hooks/use-ot-cycle';
 import { otStatusLabel, otStatusColor } from '@/lib/status-labels';
 
@@ -47,23 +47,13 @@ function KpiCard({ icon: Icon, label, value, hint, tone }: {
 
 export default function OTLifecycleReport() {
   const { data: analytics, isLoading: loadingAnalytics } = useCycleAnalytics();
-  const { data: otsData } = useOTs();
-  const ots = (otsData ?? []) as OtLite[];
-
   const [search, setSearch] = useState('');
+  // Any OT, old ones included — searched on the server (audit C2).
+  const { data: found = [] } = useOTSearch(search, { limit: 6, enabled: search.trim().length > 0 });
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const { data: history, isLoading: loadingHistory } = useOTHistory(selectedId);
 
-  const suggestions = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    if (!q) return [];
-    return ots
-      .filter((o) =>
-        o.ot_number?.toLowerCase().includes(q) ||
-        o.client_name?.toLowerCase().includes(q)
-      )
-      .slice(0, 6);
-  }, [ots, search]);
+  const suggestions = (search.trim() ? found : []) as OtLite[];
 
   const maxStageHours = analytics?.stage_stats.reduce((m, s) => Math.max(m, s.avg_hours), 0) ?? 0;
 

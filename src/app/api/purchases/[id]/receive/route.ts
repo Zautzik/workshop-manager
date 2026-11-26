@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
+import { units } from '@/lib/limits';
 import { isAuthError, requireAuth } from '@/lib/api-middleware';
 import { supabaseAdmin } from '@/integrations/supabase/server';
 import { lineReceiptVariance } from '@/lib/purchasing';
@@ -8,7 +9,7 @@ const OPS = ['admin', 'manager', 'supervisor'] as const;
 
 const ReceiveSchema = z.object({
   item_id: z.string().uuid(),
-  quantity: z.coerce.number().positive(),
+  quantity: units().positive(),
   unit_cost: z.coerce.number().min(0).optional().nullable(),
   lot_number: z.string().max(100).optional().nullable(),
   cert_code: z.string().max(100).optional().nullable(),

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
+import { amountCLP, units, wholeUnits } from '@/lib/limits';
 import { PLAN_STEP_KEYS } from '@/lib/production-route';
 import { requireAuth, isAuthError } from '@/lib/api-middleware';
 import { supabaseAdmin } from '@/integrations/supabase/server';
@@ -7,6 +8,7 @@ import { resolveSalesScope, scopeFilterId } from '@/lib/sales-scope';
 import { buildRateLimitActor, enforceRouteRateLimit } from '@/lib/api-rate-limit';
 import { ACTIVE_OT_STATUSES, OTStatusSchema } from '@/lib/ot-state-machine';
 import { redactMoney } from '@/lib/money-fields';
+import { fetchAll } from '@/lib/fetch-all';
 
 // OTs are mutable and auth-gated — never cache at the HTTP layer.
 export const dynamic = 'force-dynamic';
@@ -45,7 +47,7 @@ const OTOperationSchema = z.object({
 	category: OTOperationCategorySchema,
 	name: z.string().min(1).max(255),
 	unit: z.string().max(50).default('unit'),
-	quantity: z.coerce.number().min(0),
+	quantity: units(),
 	unit_cost: z.coerce.number().min(0),
 	sort_order: z.coerce.number().int().min(0).default(0),
 	// true si la línea la escribió o corrigió una persona a mano en el
@@ -66,7 +68,7 @@ const CreateOTSchema = z.object({
 	ot_number: z.string().min(1).max(100),
 	client_name: z.string().min(1).max(255),
 	description: z.string().max(2000).optional().nullable(),
-	quantity: z.coerce.number().int().min(0),
+	quantity: wholeUnits(),
 	// No default here: `d.priority ?? priorityMap[priority_level]` below must see
 	// undefined when the caller only sends priority_level, or the mapping never
 	// fires and every "urgente" OT lands at priority 1 (2026-07 audit).
@@ -109,15 +111,15 @@ const CreateOTSchema = z.object({
 	calc_print_hours: z.coerce.number().min(0).optional().nullable(),
 	calc_finish_hours: z.coerce.number().min(0).optional().nullable(),
 	// Pricing
-	subtotal: z.coerce.number().min(0).optional(),
+	subtotal: amountCLP().optional(),
 	margin_pct: z.coerce.number().min(0).max(100).optional(),
-	margin_amount: z.coerce.number().min(0).optional(),
+	margin_amount: amountCLP().optional(),
 	increment_pct: z.coerce.number().min(0).max(100).optional(),
-	increment_amount: z.coerce.number().min(0).optional(),
+	increment_amount: amountCLP().optional(),
 	commission_pct: z.coerce.number().min(0).max(100).optional(),
-	commission_amount: z.coerce.number().min(0).optional(),
-	total_price: z.coerce.number().min(0).optional(),
-	unit_price: z.coerce.number().min(0).optional(),
+	commission_amount: amountCLP().optional(),
+	total_price: amountCLP().optional(),
+	unit_price: amountCLP().optional(),
 	// Machine chosen in the wizard's Máquina step. This field was silently
 	// dropped for months (not in the schema → Zod stripped it), which is why
 	// every OT showed machine: null (2026-07 audit).
@@ -134,12 +136,21 @@ const CreateOTSchema = z.object({
 });
 
 // ── Pagination ──────────────────────────────────────────────────────────────
-// max:200 prevents full-table fetches; callers that need more should filter
-// by status/date on the server rather than fetching everything client-side.
+// A plain list pages (max 200 per page). Three shapes are NOT paged, because a
+// cut-off list is wrong in silence (audit C2, 2026-11-25: with 250 OTs, the
+// 50 oldest were invisible to every screen that read "the first 200"):
+//   active=true  → every OT in flight. Bounded by what the plant can hold.
+//   board=true   → every OT in flight + the ones completed in the last 30 days
+//                  (the Tablero's "Completadas" column).
+//   q=texto      → search across ALL OTs (number, client, product), newest
+//                  first, at most `limit` rows — for pickers like Expediente.
+const BOARD_COMPLETED_DAYS = 30;
 const PageSchema = z.object({
 	page:   z.coerce.number().int().min(1).default(1),
 	limit:  z.coerce.number().int().min(1).max(200).default(50),
-	active: z.string().optional(), // 'true' → filter to in-flight statuses only
+	active: z.string().optional(), // 'true' → every in-flight OT, unpaged
+	board:  z.string().optional(), // 'true' → in flight + completed in the last 30 days, unpaged
+	q:      z.string().trim().max(100).optional(),
 	// Un solo estado exacto, filtrado en el servidor — el comentario de
 	// arriba ya lo pedía y nadie lo había construido. Sin esto,
 	// CalibracionMotor.tsx pedía las primeras 200 OTs por prioridad y
@@ -165,30 +176,53 @@ export async function GET(req: NextRequest) {
 			{ status: 400 }
 		);
 	}
-	const { page, limit, active, status } = pagination.data;
+	const { page, limit, active, board, q, status } = pagination.data;
 	const offset = (page - 1) * limit;
 
 	// Row-scoping: a vendedor sees only their own OTs (salesman_id = me);
 	// ops/management roles see the whole plant.
 	const scope = await resolveSalesScope(auth);
 
+	const SELECT = '*, machine:machines!assigned_machine_id(id,name,brand,model,type,status,location,colors,nominal_speed_sheets_hr,power_kw)';
+	const base = () => {
+		let qb = supabaseAdmin.from('ots').select(SELECT, { count: 'exact' });
+		if (!scope.all) qb = qb.eq('salesman_id', scopeFilterId(scope));
+		return qb;
+	};
+
+	// Unpaged shapes: the whole set, in pages of 1000 under the hood.
+	if (active === 'true' || board === 'true') {
+		try {
+			const inFlight = await fetchAll<any>((a, b) =>
+				base().in('status', [...ACTIVE_OT_STATUSES]).order('priority', { ascending: false }).order('created_at', { ascending: false }).range(a, b) as any,
+			);
+			let rows = inFlight.rows;
+			if (board === 'true') {
+				const since = new Date(Date.now() - BOARD_COMPLETED_DAYS * 86_400_000).toISOString();
+				const done = await fetchAll<any>((a, b) =>
+					base().eq('status', 'completed').gte('completed_at', since).order('completed_at', { ascending: false }).range(a, b) as any,
+				);
+				rows = [...rows, ...done.rows];
+			}
+			return NextResponse.json({ data: redactMoney(rows, auth.role), total: rows.length, page: 1, limit: rows.length, totalPages: 1 });
+		} catch (error) {
+			console.error('Error fetching OTs:', error);
+			return NextResponse.json({ error: 'No se pudieron cargar las OTs' }, { status: 500 });
+		}
+	}
+
 	try {
-		let query = supabaseAdmin
-			.from('ots')
-			.select(
-				'*, machine:machines!assigned_machine_id(id,name,brand,model,type,status,location,colors,nominal_speed_sheets_hr,power_kw)',
-				{ count: 'exact' }
-			)
-			.order('priority', { ascending: false })
-			.order('created_at', { ascending: false });
-
-		if (!scope.all) {
-			query = query.eq('salesman_id', scopeFilterId(scope));
+		let query = base();
+		if (q) {
+			// Search: newest first, over every OT. Characters that PostgREST's
+			// or() grammar reserves are dropped so a client name cannot break it.
+			const term = q.replace(/[,()*%\\]/g, ' ').trim();
+			if (term) query = query.or(`ot_number.ilike.%${term}%,client_name.ilike.%${term}%,product_name.ilike.%${term}%`);
+			query = query.order('created_at', { ascending: false });
+		} else {
+			query = query.order('priority', { ascending: false }).order('created_at', { ascending: false });
 		}
 
-		if (active === 'true') {
-			query = query.in('status', [...ACTIVE_OT_STATUSES]);
-		}
 		if (status) {
 			query = query.eq('status', status);
 		}

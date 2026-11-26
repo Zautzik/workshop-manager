@@ -35,12 +35,12 @@ export async function GET(request: NextRequest) {
 					avg_time_minutes: 0,
 					avg_rating: 0,
 					efficiency_score: 0,
-					overall_rating: worker.overall_rating ?? 0,
+					overall_rating: worker.overall_rating ?? null, // null = sin evaluar (auditoría C4)
 					sheets_per_hour: worker.sheets_per_hour ?? 0,
-					teamwork_rating: worker.teamwork_rating ?? 0,
-					quality_score: worker.quality_score ?? 0,
-					speed_score: worker.speed_score ?? 0,
-					attendance_score: worker.attendance_score ?? 0,
+					teamwork_rating: worker.teamwork_rating ?? null, // null = sin evaluar (auditoría C4)
+					quality_score: worker.quality_score ?? null, // null = sin evaluar (auditoría C4)
+					speed_score: worker.speed_score ?? null, // null = sin evaluar (auditoría C4)
+					attendance_score: worker.attendance_score ?? null, // null = sin evaluar (auditoría C4)
 					overtime_availability: worker.overtime_availability ?? false,
 					lateness_minutes: worker.lateness_minutes ?? 0,
 				}));

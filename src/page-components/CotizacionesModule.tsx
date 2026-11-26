@@ -8,7 +8,7 @@ import { toast } from 'sonner';
 
 import { VistoBuenoDialog } from '@/components/workflow/VistoBuenoDialog';
 import { Plus } from 'lucide-react';
-import { useOTs } from '@/hooks/use-operations-queries';
+import { useActiveOTs } from '@/hooks/use-operations-queries';
 import { useQuery } from '@tanstack/react-query';
 import { useMachines } from '@/hooks/use-operations-queries';
 import { EMPTY_FINISHES } from '@/types/ot';
@@ -26,7 +26,7 @@ export default function CotizacionesModule() {
   const qc = useQueryClient();
   const router = useRouter();
 
-  const { data: ots = [] } = useOTs();
+  const { data: ots = [] } = useActiveOTs();
 
   /**
    * Las que todavía no tienen la prueba firmada.

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
+import { units } from '@/lib/limits';
 
 import { isAuthError, requireAuth } from '@/lib/api-middleware';
 import { supabaseAdmin } from '@/integrations/supabase/server';
@@ -127,7 +128,7 @@ const FilaSchema = z.object({
   kind: z.enum(['papel', 'tinta_especial', 'envase', 'servicio', 'insumo', 'otro']),
   description: z.string().min(1).max(300),
   item_id: z.string().uuid().nullish(),
-  quantity: z.coerce.number().min(0).nullish(),
+  quantity: units().nullish(),
   unit: z.string().max(20).nullish(),
   source: z.enum(['comprar', 'bodega', 'tercerizar']),
   purchase_id: z.string().uuid().nullish(),

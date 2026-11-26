@@ -54,6 +54,7 @@
  */
 
 import { z } from 'zod';
+import { MAX_UNITS, MAX_UNIT_COST_CLP } from '@/lib/limits';
 import { supabaseAdmin } from '@/integrations/supabase/server';
 import { applyApprovedProductionReport, previewProductionMove, type ApprovedReportResult } from '@/lib/apply-approved-report';
 import { PROCESOS_CONOCIDOS } from '@/lib/whatsapp-flow';
@@ -63,7 +64,7 @@ import { PaperIssueLineSchema } from '@/lib/paper-issue-schema';
 
 /* ─── Correcciones ───────────────────────────────────────────────────────── */
 
-const count = z.number().int().min(0).max(10_000_000).nullable();
+const count = z.number().int().min(0).max(MAX_UNITS).nullable();
 
 export const CorrectionsSchema = z.object({
 	/** Producción: lo que el parser leyó (decide etapa, horas y destino de la OT). */
@@ -80,9 +81,9 @@ export const CorrectionsSchema = z.object({
 	costLines: z.array(z.object({
 		category: z.enum(COST_CATEGORIES),
 		description: z.string().trim().min(1).max(200),
-		quantity: z.number().min(0).max(10_000_000),
+		quantity: z.number().min(0).max(MAX_UNITS),
 		unit: z.string().trim().min(1).max(20),
-		unit_cost: z.number().min(0).max(1_000_000_000),
+		unit_cost: z.number().min(0).max(MAX_UNIT_COST_CLP),
 		source: z.enum(['parsed', 'inferred', 'default']).default('default'),
 	}).strict()).max(30).optional(),
 	/**
@@ -91,8 +92,8 @@ export const CorrectionsSchema = z.object({
 	 */
 	paperIssue: z.array(PaperIssueLineSchema).min(1).max(10).optional(),
 	/** Bodega. */
-	quantity: z.number().positive().max(10_000_000).optional(),
-	unitCost: z.number().min(0).max(1_000_000_000).optional(),
+	quantity: z.number().positive().max(MAX_UNITS).optional(),
+	unitCost: z.number().min(0).max(MAX_UNIT_COST_CLP).optional(),
 	lotId: z.string().uuid().optional(),
 }).strict();
 

@@ -2,17 +2,19 @@
 
 import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
-import { ChevronRight, Star, MapPin, Pencil, Wallet } from 'lucide-react';
+import { ChevronRight, MapPin, Pencil, Wallet } from 'lucide-react';
 import { CONTRACT_LABEL, formatMoney, type MergedPerson, type TodayAssignment } from './personas-shared';
 import { ScoreBar } from './ScoreBar';
 import { EditableFicha } from './EditableFicha';
 
-export function FragmentRow({ person: p, expanded, contractType, hrsWeek, assignment, onToggle, onSaved }: {
+export function FragmentRow({ person: p, expanded, contractType, hrsWeek, assignment, hoursMonth, onToggle, onSaved }: {
   person: MergedPerson;
   expanded: boolean;
   contractType?: string;
   hrsWeek?: number;
   assignment: TodayAssignment | null;
+  /** Hours from the ledger this month; null while loading. */
+  hoursMonth: number | null;
   onToggle: () => void;
   onSaved: () => void;
 }) {
@@ -49,10 +51,8 @@ export function FragmentRow({ person: p, expanded, contractType, hrsWeek, assign
           )}
         </td>
         <td className="py-3 px-2 text-right">
-          {p.rating > 0 ? (
-            <span className="inline-flex items-center gap-1 tabular-nums font-medium text-foreground">
-              <Star className="h-3.5 w-3.5 text-amber-500 fill-amber-500" />{p.rating}
-            </span>
+          {hoursMonth ? (
+            <span className="tabular-nums font-medium text-foreground">{hoursMonth.toLocaleString('es-CL')} h</span>
           ) : <span className="text-muted-foreground">—</span>}
         </td>
         <td className="py-3 px-2">
@@ -105,6 +105,9 @@ export function FragmentRow({ person: p, expanded, contractType, hrsWeek, assign
               {/* Column 2: performance breakdown */}
               <div className="space-y-2.5">
                 <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Rendimiento</div>
+                {[p.quality, p.speed, p.attendance, p.teamwork].every((v) => v == null) && (
+                  <p className="text-xs text-muted-foreground">Sin evaluar.</p>
+                )}
                 <ScoreBar label="Calidad" value={p.quality} />
                 <ScoreBar label="Velocidad" value={p.speed} />
                 <ScoreBar label="Asistencia" value={p.attendance} />

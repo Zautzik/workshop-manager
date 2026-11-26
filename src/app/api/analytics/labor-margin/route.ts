@@ -3,6 +3,7 @@ import { requireAuth, isAuthError } from '@/lib/api-middleware';
 import { supabaseAdmin } from '@/integrations/supabase/server';
 import { fetchAll } from '@/lib/fetch-all';
 import { STAGE_PASS_REF } from '@/lib/stage-valuation';
+import { personOfLaborLine } from '@/lib/labor-line';
 
 export const dynamic = 'force-dynamic';
 
@@ -24,11 +25,6 @@ export const dynamic = 'force-dynamic';
  * faltan tarifas.
  */
 
-/** «Mano de obra — Ana Soto (2 h, turno Mañana 2026-11-12)» → «Ana Soto». */
-const personOf = (description: string): string | null => {
-	const m = /^Mano de obra — (.+?) \(/.exec(description ?? '');
-	return m ? m[1] : null;
-};
 
 export async function GET(req: NextRequest) {
 	const auth = await requireAuth(['admin', 'manager', 'supervisor']);
@@ -100,7 +96,7 @@ export async function GET(req: NextRequest) {
 		g.hours += Number(l.quantity ?? 0);
 		g.cost += Number(l.total ?? 0);
 		if (l.occurred_at && (!g.last || l.occurred_at > g.last)) g.last = l.occurred_at;
-		const who = personOf(l.description);
+		const who = personOfLaborLine(l.description);
 		if (who) g.people.add(who);
 		byOt.set(l.ot_id, g);
 	}

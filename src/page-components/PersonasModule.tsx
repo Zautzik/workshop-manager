@@ -31,7 +31,7 @@ import {
   Users,
   Search,
   Wallet,
-  Star,
+  Clock,
   AlertTriangle,
   Network,
   GraduationCap,
@@ -109,17 +109,41 @@ function useConsolidatedPeople() {
           hire_date: e.hire_date ?? w.hire_date ?? null,
           contract: pickCurrent(e.employment_contracts, 'start_date', 'end_date'),
           comp: pickCurrent(e.compensation_rates, 'effective_from', 'effective_to'),
-          rating: Number(w.overall_rating ?? 0),
-          quality: Number(w.quality_score ?? 0),
-          speed: Number(w.speed_score ?? 0),
-          attendance: Number(w.attendance_score ?? 0),
-          teamwork: Number(w.teamwork_rating ?? 0),
+          rating: score(w.overall_rating),
+          quality: score(w.quality_score),
+          speed: score(w.speed_score),
+          attendance: score(w.attendance_score),
+          teamwork: score(w.teamwork_rating),
           skills: Array.isArray(w.employee_skills) ? w.employee_skills : [],
           top: topSkill(w),
           email: w.email ?? null,
           phone: w.phone ?? null,
         };
       });
+    },
+    staleTime: 60 * 1000,
+  });
+}
+
+/** A stored evaluation, or null when there is none. */
+function score(v: unknown): number | null {
+  return v === null || v === undefined || v === '' ? null : Number(v);
+}
+
+/**
+ * Hours each person worked this month, from the ledger (the labour lines
+ * written when a pass closes). Replaces the "Rating" that was a column default.
+ */
+function useHoursThisMonth() {
+  return useQuery<Map<string, number>>({
+    queryKey: ['personas', 'hours-this-month'],
+    queryFn: async () => {
+      const res = await fetch('/api/analytics/labor-by-person', { credentials: 'include' });
+      const payload = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(payload?.error || 'No se pudieron cargar las horas');
+      const map = new Map<string, number>();
+      for (const p of payload?.people ?? []) if (p.employee_id) map.set(p.employee_id, Number(p.hours) || 0);
+      return map;
     },
     staleTime: 60 * 1000,
   });
@@ -182,6 +206,7 @@ const DEV_LINKS = [
 export default function PersonasModule({ embedded = false }: { embedded?: boolean } = {}) {
   const { data: people = [], isLoading, isError, error, refetch } = useConsolidatedPeople();
   const { data: roster } = useLatestRoster();
+  const { data: hoursById } = useHoursThisMonth();
   const [search, setSearch] = useState('');
   const [dept, setDept] = useState('all');
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -213,11 +238,10 @@ export default function PersonasModule({ embedded = false }: { embedded?: boolea
     const active = people.length;
     const withComp = people.filter(p => p.comp?.hourly_rate != null);
     const hourlySum = withComp.reduce((s, p) => s + Number(p.comp.hourly_rate || 0), 0);
-    const ratings = people.filter(p => p.rating > 0).map(p => p.rating);
-    const avgRating = ratings.length ? Math.round(ratings.reduce((s, r) => s + r, 0) / ratings.length) : 0;
+    const hoursMonth = hoursById ? [...hoursById.values()].reduce((s, h) => s + h, 0) : null;
     const gaps = people.filter(p => !p.contract || !p.comp).length;
-    return { active, hourlySum, avgRating, gaps, hasComp: withComp.length > 0 };
-  }, [people]);
+    return { active, hourlySum, hoursMonth, gaps, hasComp: withComp.length > 0 };
+  }, [people, hoursById]);
 
   return (
     <div className={embedded ? 'space-y-6' : 'p-6 space-y-10 max-w-[1200px] mx-auto'}>
@@ -255,7 +279,7 @@ export default function PersonasModule({ embedded = false }: { embedded?: boolea
             label="Costo/hora del equipo"
             value={stats.hasComp ? formatMoney(stats.hourlySum) : '—'}
           />
-          <StatCard icon={Star} label="Rating promedio" value={stats.avgRating ? `${stats.avgRating}/100` : '—'} />
+          <StatCard icon={Clock} label="Horas este mes" value={stats.hoursMonth != null ? `${Math.round(stats.hoursMonth).toLocaleString('es-CL')} h` : '—'} />
           <StatCard
             icon={AlertTriangle}
             label="Con brecha de datos"
@@ -299,7 +323,7 @@ export default function PersonasModule({ embedded = false }: { embedded?: boolea
                   <th className="py-3 px-2 font-semibold">Departamento</th>
                   <th className="py-3 px-2 font-semibold">Contrato</th>
                   <th className="py-3 px-2 font-semibold text-right">$/hora</th>
-                  <th className="py-3 px-2 font-semibold text-right">Rating</th>
+                  <th className="py-3 px-2 font-semibold text-right" title="Horas cargadas al cerrar pasadas este mes">Horas mes</th>
                   <th className="py-3 px-2 font-semibold">Competencia principal</th>
                   <th className="py-3 px-2 font-semibold">{assignedColLabel}</th>
                   <th className="py-3 px-2 pr-4 font-semibold">Estado</th>
@@ -331,6 +355,7 @@ export default function PersonasModule({ embedded = false }: { embedded?: boolea
                       contractType={contractType}
                       hrsWeek={hrsWeek}
                       assignment={rosterByEmployee.get(p.id) ?? null}
+                      hoursMonth={hoursById ? hoursById.get(p.id) ?? 0 : null}
                       onSaved={() => refetch()}
                       onToggle={() => setExpandedId(expanded ? null : p.id)}
                     />

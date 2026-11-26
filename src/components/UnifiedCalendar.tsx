@@ -16,7 +16,7 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { useOTs } from '@/hooks/use-operations-queries';
+import { useActiveOTs } from '@/hooks/use-operations-queries';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 
@@ -75,7 +75,7 @@ function useLeaveEvents() {
 
 export function UnifiedCalendar() {
   const [current, setCurrent] = useState(new Date());
-  const { data: otsRaw = [] } = useOTs();
+  const { data: otsRaw = [] } = useActiveOTs();
   const { data: maintenanceEvents = [] } = useMaintenanceEvents();
   const { data: leaveEvents = [] } = useLeaveEvents();
 

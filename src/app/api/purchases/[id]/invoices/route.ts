@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
+import { amountCLP } from '@/lib/limits';
 import { isAuthError, requireAuth } from '@/lib/api-middleware';
 import { supabaseAdmin } from '@/integrations/supabase/server';
 import { canInvoice, invoiceArithmetic, threeWayMatch } from '@/lib/purchasing';
@@ -24,7 +25,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
 
 const CreateFacturaSchema = z.object({
   invoice_number: z.string().min(1).max(100),
-  amount: z.coerce.number().min(0),
+  amount: amountCLP(),
   invoice_date: z.string().optional(),
   status: z.enum(['received', 'matched', 'disputed', 'paid']).default('received'),
   notes: z.string().max(2000).optional().nullable(),

@@ -114,6 +114,38 @@ Still warnings, not failures: ~80 small tap targets on a few dense screens
 | C5 | Quantity / price unbounded | `src/lib/limits.ts` | 1. One module with max quantity, max unit price, max total. 2. Used by vistos-buenos, OT, quote and invoice schemas. 3. Tests. | 999,999,999 is rejected everywhere |
 | C6 | Carga shows 0 h | `ot_stage_reports` | 1. `/api/machines/load` sums pass hours per machine from the ledger. 2. Carga reads it; status dwell time removed. | Carga shows the 14.5 h the ledger has |
 
+**Status 2026-11-26: code done, verified locally; one migration waiting for the
+owner's OK before it goes to the cloud.**
+
+- C1: `useNotificationsRealtime()` opens the channel once, from AppShell;
+  `useNotifications()` only reads. Notificaciones opens with the bell mounted.
+- C2: `useOTs()` (first 200) is deleted. `/api/ots` gains `active=true` and
+  `board=true` (unpaged, via `fetchAll`) and `q=` (search over every OT).
+  Screens moved to `useActiveOTs` (Pipeline, Compras, Inventario, Turnos,
+  Calendario, Cotizaciones, Seguimiento financiero), `useOTSearch`
+  (Expediente, Ciclo de OT, Análisis de costo, búsqueda global) or
+  `useBoardOTs` (Tablero). OT 41071 (May, past the old cut) is found.
+  Mano de obra's OT filter lists the OTs that have labour in the period.
+- C3: `useProductionSchedule()` (new hook) is the one schedule; the Gantt and
+  Hoja both use it. Hoja is now the printable day of the Cronograma (22 OTs on
+  14 machines today) and no longer edits `ot_machine_schedule` — pins are set
+  in the Gantt. The table stays.
+- C4: Consola shows "Horas mes" from the ledger (`/api/analytics/labor-by-person`,
+  reading the same labour lines; format and parser now live together in
+  `src/lib/labor-line.ts`). Scores show only when set ("Sin evaluar"
+  otherwise). Planta auto-fill ranks by the station's skill level
+  (`workerSortScore`), not `overall_rating`. Migration
+  `20261126120000_una_evaluacion_existe_solo_si_alguien_la_hizo` drops the
+  75/100 defaults and clears the 23 rows still at the default on all five
+  scores — applied locally, **not yet on the cloud**.
+- C5: `src/lib/limits.ts` (10M units, $5,000M per document, $1,000M per unit
+  cost) used by quotes, OTs, guides, invoices, purchases, inventory and the
+  capture thread; 5 tests.
+- C6: Carga reads closed-pass hours (14.5 h, same as the ledger), places each
+  pass with the costing's own resolver (`passMachineCandidates`), and shows
+  hours whose exact machine is unknown as "Corte inicial — máquina sin
+  precisar" instead of guessing.
+
 ---
 
 ## Phase 2 — High (≈ 4 d)

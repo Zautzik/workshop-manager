@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
+import { amountCLP, units, wholeUnits } from '@/lib/limits';
 import { requireAuth, isAuthError } from '@/lib/api-middleware';
 import { supabaseAdmin } from '@/integrations/supabase/server';
 import { buildRateLimitActor, enforceRouteRateLimit } from '@/lib/api-rate-limit';
@@ -29,7 +30,7 @@ const OTOperationSchema = z.object({
 	category: OTOperationCategorySchema,
 	name: z.string().min(1).max(255),
 	unit: z.string().max(50).default('unit'),
-	quantity: z.coerce.number().min(0),
+	quantity: units(),
 	unit_cost: z.coerce.number().min(0),
 	sort_order: z.coerce.number().int().min(0).default(0),
 	// true cuando una persona escribió o corrigió la línea a mano — es lo que
@@ -46,7 +47,7 @@ const UpdateOTSchema = z.object({
 	ot_number: z.string().min(1).max(100).optional(),
 	client_name: z.string().min(1).max(255).optional(),
 	description: z.string().max(2000).optional().nullable(),
-	quantity: z.coerce.number().int().min(0).optional(),
+	quantity: wholeUnits().optional(),
 	priority: z.coerce.number().int().min(1).max(10).optional(),
 	deadline: DeadlineSchema.optional(),
 	// `status` is intentionally NOT updatable here. Every status change must go
@@ -86,15 +87,15 @@ const UpdateOTSchema = z.object({
 	calc_print_hours: z.coerce.number().min(0).optional().nullable(),
 	calc_finish_hours: z.coerce.number().min(0).optional().nullable(),
 	// Pricing
-	subtotal: z.coerce.number().min(0).optional(),
+	subtotal: amountCLP().optional(),
 	margin_pct: z.coerce.number().min(0).max(100).optional(),
-	margin_amount: z.coerce.number().min(0).optional(),
+	margin_amount: amountCLP().optional(),
 	increment_pct: z.coerce.number().min(0).max(100).optional(),
-	increment_amount: z.coerce.number().min(0).optional(),
+	increment_amount: amountCLP().optional(),
 	commission_pct: z.coerce.number().min(0).max(100).optional(),
-	commission_amount: z.coerce.number().min(0).optional(),
-	total_price: z.coerce.number().min(0).optional(),
-	unit_price: z.coerce.number().min(0).optional(),
+	commission_amount: amountCLP().optional(),
+	total_price: amountCLP().optional(),
+	unit_price: amountCLP().optional(),
 	// Operations (replace all)
 	operations: z.array(OTOperationSchema).optional(),
 	notes: z.string().max(5000).optional().nullable(),

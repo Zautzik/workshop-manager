@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from '@tanstack/react-query';
-import { useOTs } from "@/hooks/use-workflow-queries";
+import { useBoardOTs } from "@/hooks/use-workflow-queries";
 import { queryKeys } from "@/hooks/use-workflow-queries";
 import { useToast } from "@/hooks/use-toast";
 import { UnifiedOTWizard } from "./UnifiedOTWizard";
@@ -34,7 +34,7 @@ interface OTManagementProps {
 }
 
 export function OTManagement({ onOTSelect }: OTManagementProps) {
-  const { data: otsQuery = [], isFetching: otsFetching, refetch: refetchOTs } = useOTs();
+  const { data: otsQuery = [], isFetching: otsFetching, refetch: refetchOTs } = useBoardOTs();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -179,7 +179,7 @@ export function OTManagement({ onOTSelect }: OTManagementProps) {
     paperIssue: PaperIssuePayload[] | null = null,
   ) => {
     // 1. Snapshot the current list before we touch anything.
-    // `useOTs()` envuelve su data en `{ rows, total, isTruncated }` (auditoría
+    // `useBoardOTs()` envuelve su data en `{ rows, total, isTruncated }` (auditoría
     // 2026-09-07, para no confiar a ciegas en 200 filas) — esta caché cruda
     // guarda ese mismo objeto, no un array, así que leerla/escribirla tiene
     // que respetar esa forma en vez de asumir un array directo (si no,

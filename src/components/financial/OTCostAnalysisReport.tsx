@@ -24,7 +24,7 @@ import {
 } from '@/components/ui/select';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
-import { useOTs } from '@/hooks/use-operations-queries';
+import { useOTSearch } from '@/hooks/use-operations-queries';
 import {
   FileText,
   Printer,
@@ -85,7 +85,6 @@ interface CostAnalysis {
 /* ------------------------------------------------------------------ */
 
 export function OTCostAnalysisReport() {
-  const { data: ots = [] } = useOTs();
   const [selectedOTId, setSelectedOTId] = useState<string>('');
   const [analysis, setAnalysis] = useState<CostAnalysis | null>(null);
   const [loading, setLoading] = useState(false);
@@ -93,12 +92,8 @@ export function OTCostAnalysisReport() {
   const [searchTerm, setSearchTerm] = useState('');
   const printRef = useRef<HTMLDivElement>(null);
 
-  // Filter OTs for selector
-  const filteredOTs = ots.filter(
-    (o) =>
-      o.ot_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      o.client_name.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // Selector: searched on the server over every OT, newest first (audit C2).
+  const { data: filteredOTs = [] } = useOTSearch(searchTerm, { limit: 50 });
 
   const fetchAnalysis = async (otId: string) => {
     setLoading(true);

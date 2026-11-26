@@ -21,7 +21,7 @@ import { Plus, Trash2, Receipt, Link2, AlertTriangle, PackageCheck, FileSignatur
 import { formatCLP } from '@/lib/format';
 import { ocActions, threeWayMatch, type OCStatus } from '@/lib/purchasing';
 import { usePurchases } from '@/hooks/use-admin-queries';
-import { useOTs } from '@/hooks/use-operations-queries';
+import { useActiveOTs } from '@/hooks/use-operations-queries';
 import {
   useCreateOC, useStockItems, useSuppliers,
   type OCRow, type StockItem,
@@ -54,7 +54,7 @@ const PurchasesManagement = () => {
       (oc.supplier ?? '').toLowerCase().includes(q)
     );
   }, [ocsAll, search]);
-  const { data: ots = [] } = useOTs();
+  const { data: ots = [] } = useActiveOTs();
   const createOC = useCreateOC();
 
   const [showNew, setShowNew] = useState(false);

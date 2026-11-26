@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
+import { units } from '@/lib/limits';
 import { requireAuth, isAuthError } from '@/lib/api-middleware';
 import { supabaseAdmin } from '@/integrations/supabase/server';
 import { buildRateLimitActor, enforceRouteRateLimit } from '@/lib/api-rate-limit';
@@ -18,7 +19,7 @@ const RealCostSchema = z.object({
 		.refine((c) => c !== 'materiales', MATERIAL_VIA_CONSUMO)
 		.refine((c) => c !== 'impresion', MAQUINA_VIA_PASADA)
 		.default('otros'),
-	quantity: z.coerce.number().min(0),
+	quantity: units(),
 	unit: z.string().max(50).default('unit'),
 	unit_cost: z.coerce.number().min(0),
 	notes: z.string().max(2000).optional().nullable(),

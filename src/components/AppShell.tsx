@@ -24,6 +24,7 @@ import {
 import { HEADER_ICON, HEADER_ICON_BUTTON } from '@/components/shell/header-controls';
 import { HOME_ITEM, MODULES } from '@/lib/navigation';
 import { NotificationCenter } from '@/components/NotificationCenter';
+import { useNotificationsRealtime } from '@/hooks/use-notifications';
 import { ReportingQuickActions } from '@/components/ReportingQuickActions';
 import { GlobalSearch } from '@/components/GlobalSearch';
 import QuickLinks from '@/components/home/QuickLinks';
@@ -83,6 +84,9 @@ function isWideRoute(pathname: string): boolean {
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const { user, role, loading, signOut } = useAuth();
+  // The single realtime channel for this user's notifications: the bell and
+  // the Notificaciones page only read the cache it fills (audit C1).
+  useNotificationsRealtime();
   const { theme, setTheme } = useTheme();
   const router = useRouter();
   const pathname = usePathname();
