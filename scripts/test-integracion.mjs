@@ -74,10 +74,17 @@ if (host !== '127.0.0.1' && host !== 'localhost' && host !== '[::1]') {
 
 console.log(`Stack local: ${url}`);
 
+// Every test that needs the local database. Read-only ones (rutas-de-lectura)
+// and the one that writes (cierre-desde-la-etiqueta) share the same lock.
+const INTEGRATION_FILES = [
+	'src/__tests__/cierre-desde-la-etiqueta.test.ts',
+	'src/__tests__/rutas-de-lectura.test.ts',
+];
+
 const extra = process.argv.slice(2);
 const r = spawnSync(
 	npx,
-	['vitest', 'run', 'src/__tests__/cierre-desde-la-etiqueta.test.ts', ...extra],
+	['vitest', 'run', ...INTEGRATION_FILES, ...extra],
 	{
 		stdio: 'inherit',
 		...conShell,

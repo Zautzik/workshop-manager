@@ -22,6 +22,7 @@ import {
 import { PageShell } from '@/components/layout/PageShell';
 import { StatsBar } from '@/components/ui/stats-bar';
 import { dispatchClosed } from '@/lib/dispatch-billing';
+import { MobileCardList, MobileCard } from '@/components/layout/MobileCardList';
 
 const GUIDE_STATUS: Record<string, { label: string; cls: string }> = {
   draft:      { label: 'Borrador',  cls: 'bg-slate-500/15 text-slate-500' },
@@ -38,7 +39,28 @@ const INVOICE_STATUS: Record<string, { label: string; cls: string }> = {
 
 function FulfillmentTable({ rows, empty, onManage }: { rows: OTFulfillment[]; empty: string; onManage: (r: OTFulfillment) => void }) {
   return (
-    <div className="overflow-x-auto">
+    <>
+    {/* Phone: one row per OT (F3). */}
+    {rows.length === 0 && empty && <p className="py-6 text-center text-sm text-muted-foreground md:hidden">{empty}</p>}
+    <MobileCardList>
+      {rows.map((r) => (
+        <MobileCard
+          key={r.ot_id}
+          leading={<Truck className="h-4 w-4" />}
+          title={`${r.ot_number} · ${r.client_name ?? '—'}`}
+          meta={[
+            `${r.dispatched_qty.toLocaleString('es-CL')}/${r.ordered_qty.toLocaleString('es-CL')} desp.`,
+            `cotizado ${formatCLP(r.quoted_price)}`,
+            r.invoiced_total > 0 ? `facturado ${formatCLP(r.invoiced_total)}` : 'sin facturar',
+          ]}
+          onClick={() => onManage(r)}
+          actions={
+            <Button size="sm" variant="outline" className="h-9" onClick={() => onManage(r)}>Gestionar</Button>
+          }
+        />
+      ))}
+    </MobileCardList>
+    <div className="hidden overflow-x-auto md:block">
       <table className="w-full text-sm">
         <thead><tr className="border-b text-muted-foreground">
           <th className="text-left py-2 px-2 font-medium">OT</th>
@@ -74,6 +96,7 @@ function FulfillmentTable({ rows, empty, onManage }: { rows: OTFulfillment[]; em
         </tbody>
       </table>
     </div>
+    </>
   );
 }
 

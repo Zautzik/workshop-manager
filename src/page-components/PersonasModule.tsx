@@ -15,7 +15,7 @@
  * lives together server-side.
  */
 
-import { useMemo, useState } from 'react';
+import { Fragment, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
 import { Card } from '@/components/ui/card';
@@ -32,6 +32,7 @@ import {
   Search,
   Wallet,
   Clock,
+  ChevronDown,
   AlertTriangle,
   Network,
   GraduationCap,
@@ -44,7 +45,8 @@ import {
 } from 'lucide-react';
 import { formatMoney, type MergedPerson, type TodayAssignment } from './personas-shared';
 import { StatsBar } from '@/components/ui/stats-bar';
-import { FragmentRow } from './FragmentRow';
+import { FragmentRow, PersonDetail } from './FragmentRow';
+import { MobileCardList, MobileCard } from '@/components/layout/MobileCardList';
 
 // Pick the row that's currently in force: the one with no end date, else the most
 // recent by its start field. Contracts and comp rates share this shape.
@@ -305,8 +307,43 @@ export default function PersonasModule({ embedded = false }: { embedded?: boolea
           </Select>
         </div>
 
+        {/* Phone: one card per person; tapping opens the same detail as the
+            desktop row (PersonDetail) right under it (F3). */}
+        <Card className="border-border overflow-hidden md:hidden">
+          {isLoading && <p className="py-8 text-center text-sm text-muted-foreground">Cargando equipo…</p>}
+          {isError && <p className="py-8 text-center text-sm text-destructive">{(error as Error)?.message || 'No se pudo cargar el equipo.'}</p>}
+          {!isLoading && !isError && filtered.length === 0 && (
+            <p className="py-8 text-center text-sm text-muted-foreground">Sin resultados para este filtro.</p>
+          )}
+          <MobileCardList>
+            {filtered.map((p) => {
+              const expanded = expandedId === p.id;
+              const hours = hoursById ? hoursById.get(p.id) ?? 0 : null;
+              return (
+                <Fragment key={p.id}>
+                  <MobileCard
+                    title={p.full_name}
+                    meta={[
+                      p.department,
+                      p.comp?.hourly_rate != null ? `${formatMoney(Number(p.comp.hourly_rate))}/h` : 'sin tarifa',
+                      hours ? `${hours.toLocaleString('es-CL')} h este mes` : null,
+                    ]}
+                    onClick={() => setExpandedId(expanded ? null : p.id)}
+                    actions={<ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${expanded ? 'rotate-180' : ''}`} />}
+                  />
+                  {expanded && (
+                    <li className="bg-muted/20 px-3 py-4">
+                      <PersonDetail person={p} onSaved={() => refetch()} />
+                    </li>
+                  )}
+                </Fragment>
+              );
+            })}
+          </MobileCardList>
+        </Card>
+
         {/* Table */}
-        <Card className="border-border overflow-hidden">
+        <Card className="hidden border-border overflow-hidden md:block">
           <div className="overflow-x-auto">
             <table className="w-full text-sm min-w-[880px]">
               <thead>

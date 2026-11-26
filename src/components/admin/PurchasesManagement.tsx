@@ -29,6 +29,7 @@ import {
 import { OC_STATUS } from './purchase-status';
 import { ReceiveDialog } from './ReceiveDialog';
 import { FacturasDialog } from './FacturasDialog';
+import { MobileCardList, MobileCard } from '@/components/layout/MobileCardList';
 
 interface DraftLine {
   key: number;
@@ -279,6 +280,42 @@ const PurchasesManagement = () => {
           />
         </div>
 
+        {/* Phone: one row per OC with its next action (F3). The same rules
+            (ocActions, threeWayMatch) decide what is offered. */}
+        {ocs.length === 0 && (
+          <p className="py-6 text-center text-sm text-muted-foreground md:hidden">{search.trim() ? 'Ninguna OC coincide con la búsqueda.' : 'Sin órdenes de compra.'}</p>
+        )}
+        <MobileCardList>
+          {ocs.map((oc) => {
+            const st = OC_STATUS[oc.status] ?? { label: oc.status, cls: '' };
+            const progress = { ordered: Number(oc.pedido ?? oc.total_cost ?? 0), received: Number(oc.recibido ?? 0), invoiced: Number(oc.facturado ?? 0) };
+            const calce = threeWayMatch(progress);
+            const acciones = ocActions(oc.status as OCStatus, progress);
+            return (
+              <MobileCard
+                key={oc.id}
+                title={`${oc.oc_number ?? 'Borrador'} · ${oc.supplier ?? '—'}`}
+                badge={<span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] ${st.cls}`}>{st.label}</span>}
+                meta={[
+                  oc.ot_number ? `OT ${oc.ot_number}` : null,
+                  formatCLP(progress.ordered),
+                  calce.status === 'ok' ? null : calce.status === 'con_diferencia' ? 'cobran de más' : 'en revisión',
+                ]}
+                actions={
+                  acciones.emitir ? (
+                    <Button size="sm" className="h-9" onClick={() => emitirOC(oc)}>Emitir</Button>
+                  ) : acciones.recibir ? (
+                    <Button size="sm" variant="outline" className="h-9" onClick={() => setReceiveFor(oc)}>Recibir</Button>
+                  ) : (
+                    <Button size="sm" variant="outline" className="h-9" onClick={() => setFacturasFor(oc)}>Facturas</Button>
+                  )
+                }
+              />
+            );
+          })}
+        </MobileCardList>
+
+        <div className="hidden md:block">
         <Table>
           <TableHeader>
             <TableRow>
@@ -415,6 +452,7 @@ const PurchasesManagement = () => {
             })}
           </TableBody>
         </Table>
+        </div>
       </CardContent>
 
       {/* Nueva OC */}

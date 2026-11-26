@@ -98,50 +98,60 @@ export function FragmentRow({ person: p, expanded, contractType, hrsWeek, assign
         <tr className="border-b border-border bg-muted/20">
           <td></td>
           <td colSpan={8} className="py-4 pr-4">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {/* Column 1: the editable ficha */}
-              <EditableFicha person={p} onSaved={onSaved} />
-
-              {/* Column 2: performance breakdown */}
-              <div className="space-y-2.5">
-                <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Rendimiento</div>
-                {[p.quality, p.speed, p.attendance, p.teamwork].every((v) => v == null) && (
-                  <p className="text-xs text-muted-foreground">Sin evaluar.</p>
-                )}
-                <ScoreBar label="Calidad" value={p.quality} />
-                <ScoreBar label="Velocidad" value={p.speed} />
-                <ScoreBar label="Asistencia" value={p.attendance} />
-                <ScoreBar label="Trabajo en equipo" value={p.teamwork} />
-              </div>
-
-              {/* Column 3: skills + actions */}
-              <div className="space-y-3">
-                <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Competencias</div>
-                {p.skills.length > 0 ? (
-                  <div className="flex flex-wrap gap-1.5">
-                    {p.skills.map((s: any, i: number) => (
-                      <Badge key={i} variant="outline" className="border-border font-normal">
-                        {s?.skill?.name || s?.skill?.code}
-                        <span className="ml-1 text-muted-foreground">N{s?.proficiency_level ?? '?'}</span>
-                      </Badge>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-sm text-muted-foreground">Sin competencias registradas</div>
-                )}
-                <div className="flex flex-wrap gap-2 pt-1">
-                  <Link href="/personas/consola?tab=equipo" className="inline-flex items-center gap-1 text-xs text-primary hover:underline">
-                    <Pencil className="h-3 w-3" /> Editar ficha
-                  </Link>
-                  <Link href="/personas/consola?tab=retribucion" className="inline-flex items-center gap-1 text-xs text-primary hover:underline">
-                    <Wallet className="h-3 w-3" /> Ver nómina
-                  </Link>
-                </div>
-              </div>
-            </div>
+            <PersonDetail person={p} onSaved={onSaved} />
           </td>
         </tr>
       )}
     </>
+  );
+}
+
+/**
+ * A person's detail: editable ficha, evaluations, skills. One component for
+ * the desktop row and the phone card, so the two can't drift apart.
+ */
+export function PersonDetail({ person: p, onSaved }: { person: MergedPerson; onSaved: () => void }) {
+  return (
+    <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+      {/* Column 1: the editable ficha */}
+      <EditableFicha person={p} onSaved={onSaved} />
+
+      {/* Column 2: performance breakdown */}
+      <div className="space-y-2.5">
+        <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Rendimiento</div>
+        {[p.quality, p.speed, p.attendance, p.teamwork].every((v) => v == null) && (
+          <p className="text-xs text-muted-foreground">Sin evaluar.</p>
+        )}
+        <ScoreBar label="Calidad" value={p.quality} />
+        <ScoreBar label="Velocidad" value={p.speed} />
+        <ScoreBar label="Asistencia" value={p.attendance} />
+        <ScoreBar label="Trabajo en equipo" value={p.teamwork} />
+      </div>
+
+      {/* Column 3: skills + actions */}
+      <div className="space-y-3">
+        <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Competencias</div>
+        {p.skills.length > 0 ? (
+          <div className="flex flex-wrap gap-1.5">
+            {p.skills.map((s: any, i: number) => (
+              <Badge key={i} variant="outline" className="border-border font-normal">
+                {s?.skill?.name || s?.skill?.code}
+                <span className="ml-1 text-muted-foreground">N{s?.proficiency_level ?? '?'}</span>
+              </Badge>
+            ))}
+          </div>
+        ) : (
+          <div className="text-sm text-muted-foreground">Sin competencias registradas</div>
+        )}
+        <div className="flex flex-wrap gap-2 pt-1">
+          <Link href="/personas/consola?tab=equipo" className="inline-flex items-center gap-1 text-xs text-primary hover:underline">
+            <Pencil className="h-3 w-3" /> Editar ficha
+          </Link>
+          <Link href="/personas/consola?tab=retribucion" className="inline-flex items-center gap-1 text-xs text-primary hover:underline">
+            <Wallet className="h-3 w-3" /> Ver nómina
+          </Link>
+        </div>
+      </div>
+    </div>
   );
 }

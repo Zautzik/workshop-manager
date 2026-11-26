@@ -37,7 +37,8 @@ export function StatsBar({ stats, allClear, className }: { stats: Stat[]; allCle
   return (
     <div
       className={cn(
-        'grid grid-cols-2 gap-px overflow-hidden rounded-lg border bg-border sm:flex sm:flex-wrap',
+        // An odd last figure spans both columns on a phone: no empty grey cell.
+        'grid grid-cols-2 gap-px overflow-hidden rounded-lg border bg-border sm:flex sm:flex-wrap [&>*:last-child:nth-child(odd)]:col-span-2',
         className,
       )}
     >
@@ -50,7 +51,9 @@ export function StatsBar({ stats, allClear, className }: { stats: Stat[]; allCle
               {Icon && <Icon className={cn('h-3.5 w-3.5 shrink-0', s.tone && s.tone !== 'default' && tone.text)} />}
               {s.label}
             </p>
-            <p className={cn('break-words text-lg font-bold tabular-nums leading-tight', s.tone !== 'default' && tone.text)}>{s.value}</p>
+            {/* text-base on a phone: a $1.442.394.950 fits in half the width instead of
+                breaking mid-number. */}
+            <p className={cn('whitespace-nowrap text-base font-bold tabular-nums leading-tight sm:text-lg', s.tone !== 'default' && tone.text)}>{s.value}</p>
             {s.hint && <p className="truncate text-[11px] text-muted-foreground">{s.hint}</p>}
           </div>
         );
