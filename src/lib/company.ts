@@ -19,9 +19,9 @@
  * dejarlo vacío — un string vacío se cuela en un pie de página como un
  * separador suelto.
  *
- * `email` es real, pero es una casilla personal: en la cotización sale como el
- * contacto comercial de la imprenta. Si existe una casilla de la empresa, va
- * en el mismo campo.
+ * `email` es la casilla de la empresa desde 2026-11-26 (dada por el dueño,
+ * auditoría M12). Antes era una casilla personal que salía en la cotización
+ * como contacto comercial de la imprenta.
  *
  * `giro` quedó fuera de esa lista porque describe a la imprenta y no identifica
  * a la sociedad; si no es exacto, corregirlo es cosmético, no legal.
@@ -44,7 +44,7 @@ export const EMPRESA = {
 	comuna: 'Quinta Normal',
 	ciudad: 'Santiago',
 	telefono: '+56 9 6658 8249',
-	email: 'rzautzikg@gmail.com',
+	email: 'info@gonsa.cl',
 } as const;
 
 /**

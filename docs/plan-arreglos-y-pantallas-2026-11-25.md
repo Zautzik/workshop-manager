@@ -243,8 +243,13 @@ closing the 218 settled OCs, the company email).**
 - M11: accent sweep of all visible text; plus Pre-Prensa's "Programar en Hoja
   de Producción" now points to Planificación (the Hoja is read-only since C3;
   `/api/ot-schedule` still sets the assigned machine).
-- M12: the company identity already lives in `src/lib/company.ts`; its email is
-  a personal Gmail — the owner provides the company mailbox.
+- M12: the company identity lives in `src/lib/company.ts`; its email is now
+  info@gonsa.cl (owner, 2026-11-26), used by the quote and the privacy policy.
+- Owner decisions applied 2026-11-26: 8 machines renamed to Spanish (cloud +
+  local). The 218 settled seed OCs were NOT closed: none was ever issued (no
+  number, issuer or date) and `purchases_emitida_esta_completa` rejects a
+  status change without them; inventing those would forge a legal document.
+  `settlePurchase` skips unissued OCs. Real (issued) OCs close on their own.
 - M13: `/analitica/rendimiento` redirects to the Resumen; `WorkerStatsReport`
   removed.
 - `/api/reads` now authenticates before resolving the read name and validates

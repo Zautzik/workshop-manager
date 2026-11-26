@@ -48,8 +48,11 @@ export const metadata: Metadata = {
 const ACTUALIZADA = '16 de octubre de 2026';
 const VERSION = '2.0';
 
-/** Canal único para ejercer derechos. */
-const CONTACTO_PRIVACIDAD = 'rzautzikg@gmail.com';
+/**
+ * Canal único para ejercer derechos: la casilla de la empresa, del registro de
+ * identidad (src/lib/company.ts), no una casilla personal (2026-11-26).
+ */
+const CONTACTO_PRIVACIDAD = EMPRESA.email;
 
 /**
  * Cierra una frase con punto, sin duplicarlo.
