@@ -28,6 +28,8 @@
 		"check:anon": "node scripts/check-anon-visibility.mjs",
 		"check:rls-drift": "node scripts/check-rls-drift.mjs",
 		"db:dry-run": "node scripts/dry-run-sql.mjs",
+		"qa:layout": "node scripts/qa/run-layout-crawl.mjs",
+		"qa:layout:phone": "node scripts/qa/run-layout-crawl.mjs --widths=phone",
 		"test:watch": "vitest",
 		"seed:demo": "tsx scripts/seed/index.ts",
 		"seed:dies": "tsx scripts/seed/dies.ts",
@@ -83,6 +85,7 @@
 		"zod": "^3.25.76"
 	},
 	"devDependencies": {
+		"@playwright/test": "1.65.1",
 		"@types/node": "^22.16.5",
 		"@types/pngjs": "^6.0.5",
 		"@types/qrcode": "^1.5.6",
