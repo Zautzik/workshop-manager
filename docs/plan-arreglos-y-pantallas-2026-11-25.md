@@ -171,9 +171,10 @@ for the owner.**
 - H2: `/m/[token]` prints dates with `formatCalendarDate` (new, in
   `src/lib/format.ts`; no time-zone shift) and units with `usageUnitInline`.
 - H3: `/api/track/[token]` returns `deadline_passed` (plant date) and
-  `shop_name` from `src/lib/company-profile.ts` (`app_settings.key='company'`,
-  the one source M12 will edit). Late orders read "en proceso, nueva fecha por
-  confirmar"; "GonsAdmin" is gone.
+  `shop_name` from `EMPRESA` in `src/lib/company.ts` — the shop's one identity
+  record, already used by the printed quote and the privacy policy (a second
+  `company-profile.ts` source added that day was removed in Phase 3). Late
+  orders read "en proceso, nueva fecha por confirmar"; "GonsAdmin" is gone.
 - H4: nothing to do — no escaped names remain in any table (they were the QA
   clients deleted 2026-11-25) and no code escapes on write.
 - H5: the real scope was 27 browser reads in 10 files, not 15. Ten hooks had
@@ -211,6 +212,43 @@ for the owner.**
 
 Slow screens (Certificaciones 33 s, Habilidades 31 s, Mecánica 29 s): fetch
 per tab and page long lists; F3 covers the rendering side.
+
+**Status 2026-11-26: code done. Three owner decisions pending (machine names,
+closing the 218 settled OCs, the company email).**
+
+- M1: `GET /api/inbox` + `src/lib/inbox.ts` (which role sees what, labels,
+  links) + `InboxPanel` on Inicio, above the honeycomb. Each item is one count
+  from its owning table, linking to the screen that owns the work.
+- M2: `KanbanLanes` (default) — lanes per phase, stages as drop targets,
+  compact rows; same handlers as the hex board, which stays as "Vista
+  general" (remembered per browser). "Completadas (30 días)" says its window.
+- M3/M5: Phase 0 primitives; Personas' summary is now a `StatsBar`
+  (local `StatCard` removed).
+- M4: Clientes shows a skeleton, not "0 clientes", while loading.
+- M6: `canReceive` looks at what is still to arrive (an invoiced OC can now
+  receive its last delivery; a fully received one no longer offers
+  "Recibir"); the receive route enforces it. `isSettled` + `settlePurchase`
+  close an OC after the receipt or invoice that completes it.
+- M7: `src/lib/dispatch-billing.ts` — the invoice that completes an OT takes
+  the remainder (rounds once); Despachos splits Pendientes / Cerradas.
+- M8: Cotizaciones › Historial — conversion per month
+  (`/api/reads/quote-conversion`, scoped for vendedores,
+  `src/lib/quote-conversion.ts`) and search over every OT (the OT is the
+  quote).
+- M9: a disabled "Crear orden" now SAYS why, with a link to Pautas (a
+  disabled button cannot show a tooltip). Re-baselining the plans is L1.
+- M10: Talento's skill tree (117 strings in `craft-skill-paths.ts` + the
+  components), Planta's statuses and the payroll label are in Spanish.
+  English machine names are data (owner decision).
+- M11: accent sweep of all visible text; plus Pre-Prensa's "Programar en Hoja
+  de Producción" now points to Planificación (the Hoja is read-only since C3;
+  `/api/ot-schedule` still sets the assigned machine).
+- M12: the company identity already lives in `src/lib/company.ts`; its email is
+  a personal Gmail — the owner provides the company mailbox.
+- M13: `/analitica/rendimiento` redirects to the Resumen; `WorkerStatsReport`
+  removed.
+- `/api/reads` now authenticates before resolving the read name and validates
+  parameters with zod (src/app/api/CLAUDE.md).
 
 ---
 

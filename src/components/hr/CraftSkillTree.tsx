@@ -243,25 +243,25 @@ export default function CraftSkillTree() {
       .map(track => track.name);
 
     const goals30 = [
-      ...(missingRequired.slice(0, 2).map(name => `Start and validate ${name}.`)),
-      ...(nextUnlockNodes.slice(0, 1).map(node => `Assign first practice cycle for ${node.name}.`)),
+      ...(missingRequired.slice(0, 2).map(name => `Iniciar y validar ${name}.`)),
+      ...(nextUnlockNodes.slice(0, 1).map(node => `Asignar un primer ciclo de práctica de ${node.name}.`)),
     ];
 
     const goals60 = [
-      ...(missingRequired.slice(2, 4).map(name => `Reach functional proficiency in ${name}.`)),
-      ...(inProgressNodes.slice(0, 1).map(name => `Raise ${name} to at least level 3 proficiency.`)),
+      ...(missingRequired.slice(2, 4).map(name => `Alcanzar un nivel funcional en ${name}.`)),
+      ...(inProgressNodes.slice(0, 1).map(name => `Subir ${name} al menos a nivel 3.`)),
     ];
 
     const goals90 = [
-      `Complete core milestones for ${activeTemplate.name}.`,
-      ...(templateTrackNames.slice(0, 1).map(name => `Consolidate performance in ${name} with supervised autonomy.`)),
-      'Run a practical assessment and define next promotion-readiness checkpoint.',
+      `Cumplir los hitos centrales de ${activeTemplate.name}.`,
+      ...(templateTrackNames.slice(0, 1).map(name => `Consolidar ${name} con autonomía supervisada.`)),
+      'Hacer una evaluación práctica y fijar el siguiente control de preparación para ascenso.',
     ];
 
     return {
-      goals30: goals30.length > 0 ? goals30 : ['Maintain current development cadence and complete one available unlock.'],
-      goals60: goals60.length > 0 ? goals60 : ['Convert active in-progress skills into stable level 3 proficiency.'],
-      goals90: goals90.length > 0 ? goals90 : ['Finalize role-readiness assessment with validated production evidence.'],
+      goals30: goals30.length > 0 ? goals30 : ['Mantener el ritmo actual y completar una competencia disponible.'],
+      goals60: goals60.length > 0 ? goals60 : ['Llevar las competencias en curso a un nivel 3 estable.'],
+      goals90: goals90.length > 0 ? goals90 : ['Cerrar la evaluación de preparación para el rol con evidencia de producción validada.'],
     };
   }, [activeTemplate, activeTemplateMissingSet, nextUnlockNodes, proficiencyMap, selectedEmployeeId]);
 
@@ -269,25 +269,25 @@ export default function CraftSkillTree() {
     if (!selectedEmployee || !activeTemplate) return '';
 
     const lines = [
-      'Individual Development Plan',
-      `Employee: ${selectedEmployee.full_name}`,
-      `Role Target: ${activeTemplate.name}`,
-      `Readiness: ${activeTemplateReadiness}%`,
+      'Plan de desarrollo individual',
+      `Persona: ${selectedEmployee.full_name}`,
+      `Rol objetivo: ${activeTemplate.name}`,
+      `Preparación: ${activeTemplateReadiness}%`,
       '',
-      '30 Days',
+      '30 días',
       ...developmentPlan.goals30.map((goal, index) => `${index + 1}. ${goal}`),
       '',
-      '60 Days',
+      '60 días',
       ...developmentPlan.goals60.map((goal, index) => `${index + 1}. ${goal}`),
       '',
-      '90 Days',
+      '90 días',
       ...developmentPlan.goals90.map((goal, index) => `${index + 1}. ${goal}`),
       '',
-      'Manager Review and Sign-Off',
-      `Reviewer: ${signoffManager || 'Pending'}`,
-      `Review Date: ${signoffDate || 'Pending'}`,
-      'Manager Notes:',
-      managerNotes || 'Pending manager notes.',
+      'Revisión y firma de la jefatura',
+      `Revisa: ${signoffManager || 'Pendiente'}`,
+      `Fecha de revisión: ${signoffDate || 'Pendiente'}`,
+      'Notas de la jefatura:',
+      managerNotes || 'Sin notas todavía.',
     ];
 
     return lines.join('\n');
@@ -307,7 +307,7 @@ export default function CraftSkillTree() {
     if (!developmentPlanText) return;
     try {
       await navigator.clipboard.writeText(developmentPlanText);
-      toast({ title: 'Development plan copied', description: 'IDP copied to clipboard.' });
+      toast({ title: 'Plan copiado', description: 'El plan de desarrollo quedó en el portapapeles.' });
     } catch {
       toast({ variant: 'destructive', title: 'Falló la copia', description: 'No se pudo copiar el IDP al portapapeles.' });
     }

@@ -4,6 +4,7 @@ import { amountCLP } from '@/lib/limits';
 import { isAuthError, requireAuth } from '@/lib/api-middleware';
 import { supabaseAdmin } from '@/integrations/supabase/server';
 import { threeWayMatch } from '@/lib/purchasing';
+import { settlePurchase } from '@/lib/purchase-settle';
 
 const OPS = ['admin', 'manager', 'supervisor'] as const;
 
@@ -100,6 +101,10 @@ export async function PATCH(
 
   // Re-derive the OC's ledger line (committed ↔ actual).
   await supabaseAdmin.rpc('sync_purchase_ledger' as any, { p_purchase_id: id });
+
+  // Close the OC if this completed it (one rule: isSettled). A failure here
+  // must not undo what was just recorded, so it is logged, not returned.
+  await settlePurchase(id).catch((e) => console.error('settlePurchase:', e));
 
   return NextResponse.json({ data });
 }

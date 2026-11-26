@@ -48,7 +48,7 @@ interface TrackData {
   deadline: string | null;
   /** The promised date is behind us and the order is not done (server, plant date). */
   deadline_passed?: boolean;
-  /** The shop's name from its company profile; null until it is set. */
+  /** The shop's name (src/lib/company.ts). */
   shop_name?: string | null;
   created_at: string;
   history: Array<{ status: string; at: string }>;

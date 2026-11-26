@@ -483,9 +483,9 @@ export default function PlantaBoard({ initialTab = 'layout' }: PlantaBoardProps)
       const leave = leaveByEmployee.get(employeeId);
       const leaveStatus = leave
         ? leave.status === 'approved'
-          ? `On leave (${leave.leave_type})`
-          : 'Leave pending'
-        : 'Available';
+          ? `Con licencia (${leave.leave_type})`
+          : 'Licencia pendiente'
+        : 'Disponible';
       const leaveTone = leave
         ? leave.status === 'approved'
           ? 'alert'
@@ -500,15 +500,15 @@ export default function PlantaBoard({ initialTab = 'layout' }: PlantaBoardProps)
       // (audit C4) — it is "not evaluated", and that is what the board says.
       const evaluated = worker?.attendance_score != null && worker?.overall_rating != null;
       const incentiveStatus = hasAwardedIncentive
-        ? 'Awarded this month'
+        ? 'Incentivo otorgado este mes'
         : !evaluated
-          ? 'Not evaluated'
+          ? 'Sin evaluar'
           : Number(worker.attendance_score) >= 90 && Number(worker.overall_rating) >= 75
-            ? 'Eligible'
-            : 'Review';
+            ? 'Elegible'
+            : 'Revisar';
       const incentiveTone = hasAwardedIncentive
         ? 'ok'
-        : incentiveStatus === 'Eligible'
+        : incentiveStatus === 'Elegible'
           ? 'ok'
           : 'warn';
 
@@ -524,13 +524,13 @@ export default function PlantaBoard({ initialTab = 'layout' }: PlantaBoardProps)
           .sort((a, b) => a.days - b.days)[0];
 
         if (urgency.days < 0) {
-          certificationAlert = 'Certification expired';
+          certificationAlert = 'Certificación vencida';
           certificationTone = 'alert';
         } else if (urgency.days <= 7) {
-          certificationAlert = `Certification expires in ${urgency.days} day(s)`;
+          certificationAlert = `Certificación vence en ${urgency.days} día${urgency.days === 1 ? '' : 's'}`;
           certificationTone = 'alert';
         } else {
-          certificationAlert = `Certification due in ${urgency.days} day(s)`;
+          certificationAlert = `Certificación por vencer en ${urgency.days} días`;
           certificationTone = 'warn';
         }
       }

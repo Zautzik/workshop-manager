@@ -67,7 +67,7 @@ export function MonthlyPayrollCalculator() {
         </CardHeader>
         <CardContent className='space-y-4'>
           <div className='max-w-xs'>
-            <label className='text-sm font-medium text-foreground'>Month</label>
+            <label className='text-sm font-medium text-foreground'>Mes</label>
             <Input
               type='month'
               value={monthValue}

@@ -36,10 +36,10 @@ export function NodeDetailPanel({
   const dependants = CONNECTIONS.filter(c => c.from === node.id);
 
   const stateLabels: Record<NodeState, string> = {
-    locked: 'Locked — prerequisites not met',
-    available: 'Available — ready to learn',
-    in_progress: `In progress — Level ${proficiency}/5`,
-    mastered: 'Mastered — Level 5/5',
+    locked: 'Bloqueada: faltan requisitos previos',
+    available: 'Disponible: se puede aprender',
+    in_progress: `En curso: nivel ${proficiency}/5`,
+    mastered: 'Dominada: nivel 5/5',
   };
 
   return (
@@ -87,13 +87,13 @@ export function NodeDetailPanel({
         {/* Info grid */}
         <div className="grid grid-cols-2 gap-3 text-xs">
           <div>
-            <span className="text-slate-500 block mb-0.5">Branch</span>
+            <span className="text-slate-500 block mb-0.5">Rama</span>
             <span className="text-slate-300 font-medium" style={{ color: branchInfo.color }}>
               {branchInfo.name}
             </span>
           </div>
           <div>
-            <span className="text-slate-500 block mb-0.5">Tier</span>
+            <span className="text-slate-500 block mb-0.5">Etapa</span>
             <span className="text-slate-300 font-medium">{TIER_LABELS[node.tier]}</span>
           </div>
           <div>
@@ -166,10 +166,10 @@ export function NodeDetailPanel({
         {employeeId && state !== 'locked' && (
           <div className="pt-2 border-t border-[#1e293b]">
             <span className="text-[10px] uppercase tracking-wider text-slate-500 block mb-2">
-              {proficiency > 0 ? 'Update Proficiency' : 'Assign Skill'} — {employeeName}
+              {proficiency > 0 ? 'Actualizar nivel' : 'Asignar competencia'} · {employeeName}
             </span>
             <div className="flex items-center gap-2 mb-3">
-              <Label className="text-xs text-slate-400 w-16">Level:</Label>
+              <Label className="text-xs text-slate-400 w-16">Nivel:</Label>
               <select
                 value={level}
                 onChange={e => setLevel(Number(e.target.value))}
@@ -177,7 +177,7 @@ export function NodeDetailPanel({
               >
                 {[1, 2, 3, 4, 5].map(l => (
                   <option key={l} value={l}>
-                    {l} — {['', 'Beginner', 'Intermediate', 'Proficient', 'Advanced', 'Expert'][l]}
+                    {l} — {['', 'Principiante', 'Intermedio', 'Competente', 'Avanzado', 'Experto'][l]}
                   </option>
                 ))}
               </select>
@@ -188,7 +188,7 @@ export function NodeDetailPanel({
               style={{ backgroundColor: branchInfo.color }}
               onClick={() => onAssign(level)}
             >
-              {proficiency > 0 ? 'Update Level' : 'Assign Skill'}
+              {proficiency > 0 ? 'Actualizar nivel' : 'Asignar competencia'}
             </Button>
           </div>
         )}

@@ -1,18 +1,12 @@
-'use client';
-import ProtectedRoute from '@/components/ProtectedRoute';
-import WorkerStatsReport from '@/components/manager/WorkerStatsReport';
-import { PageShell } from '@/components/layout/PageShell';
+import { redirect } from 'next/navigation';
 
+/**
+ * Rendimiento Personal is retired until something writes its metrics (audit
+ * M13, 2026-11-25). It read quality/speed/attendance scores that nothing
+ * computes — after the C4 migration most people have none — so it showed 0 %
+ * everywhere. Old links land on the Resumen; hours worked per person live in
+ * Personas › Consola, from the ledger.
+ */
 export default function AnaliticaRendimientoPage() {
-  return (
-    <ProtectedRoute allowedRoles={['admin', 'manager']}>
-      <PageShell>
-        <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-foreground">Rendimiento Personal</h1>
-          <p className="text-sm text-muted-foreground mt-1">Estadísticas y métricas de trabajadores</p>
-        </div>
-        <WorkerStatsReport />
-      </PageShell>
-    </ProtectedRoute>
-  );
+  redirect('/analitica/dashboard');
 }

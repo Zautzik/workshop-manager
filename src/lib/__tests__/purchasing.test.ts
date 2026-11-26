@@ -7,6 +7,8 @@ import {
 	certStatus,
 	invoiceArithmetic,
 	lineReceiptVariance,
+	canReceive,
+	isSettled,
 	ocActions,
 	threeWayMatch,
 } from '../purchasing';
@@ -200,5 +202,35 @@ describe('el estado manda qué se puede hacer', () => {
 		const a = ocActions('draft');
 		expect(a.emitir).toBe(true);
 		expect(a.recibir).toBe(false);
+	});
+});
+
+describe('recibir y cerrar una OC (auditoría M6)', () => {
+	const pedido = 1_000_000;
+
+	it('una OC recibida a medias sigue ofreciendo Recibir; completa, ya no', () => {
+		expect(canReceive('received', { ordered: pedido, received: 600_000, invoiced: 0 })).toBe(true);
+		expect(canReceive('received', { ordered: pedido, received: pedido, invoiced: 0 })).toBe(false);
+		expect(ocActions('received', { ordered: pedido, received: pedido, invoiced: 0 }).recibir).toBe(false);
+	});
+
+	it('una OC facturada antes de la última entrega todavía puede recibirla', () => {
+		expect(canReceive('invoiced', { ordered: pedido, received: 600_000, invoiced: 600_000 })).toBe(true);
+	});
+
+	it('sin progreso conocido, decide sólo el estado (como antes)', () => {
+		expect(canReceive('sent')).toBe(true);
+		expect(canReceive('invoiced')).toBe(false);
+		expect(canReceive('closed', { ordered: pedido, received: 0, invoiced: 0 })).toBe(false);
+	});
+
+	it('se cierra cuando llegó todo, se facturó todo y no queda factura abierta', () => {
+		const full = { ordered: pedido, received: pedido, invoiced: pedido };
+		expect(isSettled('invoiced', full, 0)).toBe(true);
+		expect(isSettled('invoiced', full, 1)).toBe(false); // factura en revisión
+		expect(isSettled('invoiced', { ...full, invoiced: 400_000 }, 0)).toBe(false); // falta facturar
+		expect(isSettled('invoiced', { ...full, received: 900_000, invoiced: 900_000 }, 0)).toBe(false); // falta llegar
+		expect(isSettled('invoiced', { ...full, invoiced: pedido + 50_000 }, 0)).toBe(false); // cobran de más
+		expect(isSettled('cancelled', full, 0)).toBe(false);
 	});
 });

@@ -21,6 +21,7 @@ import { buildEstimate, type Coverage, type PressRef } from './cotizaciones-shar
 import { CotizacionSpecSection, type CotizacionFormState } from './CotizacionSpecSection';
 import { CotizacionPricingSection } from './CotizacionPricingSection';
 import { EsperandoVistoBuenoTable } from './EsperandoVistoBuenoTable';
+import { CotizacionesHistorial } from './CotizacionesHistorial';
 
 export default function CotizacionesModule() {
   const qc = useQueryClient();
@@ -388,6 +389,9 @@ export default function CotizacionesModule() {
           todavía no está confirmado con el cliente. Lo que ya pasó a compra de
           papel salió de su cancha y vive en el tablero. */}
       <EsperandoVistoBuenoTable esperando={esperando} onRegistrarVistoBueno={setDecidiendo} />
+
+      {/* Every quote, searchable, and how many close (audit M8). */}
+      <CotizacionesHistorial />
 
       {/* Quién decidió, contra qué, y —si dijo que no— por qué. Al guardar, un
           disparador copia el firmante al visto bueno, así que la lista se

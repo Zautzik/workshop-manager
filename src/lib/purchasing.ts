@@ -252,8 +252,43 @@ export function canVoid(status: OCStatus): boolean {
 	return status === 'sent' || status === 'received' || status === 'invoiced';
 }
 
-export function canReceive(status: OCStatus): boolean {
-	return status === 'sent' || status === 'received';
+/** Lo pedido, recibido y facturado de una OC, en pesos (vista `oc_conciliacion`). */
+export interface OCProgress {
+	ordered: number;
+	received: number;
+	invoiced: number;
+}
+
+/** Ya llegó todo lo pedido (dentro del redondeo). */
+export function fullyReceived(p: OCProgress): boolean {
+	return p.ordered > 0 && p.ordered - p.received <= TOLERANCIA_REDONDEO_CLP;
+}
+
+/**
+ * Se puede recibir mientras falte algo por llegar.
+ *
+ * Antes era sólo por estado: una OC «Recibida» ofrecía «Recibir» aunque ya
+ * hubiera llegado todo (auditoría M6), y una OC «Facturada» —basta una
+ * factura— no dejaba recibir la entrega que faltaba. Sin `progress` (quien no
+ * lo conoce) se decide sólo por estado, como antes.
+ */
+export function canReceive(status: OCStatus, progress?: OCProgress): boolean {
+	if (status !== 'sent' && status !== 'received' && status !== 'invoiced') return false;
+	if (!progress) return status !== 'invoiced';
+	return !fullyReceived(progress);
+}
+
+/**
+ * La OC ya no tiene nada pendiente: llegó todo, se facturó todo, el calce da
+ * «ok» y ninguna factura sigue en revisión o en disputa. Es lo que la pasa a
+ * «Cerrada» (purchase-settle.ts). Antes nada cerraba una OC y quedaban 236
+ * abiertas para siempre (auditoría M6).
+ */
+export function isSettled(status: OCStatus, progress: OCProgress, openInvoices: number): boolean {
+	if (status !== 'received' && status !== 'invoiced') return false;
+	if (progress.received <= 0 || progress.invoiced <= 0 || openInvoices > 0) return false;
+	if (!fullyReceived(progress)) return false;
+	return threeWayMatch(progress).status === 'ok';
 }
 
 export function canInvoice(status: OCStatus): boolean {
@@ -266,11 +301,11 @@ export function canInvoice(status: OCStatus): boolean {
  * Una sola función y no cuatro llamadas sueltas en la pantalla: así los botones
  * que se ven y las acciones que el servidor acepta no pueden divergir.
  */
-export function ocActions(status: OCStatus) {
+export function ocActions(status: OCStatus, progress?: OCProgress) {
 	return {
 		editar: canEdit(status),
 		emitir: status === 'draft',
-		recibir: canReceive(status),
+		recibir: canReceive(status, progress),
 		facturar: canInvoice(status),
 		anular: canVoid(status),
 	};

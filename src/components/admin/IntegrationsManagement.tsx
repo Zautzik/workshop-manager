@@ -52,7 +52,7 @@ export default function IntegrationsManagement() {
       setProvider('');
       setName('');
       load();
-      toast({ title: 'Integracion creada' });
+      toast({ title: 'Integración creada' });
     } catch (error: any) {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
     }
@@ -76,7 +76,7 @@ export default function IntegrationsManagement() {
   return (
     <div className="space-y-4">
       <Card className="p-4 space-y-3">
-        <h3 className="font-semibold text-foreground">Nueva Integracion</h3>
+        <h3 className="font-semibold text-foreground">Nueva integración</h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
           <Input placeholder="Proveedor (ej: sap)" value={provider} onChange={(e) => setProvider(e.target.value)} />
           <Input placeholder="Nombre" value={name} onChange={(e) => setName(e.target.value)} />

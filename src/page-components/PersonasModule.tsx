@@ -43,7 +43,7 @@ import {
   ArrowUpRight,
 } from 'lucide-react';
 import { formatMoney, type MergedPerson, type TodayAssignment } from './personas-shared';
-import { StatCard } from './StatCard';
+import { StatsBar } from '@/components/ui/stats-bar';
 import { FragmentRow } from './FragmentRow';
 
 // Pick the row that's currently in force: the one with no end date, else the most
@@ -271,22 +271,15 @@ export default function PersonasModule({ embedded = false }: { embedded?: boolea
           </>
         )}
 
-        {/* Summary strip */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          <StatCard icon={Users} label="Empleados activos" value={String(stats.active)} />
-          <StatCard
-            icon={Wallet}
-            label="Costo/hora del equipo"
-            value={stats.hasComp ? formatMoney(stats.hourlySum) : '—'}
-          />
-          <StatCard icon={Clock} label="Horas este mes" value={stats.hoursMonth != null ? `${Math.round(stats.hoursMonth).toLocaleString('es-CL')} h` : '—'} />
-          <StatCard
-            icon={AlertTriangle}
-            label="Con brecha de datos"
-            value={String(stats.gaps)}
-            tone={stats.gaps > 0 ? 'warn' : 'default'}
-          />
-        </div>
+        {/* Summary strip — the shared slim bar (audit M5), not four big cards. */}
+        <StatsBar
+          stats={[
+            { icon: Users, label: 'Empleados activos', value: String(stats.active) },
+            { icon: Wallet, label: 'Costo/hora del equipo', value: stats.hasComp ? formatMoney(stats.hourlySum) : '—' },
+            { icon: Clock, label: 'Horas este mes', value: stats.hoursMonth != null ? `${Math.round(stats.hoursMonth).toLocaleString('es-CL')} h` : '—', tone: 'primary' },
+            { icon: AlertTriangle, label: 'Con brecha de datos', value: String(stats.gaps), count: stats.gaps, tone: 'warning', hideWhenZero: true },
+          ]}
+        />
 
         {/* Toolbar */}
         <div className="flex flex-col sm:flex-row gap-3">

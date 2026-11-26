@@ -348,9 +348,9 @@ export const MODULES: NavModule[] = [
           //
           // Una entrada de menú que no puede tener datos es peor que una ruta
           // inalcanzable: la primera se lee como 'el taller no tiene
-          // productividad', la segunda no se lee. La página sigue en
-          // /analitica/rendimiento para quien tenga el enlace, y vuelve al menú
-          // cuando algo escriba esas columnas.
+          // productividad', la segunda no se lee. Desde el 2026-11-26 la ruta
+          // /analitica/rendimiento redirige al Resumen (auditoría M13); vuelve al
+          // menú cuando algo escriba esas columnas.
         ],
       },
     ],

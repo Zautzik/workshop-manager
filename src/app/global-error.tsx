@@ -30,7 +30,7 @@ export default function GlobalError({ error, reset }: GlobalErrorProps) {
               Ocurrio un error inesperado
             </h1>
             <p style={{ marginBottom: '1.25rem', lineHeight: 1.5 }}>
-              Registramos este problema automaticamente. Intenta recargar la seccion.
+              Registramos este problema automáticamente. Intenta recargar la sección.
             </p>
             <button
               onClick={reset}

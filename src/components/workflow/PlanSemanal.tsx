@@ -131,7 +131,7 @@ export function PlanSemanal() {
     await queryClient.invalidateQueries({ queryKey: ['schedule', 'week', weekStart] });
     toast({
       title: 'Semana publicada',
-      description: `Version ${body?.snapshot?.version ?? '?'} con ${body?.lines_count ?? 0} lineas`,
+      description: `Versión ${body?.snapshot?.version ?? '?'} con ${body?.lines_count ?? 0} líneas`,
     });
   };
 
@@ -201,7 +201,7 @@ export function PlanSemanal() {
       )}
 
       <div className="hidden print:block text-center">
-        <h1 className="text-xl font-bold uppercase tracking-wide">Plan Semanal de Produccion</h1>
+        <h1 className="text-xl font-bold uppercase tracking-wide">Plan semanal de producción</h1>
         <p className="text-xs text-gray-600">
           {data?.week_start} al {data?.week_end}
         </p>
@@ -230,7 +230,7 @@ export function PlanSemanal() {
             <table className="w-full min-w-[1240px] text-xs border-collapse print:text-[10px]">
               <thead>
                 <tr className="border-b border-border bg-muted/20 text-muted-foreground uppercase tracking-wide text-[10px]">
-                  <th className="px-3 py-2 text-left w-[180px] sticky left-0 bg-muted/20 z-20">Maquina</th>
+                  <th className="px-3 py-2 text-left w-[180px] sticky left-0 bg-muted/20 z-20">Máquina</th>
                   {weekDays.map((date: string) => (
                     <th key={date} className="px-2 py-2 text-left min-w-[150px]">
                       {formatDateLabel(date)}
@@ -290,7 +290,7 @@ export function PlanSemanal() {
                             {day.planned_hours.toFixed(1)}/{shiftHours}h
                           </span>
                           {isDropTarget && canReorderPlan && (
-                            <span className="text-[9px] font-semibold text-primary">Soltar aqui</span>
+                            <span className="text-[9px] font-semibold text-primary">Soltar aquí</span>
                           )}
                         </div>
                         <div className="space-y-1.5 min-h-[84px]">

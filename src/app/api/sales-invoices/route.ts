@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { amountCLP } from '@/lib/limits';
 import { isAuthError, requireAuth } from '@/lib/api-middleware';
 import { supabaseAdmin } from '@/integrations/supabase/server';
+import { invoiceNetForDispatch } from '@/lib/dispatch-billing';
 
 export const dynamic = 'force-dynamic';
 
@@ -179,8 +180,32 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // CLP no muestra centavos → se redondea a peso entero, igual que la pantalla.
-    net = Math.round(unidades * (quoted / ordered));
+    // Lo que ya facturaron las facturas anteriores de la OT (no anuladas): la
+    // que completa la OT se lleva el resto, así las partes suman la cotización
+    // exacta en vez de errar por $1 (auditoría M7).
+    const { data: previas, error: prevErr } = await supabaseAdmin
+      .from('sales_invoices' as any)
+      .select('id, net_amount')
+      .eq('ot_id', otId)
+      .neq('status', 'cancelled');
+    if (prevErr) return NextResponse.json({ error: prevErr.message }, { status: 500 });
+    const previasRows = (previas ?? []) as unknown as Array<{ id: string; net_amount: number | null }>;
+    const alreadyInvoicedNet = previasRows.reduce((a, f) => a + Number(f.net_amount ?? 0), 0);
+    let alreadyInvoicedUnits = 0;
+    if (previasRows.length > 0) {
+      const { data: guiasPrevias, error: gErr } = await supabaseAdmin
+        .from('dispatch_guides' as any)
+        .select('quantity')
+        .in('invoice_id', previasRows.map((f) => f.id));
+      if (gErr) return NextResponse.json({ error: gErr.message }, { status: 500 });
+      alreadyInvoicedUnits = ((guiasPrevias ?? []) as unknown as Array<{ quantity: number | null }>).reduce(
+        (a, g) => a + Number(g.quantity ?? 0),
+        0,
+      );
+    }
+
+    // CLP no muestra centavos: se redondea a peso entero, una sola vez.
+    net = invoiceNetForDispatch({ ordered, quoted, units: unidades, alreadyInvoicedUnits, alreadyInvoicedNet });
   } else {
     // Sin guías no hay de dónde derivar: es una factura suelta y el monto lo
     // pone quien la emite. Queda explícito que ESTE es el único caso en que el

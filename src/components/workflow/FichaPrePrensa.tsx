@@ -87,12 +87,13 @@ const DONDE: Partial<Record<keyof OTSpec, { texto: string; href: (otId: string) 
 	// caminar hasta un lugar que no podía cerrar el hueco que lo mandó ahí
 	// (auditoría 2026-08-31).
 	//
-	// El montaje de verdad (una fila en `ot_machine_schedule`) se programa en
-	// Hoja de Producción -- y programar ahí ahora también fija
-	// `assigned_machine_id` si estaba vacío, así que la misma acción cierra
-	// montaje Y máquina asignada.
-	impositionConfirmed: { texto: 'Programar en Hoja de Producción', href: () => '/operaciones/hoja-produccion' },
-	machineId: { texto: 'Programar en Hoja de Producción', href: () => '/operaciones/hoja-produccion' },
+	// El montaje de verdad (una fila en `ot_machine_schedule`) se fija en
+	// Planificación: fijar un bloque en el Cronograma escribe esa fila, y
+	// /api/ot-schedule fija `assigned_machine_id` si estaba vacío
+	// (syncAssignedMachine), así que la misma acción cierra montaje Y máquina.
+	// La Hoja de Producción ya no programa: imprime el día (auditoría C3).
+	impositionConfirmed: { texto: 'Programar en Planificación', href: () => '/operaciones/calendar' },
+	machineId: { texto: 'Programar en Planificación', href: () => '/operaciones/calendar' },
 	// Las operaciones se revisan en el Kanban: el botón "Montaje/Costos" de la
 	// tarjeta abre EditBudgetWizard para esta OT -- estaba montado en el
 	// tablero pero nada lo abría hasta ahora.

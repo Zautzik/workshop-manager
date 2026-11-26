@@ -3,6 +3,7 @@
 import { useLayoutEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import WatercolorBackdrop from '@/components/branding/WatercolorBackdrop';
+import { InboxPanel } from '@/components/home/InboxPanel';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { type OrganSystem } from '@/lib/navigation';
@@ -319,7 +320,7 @@ export default function HomeDashboard() {
   const firstName = user?.name?.split(' ')[0] || user?.email?.split('@')[0] || '';
 
   return (
-    <div className="relative min-h-full flex flex-col items-center justify-center gap-8 overflow-hidden px-4 py-8 sm:gap-10 sm:px-6 sm:py-10 md:px-12">
+    <div className="relative min-h-full flex flex-col items-center justify-center gap-6 overflow-hidden px-4 py-8 sm:gap-8 sm:px-6 sm:py-10 md:px-12">
       <WatercolorBackdrop intensity="ambient" />
 
       {/* Quick links live in the app top bar (AppShell), alongside search and
@@ -334,6 +335,9 @@ export default function HomeDashboard() {
           ¿Cómo puedo ayudarte hoy?
         </h1>
       </div>
+
+      {/* What needs this person today, before the launcher (audit M1). */}
+      <InboxPanel />
 
       {/* Interlaced organ honeycomb — tight cluster, absolutely positioned,
           scaled down as a whole when the screen is narrower than the cluster. */}

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/integrations/supabase/server';
 import { approvalState, approvalSummary, type ApprovalRow } from '@/lib/approval';
-import { getCompanyProfile } from '@/lib/company-profile';
+import { EMPRESA } from '@/lib/company';
 import { plantParts } from '@/lib/plant-calendar';
 
 // GET /api/track/[token] — public, no auth required.
@@ -66,7 +66,6 @@ export async function GET(
   const today = `${p.year}-${String(p.month).padStart(2, '0')}-${String(p.day).padStart(2, '0')}`;
   const deadlineDay = typeof ot.deadline === 'string' ? ot.deadline.slice(0, 10) : null;
   const deadlinePassed = !!deadlineDay && deadlineDay < today && ot.status !== 'completed';
-  const company = await getCompanyProfile().catch(() => ({ name: null }));
 
   return NextResponse.json({
     ot_number: ot.ot_number,
@@ -76,7 +75,9 @@ export async function GET(
     status: ot.status,
     deadline: ot.deadline,
     deadline_passed: deadlinePassed,
-    shop_name: company.name,
+    // The shop's name from its one identity record (src/lib/company.ts), the
+    // same the printed quote uses — not the app's name (audit H3).
+    shop_name: EMPRESA.nombre,
     created_at: ot.created_at,
     history: (history ?? []).map((h) => ({ status: h.to_status, at: h.created_at })),
     approval: {

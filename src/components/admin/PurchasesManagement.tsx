@@ -310,7 +310,12 @@ const PurchasesManagement = () => {
                 received: Number(oc.recibido ?? 0),
                 invoiced: Number(oc.facturado ?? 0),
               });
-              const acciones = ocActions(oc.status as OCStatus);
+              // With progress, "Recibir" disappears once everything arrived (M6).
+              const acciones = ocActions(oc.status as OCStatus, {
+                ordered: Number(oc.pedido ?? oc.total_cost ?? 0),
+                received: Number(oc.recibido ?? 0),
+                invoiced: Number(oc.facturado ?? 0),
+              });
               return (
                 <TableRow key={oc.id}>
                   <TableCell className="font-mono text-xs">

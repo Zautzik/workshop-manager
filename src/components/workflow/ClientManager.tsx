@@ -255,7 +255,8 @@ export function ClientManager() {
             Gestión de Clientes
           </h2>
           <p className="text-sm text-muted-foreground">
-            {filtered.length} cliente{filtered.length !== 1 ? 's' : ''}
+            {/* No count until the list arrives: "0 clientes" while loading read as an empty book (audit M4). */}
+            {loading ? <span className="inline-block h-3 w-20 animate-pulse rounded bg-muted align-middle" aria-label="Cargando" /> : <>{filtered.length} cliente{filtered.length !== 1 ? 's' : ''}</>}
           </p>
         </div>
         <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:gap-3">

@@ -21,6 +21,7 @@ import {
 } from '@/hooks/use-dispatch-queries';
 import { PageShell } from '@/components/layout/PageShell';
 import { StatsBar } from '@/components/ui/stats-bar';
+import { dispatchClosed } from '@/lib/dispatch-billing';
 
 const GUIDE_STATUS: Record<string, { label: string; cls: string }> = {
   draft:      { label: 'Borrador',  cls: 'bg-slate-500/15 text-slate-500' },
@@ -35,6 +36,58 @@ const INVOICE_STATUS: Record<string, { label: string; cls: string }> = {
   cancelled: { label: 'Anulada',  cls: 'bg-red-500/15 text-red-600' },
 };
 
+function FulfillmentTable({ rows, empty, onManage }: { rows: OTFulfillment[]; empty: string; onManage: (r: OTFulfillment) => void }) {
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full text-sm">
+        <thead><tr className="border-b text-muted-foreground">
+          <th className="text-left py-2 px-2 font-medium">OT</th>
+          <th className="text-left py-2 px-2 font-medium">Cliente</th>
+          <th className="text-left py-2 px-2 font-medium w-[28%]">Avance despacho</th>
+          <th className="text-right py-2 px-2 font-medium">Cotizado</th>
+          <th className="text-right py-2 px-2 font-medium">Facturado</th>
+          <th className="text-right py-2 px-2 font-medium"></th>
+        </tr></thead>
+        <tbody>
+          {rows.length === 0 && empty && <tr><td colSpan={6} className="text-center text-muted-foreground py-8">{empty}</td></tr>}
+          {rows.map((r) => (
+            <tr key={r.ot_id} className="border-b hover:bg-muted/40">
+              <td className="py-2 px-2 font-mono text-xs">{r.ot_number}</td>
+              <td className="py-2 px-2 max-w-[160px] truncate">{r.client_name}</td>
+              <td className="py-2 px-2">
+                <div className="flex items-center gap-2">
+                  <Progress value={Math.min(100, r.dispatched_pct)} className="h-2 flex-1" />
+                  <span className="text-xs tabular-nums w-24 text-right text-muted-foreground">
+                    {r.dispatched_qty.toLocaleString('es-CL')}/{r.ordered_qty.toLocaleString('es-CL')}
+                  </span>
+                </div>
+              </td>
+              <td className="py-2 px-2 text-right tabular-nums">{formatCLP(r.quoted_price)}</td>
+              <td className="py-2 px-2 text-right tabular-nums">{r.invoiced_total > 0 ? formatCLP(r.invoiced_total) : '—'}</td>
+              <td className="py-2 px-2 text-right">
+                <Button size="sm" variant="outline" className="gap-1" onClick={() => onManage(r)}>
+                  <Truck className="h-3.5 w-3.5" /> Gestionar
+                </Button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function FulfillmentCard({ title, rows, empty, onManage }: { title: string; rows: OTFulfillment[]; empty: string; onManage: (r: OTFulfillment) => void }) {
+  return (
+    <Card>
+      <CardHeader><CardTitle className="text-base">{title} ({rows.length})</CardTitle></CardHeader>
+      <CardContent>
+        <FulfillmentTable rows={rows} empty={empty} onManage={onManage} />
+      </CardContent>
+    </Card>
+  );
+}
+
 function DespachosInner() {
   const { data: rows = [] } = useFulfillment('dispatch');
   const [manage, setManage] = useState<OTFulfillment | null>(null);
@@ -46,6 +99,8 @@ function DespachosInner() {
     const porCobrar = facturado - cobrado;
     return { pendientes, facturado, cobrado, porCobrar };
   }, [rows]);
+  const pendientesRows = useMemo(() => rows.filter((r) => !dispatchClosed(r)), [rows]);
+  const cerradasRows = useMemo(() => rows.filter((r) => dispatchClosed(r)), [rows]);
 
   return (
     <div className="space-y-6">
@@ -58,47 +113,27 @@ function DespachosInner() {
         ]}
       />
 
-      <Card>
-        <CardHeader><CardTitle className="text-base">OT en despacho</CardTitle></CardHeader>
-        <CardContent>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead><tr className="border-b text-muted-foreground">
-                <th className="text-left py-2 px-2 font-medium">OT</th>
-                <th className="text-left py-2 px-2 font-medium">Cliente</th>
-                <th className="text-left py-2 px-2 font-medium w-[28%]">Avance despacho</th>
-                <th className="text-right py-2 px-2 font-medium">Cotizado</th>
-                <th className="text-right py-2 px-2 font-medium">Facturado</th>
-                <th className="text-right py-2 px-2 font-medium"></th>
-              </tr></thead>
-              <tbody>
-                {rows.length === 0 && <tr><td colSpan={6} className="text-center text-muted-foreground py-8">Sin OT en fase de despacho.</td></tr>}
-                {rows.map((r) => (
-                  <tr key={r.ot_id} className="border-b hover:bg-muted/40">
-                    <td className="py-2 px-2 font-mono text-xs">{r.ot_number}</td>
-                    <td className="py-2 px-2 max-w-[160px] truncate">{r.client_name}</td>
-                    <td className="py-2 px-2">
-                      <div className="flex items-center gap-2">
-                        <Progress value={Math.min(100, r.dispatched_pct)} className="h-2 flex-1" />
-                        <span className="text-xs tabular-nums w-24 text-right text-muted-foreground">
-                          {r.dispatched_qty.toLocaleString('es-CL')}/{r.ordered_qty.toLocaleString('es-CL')}
-                        </span>
-                      </div>
-                    </td>
-                    <td className="py-2 px-2 text-right tabular-nums">{formatCLP(r.quoted_price)}</td>
-                    <td className="py-2 px-2 text-right tabular-nums">{r.invoiced_total > 0 ? formatCLP(r.invoiced_total) : '—'}</td>
-                    <td className="py-2 px-2 text-right">
-                      <Button size="sm" variant="outline" className="gap-1" onClick={() => setManage(r)}>
-                        <Truck className="h-3.5 w-3.5" /> Gestionar
-                      </Button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+      {/* Two lists (audit M7): what still needs dispatching or billing, and —
+          collapsed — what is done. Fully delivered and invoiced OTs used to
+          sit in the working list forever. */}
+      <FulfillmentCard
+        title="Pendientes"
+        rows={pendientesRows}
+        empty="Nada pendiente: todo lo despachado está facturado."
+        onManage={setManage}
+      />
+      {cerradasRows.length > 0 && (
+        <details className="group rounded-lg border bg-card">
+          <summary className="flex cursor-pointer list-none items-center gap-2 px-4 py-3 text-sm font-medium">
+            <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+            Cerradas ({cerradasRows.length})
+            <span className="text-xs font-normal text-muted-foreground">todo despachado y facturado</span>
+          </summary>
+          <div className="border-t px-2 pb-2">
+            <FulfillmentTable rows={cerradasRows} empty="" onManage={setManage} />
           </div>
-        </CardContent>
-      </Card>
+        </details>
+      )}
 
       <ManageDialog ot={manage} onClose={() => setManage(null)} />
     </div>

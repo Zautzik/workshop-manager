@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireAuth, isAuthError } from '@/lib/api-middleware';
+import { requireAuth, isAuthError, hasRole } from '@/lib/api-middleware';
 import { supabaseAdmin } from '@/integrations/supabase/server';
 import { fetchAll } from '@/lib/fetch-all';
 import type { AppRole } from '@/types/app-role';
+import { resolveSalesScope, scopeFilterId } from '@/lib/sales-scope';
+import { quoteConversionByMonth } from '@/lib/quote-conversion';
+import { z } from 'zod';
 
 export const dynamic = 'force-dynamic';
 
@@ -26,20 +29,22 @@ export const dynamic = 'force-dynamic';
 
 class BadParam extends Error {}
 
-const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+// Query parameters are validated with zod (src/app/api/CLAUDE.md).
+const IsoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
+const UuidList = z
+  .string()
+  .transform((s) => s.split(',').map((x) => x.trim()).filter(Boolean))
+  .pipe(z.array(z.string().uuid()).min(1).max(500));
 
 function date(p: URLSearchParams, key: string): string {
-  const v = p.get(key) ?? '';
-  if (!ISO_DATE.test(v)) throw new BadParam(`\`${key}\` debe ser YYYY-MM-DD`);
-  return v;
+  const r = IsoDate.safeParse(p.get(key) ?? '');
+  if (!r.success) throw new BadParam(`\`${key}\` debe ser YYYY-MM-DD`);
+  return r.data;
 }
 function uuids(p: URLSearchParams, key: string): string[] {
-  const list = (p.get(key) ?? '').split(',').map((s) => s.trim()).filter(Boolean);
-  if (list.length === 0 || list.length > 500 || !list.every((s) => UUID.test(s))) {
-    throw new BadParam(`\`${key}\` debe ser una lista de ids`);
-  }
-  return list;
+  const r = UuidList.safeParse(p.get(key) ?? '');
+  if (!r.success) throw new BadParam(`\`${key}\` debe ser una lista de ids`);
+  return r.data;
 }
 
 const OPS: AppRole[] = ['admin', 'manager', 'supervisor'];
@@ -47,7 +52,8 @@ const MGMT: AppRole[] = ['admin', 'manager'];
 
 interface ReadDef {
   roles: AppRole[];
-  run: (p: URLSearchParams) => Promise<unknown>;
+  /** `auth` is the caller — for reads scoped to the user (a vendedor sees only their own). */
+  run: (p: URLSearchParams, auth: { id: string; role: AppRole | null }) => Promise<unknown>;
 }
 
 /** All rows, paged past PostgREST's 1,000-row cap; `truncated` says if it still stopped. */
@@ -203,6 +209,29 @@ const READS: Record<string, ReadDef> = {
     },
   },
 
+  // ── Cotizaciones: conversión por mes (auditoría M8) ──────────────────────
+  // Counts, not rows: how many quotes each month, and how many were signed or
+  // converted to production vs rejected or expired. A vendedor sees their own.
+  'quote-conversion': {
+    roles: ['admin', 'manager', 'supervisor', 'vendedor'],
+    run: async (p, auth) => {
+      const months = Math.min(24, Math.max(1, Number(p.get('months')) || 6));
+      const since = new Date();
+      since.setUTCDate(1);
+      since.setUTCMonth(since.getUTCMonth() - (months - 1));
+      const scope = await resolveSalesScope(auth);
+      const { rows } = await all<{ status: string; created_at: string }>((a, b) => {
+        let q = supabaseAdmin
+          .from('vistos_buenos' as any)
+          .select('status, created_at')
+          .gte('created_at', since.toISOString().slice(0, 10));
+        if (!scope.all) q = q.eq('salesman_id', scopeFilterId(scope));
+        return q.range(a, b);
+      });
+      return quoteConversionByMonth(rows);
+    },
+  },
+
   // ── Calendario: licencias aprobadas y fechas de mantención ──────────────
   'leave-dates': {
     roles: ['admin', 'manager', 'supervisor', 'hr_manager'],
@@ -230,15 +259,20 @@ const READS: Record<string, ReadDef> = {
 };
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ name: string }> }) {
+  // Authenticated first (src/app/api/CLAUDE.md): an anonymous caller learns
+  // nothing, not even which read names exist. Then the read's own roles.
+  const auth = await requireAuth();
+  if (isAuthError(auth)) return auth;
+
   const { name } = await params;
   const def = Object.prototype.hasOwnProperty.call(READS, name) ? READS[name] : undefined;
   if (!def) return NextResponse.json({ error: 'Lectura desconocida' }, { status: 404 });
-
-  const auth = await requireAuth(def.roles);
-  if (isAuthError(auth)) return auth;
+  if (!hasRole(auth.role, def.roles)) {
+    return NextResponse.json({ error: 'Forbidden — insufficient permissions' }, { status: 403 });
+  }
 
   try {
-    const data = await def.run(new URL(req.url).searchParams);
+    const data = await def.run(new URL(req.url).searchParams, auth);
     return NextResponse.json({ data });
   } catch (err) {
     if (err instanceof BadParam) return NextResponse.json({ error: err.message }, { status: 400 });

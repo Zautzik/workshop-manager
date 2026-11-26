@@ -11,7 +11,7 @@ export default function NotificationsPage() {
         <div>
           <h1 className="text-xl sm:text-2xl font-bold text-foreground">Notificaciones</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Historial completo, busqueda y gestion de estado de lectura.
+            Historial completo, búsqueda y gestión del estado de lectura.
           </p>
         </div>
         <NotificationsManagement />

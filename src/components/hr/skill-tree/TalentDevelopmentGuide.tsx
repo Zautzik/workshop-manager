@@ -34,40 +34,40 @@ export function TalentDevelopmentGuide({
     <div className="px-4 py-3 border-b border-[#1e293b] bg-[#0b1018]">
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-3">
         <div className="rounded-lg border border-[#1e293b] bg-[#0d1117] p-3">
-          <p className="text-[11px] uppercase tracking-wide text-slate-500 mb-2">Learning States</p>
+          <p className="text-[11px] uppercase tracking-wide text-slate-500 mb-2">Estados de aprendizaje</p>
           <div className="space-y-1.5 text-xs">
-            <p className="text-slate-300"><span className="text-slate-500">Locked:</span> prerequisites still pending.</p>
-            <p className="text-slate-300"><span className="text-blue-300">Available:</span> ready to start now.</p>
-            <p className="text-slate-300"><span className="text-amber-300">In Progress:</span> assigned and currently developing.</p>
-            <p className="text-slate-300"><span className="text-emerald-300">Mastered:</span> level 5 and can mentor others.</p>
+            <p className="text-slate-300"><span className="text-slate-500">Bloqueada:</span> faltan requisitos previos.</p>
+            <p className="text-slate-300"><span className="text-blue-300">Disponible:</span> se puede empezar ya.</p>
+            <p className="text-slate-300"><span className="text-amber-300">En curso:</span> asignada y en desarrollo.</p>
+            <p className="text-slate-300"><span className="text-emerald-300">Dominada:</span> nivel 5, puede enseñar a otros.</p>
           </div>
         </div>
 
         <div className="rounded-lg border border-[#1e293b] bg-[#0d1117] p-3">
-          <p className="text-[11px] uppercase tracking-wide text-slate-500 mb-2">Mastery Snapshot</p>
+          <p className="text-[11px] uppercase tracking-wide text-slate-500 mb-2">Nivel de dominio</p>
           {selectedEmployeeName ? (
             <>
               <p className="text-xs text-slate-300 mb-2">
-                {selectedEmployeeName} is currently operating at <span className="text-slate-100 font-semibold">{TIER_LABELS[highestTierWithProgress]}</span> stage.
+                {selectedEmployeeName} está hoy en la etapa <span className="text-slate-100 font-semibold">{TIER_LABELS[highestTierWithProgress]}</span>.
               </p>
               <div className="grid grid-cols-3 gap-2 text-xs">
                 <div className="rounded border border-[#1e293b] p-2 bg-[#0a0f15]">
-                  <p className="text-slate-500">Mastered</p>
+                  <p className="text-slate-500">Dominadas</p>
                   <p className="text-emerald-300 font-semibold">{masteredCount}</p>
                 </div>
                 <div className="rounded border border-[#1e293b] p-2 bg-[#0a0f15]">
-                  <p className="text-slate-500">In Progress</p>
+                  <p className="text-slate-500">En curso</p>
                   <p className="text-amber-300 font-semibold">{inProgressCount}</p>
                 </div>
                 <div className="rounded border border-[#1e293b] p-2 bg-[#0a0f15]">
-                  <p className="text-slate-500">Available</p>
+                  <p className="text-slate-500">Disponibles</p>
                   <p className="text-blue-300 font-semibold">{availableCount}</p>
                 </div>
               </div>
-              <p className="text-[11px] text-slate-500 mt-2">Mastery quality: {masteryRatio}% of active skills are fully mastered.</p>
+              <p className="text-[11px] text-slate-500 mt-2">Dominio: {masteryRatio}% de las competencias activas están dominadas.</p>
             </>
           ) : (
-            <p className="text-xs text-slate-400">Select an employee to view personalized mastery progression.</p>
+            <p className="text-xs text-slate-400">Elige a una persona para ver su avance.</p>
           )}
         </div>
 
@@ -84,17 +84,17 @@ export function TalentDevelopmentGuide({
                 ))}
               </div>
             ) : (
-              <p className="text-xs text-emerald-300">All currently available unlocks have been started or mastered.</p>
+              <p className="text-xs text-emerald-300">Todas las competencias disponibles ya están en curso o dominadas.</p>
             )
           ) : (
-            <p className="text-xs text-slate-400">Choose an employee to surface the next recommended unlocks.</p>
+            <p className="text-xs text-slate-400">Elige a una persona para ver qué le conviene aprender después.</p>
           )}
         </div>
       </div>
 
       {selectedEmployeeName && (
         <div className="mt-3 rounded-lg border border-[#1e293b] bg-[#0d1117] p-3">
-          <p className="text-[11px] uppercase tracking-wide text-slate-500 mb-2">Progressive Tier Roadmap</p>
+          <p className="text-[11px] uppercase tracking-wide text-slate-500 mb-2">Avance por etapa</p>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2">
             {tierProgress.map(item => {
               const pct = item.total > 0 ? Math.round((item.completed / item.total) * 100) : 0;
@@ -114,13 +114,13 @@ export function TalentDevelopmentGuide({
 
       {selectedEmployeeName && recommendedTracks.length > 0 && (
         <div className="mt-3 rounded-lg border border-[#1e293b] bg-[#0d1117] p-3">
-          <p className="text-[11px] uppercase tracking-wide text-slate-500 mb-2">Recommended Development Paths</p>
+          <p className="text-[11px] uppercase tracking-wide text-slate-500 mb-2">Rutas de desarrollo recomendadas</p>
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2">
             {recommendedTracks.map(track => (
               <div key={track.id} className="rounded border border-[#1e293b] bg-[#0a0f15] p-2.5">
                 <p className="text-xs text-slate-100 font-semibold">{track.name}</p>
                 <p className="text-[11px] text-slate-500 mt-0.5">{track.description}</p>
-                <p className="text-[11px] text-slate-400 mt-2">{track.completed}/{track.total} milestones completed</p>
+                <p className="text-[11px] text-slate-400 mt-2">{track.completed}/{track.total} hitos cumplidos</p>
                 <div className="mt-1.5 h-1.5 rounded bg-[#1f2937] overflow-hidden">
                   <div className="h-full bg-violet-500" style={{ width: `${track.percentage}%` }} />
                 </div>
@@ -132,7 +132,7 @@ export function TalentDevelopmentGuide({
 
       {selectedEmployeeName && roleTemplateSummaries.length > 0 && (
         <div className="mt-3 rounded-lg border border-[#1e293b] bg-[#0d1117] p-3">
-          <p className="text-[11px] uppercase tracking-wide text-slate-500 mb-2">Role Target Templates</p>
+          <p className="text-[11px] uppercase tracking-wide text-slate-500 mb-2">Roles objetivo</p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
             {roleTemplateSummaries.map(template => (
               <div
@@ -141,12 +141,12 @@ export function TalentDevelopmentGuide({
               >
                 <div className="flex items-center justify-between gap-2">
                   <p className="text-xs text-slate-100 font-semibold">{template.name}</p>
-                  <span className="text-[11px] text-cyan-300">{template.readiness}% ready</span>
+                  <span className="text-[11px] text-cyan-300">{template.readiness}% listo</span>
                 </div>
                 <p className="text-[11px] text-slate-500 mt-0.5">{template.description}</p>
                 {template.missingNames.length > 0 ? (
                   <p className="text-[11px] text-amber-300 mt-1.5">
-                    Missing milestones: {template.missingNames.slice(0, 3).join(', ')}{template.missingNames.length > 3 ? '...' : ''}
+                    Faltan: {template.missingNames.slice(0, 3).join(', ')}{template.missingNames.length > 3 ? '...' : ''}
                   </p>
                 ) : (
                   <p className="text-[11px] text-emerald-300 mt-1.5">Todos los hitos principales cubiertos.</p>

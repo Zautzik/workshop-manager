@@ -35,6 +35,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { StatsBar } from '@/components/ui/stats-bar';
+import Link from 'next/link';
 import { useToast } from '@/hooks/use-toast';
 import {
   useMaintenanceWorkOrdersByStatus,
@@ -101,19 +102,23 @@ function ScheduleRowItem({
         </p>
       </div>
 
-      {showAction && (
+      {showAction && (canCreate ? (
         <Button
           size="sm"
-          variant={canCreate ? 'default' : 'outline'}
-          disabled={!canCreate || creatingId === row.id}
-          title={canCreate ? undefined : 'Esta pauta no tiene checklist — agrégale una en Pautas antes de crear la orden'}
+          disabled={creatingId === row.id}
           onClick={() => onCreateOrder(row)}
           className="shrink-0"
         >
           <Wrench className="mr-1.5 h-3.5 w-3.5" />
           {creatingId === row.id ? 'Creando…' : 'Crear orden'}
         </Button>
-      )}
+      ) : (
+        // A disabled button cannot show a tooltip (pointer-events are off, and a
+        // phone has no hover): the reason is said, with the way to fix it (M9).
+        <Link href="/equipos/ordenes?tab=pautas" className="shrink-0 text-right text-xs text-amber-700 hover:underline dark:text-amber-400">
+          Sin checklist: agrégala en Pautas
+        </Link>
+      ))}
     </li>
   );
 }
