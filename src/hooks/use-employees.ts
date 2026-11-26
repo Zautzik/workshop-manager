@@ -12,7 +12,6 @@
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
 
 /**
  * Query Keys Factory
@@ -85,210 +84,9 @@ export function useEmployees(department?: string) {
 	});
 }
 
-/**
- * Hook: useEmployee
- * Fetch single employee by ID
- */
-export function useEmployee(id: string) {
-	return useQuery({
-		queryKey: hrQueryKeys.employee(id),
-		queryFn: async () => {
-			// Columnas explícitas, no `*`. Correo, teléfono, contacto de
-			// emergencia, notas, fecha de finiquito y `badge_code` dejaron de ser
-			// legibles por el cliente: se sirven sólo por ruta de servidor con
-			// control de rol. Pedir `*` fallaría entero por las que no se otorgan.
-			const { data, error } = await supabase
-				.from('employees')
-				.select(
-					'id, user_id, employee_code, full_name, department, status, hire_date, ' +
-					'sheets_per_hour, teamwork_rating, overtime_availability, attendance_score, ' +
-					'lateness_minutes, quality_score, speed_score, overall_rating, created_at, updated_at'
-				)
-				.eq('id', id)
-				.single();
-
-			if (error) throw error;
-			return data;
-		},
-		enabled: !!id,
-		staleTime: 5 * 60 * 1000,
-	});
-}
-
-/**
- * Hook: useEmploymentContracts
- * Fetch contracts for an employee
- */
-export function useEmploymentContracts(employeeId: string) {
-	return useQuery({
-		queryKey: hrQueryKeys.contractByEmployee(employeeId),
-		queryFn: async () => {
-			const { data, error } = await supabase
-				.from('employment_contracts')
-				.select('*')
-				.eq('employee_id', employeeId)
-				.order('start_date', { ascending: false });
-
-			if (error) throw error;
-			return data || [];
-		},
-		enabled: !!employeeId,
-		staleTime: 5 * 60 * 1000,
-	});
-}
-
-/**
- * Hook: useCurrentContract
- * Fetch currently active contract for an employee
- */
-export function useCurrentContract(employeeId: string) {
-	return useQuery({
-		queryKey: hrQueryKeys.contractByEmployee(employeeId),
-		queryFn: async () => {
-			const today = new Date().toISOString().split('T')[0];
-
-			const { data, error } = await supabase
-				.from('employment_contracts')
-				.select('*')
-				.eq('employee_id', employeeId)
-				.lte('start_date', today)
-				.or(`end_date.is.null,end_date.gte.${today}`)
-				.order('start_date', { ascending: false })
-				.limit(1)
-				.single();
-
-			if (error) throw error;
-			return data;
-		},
-		enabled: !!employeeId,
-		staleTime: 5 * 60 * 1000,
-	});
-}
-
-/**
- * Hook: useCompensationRate
- * Fetch current compensation rate for an employee
- */
-export function useCompensationRate(employeeId: string) {
-	return useQuery({
-		queryKey: hrQueryKeys.compensationByEmployee(employeeId),
-		queryFn: async () => {
-			const today = new Date().toISOString().split('T')[0];
-
-			const { data, error } = await supabase
-				.from('compensation_rates')
-				.select('*')
-				.eq('employee_id', employeeId)
-				.lte('effective_from', today)
-				.or(`effective_to.is.null,effective_to.gte.${today}`)
-				.order('effective_from', { ascending: false })
-				.limit(1)
-				.single();
-
-			if (error) throw error;
-			return data;
-		},
-		enabled: !!employeeId,
-		staleTime: 10 * 60 * 1000, // Compensation doesn't change often
-	});
-}
-
-/**
- * Hook: useCompensationHistory
- * Fetch historical compensation rates for an employee
- */
-export function useCompensationHistory(employeeId: string) {
-	return useQuery({
-		queryKey: hrQueryKeys.compensationByEmployee(employeeId),
-		queryFn: async () => {
-			const { data, error } = await supabase
-				.from('compensation_rates')
-				.select('*')
-				.eq('employee_id', employeeId)
-				.order('effective_from', { ascending: false });
-
-			if (error) throw error;
-			return data || [];
-		},
-		enabled: !!employeeId,
-		staleTime: 10 * 60 * 1000,
-	});
-}
-
-/**
- * Hook: useEmployeeSkills
- * Fetch skills for an employee
- */
-export function useEmployeeSkills(employeeId: string) {
-	return useQuery({
-		queryKey: hrQueryKeys.employeeSkills(employeeId),
-		queryFn: async () => {
-			// `employee_skills` has no `verified_at` — real column is
-			// `last_assessed_on` (2026-08 audit, same defect as certificaciones).
-			const { data, error } = await supabase
-				.from('employee_skills')
-				.select('*')
-				.eq('employee_id', employeeId)
-				.order('last_assessed_on', { ascending: false });
-
-			if (error) throw error;
-			return data || [];
-		},
-		enabled: !!employeeId,
-		staleTime: 5 * 60 * 1000,
-	});
-}
-
-/**
- * Hook: useLeaveBalance
- * Fetch leave balance for an employee
- */
-export function useLeaveBalance(employeeId: string, leaveType?: string) {
-	return useQuery({
-		queryKey: hrQueryKeys.leaveBalance(employeeId),
-		queryFn: async () => {
-			let query = supabase
-				.from('leave_balances')
-				.select('*')
-				.eq('employee_id', employeeId)
-				.eq('balance_year', new Date().getFullYear());
-
-			if (leaveType) {
-				query = query.eq('leave_type', leaveType as any);
-			}
-
-			const { data, error } = await query;
-
-			if (error) throw error;
-			return data || [];
-		},
-		enabled: !!employeeId,
-		staleTime: 3 * 60 * 1000, // Leave balances change frequently
-	});
-}
-
-/**
- * Hook: useLeaveRequests
- * Fetch leave requests for an employee
- */
-export function useLeaveRequests(employeeId: string) {
-	return useQuery({
-		queryKey: hrQueryKeys.leaveRequests(employeeId),
-		queryFn: async () => {
-			const { data, error } = await supabase
-				.from('leave_requests')
-				.select('*')
-				.eq('employee_id', employeeId)
-				.gte('end_date', new Date().toISOString())
-				.order('start_date', { ascending: true });
-
-			if (error) throw error;
-			return data || [];
-		},
-		enabled: !!employeeId,
-		staleTime: 3 * 60 * 1000,
-	});
-}
+// useEmployee, contracts, compensation, skills and leave hooks read the HR
+// tables straight from the browser and had no callers; removed with the
+// server-read sweep (audit H5, 2026-11-26). Read through the HR API routes.
 
 /**
  * Hook: useCreateLeaveRequest
@@ -372,14 +170,6 @@ export function useUpdateEmployee() {
 export default {
 	hrQueryKeys,
 	useEmployees,
-	useEmployee,
-	useEmploymentContracts,
-	useCurrentContract,
-	useCompensationRate,
-	useCompensationHistory,
-	useEmployeeSkills,
-	useLeaveBalance,
-	useLeaveRequests,
 	useCreateLeaveRequest,
 	useUpdateEmployee,
 };

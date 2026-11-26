@@ -2,8 +2,8 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { shiftPaidHours } from '@/lib/shift-hours';
-import { supabase } from '@/integrations/supabase/client';
-import { fetchAll, truncationNote } from '@/lib/fetch-all';
+import { truncationNote } from '@/lib/fetch-all';
+import { readApi } from '@/lib/read-api';
 
 const queryKeys = {
   machineCosts: ['machineCosts'] as const,
@@ -32,9 +32,8 @@ export function useMachineCosts() {
   return useQuery({
     queryKey: queryKeys.machineCosts,
     queryFn: async () => {
-      const { data, error } = await supabase.from('machine_costs').select('*, machines(name, type)');
-      if (error) throw error;
-      return data ?? [];
+      // Server read (audit H5): GET /api/reads/machine-costs.
+      return readApi<any[]>('machine-costs');
     },
   });
 }
@@ -43,9 +42,7 @@ export function useEquipmentInvestments() {
   return useQuery({
     queryKey: queryKeys.equipmentInvestments,
     queryFn: async () => {
-      const { data, error } = await supabase.from('equipment_investments').select('*, machines(name)');
-      if (error) throw error;
-      return data ?? [];
+      return readApi<any[]>('equipment-investments');
     },
   });
 }
@@ -164,42 +161,16 @@ export function useMonthlyPayroll(year: number, month: number) {
       const monthStart = `${safeYear}-${String(safeMonth).padStart(2, '0')}-01`;
       const monthEnd = new Date(safeYear, safeMonth, 0).toISOString().split('T')[0];
 
-      // Sin límite, corridas desde el navegador: expuestas al mismo tope por
-      // defecto de PostgREST (1000 filas) que ya mostró margen 82% en vez de
-      // 22% en /api/ots/cost-summary (ver fetch-all.ts). Acá el resultado
-      // sería una nómina calculada sobre una parte, sin ningún aviso
-      // (auditoría 2026-09-07). `fetchAll` pagina hasta agotar y dice si no
-      // pudo — la misma herramienta que ya se usa ahí.
-      const [employeesR, assignmentsR, compensationR, incentivesR] = await Promise.all([
-        fetchAll<any>((from, to) =>
-          supabase.from('employees').select('id, full_name').range(from, to),
-        ),
-        fetchAll<any>((from, to) =>
-          supabase
-            .from('worker_assignments')
-            .select('employee_id, date, role, hours_worked, shift:shifts(start_time, end_time)')
-            .gte('date', monthStart)
-            .lte('date', monthEnd)
-            .range(from, to),
-        ),
-        fetchAll<any>((from, to) =>
-          supabase
-            .from('compensation_rates')
-            .select(
-              'employee_id, hourly_rate, overtime_multiplier_50, overtime_multiplier_100, night_shift_multiplier, weekend_multiplier, currency_code, effective_from, effective_to'
-            )
-            .range(from, to),
-        ),
-        fetchAll<any>((from, to) =>
-          supabase
-            .from('employee_incentives')
-            .select('employee_id, amount, currency_code, status, awarded_date')
-            .gte('awarded_date', monthStart)
-            .lte('awarded_date', monthEnd)
-            .in('status', ['approved', 'paid'])
-            .range(from, to),
-        ),
-      ]);
+      // The four datasets come from the server (GET /api/reads/payroll-month,
+      // audit H5), each paged past PostgREST's 1,000-row cap with fetchAll and
+      // carrying its own `truncated` — a payroll computed on part of the data
+      // must say so (audit 2026-09-07). The calculation below is unchanged.
+      type Part = { rows: any[]; truncated: boolean; pages: number };
+      const { employees: employeesR, assignments: assignmentsR, compensation: compensationR, incentives: incentivesR } =
+        await readApi<{ employees: Part; assignments: Part; compensation: Part; incentives: Part }>('payroll-month', {
+          from: monthStart,
+          to: monthEnd,
+        });
 
       const truncated =
         truncationNote(employeesR, 'empleados') ??

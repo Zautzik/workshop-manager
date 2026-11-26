@@ -3,6 +3,7 @@ import { revalidateTag } from 'next/cache';
 import { z } from 'zod';
 import { requireAuth, isAuthError } from '@/lib/api-middleware';
 import { supabaseAdmin } from '@/integrations/supabase/server';
+import { checkUsageReading } from '@/lib/usage-reading';
 
 export const dynamic = 'force-dynamic';
 
@@ -81,6 +82,25 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
 
     if (!machine) return NextResponse.json({ error: 'Máquina no encontrada' }, { status: 404 });
 
+    // An impossible jump is refused, not stored (audit H1): the last reading
+    // and the time since it bound how much the counter can have moved.
+    const readAt = parsed.data.read_at ?? new Date().toISOString();
+    const { data: last } = await supabaseAdmin
+      .from('machine_usage_readings')
+      .select('reading, read_at')
+      .eq('machine_id', id)
+      .lte('read_at', readAt)
+      .order('read_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    const check = checkUsageReading({
+      unit: machine.usage_unit,
+      reading: parsed.data.reading,
+      readAt,
+      previous: last ? { reading: Number(last.reading), read_at: last.read_at as string } : null,
+    });
+    if (!check.ok) return NextResponse.json({ error: check.error, code: 'LECTURA_IMPOSIBLE' }, { status: 422 });
+
     // Un contador que retrocede casi siempre es un error de tipeo. Se acepta
     // igual —los tableros se cambian y el contador vuelve a cero— pero se avisa.
     const previous = Number(machine.usage_counter ?? 0);
@@ -95,7 +115,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
         machine_id: id,
         reading: parsed.data.reading,
         unit: machine.usage_unit,
-        read_at: parsed.data.read_at ?? new Date().toISOString(),
+        read_at: readAt,
         source: parsed.data.source ?? 'manual',
         notes: parsed.data.notes ?? null,
       })

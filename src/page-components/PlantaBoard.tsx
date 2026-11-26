@@ -5,7 +5,7 @@ import { definitionFor } from "@/lib/machine-calendar";
 import { shiftPaidHours } from "@/lib/shift-hours";
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
-import { supabase } from "@/integrations/supabase/client";
+import { readApi } from "@/lib/read-api";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
@@ -999,24 +999,12 @@ export default function PlantaBoard({ initialTab = 'layout' }: PlantaBoardProps)
         return;
       }
 
-      const [{ data: leaveRows, error: leaveError }, { data: contractsRows, error: contractsError }] = await Promise.all([
-        supabase
-          .from('leave_requests')
-          .select('employee_id, leave_type, status, start_date, end_date')
-          .in('employee_id', employeeIds)
-          .eq('status', 'approved')
-          .lte('start_date', weekEndIso)
-          .gte('end_date', weekStartIso),
-        supabase
-          .from('employment_contracts')
-          .select('employee_id, contract_start_date, contract_end_date, max_hours_per_week, base_hours_per_week, overtime_allowed, overtime_cap_hours_per_week')
-          .in('employee_id', employeeIds)
-          .lte('contract_start_date', weekEndIso)
-          .or(`contract_end_date.is.null,contract_end_date.gte.${weekStartIso}`),
-      ]);
-
-      if (leaveError) throw leaveError;
-      if (contractsError) throw contractsError;
+      // Server read (audit H5): the same two queries, behind /api/reads.
+      const { leave: leaveRows, contracts: contractsRows } = await readApi<{ leave: any[]; contracts: any[] }>('week-hr-limits', {
+        employee_ids: employeeIds.join(','),
+        from: weekStartIso,
+        to: weekEndIso,
+      });
 
       const toMinutes = (timeValue?: string | null) => {
         if (!timeValue) return 0;

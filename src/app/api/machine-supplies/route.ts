@@ -33,7 +33,7 @@ export async function GET(req: NextRequest) {
 
   const { data, error } = await supabaseAdmin
     .from('machine_supply_requirements')
-    .select('*, inventory_items ( id, name, unit, sku )')
+    .select('*, inventory_items ( id, name, unit, sku, category )')
     .eq('machine_id', machineId)
     // Lo crítico primero: es lo que detiene la máquina si falta.
     .order('is_critical', { ascending: false });

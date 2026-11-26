@@ -160,6 +160,35 @@ owner's OK before it goes to the cloud.**
 | H6 | Diagnósticos roles "unknown" | `/api/admin/diagnostics` reads `user_metadata.role`; use the same role lookup as `/api/admin/users`. |
 | H7 | 38 employees without accounts | Becomes L2: bulk-create from Usuarios. |
 
+**Status 2026-11-26: code done and deployed; one data correction (H1) waits
+for the owner.**
+
+- H1: `src/lib/usage-reading.ts` — a reading may not grow faster than its unit
+  can since the previous one (24 h/day, 360,000 impressions/day, 1,500 km/day);
+  first readings have an absolute cap. Both writers use it (`/api/machines/[id]/usage`,
+  machine creation); 6 tests. The Roland 300's stored 25,019,831 "hours" is
+  still in the data — correcting it needs the owner's OK.
+- H2: `/m/[token]` prints dates with `formatCalendarDate` (new, in
+  `src/lib/format.ts`; no time-zone shift) and units with `usageUnitInline`.
+- H3: `/api/track/[token]` returns `deadline_passed` (plant date) and
+  `shop_name` from `src/lib/company-profile.ts` (`app_settings.key='company'`,
+  the one source M12 will edit). Late orders read "en proceso, nueva fecha por
+  confirmar"; "GonsAdmin" is gone.
+- H4: nothing to do — no escaped names remain in any table (they were the QA
+  clients deleted 2026-11-25) and no code escapes on write.
+- H5: the real scope was 27 browser reads in 10 files, not 15. Ten hooks had
+  no callers and were deleted (8 in use-employees, useMaintenanceStats,
+  useWorkerName, useBatchesAvailable on a table that no longer exists). The
+  rest go through existing routes (machine supplies, inventory items, cost
+  model) or the new declared-read registry `GET /api/reads/[name]` (machine
+  costs, investments, payroll, Planta's HR context, publish-week limits,
+  calendar dates) — fixed table, columns, filters and roles per name, not a
+  table proxy. Found and fixed on the way: "Publicar semana" in Planta asked
+  for `contract_start_date`/`contract_end_date`, columns that do not exist.
+- H6: `src/lib/user-roles.ts` (`rolesByUserId`, from `user_roles`) used by
+  both Users and Diagnósticos; a failed read is reported, not shown as
+  "unknown".
+
 ---
 
 ## Phase 3 — UI (≈ 5 d, much of it absorbed by Phase 0)

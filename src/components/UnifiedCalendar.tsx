@@ -17,7 +17,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useActiveOTs } from '@/hooks/use-operations-queries';
-import { supabase } from '@/integrations/supabase/client';
+import { readApi } from '@/lib/read-api';
 import { useQuery } from '@tanstack/react-query';
 
 type CalEvent = {
@@ -41,12 +41,9 @@ function useMaintenanceEvents() {
       // query; destructuring only `data` (no `error`) turned that into a
       // silently empty maintenance layer on this calendar, one query away
       // from the `ots.due_date` bug already fixed here (2026-08 audit).
-      const { data, error } = await supabase
-        .from('maintenance_work_orders')
-        .select('id, title, scheduled_date')
-        .not('scheduled_date', 'is', null);
-      if (error) throw error;
-      return (data ?? []).map((r) => ({
+      // Server read (audit H5): GET /api/reads/maintenance-dates.
+      const data = await readApi<Array<{ id: string; title: string | null; scheduled_date: string }>>('maintenance-dates');
+      return data.map((r) => ({
         date: new Date(r.scheduled_date as string),
         label: r.title ?? 'Mantenimiento',
         type: 'maintenance' as const,
@@ -59,12 +56,9 @@ function useLeaveEvents() {
   return useQuery({
     queryKey: ['calendar-leaves'],
     queryFn: async () => {
-      const { data } = await (supabase as any)
-        .from('leave_requests')
-        .select('id, leave_type, start_date, employees(full_name)')
-        .eq('status', 'approved')
-        .not('start_date', 'is', null);
-      return (data ?? []).map((r: any) => ({
+      // Server read (audit H5). An error now surfaces instead of an empty layer.
+      const data = await readApi<any[]>('leave-dates');
+      return data.map((r: any) => ({
         date: new Date(r.start_date),
         label: `${r.employees?.full_name ?? 'Empleado'} — ${r.leave_type ?? 'Licencia'}`,
         type: 'leave' as const,

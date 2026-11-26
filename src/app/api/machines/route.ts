@@ -7,6 +7,7 @@ import { MACHINE_STATUS_VALUES } from '@/types/machine-status';
 import { MACHINE_TYPE_VALUES } from '@/types/machine-type';
 import { MACHINE_USAGE_UNIT_VALUES } from '@/types/machine-usage-unit';
 import { MACHINE_CONSUMPTION_MODE_VALUES } from '@/types/machine-consumption-mode';
+import { checkUsageReading } from '@/lib/usage-reading';
 
 // ── Segment config ──────────────────────────────────────────────────────────
 // The route handler must be dynamic so auth runs per-request.
@@ -139,6 +140,14 @@ export async function POST(req: NextRequest) {
 		}
 
 		if (usage_counter != null && usage_counter > 0 && data) {
+			// The same physical bound as every other reading (audit H1).
+			const check = checkUsageReading({ unit: data.usage_unit, reading: usage_counter, readAt: new Date().toISOString(), previous: null });
+			if (!check.ok) {
+				return NextResponse.json(
+					{ ...data, warning: `La máquina se creó, pero la lectura inicial no se registró: ${check.error}` },
+					{ status: 201 }
+				);
+			}
 			const { error: readingError } = await supabaseAdmin
 				.from('machine_usage_readings')
 				.insert({

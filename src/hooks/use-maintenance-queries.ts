@@ -1,7 +1,6 @@
 'use client';
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
 
 const isDevBypass =
   process.env.NODE_ENV === 'development' &&
@@ -190,33 +189,8 @@ export function useMaintenanceWorkOrdersByStatus(statuses: string[]) {
   });
 }
 
-export function useMaintenanceStats() {
-  return useQuery({
-    queryKey: [...queryKeys.workOrders, 'stats'],
-    queryFn: async () => {
-      if (isDevBypass) {
-        const rows = devWorkOrders;
-        return {
-          pending: rows.filter((row) => row.status === 'pending').length,
-          in_progress: rows.filter((row) => row.status === 'in_progress').length,
-          completed: rows.filter((row) => row.status === 'completed').length,
-          total: rows.length,
-        };
-      }
-
-      const { data, error } = await supabase.from('maintenance_work_orders').select('status');
-      if (error) throw error;
-      const rows = data ?? [];
-      return {
-        pending: rows.filter((row) => row.status === 'pending').length,
-        in_progress: rows.filter((row) => row.status === 'in_progress').length,
-        completed: rows.filter((row) => row.status === 'completed').length,
-        total: rows.length,
-      };
-    },
-    staleTime: 30_000,
-  });
-}
+// useMaintenanceStats read maintenance_work_orders from the browser and had
+// no callers; removed in the server-read sweep (audit H5, 2026-11-26).
 
 /**
  * Which workstations are out of service right now because their machine has an

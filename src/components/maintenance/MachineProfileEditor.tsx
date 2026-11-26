@@ -24,7 +24,6 @@ import {
   type MachineStatus,
 } from '@/hooks/use-machines';
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
 import { Cpu, Zap, Package, Settings, Plus, Trash2, AlertTriangle, Gauge, Scan } from 'lucide-react';
 import {
   MACHINE_USAGE_UNIT_VALUES,
@@ -59,13 +58,12 @@ export function MachineProfileEditor({ machine, onSaved, onCancel }: Props) {
   const { data: inventoryItems = [] } = useQuery({
     queryKey: ['inventory_items_for_machine'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('inventory_items')
-        .select('id, name, unit, category')
-        .eq('is_active', true)
-        .order('name');
-      if (error) throw error;
-      return data ?? [];
+      // Active items from their route (audit H5), not the table.
+      const res = await fetch('/api/inventory/items?limit=500', { credentials: 'include' });
+      const body = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(body?.error ?? 'No se pudieron cargar los ítems');
+      return ((body?.data ?? []) as Array<{ id: string; name: string; unit: string; category: string | null }>)
+        .map(({ id, name, unit, category }) => ({ id, name, unit, category }));
     },
   });
 

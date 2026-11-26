@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/integrations/supabase/server';
 import { approvalState, approvalSummary, type ApprovalRow } from '@/lib/approval';
+import { getCompanyProfile } from '@/lib/company-profile';
+import { plantParts } from '@/lib/plant-calendar';
 
 // GET /api/track/[token] — public, no auth required.
 // token = ots.share_token (a dedicated random uuid, NOT the primary key —
@@ -57,6 +59,15 @@ export async function GET(
 
   const estado = approvalState((aprobaciones ?? []) as unknown as ApprovalRow[]);
 
+  // A promise the shop already missed is not shown as a promise (audit H3):
+  // the page says the new date is being confirmed. Compared as plant-calendar
+  // dates, so "today" is today in the shop, not in UTC.
+  const p = plantParts(Date.now());
+  const today = `${p.year}-${String(p.month).padStart(2, '0')}-${String(p.day).padStart(2, '0')}`;
+  const deadlineDay = typeof ot.deadline === 'string' ? ot.deadline.slice(0, 10) : null;
+  const deadlinePassed = !!deadlineDay && deadlineDay < today && ot.status !== 'completed';
+  const company = await getCompanyProfile().catch(() => ({ name: null }));
+
   return NextResponse.json({
     ot_number: ot.ot_number,
     client_name: ot.client_name,
@@ -64,6 +75,8 @@ export async function GET(
     quantity: ot.quantity,
     status: ot.status,
     deadline: ot.deadline,
+    deadline_passed: deadlinePassed,
+    shop_name: company.name,
     created_at: ot.created_at,
     history: (history ?? []).map((h) => ({ status: h.to_status, at: h.created_at })),
     approval: {

@@ -33,3 +33,23 @@ export function formatCLP(amount: number): string {
 export function pesos(quantity: number, unitCost: number): number {
   return Math.round(quantity * unitCost);
 }
+
+const MESES_CORTOS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+
+/**
+ * A calendar date («29 oct 2026», or «29 oct» with `withYear: false») from a
+ * stored date or timestamp, WITHOUT a time-zone shift.
+ *
+ * `scheduled_date` and `deadline` come back as «2026-10-29» or
+ * «2026-10-29T00:00:00+00:00»: midnight UTC. `new Date(...)` turns that into
+ * the evening of the 28th in Chile, and printing it raw showed the ISO string
+ * on the public QR page (audit H2). The day the user picked is the first ten
+ * characters — that is what gets shown.
+ */
+export function formatCalendarDate(value: string | null | undefined, opts: { withYear?: boolean } = {}): string {
+	const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(value ?? '');
+	if (!m) return '—';
+	const [, y, mo, d] = m;
+	const day = `${Number(d)} ${MESES_CORTOS[Number(mo) - 1]}`;
+	return opts.withYear === false ? day : `${day} ${y}`;
+}

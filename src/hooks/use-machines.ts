@@ -1,7 +1,6 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
 import type { MachineStatus } from '@/types/machine-status';
 export type { MachineStatus } from '@/types/machine-status';
 import type { MachineType } from '@/types/machine-type';
@@ -198,13 +197,11 @@ export function useMachineSupplies(machineId: string | undefined | null) {
     queryKey: Q.supplies(machineId ?? ''),
     enabled: Boolean(machineId),
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('machine_supply_requirements')
-        .select('*, inventory_items(id, name, unit, category)')
-        .eq('machine_id', machineId!)
-        .order('is_critical', { ascending: false });
-      if (error) throw error;
-      return (data ?? []) as MachineSupplyRequirement[];
+      // Its route, not the table (audit H5).
+      const res = await fetch(`/api/machine-supplies?machine_id=${encodeURIComponent(machineId!)}`, { credentials: 'include' });
+      const body = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(body?.error ?? 'No se pudieron cargar los insumos');
+      return (body ?? []) as MachineSupplyRequirement[];
     },
   });
 }

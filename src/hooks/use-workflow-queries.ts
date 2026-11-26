@@ -2,7 +2,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { shiftPaidHours } from '@/lib/shift-hours';
-import { supabase } from '@/integrations/supabase/client';
+import { readApi } from '@/lib/read-api';
 import { ACTIVE_OT_STATUSES } from '@/lib/ot-state-machine';
 
 export const queryKeys = {
@@ -390,15 +390,8 @@ export function useCompensationRatesForDate(date?: string) {
   return useQuery({
     queryKey: queryKeys.compensationRates(dateValue),
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('compensation_rates')
-        .select(
-          'employee_id, hourly_rate, currency_code, overtime_multiplier_50, overtime_multiplier_100, night_shift_multiplier, weekend_multiplier, effective_from, effective_to'
-        )
-        .lte('effective_from', dateValue)
-        .or(`effective_to.is.null,effective_to.gte.${dateValue}`);
-      if (error) throw error;
-      return data ?? [];
+      // Server reads, not the tables (audit H5): /api/reads/*.
+      return readApi<any[]>('compensation-on', { date: dateValue });
     },
   });
 }
@@ -407,15 +400,9 @@ export function useSchedulingCostModel() {
   return useQuery({
     queryKey: queryKeys.schedulingCostModel,
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('scheduling_cost_models')
-        .select('*')
-        .eq('is_active', true)
-        .order('updated_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      if (error) throw error;
-      return data ?? null;
+      const res = await fetch('/api/scheduling-cost-models', { credentials: 'include' });
+      if (!res.ok) throw new Error(`No se pudo cargar el modelo de costos (${res.status})`);
+      return (await res.json()) ?? null;
     },
   });
 }
@@ -523,14 +510,7 @@ export function useWorkflowLeaveStatuses(referenceDate?: string) {
   return useQuery({
     queryKey: queryKeys.workflowLeaveStatuses(dateValue),
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('leave_requests')
-        .select('employee_id, leave_type, status, start_date, end_date')
-        .lte('start_date', dateValue)
-        .gte('end_date', dateValue)
-        .in('status', ['approved', 'pending']);
-      if (error) throw error;
-      return data ?? [];
+      return readApi<any[]>('leave-on', { date: dateValue });
     },
   });
 }
@@ -548,13 +528,7 @@ export function useWorkflowIncentiveStatuses(referenceDate?: string) {
   return useQuery({
     queryKey: queryKeys.workflowIncentives(`${monthStart}:${monthEnd}`),
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('employee_incentives')
-        .select('employee_id, status, awarded_date, amount')
-        .gte('awarded_date', monthStart)
-        .lte('awarded_date', monthEnd);
-      if (error) throw error;
-      return data ?? [];
+      return readApi<any[]>('incentives-between', { from: monthStart, to: monthEnd });
     },
   });
 }
@@ -568,15 +542,7 @@ export function useWorkflowCertificationAlerts(referenceDate?: string) {
   return useQuery({
     queryKey: queryKeys.workflowCertAlerts(dateValue),
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('hr_documents')
-        .select('employee_id, title, status, expires_on, doc_type')
-        .eq('doc_type', 'certification')
-        .not('expires_on', 'is', null)
-        .lte('expires_on', cutoffDate)
-        .neq('status', 'archived');
-      if (error) throw error;
-      return data ?? [];
+      return readApi<any[]>('certification-alerts', { until: cutoffDate });
     },
   });
 }
@@ -586,11 +552,7 @@ export function useWorkflowContracts(referenceDate?: string) {
   return useQuery({
     queryKey: queryKeys.workflowContracts(dateValue),
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('employment_contracts')
-        .select('*')
-        .order('id', { ascending: false });
-      if (error) throw error;
+      const data = await readApi<any[]>('contracts');
 
       const normalized = (data ?? []).map((contract: any) => {
         const start = contract.contract_start_date ?? contract.start_date ?? null;

@@ -10,6 +10,7 @@
 import { NextResponse } from 'next/server';
 import { requireAuth, isAuthError } from '@/lib/api-middleware';
 import { supabaseAdmin } from '@/integrations/supabase/server';
+import { rolesByUserId } from '@/lib/user-roles';
 
 export const dynamic = 'force-dynamic';
 
@@ -204,10 +205,18 @@ export async function GET() {
 
 	const INACTIVE_THRESHOLD_DAYS = 14;
 	const cutoff = new Date(since);
+	// Roles from user_roles, the same lookup as the Users page (audit H6).
+	// A failed read is reported like any other query error, not as "unknown".
+	let roleByUser = new Map<string, { role: string }>();
+	try {
+		roleByUser = await rolesByUserId(rawUsers.map((u: any) => u.id));
+	} catch (err) {
+		queryErrors.push(err instanceof Error ? err.message : 'roles de usuario');
+	}
 	const users = rawUsers.map((u: any) => ({
 		id: u.id,
 		email: u.email ?? '—',
-		role: u.user_metadata?.role ?? u.app_metadata?.role ?? 'unknown',
+		role: roleByUser.get(u.id)?.role ?? 'sin rol',
 		created_at: u.created_at,
 		last_sign_in_at: u.last_sign_in_at ?? null,
 		confirmed_at: u.confirmed_at ?? null,

@@ -5,6 +5,7 @@ import { supabaseAdmin } from '@/integrations/supabase/server';
 import { MIN_PASSWORD_LENGTH, MAX_PASSWORD_LENGTH, checkPassword } from '@/lib/password-policy';
 import { buildRateLimitActor, enforceRouteRateLimit } from '@/lib/api-rate-limit';
 import { APP_ROLES, type AppRole } from '@/types/app-role';
+import { rolesByUserId } from '@/lib/user-roles';
 
 const CreateUserSchema = z.object({
 	email: z.string().email().max(255),
@@ -55,21 +56,18 @@ export async function GET(request: NextRequest) {
 		const authUsers = authList?.users ?? [];
 
 		// Fetch roles for all returned users
-		const userIds = authUsers.map((u) => u.id);
-		const { data: roles, error: rolesError } = await supabaseAdmin
-			.from('user_roles')
-			.select('*')
-			.in('user_id', userIds.length > 0 ? userIds : ['__none__']);
-
 		// A failed roles fetch must not silently render as "everyone has no
 		// role" — that's indistinguishable from a genuinely unassigned user.
-		if (rolesError) {
+		let roles: Awaited<ReturnType<typeof rolesByUserId>>;
+		try {
+			roles = await rolesByUserId(authUsers.map((u) => u.id));
+		} catch (rolesError) {
 			console.error('Error fetching user roles:', rolesError);
 			return NextResponse.json({ error: 'Failed to fetch user roles' }, { status: 500 });
 		}
 
 		const usersWithRoles = authUsers.map((u) => {
-			const userRole = (roles ?? []).find((r) => r.user_id === u.id);
+			const userRole = roles.get(u.id);
 			return {
 				id: u.id,
 				email: u.email,

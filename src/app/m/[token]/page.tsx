@@ -56,6 +56,8 @@ import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { deriveChecklistItems, type CompletedChecklistItem } from '@/lib/checklist-items';
 import { machineTypeLabel } from '@/types/machine-type';
+import { usageUnitInline } from '@/types/machine-usage-unit';
+import { formatCalendarDate } from '@/lib/format';
 
 interface Respuesta {
 	// Sin `id`: la ruta publica no lo devuelve (es un UUID interno que esta
@@ -180,7 +182,7 @@ function TarjetaOrden({ token, orden }: { token: string; orden: any }) {
 								{hechos} de {items.length} ítems
 							</span>
 						)}
-						{orden.scheduled_date && <span>Programada {orden.scheduled_date}</span>}
+						{orden.scheduled_date && <span>Programada {formatCalendarDate(orden.scheduled_date)}</span>}
 						{orden.avance_pendiente && (
 							<span className="text-amber-600 dark:text-amber-400">
 								esperando visto bueno
@@ -282,7 +284,7 @@ export default function EtiquetaMaquinaPage({ params }: { params: Promise<{ toke
 						<span className="inline-flex items-center gap-1">
 							<Gauge className="h-3.5 w-3.5" />
 							{machine.usage_counter.toLocaleString('es-CL')}
-							{machine.usage_unit ? ` ${machine.usage_unit}` : ''}
+							{machine.usage_unit ? ` ${usageUnitInline(machine.usage_unit)}` : ''}
 						</span>
 					)}
 				</div>
