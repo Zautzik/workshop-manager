@@ -211,6 +211,9 @@ async function laborRows(otId: string, passes: PassForLabor[]) {
 				ref_type: STAGE_PASS_REF,
 				ref_id: p.id,
 				description: laborLineDescription({ who, hours: l.hours, shiftName: l.shift_name, date: l.date, missingRate: l.rate == null }),
+				// Who this line is for. The name above is for people to read;
+				// readers group by this id (migration 20261126130000).
+				employee_id: l.employee_id,
 				quantity: l.hours,
 				unit: 'hrs',
 				unit_cost: l.rate ?? 0,

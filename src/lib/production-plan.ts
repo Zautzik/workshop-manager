@@ -25,7 +25,11 @@ export interface PlanPayload {
 	generatedAt: string;
 	ots: Array<RouteOT & Omit<SchedOT, 'steps'>>;
 	machines: Array<SchedMachine & { status?: string | null; ajuste_by_operator?: OperatorAjuste[] }>;
-	pins: Array<{ slotId: string; otId: string; machineId: string; planStep: string | null; start: string; end: string }>;
+	pins: Array<{
+		slotId: string; otId: string; machineId: string; planStep: string | null; start: string; end: string;
+		/** Typed when the slot was pinned; Hoja de Producción prints them. */
+		paperLabel?: string | null; sheetWidthCm?: number | null; sheetHeightCm?: number | null;
+	}>;
 	history: StageHistory;
 	/** Quién está asignado a cada prensa en los próximos días (`worker_assignments`). */
 	upcomingOperators?: Array<{ machine_id: string; date: string; name: string }>;

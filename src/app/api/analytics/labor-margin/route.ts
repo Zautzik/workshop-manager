@@ -3,7 +3,7 @@ import { requireAuth, isAuthError } from '@/lib/api-middleware';
 import { supabaseAdmin } from '@/integrations/supabase/server';
 import { fetchAll } from '@/lib/fetch-all';
 import { STAGE_PASS_REF } from '@/lib/stage-valuation';
-import { personOfLaborLine } from '@/lib/labor-line';
+import { laborLinePerson } from '@/lib/labor-line';
 
 export const dynamic = 'force-dynamic';
 
@@ -38,7 +38,7 @@ export async function GET(req: NextRequest) {
 	const linesPage = (desde: number, hasta: number) => {
 		let q = supabaseAdmin
 			.from('ot_cost_lines')
-			.select('ot_id, ref_id, description, quantity, unit_cost, total, occurred_at')
+			.select('ot_id, ref_id, employee_id, description, quantity, unit_cost, total, occurred_at')
 			.eq('kind', 'actual')
 			.eq('category', 'labor')
 			.eq('ref_type', STAGE_PASS_REF);
@@ -58,13 +58,17 @@ export async function GET(req: NextRequest) {
 	let lines: any[];
 	let passes: any[];
 	let ratesCount: number;
+	let nameById: Map<string, string>;
 	try {
-		const [l, p, r] = await Promise.all([
+		const [l, p, r, e] = await Promise.all([
 			fetchAll<any>(linesPage),
 			fetchAll<any>(passesPage),
 			supabaseAdmin.from('compensation_rates').select('id', { count: 'exact', head: true }),
+			supabaseAdmin.from('employees').select('id, full_name'),
 		]);
 		if (r.error) throw new Error(r.error.message);
+		if (e.error) throw new Error(e.error.message);
+		nameById = new Map((e.data ?? []).map((x) => [x.id as string, x.full_name as string]));
 		lines = l.rows;
 		passes = p.rows;
 		ratesCount = r.count ?? 0;
@@ -96,8 +100,9 @@ export async function GET(req: NextRequest) {
 		g.hours += Number(l.quantity ?? 0);
 		g.cost += Number(l.total ?? 0);
 		if (l.occurred_at && (!g.last || l.occurred_at > g.last)) g.last = l.occurred_at;
-		const who = personOfLaborLine(l.description);
-		if (who) g.people.add(who);
+		// Who: the line's employee_id (current name), or its text for old lines.
+		const who = laborLinePerson(l, nameById);
+		if (who) g.people.add(who.name);
 		byOt.set(l.ot_id, g);
 	}
 

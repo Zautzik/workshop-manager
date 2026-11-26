@@ -12,9 +12,18 @@
  * (useProductionSchedule → buildSchedule), grouped by machine and clipped to
  * the day. Placing or moving work is done in Planificación — pinning a block
  * there is what writes `ot_machine_schedule`.
+ *
+ * Kept from the old sheet (owner, 2026-11-26): the ORD→PAP advance control
+ * (same PATCH as Órdenes en Proceso), the paper type and the press-sheet size.
+ * Paper and sheet come from the pinned slot when there is one (what was typed
+ * when pinning), else from the OT's other slots / its substrate.
  */
 
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { AdvanceFlags } from '@/components/workflow/AdvanceFlags';
+import { useToast } from '@/hooks/use-toast';
+import { queryKeys } from '@/hooks/use-workflow-queries';
 import Link from 'next/link';
 import { ChevronLeft, ChevronRight, Printer, RefreshCw, Pin, AlertTriangle, Wrench, CalendarRange } from 'lucide-react';
 import { useProductionSchedule } from '@/hooks/use-production-schedule';
@@ -58,7 +67,41 @@ interface LaneDay {
 
 export function HojaProduccion() {
   const [selectedDate, setSelectedDate] = useState(dateToLocalIso(new Date()));
-  const { schedule, plan, isLoading, isError, error, refetch, isFetching } = useProductionSchedule();
+  const { schedule, plan, data: payload, isLoading, isError, error, refetch, isFetching } = useProductionSchedule();
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  // The same write as Órdenes en Proceso: PATCH the OT, then refresh both the
+  // plan (Hoja, Cronograma) and every OT list (Tablero, En Proceso).
+  const patchFlag = useCallback(async (otId: string, flag: string, value: boolean) => {
+    const res = await fetch(`/api/ots/${otId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ [flag]: value }),
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => null);
+      toast({ title: 'Error al guardar', description: body?.error, variant: 'destructive' });
+      return;
+    }
+    queryClient.invalidateQueries({ queryKey: ['planificacion'] });
+    queryClient.invalidateQueries({ queryKey: queryKeys.ots });
+  }, [queryClient, toast]);
+
+  // Paper and sheet size: from the slot pinned for this block, else from any
+  // slot of the OT (sheet), else the OT's substrate + grammage (paper).
+  const slotInfo = useMemo(() => {
+    const bySlot = new Map<string, { paper: string | null; sheet: string | null }>();
+    const byOt = new Map<string, { paper: string | null; sheet: string | null }>();
+    for (const pin of payload?.pins ?? []) {
+      const sheet = pin.sheetWidthCm && pin.sheetHeightCm ? `${pin.sheetWidthCm}×${pin.sheetHeightCm}` : null;
+      const info = { paper: pin.paperLabel ?? null, sheet };
+      bySlot.set(pin.slotId, info);
+      const prev = byOt.get(pin.otId);
+      byOt.set(pin.otId, { paper: prev?.paper ?? info.paper, sheet: prev?.sheet ?? info.sheet });
+    }
+    return { bySlot, byOt };
+  }, [payload]);
   const [dayStart, dayEnd] = useMemo(() => dayBounds(selectedDate), [selectedDate]);
 
   const otById = useMemo(() => new Map((plan?.ots ?? []).map((o) => [o.id, o as any])), [plan]);
@@ -162,6 +205,7 @@ export function HojaProduccion() {
                 <table className="w-full border-collapse text-xs">
                   <thead>
                     <tr className="border-b border-border bg-muted/20 text-[11px] uppercase tracking-wide text-muted-foreground">
+                      <th className="w-[150px] px-2 py-2 text-left print:hidden">Avance</th>
                       <th className="w-[90px] px-2 py-2 text-left">Horario</th>
                       <th className="w-[70px] px-2 py-2 text-left">O.T.</th>
                       <th className="px-2 py-2 text-left">Cliente</th>
@@ -169,6 +213,8 @@ export function HojaProduccion() {
                       <th className="px-2 py-2 text-left">Etapa</th>
                       <th className="w-[70px] px-2 py-2 text-right">Cant.</th>
                       <th className="w-[50px] px-2 py-2 text-center">Color</th>
+                      <th className="px-2 py-2 text-left">Tipo papel</th>
+                      <th className="w-[70px] px-2 py-2 text-center">Medio</th>
                       <th className="w-[60px] px-2 py-2 text-right">Pliegos</th>
                       <th className="w-[45px] px-2 py-2 text-right">HRS</th>
                       <th className="w-[55px] px-2 py-2 text-center">Entrega</th>
@@ -180,7 +226,8 @@ export function HojaProduccion() {
                         <td className="whitespace-nowrap px-2 py-1.5 font-mono">
                           {formatPlantTime(Math.max(m.start, dayStart))}–{formatPlantTime(Math.min(m.end, dayEnd))}
                         </td>
-                        <td colSpan={9} className="px-2 py-1.5 text-amber-700 dark:text-amber-400">
+                        <td className="print:hidden" />
+                        <td colSpan={11} className="px-2 py-1.5 text-amber-700 dark:text-amber-400">
                           <Wrench className="mr-1 inline h-3 w-3" /> Mantención: {m.title} ({fmtH(m.hours)} h)
                         </td>
                       </tr>
@@ -190,8 +237,23 @@ export function HojaProduccion() {
                       const late = !!ot?.deadline && new Date(ot.deadline).getTime() < b.end;
                       const continues = b.end > dayEnd;
                       const started = b.start < dayStart;
+                      const pinned = b.slotId ? slotInfo.bySlot.get(b.slotId) : undefined;
+                      const anySlot = slotInfo.byOt.get(b.otId);
+                      const otPaper = ot?.substrate_type ? `${ot.substrate_type}${ot.grammage_gsm ? ` ${ot.grammage_gsm} g` : ''}` : null;
+                      const paper = pinned?.paper ?? otPaper ?? anySlot?.paper ?? null;
+                      const sheet = pinned?.sheet ?? anySlot?.sheet ?? null;
                       return (
-                        <tr key={b.id} className={`border-b border-border/50 ${idx % 2 ? 'bg-muted/5' : ''}`}>
+                        <tr key={b.id} className={`border-b border-border/50 ${!ot?.flag_paper_arrived ? 'bg-amber-500/5' : idx % 2 ? 'bg-muted/5' : ''}`}>
+                          <td className="px-2 py-1.5 print:hidden">
+                            {ot && (
+                              <AdvanceFlags
+                                ot={ot}
+                                size="sm"
+                                onAdvance={(key) => patchFlag(ot.id, key, true)}
+                                onUndo={(key) => patchFlag(ot.id, key, false)}
+                              />
+                            )}
+                          </td>
                           <td className="whitespace-nowrap px-2 py-1.5 font-mono text-foreground">
                             {started ? '…' : ''}{formatPlantTime(Math.max(b.start, dayStart))}–{formatPlantTime(Math.min(b.end, dayEnd))}{continues ? '…' : ''}
                           </td>
@@ -212,6 +274,8 @@ export function HojaProduccion() {
                           </td>
                           <td className="px-2 py-1.5 text-right tabular-nums">{ot?.quantity != null ? Number(ot.quantity).toLocaleString('es-CL') : '—'}</td>
                           <td className="px-2 py-1.5 text-center font-mono">{formatColor(ot?.color_front, ot?.color_back)}</td>
+                          <td className="px-2 py-1.5 text-foreground">{paper ?? '—'}</td>
+                          <td className="px-2 py-1.5 text-center font-mono text-muted-foreground">{sheet ?? '—'}</td>
                           <td className="px-2 py-1.5 text-right tabular-nums text-muted-foreground">{ot?.calc_sheets != null ? Number(ot.calc_sheets).toLocaleString('es-CL') : '—'}</td>
                           <td className="px-2 py-1.5 text-right font-mono" title={`Estimado por ${b.source}`}>{fmtH(b.hours)}</td>
                           <td className={`px-2 py-1.5 text-center tabular-nums ${late ? 'font-semibold text-destructive' : 'text-foreground'}`}>

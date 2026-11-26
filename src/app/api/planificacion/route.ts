@@ -57,7 +57,9 @@ const ROUTE_FIELDS = [
 	'route_steps',
 ].join(', ');
 
-const OT_FIELDS = `${ROUTE_FIELDS}, ot_number, client_name, product_name, deadline, priority_level, created_at`;
+// Además de la ruta: lo que la Hoja de Producción imprime por OT — el papel
+// (substrate/gramaje) y las banderas de avance ORD→PAP que se marcan ahí.
+const OT_FIELDS = `${ROUTE_FIELDS}, ot_number, client_name, product_name, deadline, priority_level, created_at, substrate_type, grammage_gsm, flag_ord, flag_pro, flag_vbp, flag_plan`;
 
 const CHUNK = 150;
 
@@ -347,6 +349,10 @@ export async function GET() {
 				planStep: p.plan_step ?? null,
 				start: p.scheduled_start,
 				end: p.scheduled_end,
+				// Lo que se tipeó al fijar el horario: la Hoja lo imprime.
+				paperLabel: p.paper_type_label ?? null,
+				sheetWidthCm: p.sheet_width_cm ?? null,
+				sheetHeightCm: p.sheet_height_cm ?? null,
 			})),
 			history,
 			upcomingOperators,

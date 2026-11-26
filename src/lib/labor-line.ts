@@ -29,3 +29,24 @@ export function personOfLaborLine(description: string | null | undefined): strin
 	const m = /^Mano de obra — (.+?) \(/.exec(description ?? '');
 	return m ? m[1] : null;
 }
+
+/**
+ * Who a labour line is for — the one rule every reader uses.
+ *
+ * Since migration 20261126130000 the line carries `employee_id`: that is the
+ * identity, and the name shown is the person's CURRENT name (a renamed ficha
+ * does not split their hours in two). A line without an id (written before
+ * the migration and not backfilled because its name was ambiguous) falls back
+ * to the name in its text, keyed by that name so it never merges into
+ * someone else's id.
+ */
+export function laborLinePerson(
+	line: { employee_id?: string | null; description?: string | null },
+	nameById: Map<string, string>,
+): { key: string; employeeId: string | null; name: string } | null {
+	if (line.employee_id) {
+		return { key: line.employee_id, employeeId: line.employee_id, name: nameById.get(line.employee_id) ?? personOfLaborLine(line.description) ?? 'Operario' };
+	}
+	const name = personOfLaborLine(line.description);
+	return name ? { key: `name:${name}`, employeeId: null, name } : null;
+}
