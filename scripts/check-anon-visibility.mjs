@@ -94,7 +94,6 @@ const SENSIBLES = [
   'compensation_rates',
   'hr_documents',
   'employee_incentives',
-  'attendance_events',
 ];
 
 // Las doce que la migración 20261014120000 pone bajo RLS. Antes de aplicarla se

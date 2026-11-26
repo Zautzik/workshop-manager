@@ -76,8 +76,12 @@ async (page) => {
           // cut off and unreachable — that is the failure this guard exists for.
           const ownScrollBox = (el) => {
             for (let p = el.parentElement; p && p !== scroller && p !== document.body; p = p.parentElement) {
-              const ox = getComputedStyle(p).overflowX;
+              const cs = getComputedStyle(p);
+              const ox = cs.overflowX;
               if (ox === 'auto' || ox === 'scroll') return p.getBoundingClientRect().right <= W + 1;
+              // Deliberate truncation with an ellipsis inside the screen is not
+              // lost content: the text ends in "…" (and should carry a title).
+              if (cs.textOverflow === 'ellipsis' && ox === 'hidden') return p.getBoundingClientRect().right <= W + 1;
             }
             return false;
           };
