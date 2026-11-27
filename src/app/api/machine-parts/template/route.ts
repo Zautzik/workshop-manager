@@ -15,7 +15,7 @@ export async function GET(req: NextRequest) {
   if (isAuthError(auth)) return auth;
 
   const machineId = new URL(req.url).searchParams.get('machine_id');
-  if (!machineId || !z.string().uuid().safeParse(machineId).success) {
+  if (!machineId || !z.string().guid().safeParse(machineId).success) {
     return NextResponse.json({ error: 'Se requiere machine_id' }, { status: 400 });
   }
 
@@ -56,9 +56,9 @@ export async function GET(req: NextRequest) {
 }
 
 const ApplySchema = z.object({
-  machine_id: z.string().uuid(),
+  machine_id: z.string().guid(),
   items: z.array(z.object({
-    system_id: z.string().uuid(),
+    system_id: z.string().guid(),
     name: z.string().min(2).max(160),
     criticality: z.enum(['critica', 'alta', 'media', 'baja']),
     position: z.string().max(120).nullable().optional(),

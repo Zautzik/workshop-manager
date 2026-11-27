@@ -22,7 +22,7 @@ export const dynamic = 'force-dynamic';
 const QuerySchema = z.object({
 	page: z.coerce.number().int().min(1).default(1),
 	limit: z.coerce.number().int().min(1).max(500).default(200),
-	employee_id: z.string().uuid().optional(),
+	employee_id: z.string().guid().optional(),
 	certified: z.enum(['true', 'false']).optional(),
 });
 

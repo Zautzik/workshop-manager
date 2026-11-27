@@ -85,7 +85,7 @@ export async function PATCH(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const id = searchParams.get('id');
 
-  if (!id || !z.string().uuid().safeParse(id).success) {
+  if (!id || !z.string().guid().safeParse(id).success) {
     return NextResponse.json({ error: 'Se requiere un ID de modelo válido' }, { status: 400 });
   }
 

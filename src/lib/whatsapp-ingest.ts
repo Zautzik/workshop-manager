@@ -478,6 +478,21 @@ async function processEvent(event: ParseResult, ctx: EventContext): Promise<Even
   };
 }
 
+/**
+ * La llave de idempotencia de cada evento de un mensaje.
+ *
+ * Un wamid puede traer varios eventos («Fin OT 40879 …, entro OT 40965» es un
+ * FIN y un INICIO), y el índice único de `external_message_id` admite una fila
+ * por llave: con el mismo wamid para los dos, el INICIO volvía como duplicado y
+ * se perdía. El primer evento conserva el wamid tal cual —las filas ya
+ * guardadas siguen deduplicando su reentrega—; los siguientes llevan `#1`,
+ * `#2`. El parser es determinista, así que una reentrega arma las mismas llaves.
+ */
+export function eventMessageKey(messageId: string | null, index: number): string | null {
+  if (messageId == null) return null;
+  return index === 0 ? messageId : `${messageId}#${index}`;
+}
+
 /* ─── Main entry ─────────────────────────────────────────────── */
 
 export interface EmployeeMatch {
@@ -581,8 +596,8 @@ export async function processMessage(input: InboundMessage): Promise<ProcessResu
   };
 
   const outcomes: EventOutcome[] = [];
-  for (const event of events) {
-    outcomes.push(await processEvent(event, ctx));
+  for (const [i, event] of events.entries()) {
+    outcomes.push(await processEvent(event, { ...ctx, messageId: eventMessageKey(ctx.messageId, i) }));
   }
 
   // ── Photo evidence: attach to the first event that hit a real OT ──

@@ -14,13 +14,13 @@ export const dynamic = 'force-dynamic';
 const CRITICALITIES = ['critica', 'alta', 'media', 'baja'] as const;
 
 const PartSchema = z.object({
-  machine_id: z.string().uuid(),
-  system_id: z.string().uuid(),
+  machine_id: z.string().guid(),
+  system_id: z.string().guid(),
   name: z.string().min(2).max(160),
   part_number: z.string().max(80).nullable().optional(),
   position: z.string().max(120).nullable().optional(),
   quantity_installed: z.coerce.number().min(0).optional(),
-  inventory_item_id: z.string().uuid().nullable().optional(),
+  inventory_item_id: z.string().guid().nullable().optional(),
   criticality: z.enum(CRITICALITIES).optional(),
   lead_time_days: z.coerce.number().int().min(0).max(730).nullable().optional(),
   preferred_supplier: z.string().max(160).nullable().optional(),
@@ -218,7 +218,7 @@ export async function PATCH(req: NextRequest) {
 
   try {
     const { id, notes } = (await req.json()) ?? {};
-    if (!id || !z.string().uuid().safeParse(id).success) {
+    if (!id || !z.string().guid().safeParse(id).success) {
       return NextResponse.json({ error: 'Se requiere el ID de la pieza' }, { status: 400 });
     }
 
@@ -260,7 +260,7 @@ export async function DELETE(req: NextRequest) {
 
   const { searchParams } = new URL(req.url);
   const id = searchParams.get('id');
-  if (!id || !z.string().uuid().safeParse(id).success) {
+  if (!id || !z.string().guid().safeParse(id).success) {
     return NextResponse.json({ error: 'Se requiere un ID de pieza válido' }, { status: 400 });
   }
 

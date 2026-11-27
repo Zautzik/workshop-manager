@@ -60,7 +60,7 @@ function fallaInterna(contexto: string, detalle: unknown) {
 		{ status: 500 },
 	);
 }
-const TokenSchema = z.string().uuid();
+const TokenSchema = z.string().guid();
 
 /**
  * Lo que el QR puede cambiar: arrancar, marcar ítems, cerrar, y dejar una nota.
@@ -145,7 +145,7 @@ export async function PATCH(
 ) {
 	const { token, orderId } = await params;
 
-	if (!TokenSchema.safeParse(token).success || !z.string().uuid().safeParse(orderId).success) {
+	if (!TokenSchema.safeParse(token).success || !z.string().guid().safeParse(orderId).success) {
 		return NextResponse.json({ error: 'Etiqueta u orden no válida' }, { status: 404 });
 	}
 

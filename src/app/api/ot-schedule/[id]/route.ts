@@ -6,7 +6,7 @@ import { PLAN_STEP_KEYS } from '@/lib/production-route';
 import { syncAssignedMachine } from '@/lib/schedule-sync';
 
 const UpdateSlotSchema = z.object({
-	machine_id: z.string().uuid().optional(),
+	machine_id: z.string().guid().optional(),
 	scheduled_start: z.string().datetime().optional().nullable(),
 	scheduled_end: z.string().datetime().optional().nullable(),
 	actual_start: z.string().datetime().optional().nullable(),
@@ -31,7 +31,7 @@ export async function PATCH(
 	if (isAuthError(auth)) return auth;
 
 	const { id } = await context.params;
-	if (!id || !z.string().uuid().safeParse(id).success) {
+	if (!id || !z.string().guid().safeParse(id).success) {
 		return NextResponse.json({ error: 'Valid slot id required' }, { status: 400 });
 	}
 
@@ -78,7 +78,7 @@ export async function DELETE(
 	if (isAuthError(auth)) return auth;
 
 	const { id } = await context.params;
-	if (!id || !z.string().uuid().safeParse(id).success) {
+	if (!id || !z.string().guid().safeParse(id).success) {
 		return NextResponse.json({ error: 'Valid slot id required' }, { status: 400 });
 	}
 

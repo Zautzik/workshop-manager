@@ -4,7 +4,7 @@ import { isAuthError, requireAuth } from '@/lib/api-middleware';
 import { supabaseAdmin } from '@/integrations/supabase/server';
 
 const PatchSchema = z.object({
-  ids: z.array(z.string().uuid()).min(1).max(200).optional(),
+  ids: z.array(z.string().guid()).min(1).max(200).optional(),
   mark_all_read: z.boolean().optional(),
 });
 
@@ -23,7 +23,7 @@ const CreateSchema = z.object({
   title: z.string().min(1).max(255),
   message: z.string().max(2000).nullable().optional(),
   resource_type: z.string().max(50).nullable().optional(),
-  resource_id: z.string().uuid().nullable().optional(),
+  resource_id: z.string().guid().nullable().optional(),
   metadata: z.record(z.string(), z.unknown()).optional(),
 });
 

@@ -34,7 +34,7 @@ const IsoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 const UuidList = z
   .string()
   .transform((s) => s.split(',').map((x) => x.trim()).filter(Boolean))
-  .pipe(z.array(z.string().uuid()).min(1).max(500));
+  .pipe(z.array(z.string().guid()).min(1).max(500));
 
 function date(p: URLSearchParams, key: string): string {
   const r = IsoDate.safeParse(p.get(key) ?? '');

@@ -18,7 +18,7 @@ export async function PATCH(
 
 	try {
 		const { id } = await context.params;
-		if (!id || !z.string().uuid().safeParse(id).success) {
+		if (!id || !z.string().guid().safeParse(id).success) {
 			return NextResponse.json({ error: 'Valid worker id required' }, { status: 400 });
 		}
 
@@ -69,7 +69,7 @@ export async function DELETE(
 
 	try {
 		const { id } = await context.params;
-		if (!id || !z.string().uuid().safeParse(id).success) {
+		if (!id || !z.string().guid().safeParse(id).success) {
 			return NextResponse.json({ error: 'Valid worker id required' }, { status: 400 });
 		}
 

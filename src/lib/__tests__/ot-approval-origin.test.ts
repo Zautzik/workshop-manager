@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
 	PORTAL_ACTOR,
+	aprobacionParaMover,
 	cuentaParaCalidadInterna,
 	esDelPortalPublico,
 } from '../ot-approval-origin';
@@ -85,5 +86,37 @@ describe('cuentaParaCalidadInterna', () => {
 				recorded_by: PORTAL_ACTOR,
 			})
 		).toBe(false);
+	});
+});
+
+/**
+ * Las dos compuertas que miran `ot_approvals` piden cosas distintas:
+ *  - comprar papel (`paper_purchase`) pide el visto bueno DEL CLIENTE — y el
+ *    portal es el cliente mismo, así que su firma cuenta;
+ *  - lista para despacho pide la revisión INTERNA — ahí el portal no cuenta.
+ * `moveOT` aplicaba la regla interna a las dos: una OT que el cliente aprobó
+ * por el enlace no se podía pasar a Compra de Papel desde el Tablero.
+ */
+describe('aprobacionParaMover', () => {
+	const portal = { status: 'approved', confirmed_via: 'portal', recorded_by: PORTAL_ACTOR };
+	const vendedor = { status: 'approved', confirmed_via: 'correo', recorded_by: 'u-vendedor' };
+	const rechazo = { status: 'rejected', confirmed_via: 'correo', recorded_by: 'u-vendedor' };
+
+	it('la firma del cliente por el portal habilita comprar papel', () => {
+		expect(aprobacionParaMover('paper_purchase', [portal])).toBe(true);
+	});
+
+	it('la firma del portal NO es la revisión de calidad para despachar', () => {
+		expect(aprobacionParaMover('ready_for_delivery', [portal])).toBe(false);
+	});
+
+	it('una aprobación registrada por el taller sirve para las dos', () => {
+		expect(aprobacionParaMover('paper_purchase', [vendedor])).toBe(true);
+		expect(aprobacionParaMover('ready_for_delivery', [vendedor])).toBe(true);
+	});
+
+	it('un rechazo o ninguna fila no habilitan nada', () => {
+		expect(aprobacionParaMover('paper_purchase', [rechazo])).toBe(false);
+		expect(aprobacionParaMover('paper_purchase', [])).toBe(false);
 	});
 });

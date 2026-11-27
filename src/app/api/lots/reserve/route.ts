@@ -19,8 +19,8 @@ export const dynamic = 'force-dynamic';
  */
 
 const Reservar = z.object({
-  lot_id: z.string().uuid(),
-  ot_id: z.string().uuid(),
+  lot_id: z.string().guid(),
+  ot_id: z.string().guid(),
   quantity: z.coerce.number().positive(),
 });
 
@@ -48,8 +48,8 @@ export async function POST(req: NextRequest) {
 }
 
 const Liberar = z.object({
-  ot_id: z.string().uuid(),
-  lot_id: z.string().uuid().nullish(),
+  ot_id: z.string().guid(),
+  lot_id: z.string().guid().nullish(),
   // Igual que anular una OC: una reserva que desaparece sin explicación es
   // indistinguible de un error.
   reason: z.string().min(5, 'Decí por qué se libera.').max(300),

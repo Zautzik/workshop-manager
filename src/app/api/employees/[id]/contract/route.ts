@@ -37,7 +37,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   }
 
   const { id } = await params;
-  if (!id || !z.string().uuid().safeParse(id).success) {
+  if (!id || !z.string().guid().safeParse(id).success) {
     return NextResponse.json({ error: 'Se requiere un ID de empleado válido' }, { status: 400 });
   }
 

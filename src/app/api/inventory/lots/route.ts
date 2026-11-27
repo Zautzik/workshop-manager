@@ -18,7 +18,7 @@ export const dynamic = 'force-dynamic';
  * balance as a real `purchase` transaction so the ledger stays the source of truth.
  */
 const LotSchema = z.object({
-  item_id: z.string().uuid(),
+  item_id: z.string().guid(),
   lot_number: z.string().min(1).max(150),
   quantity_received: units().default(0),
   unit_cost: z.coerce.number().min(0).default(0),

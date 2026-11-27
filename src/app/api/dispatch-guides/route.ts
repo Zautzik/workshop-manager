@@ -26,8 +26,8 @@ export async function GET(req: NextRequest) {
 }
 
 const CreateGuideSchema = z.object({
-  ot_id: z.string().uuid(),
-  client_id: z.string().uuid().optional().nullable(),
+  ot_id: z.string().guid(),
+  client_id: z.string().guid().optional().nullable(),
   client_name: z.string().max(255).optional().nullable(),
   quantity: wholeUnits().min(1),
   dispatch_date: z.string().optional(),

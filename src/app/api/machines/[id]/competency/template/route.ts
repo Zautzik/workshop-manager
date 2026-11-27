@@ -63,7 +63,7 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string
 
 const ApplySchema = z.object({
   items: z.array(z.object({
-    skill_id: z.string().uuid(),
+    skill_id: z.string().guid(),
     min_proficiency: z.coerce.number().int().min(1).max(5),
     is_critical: z.boolean(),
     requires_certification: z.boolean().optional(),

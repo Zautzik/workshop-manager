@@ -7352,6 +7352,7 @@ export type Database = {
           corrected_quantity: number | null
           corrected_unit_cost: number | null
           created_at: string
+          external_message_id: string | null
           fed_to_inventory: boolean
           id: string
           inventory_tx_id: string | null
@@ -7383,6 +7384,7 @@ export type Database = {
           corrected_quantity?: number | null
           corrected_unit_cost?: number | null
           created_at?: string
+          external_message_id?: string | null
           fed_to_inventory?: boolean
           id?: string
           inventory_tx_id?: string | null
@@ -7414,6 +7416,7 @@ export type Database = {
           corrected_quantity?: number | null
           corrected_unit_cost?: number | null
           created_at?: string
+          external_message_id?: string | null
           fed_to_inventory?: boolean
           id?: string
           inventory_tx_id?: string | null

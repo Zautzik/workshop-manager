@@ -7,7 +7,7 @@ import { evaluatePart, suggestedMinStock, type PartCriticality } from '@/lib/par
 export const dynamic = 'force-dynamic';
 
 const RequestSchema = z.object({
-  part_ids: z.array(z.string().uuid()).min(1).max(50),
+  part_ids: z.array(z.string().guid()).min(1).max(50),
   /** Sobrescribe la cantidad sugerida, pieza por pieza. */
   quantities: z.record(z.string(), z.coerce.number().min(0)).optional(),
   notes: z.string().max(2000).nullable().optional(),

@@ -7,7 +7,7 @@ import { isValidStatus, type OTWorkflowStatus } from '@/lib/ot-state-machine';
 import { moveOT } from '@/lib/ot-move';
 
 const BulkTransitionSchema = z.object({
-  ot_ids: z.array(z.string().uuid()).min(1).max(200),
+  ot_ids: z.array(z.string().guid()).min(1).max(200),
   to_status: z.string().min(1),
   reason: z.string().max(500).optional().nullable(),
 });

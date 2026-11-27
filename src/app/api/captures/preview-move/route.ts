@@ -14,7 +14,7 @@ import { CorrectionsSchema, previewReviewMove } from '@/lib/golden-thread';
 const PreviewSchema = z
 	.object({
 		source: z.enum(['capture', 'whatsapp']),
-		id: z.string().uuid(),
+		id: z.string().guid(),
 		data: CorrectionsSchema.shape.data,
 	})
 	.strict();

@@ -29,11 +29,11 @@ export async function GET() {
 const ISO_DATE = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 
 const RotationSchema = z.object({
-	id: z.string().uuid().optional(),
+	id: z.string().guid().optional(),
 	name: z.string().trim().min(1).max(80),
-	shift_ids: z.array(z.string().uuid()).min(1).max(4),
+	shift_ids: z.array(z.string().guid()).min(1).max(4),
 	weekdays: z.array(z.number().int().min(0).max(6)).min(1).max(7),
-	saturday_shift_id: z.string().uuid().nullable(),
+	saturday_shift_id: z.string().guid().nullable(),
 	/** Cualquier día de la semana de referencia; se guarda su lunes. */
 	anchor_week: ISO_DATE,
 	active: z.boolean(),
@@ -42,7 +42,7 @@ const RotationSchema = z.object({
 			z.object({
 				name: z.string().trim().min(1).max(60),
 				members: z
-					.array(z.object({ employee_id: z.string().uuid(), machine_id: z.string().uuid(), role: z.string().trim().min(1).max(60) }))
+					.array(z.object({ employee_id: z.string().guid(), machine_id: z.string().guid(), role: z.string().trim().min(1).max(60) }))
 					.max(40),
 			}),
 		)
@@ -138,7 +138,7 @@ export async function DELETE(req: NextRequest) {
 	const auth = await requireAuth(['admin', 'supervisor']);
 	if (isAuthError(auth)) return auth;
 	const id = new URL(req.url).searchParams.get('id');
-	if (!id || !z.string().uuid().safeParse(id).success) return NextResponse.json({ error: 'Falta el id' }, { status: 400 });
+	if (!id || !z.string().guid().safeParse(id).success) return NextResponse.json({ error: 'Falta el id' }, { status: 400 });
 	const { error: futureErr } = await (supabaseAdmin as any)
 		.from('worker_assignments')
 		.delete()

@@ -20,9 +20,9 @@ const EstimateLineSchema = z.object({
 // `quantity`) o un campo corrupto llegara derecho a la base sin que nadie lo
 // mirara antes: acá es donde se para.
 const CreateVbSchema = z.object({
-  client_id: z.string().uuid().optional().nullable(),
+  client_id: z.string().guid().optional().nullable(),
   client_name: z.string().max(200).optional().nullable(),
-  salesman_id: z.string().uuid().optional().nullable(),
+  salesman_id: z.string().guid().optional().nullable(),
   product_name: z.string().max(200).optional().nullable(),
   product_type: z.string().max(100).optional().nullable(),
   quantity: wholeUnits().optional().nullable(),
@@ -51,7 +51,7 @@ const CreateVbSchema = z.object({
   notes: z.string().max(2000).optional().nullable(),
   deadline: z.string().optional().nullable(),
   priority_level: z.string().max(50).optional().default('normal'),
-  press_id: z.string().uuid().optional().nullable(),
+  press_id: z.string().guid().optional().nullable(),
 });
 
 // GET /api/vistos-buenos — list quotes (Vistos Buenos).

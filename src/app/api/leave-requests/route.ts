@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic';
 
 const LeaveRequestSchema = z
   .object({
-    employee_id: z.string().uuid(),
+    employee_id: z.string().guid(),
     leave_type: z.enum(['vacation', 'sick', 'personal', 'maternity', 'paternity', 'unpaid', 'other']),
     start_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Usa el formato AAAA-MM-DD'),
     end_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Usa el formato AAAA-MM-DD'),
@@ -22,7 +22,7 @@ const LeaveRequestSchema = z
 const ListSchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(500).default(200),
-  employee_id: z.string().uuid().optional(),
+  employee_id: z.string().guid().optional(),
   status: z.enum(['pending', 'approved', 'rejected', 'cancelled']).optional(),
 });
 

@@ -28,6 +28,7 @@ import {
   extractMetaInbound,
 } from '@/lib/whatsapp-intake';
 import { processWarehousePhoto } from '@/lib/warehouse-photo-ingest';
+import { insertWarehouseLog } from '@/lib/warehouse-log';
 import type { Json } from '@/integrations/supabase/types';
 
 /* ─── Input Schema ───────────────────────────────────────────── */
@@ -40,6 +41,8 @@ const WebhookSchema = z.object({
   timestamp: z.string().optional(),
   MessageSid: z.string().optional(),
   ProfileName: z.string().max(100).optional(),
+  /** El wamid de Meta: la llave de idempotencia del movimiento (warehouse-log.ts). */
+  message_id: z.string().max(200).optional(),
 });
 
 type WebhookInput = z.infer<typeof WebhookSchema>;
@@ -259,9 +262,7 @@ async function processMessage(input: WebhookInput): Promise<ProcessResult> {
   // ── 7. Create pending warehouse log ────────────────────
   const unit = parseResult.unit ?? itemUnit;
 
-  const { data: log, error } = await supabaseAdmin
-    .from('whatsapp_warehouse_logs')
-    .insert({
+  const log = await insertWarehouseLog(supabaseAdmin, {
       action_type: parseResult.action !== 'unknown' ? parseResult.action : 'receive',
       item_id: itemId,
       item_name: itemName,
@@ -281,13 +282,15 @@ async function processMessage(input: WebhookInput): Promise<ProcessResult> {
       unit_cost: parseResult.unit_cost,
       supplier_name: parseResult.supplier_name,
       review_status: 'pending',
-    })
-    .select('id')
-    .single();
+  }, input.message_id ?? null);
 
-  if (error) {
-    console.error('Error creating warehouse log:', { phone: from, item: itemSku, error });
+  if (!log.ok) {
+    console.error('Error creating warehouse log:', { phone: from, item: itemSku, error: log.error });
     return { status: 500, payload: { error: 'Failed to log warehouse message' } };
+  }
+  // La misma entrega de Meta, otra vez: el movimiento ya está registrado.
+  if (log.duplicate) {
+    return { status: 200, payload: { status: 'duplicate', reason: 'Mensaje duplicado detectado', existing_log_id: log.id } };
   }
 
   const actionLabels: Record<string, string> = {

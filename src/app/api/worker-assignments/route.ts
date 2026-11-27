@@ -13,13 +13,13 @@ export const dynamic = 'force-dynamic';
 // que un cliente antiguo no se quede fuera a mitad del despliegue.
 const AssignmentSchema = z
   .object({
-    employee_id: z.string().uuid(),
-    workstation_id: z.string().uuid().optional(),
-    machine_id: z.string().uuid().optional(),
-    shift_id: z.string().uuid(),
+    employee_id: z.string().guid(),
+    workstation_id: z.string().guid().optional(),
+    machine_id: z.string().guid().optional(),
+    shift_id: z.string().guid(),
     date: z.string().min(1),
     role: z.string().min(1),
-    ot_id: z.string().uuid().nullable().optional(),
+    ot_id: z.string().guid().nullable().optional(),
   })
   .refine((v) => v.machine_id ?? v.workstation_id, {
     message: 'Falta la máquina: envía machine_id.',

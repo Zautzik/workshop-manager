@@ -41,7 +41,7 @@ const UpdateMachineSchema = z.object({
 	// editable acá abriría la segunda puerta al mismo número.
 });
 
-const IdParamSchema = z.string().uuid();
+const IdParamSchema = z.string().guid();
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
 	const auth = await requireAuth();

@@ -6,14 +6,14 @@ import { supabaseAdmin } from '@/integrations/supabase/server';
 const SaveSearchSchema = z.object({
   name: z.string().min(1).max(200),
   domain: z.string().min(1).max(100),
-  filters: z.record(z.any()).default({}),
+  filters: z.record(z.string(), z.any()).default({}),
   is_default: z.boolean().optional(),
 });
 
 const UpdateSearchSchema = z.object({
-  id: z.string().uuid(),
+  id: z.string().guid(),
   name: z.string().min(1).max(200).optional(),
-  filters: z.record(z.any()).optional(),
+  filters: z.record(z.string(), z.any()).optional(),
   is_default: z.boolean().optional(),
 });
 

@@ -53,7 +53,7 @@ function loadEnv() {
     process.exit(1);
   }
   const env = {};
-  for (const line of readFileSync(file, 'utf8').split('\n')) {
+  for (const line of readFileSync(file, 'utf8').split(/\r?\n/)) {
     const m = line.match(/^\s*([A-Z_0-9]+)\s*=\s*(.*)$/);
     if (m) env[m[1]] = m[2].trim().replace(/^["']|["']$/g, '');
   }

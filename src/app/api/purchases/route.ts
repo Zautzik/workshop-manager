@@ -41,7 +41,7 @@ export async function GET(req: NextRequest) {
 }
 
 const OCLineSchema = z.object({
-  item_id: z.string().uuid(),
+  item_id: z.string().guid(),
   quantity: units().positive(),
   unit_cost: z.coerce.number().min(0).optional().nullable(),
   description: z.string().max(255).optional().nullable(),
@@ -50,7 +50,7 @@ const OCLineSchema = z.object({
 const CreateOCSchema = z.object({
   supplier: z.string().min(1).max(255),
   supplier_rut: z.string().max(50).optional().nullable(),
-  ot_id: z.string().uuid().optional().nullable(),
+  ot_id: z.string().guid().optional().nullable(),
   // Sostenido para una OC sin líneas (gasto genérico, sin ítem de inventario
   // que citar). Cuando `items` trae algo, el total se deriva de las líneas —
   // ver más abajo — y este valor se ignora, para no tener dos fuentes de la

@@ -51,7 +51,7 @@ function fallaInterna(contexto: string, detalle: unknown) {
 		{ status: 500 },
 	);
 }
-const TokenSchema = z.string().uuid();
+const TokenSchema = z.string().guid();
 
 /** Datos de la máquina que la etiqueta puede mostrar. Nada más. */
 const COLUMNAS_MAQUINA = 'id, name, type, usage_counter, usage_unit';

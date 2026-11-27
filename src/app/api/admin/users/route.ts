@@ -13,7 +13,10 @@ const CreateUserSchema = z.object({
 		.string()
 		.min(MIN_PASSWORD_LENGTH, `Password must be at least ${MIN_PASSWORD_LENGTH} characters.`)
 		.max(MAX_PASSWORD_LENGTH)
-		.refine((p) => checkPassword(p).ok, (p) => ({ message: checkPassword(p).reason ?? 'Invalid password.' })),
+		.superRefine((p, ctx) => {
+			const r = checkPassword(p);
+			if (!r.ok) ctx.addIssue({ code: 'custom', message: r.reason ?? 'Invalid password.' });
+		}),
 	name: z.string().min(1).max(255).optional(),
 	role: z.enum(APP_ROLES),
 	department: z.string().max(100).optional().nullable(),
@@ -193,7 +196,7 @@ export async function DELETE(request: NextRequest) {
 		const { searchParams } = new URL(request.url);
 		const userId = searchParams.get('id');
 
-		if (!userId || !z.string().uuid().safeParse(userId).success) {
+		if (!userId || !z.string().guid().safeParse(userId).success) {
 			return NextResponse.json({ error: 'Valid user ID required' }, { status: 400 });
 		}
 
@@ -221,7 +224,7 @@ export async function DELETE(request: NextRequest) {
 }
 
 const UpdateUserSchema = z.object({
-	id: z.string().uuid(),
+	id: z.string().guid(),
 	role: z.enum(APP_ROLES).optional(),
 	department: z.string().max(100).optional().nullable(),
 	manager_domain: z.string().max(100).optional().nullable(),

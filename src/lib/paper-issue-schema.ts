@@ -7,7 +7,7 @@ import { z } from 'zod';
 import type { PaperIssueLine } from '@/lib/paper-issue-server';
 
 export const PaperIssueLineSchema = z.object({
-	lot_id: z.string().uuid(),
+	lot_id: z.string().guid(),
 	sheets: z.coerce.number().int().positive().max(10_000_000),
 	override_reason: z.string().max(1000).optional().nullable(),
 });

@@ -14,7 +14,7 @@ import { requireAuth } from '@/lib/api-middleware';
 import { encodeWarehouseQR } from '@/lib/warehouse-qr';
 
 const QRRequestSchema = z.object({
-  item_ids: z.array(z.string().uuid()).min(1).max(100),
+  item_ids: z.array(z.string().guid()).min(1).max(100),
   action: z.enum(['receive', 'use', 'return', 'check']).optional(),
   ot_number: z.string().max(10).optional(),
 });

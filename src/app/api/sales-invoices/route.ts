@@ -28,8 +28,8 @@ export async function GET(req: NextRequest) {
 }
 
 const CreateInvoiceSchema = z.object({
-  ot_id: z.string().uuid().optional().nullable(),
-  client_id: z.string().uuid().optional().nullable(),
+  ot_id: z.string().guid().optional().nullable(),
+  client_id: z.string().guid().optional().nullable(),
   client_name: z.string().max(255).optional().nullable(),
   // Se IGNORA cuando vienen `guide_ids`: ahí el neto lo deriva el servidor de
   // las guías y del precio de la OT. Sólo se usa en una factura suelta, sin
@@ -37,7 +37,7 @@ const CreateInvoiceSchema = z.object({
   // mandar un número que no se va a mirar.
   net_amount: amountCLP().optional().default(0),
   due_date: z.string().optional().nullable(),
-  guide_ids: z.array(z.string().uuid()).optional().default([]),
+  guide_ids: z.array(z.string().guid()).optional().default([]),
   notes: z.string().max(2000).optional().nullable(),
 });
 

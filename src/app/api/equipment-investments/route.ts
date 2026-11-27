@@ -11,7 +11,7 @@ export const dynamic = 'force-dynamic';
  */
 const InvestmentSchema = z.object({
   equipment_name: z.string().min(1).max(255),
-  machine_id: z.string().uuid().nullable().optional(),
+  machine_id: z.string().guid().nullable().optional(),
   purchase_cost: z.coerce.number().min(0),
   estimated_annual_savings: z.coerce.number().min(0).nullable().optional(),
   status: z.enum(['proposal', 'approved', 'rejected', 'purchased']).default('proposal'),
@@ -50,7 +50,7 @@ export async function PATCH(req: NextRequest) {
 
   const { searchParams } = new URL(req.url);
   const id = searchParams.get('id');
-  if (!id || !z.string().uuid().safeParse(id).success) {
+  if (!id || !z.string().guid().safeParse(id).success) {
     return NextResponse.json({ error: 'Se requiere un ID de inversión válido' }, { status: 400 });
   }
 

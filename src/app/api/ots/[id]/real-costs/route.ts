@@ -42,7 +42,7 @@ export async function GET(
 
 	const { id } = await params;
 
-	if (!id || !z.string().uuid().safeParse(id).success) {
+	if (!id || !z.string().guid().safeParse(id).success) {
 		return NextResponse.json({ error: 'Se requiere un ID de OT válido' }, { status: 400 });
 	}
 
@@ -88,7 +88,7 @@ export async function POST(
 	const { id } = await params;
 	const userId = typeof auth === 'object' && 'id' in auth ? auth.id : null;
 
-	if (!id || !z.string().uuid().safeParse(id).success) {
+	if (!id || !z.string().guid().safeParse(id).success) {
 		return NextResponse.json({ error: 'Se requiere un ID de OT válido' }, { status: 400 });
 	}
 

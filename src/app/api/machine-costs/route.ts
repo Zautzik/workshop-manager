@@ -20,7 +20,7 @@ const CostFields = {
 };
 
 const CreateSchema = z.object({
-  machine_id: z.string().uuid(),
+  machine_id: z.string().guid(),
   // Stored as a date: the first of the month.
   month: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Usa el formato AAAA-MM-DD'),
   ...CostFields,
@@ -69,7 +69,7 @@ export async function PATCH(req: NextRequest) {
 
   const { searchParams } = new URL(req.url);
   const id = searchParams.get('id');
-  if (!id || !z.string().uuid().safeParse(id).success) {
+  if (!id || !z.string().guid().safeParse(id).success) {
     return NextResponse.json({ error: 'Se requiere un ID de costos válido' }, { status: 400 });
   }
 

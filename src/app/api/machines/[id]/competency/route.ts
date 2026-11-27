@@ -119,7 +119,7 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string
 }
 
 const RequirementSchema = z.object({
-  skill_id: z.string().uuid(),
+  skill_id: z.string().guid(),
   min_proficiency: z.coerce.number().int().min(1).max(5),
   is_critical: z.boolean().optional(),
   requires_certification: z.boolean().optional(),
@@ -166,7 +166,7 @@ export async function DELETE(req: NextRequest, ctx: { params: Promise<{ id: stri
   const { id } = await ctx.params;
   const skillId = new URL(req.url).searchParams.get('skill_id');
 
-  if (!skillId || !z.string().uuid().safeParse(skillId).success) {
+  if (!skillId || !z.string().guid().safeParse(skillId).success) {
     return NextResponse.json({ error: 'Se requiere skill_id' }, { status: 400 });
   }
 

@@ -24,7 +24,7 @@ export const dynamic = 'force-dynamic';
 const PasswordActionSchema = z.discriminatedUnion('action', [
   z.object({
     action: z.literal('set'),
-    user_id: z.string().uuid(),
+    user_id: z.string().guid(),
     password: z
       .string()
       .min(10, 'Usa al menos 10 caracteres')
@@ -34,7 +34,7 @@ const PasswordActionSchema = z.discriminatedUnion('action', [
   }),
   z.object({
     action: z.literal('send_recovery'),
-    user_id: z.string().uuid(),
+    user_id: z.string().guid(),
   }),
 ]);
 

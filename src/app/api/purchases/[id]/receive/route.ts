@@ -9,7 +9,7 @@ import { loadOcProgress, settlePurchase } from '@/lib/purchase-settle';
 const OPS = ['admin', 'manager', 'supervisor'] as const;
 
 const ReceiveSchema = z.object({
-  item_id: z.string().uuid(),
+  item_id: z.string().guid(),
   quantity: units().positive(),
   unit_cost: z.coerce.number().min(0).optional().nullable(),
   lot_number: z.string().max(100).optional().nullable(),

@@ -108,20 +108,20 @@ export async function GET(req: NextRequest) {
 /* ── Crear una orden ──────────────────────────────────────────────────────── */
 
 const CreateSchema = z.object({
-  machine_id: z.string().uuid(),
+  machine_id: z.string().guid(),
   work_order_type: z.enum(['preventivo', 'correctivo', 'mejora']).default('correctivo'),
   /** Obligatorio en preventivo: es la checklist que hay que seguir. */
-  checklist_id: z.string().uuid().nullable().optional(),
+  checklist_id: z.string().guid().nullable().optional(),
   /** De qué pauta (maintenance_schedules) nació esta orden, si nació de una vencida. Null en correctivas. */
-  schedule_id: z.string().uuid().nullable().optional(),
+  schedule_id: z.string().guid().nullable().optional(),
   title: z.string().min(3).max(200).nullable().optional(),
   fault_description: z.string().max(4000).nullable().optional(),
   /** De qué pieza nació. Es el enlace con Mecánica. */
-  part_id: z.string().uuid().nullable().optional(),
-  system_id: z.string().uuid().nullable().optional(),
+  part_id: z.string().guid().nullable().optional(),
+  system_id: z.string().guid().nullable().optional(),
   scheduled_date: z.string().optional(),
   priority: z.coerce.number().int().min(1).max(5).optional(),
-  assigned_to: z.string().uuid().nullable().optional(),
+  assigned_to: z.string().guid().nullable().optional(),
   notes: z.string().max(4000).nullable().optional(),
   /** El supervisor se hace cargo de asignar a alguien no habilitado. */
   acknowledge_unqualified: z.boolean().optional(),

@@ -79,8 +79,8 @@ const CreateOTSchema = z.object({
 	product_name: z.string().max(500).optional().nullable(),
 	product_type: OTProductTypeSchema,
 	priority_level: OTPriorityLevelSchema,
-	client_id: z.string().uuid().optional().nullable(),
-	template_id: z.string().uuid().optional().nullable(),
+	client_id: z.string().guid().optional().nullable(),
+	template_id: z.string().guid().optional().nullable(),
 	width_cm: z.coerce.number().min(0).optional().nullable(),
 	height_cm: z.coerce.number().min(0).optional().nullable(),
 	substrate_type: OTSubstrateTypeSchema,
@@ -123,7 +123,7 @@ const CreateOTSchema = z.object({
 	// Machine chosen in the wizard's Máquina step. This field was silently
 	// dropped for months (not in the schema → Zod stripped it), which is why
 	// every OT showed machine: null (2026-07 audit).
-	assigned_machine_id: z.string().uuid().optional().nullable(),
+	assigned_machine_id: z.string().guid().optional().nullable(),
 	// Las etapas por las que pasa la OT, declaradas al crearla (2026-11-11). El
 	// papel sale de bodega al entrar a la primera; no toda OT pasa por todas.
 	route_steps: z.array(z.enum(PLAN_STEP_KEYS)).min(1, 'Elegí por qué etapas pasa la OT').max(PLAN_STEP_KEYS.length),

@@ -6,8 +6,8 @@ import { PLAN_STEP_KEYS } from '@/lib/production-route';
 import { syncAssignedMachine } from '@/lib/schedule-sync';
 
 const ScheduleSlotSchema = z.object({
-	ot_id: z.string().uuid(),
-	machine_id: z.string().uuid(),
+	ot_id: z.string().guid(),
+	machine_id: z.string().guid(),
 	scheduled_start: z.string().datetime().optional().nullable(),
 	scheduled_end: z.string().datetime().optional().nullable(),
 	actual_start: z.string().datetime().optional().nullable(),

@@ -14,7 +14,7 @@ export async function POST(
   if (isAuthError(auth)) return auth;
 
   const { id } = await params;
-  if (!z.string().uuid().safeParse(id).success) {
+  if (!z.string().guid().safeParse(id).success) {
     return NextResponse.json({ error: 'ID de OT inválido' }, { status: 400 });
   }
 

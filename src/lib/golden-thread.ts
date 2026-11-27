@@ -94,7 +94,7 @@ export const CorrectionsSchema = z.object({
 	/** Bodega. */
 	quantity: z.number().positive().max(MAX_UNITS).optional(),
 	unitCost: z.number().min(0).max(MAX_UNIT_COST_CLP).optional(),
-	lotId: z.string().uuid().optional(),
+	lotId: z.string().guid().optional(),
 }).strict();
 
 export type Corrections = z.infer<typeof CorrectionsSchema>;

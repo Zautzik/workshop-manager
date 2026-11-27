@@ -15,7 +15,7 @@ import { CorrectionsSchema, reviewCapture, type ReviewOutcome } from '@/lib/gold
 
 const ReviewSchema = z.object({
 	source: z.enum(['capture', 'whatsapp', 'warehouse']),
-	ids: z.array(z.string().uuid()).min(1).max(50),
+	ids: z.array(z.string().guid()).min(1).max(50),
 	decision: z.enum(['approve', 'reject']),
 	comments: z.string().max(2000).optional().nullable(),
 	// Sólo de a uno: corregir un lote entero con los mismos números no tiene sentido.

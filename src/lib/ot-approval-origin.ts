@@ -80,3 +80,21 @@ export function cuentaParaCalidadInterna(
 	if (fila.status !== 'approved') return false;
 	return !esDelPortalPublico(fila);
 }
+
+/**
+ * ¿Las aprobaciones de la OT habilitan moverla a `toStatus`?
+ *
+ * Las dos compuertas que leen `ot_approvals` piden cosas distintas:
+ *  - `paper_purchase` pide el visto bueno DEL CLIENTE sobre la prueba. El
+ *    portal es el cliente mismo firmando, así que cuenta igual que un visto
+ *    bueno que registró el vendedor.
+ *  - cualquier otro destino con compuerta (`ready_for_delivery`) pide la
+ *    revisión INTERNA de calidad: ahí el portal no cuenta.
+ */
+export function aprobacionParaMover(
+	toStatus: string,
+	filas: ReadonlyArray<ApprovalOrigin & { status?: string | null }>
+): boolean {
+	if (toStatus === 'paper_purchase') return filas.some((f) => f.status === 'approved');
+	return filas.some(cuentaParaCalidadInterna);
+}
