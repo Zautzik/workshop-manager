@@ -207,7 +207,7 @@ function Plazos({ data, visibleCount = 5 }: { data: ResumenPayload; visibleCount
       type="button"
       onClick={() => { setTab(k); setAll(false); }}
       className={cn(
-        'rounded-full border px-2 py-0.5 text-[11px] font-medium transition-colors',
+        'min-h-8 rounded-full border px-2.5 py-1 text-xs font-medium transition-colors sm:min-h-0 sm:px-2 sm:py-0.5 sm:text-[11px]',
         tab === k ? tone : 'border-transparent text-muted-foreground hover:bg-muted',
       )}
     >
@@ -235,7 +235,7 @@ function Plazos({ data, visibleCount = 5 }: { data: ResumenPayload; visibleCount
       )}
       <div className="mt-auto flex items-center justify-between gap-2 px-2 pt-2">
         {rows.length > visibleCount ? (
-          <button type="button" onClick={() => setAll((v) => !v)} className="text-xs font-medium text-primary underline-offset-4 hover:underline">
+          <button type="button" onClick={() => setAll((v) => !v)} className="tap text-xs font-medium text-primary underline-offset-4 hover:underline">
             {all ? `Mostrar sólo ${visibleCount}` : `Ver las ${rows.length}`}
           </button>
         ) : <span />}
@@ -260,7 +260,7 @@ function Flujo({ data, className }: { data: ResumenPayload; className?: string }
       className={className}
       icon={ListChecks}
       title="Dónde está el trabajo"
-      right={<Link href="/operaciones/kanban" className="text-xs font-medium text-primary hover:underline">Abrir Tablero</Link>}
+      right={<Link href="/operaciones/kanban" className="tap text-xs font-medium text-primary hover:underline">Abrir Tablero</Link>}
     >
       <div className="px-2 pb-2 pt-2">
         <StackBar parts={parts} className="h-3" />

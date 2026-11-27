@@ -128,10 +128,10 @@ export function UnifiedCalendar() {
           {format(current, 'MMMM yyyy', { locale: es })}
         </h2>
         <div className="flex gap-1">
-          <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setCurrent(subMonths(current, 1))}>
+          <Button size="icon" variant="ghost" className="h-9 w-9 sm:h-7 sm:w-7" onClick={() => setCurrent(subMonths(current, 1))}>
             <ChevronLeft className="h-4 w-4" />
           </Button>
-          <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setCurrent(addMonths(current, 1))}>
+          <Button size="icon" variant="ghost" className="h-9 w-9 sm:h-7 sm:w-7" onClick={() => setCurrent(addMonths(current, 1))}>
             <ChevronRight className="h-4 w-4" />
           </Button>
         </div>

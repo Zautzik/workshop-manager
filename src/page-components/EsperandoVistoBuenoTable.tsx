@@ -80,7 +80,7 @@ export function EsperandoVistoBuenoTable({
                       <Button
                         size="sm"
                         variant="outline"
-                        className="h-7 text-xs"
+                        className="h-9 sm:h-7 text-xs"
                         onClick={() => onRegistrarVistoBueno({ id: ot.id, numero: ot.ot_number, cliente: ot.client_name })}
                       >
                         <ShieldCheck className="mr-1 h-3 w-3" />
@@ -89,7 +89,7 @@ export function EsperandoVistoBuenoTable({
                     ) : (
                       <Link
                         href="/operaciones/pre-prensa"
-                        className="inline-flex items-center gap-1 text-xs font-medium text-primary underline-offset-4 hover:underline"
+                        className="tap inline-flex items-center gap-1 text-xs font-medium text-primary underline-offset-4 hover:underline"
                       >
                         Completar ficha
                         <ArrowRight className="h-3 w-3" />

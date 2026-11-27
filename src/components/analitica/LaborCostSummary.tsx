@@ -42,7 +42,7 @@ export default function LaborCostSummary() {
         </CardTitle>
         <Link
           href="/personas/consola?tab=retribucion"
-          className="text-xs font-medium text-primary hover:underline flex items-center gap-1"
+          className="tap text-xs font-medium text-primary hover:underline flex items-center gap-1"
         >
           Ver nómina completa <ArrowRight className="h-3 w-3" />
         </Link>

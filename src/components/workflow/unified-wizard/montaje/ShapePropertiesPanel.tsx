@@ -33,7 +33,7 @@ export function ShapePropertiesPanel({
           <Button
             size="sm"
             variant="ghost"
-            className="h-6 w-6 p-0"
+            className="h-9 w-9 sm:h-6 sm:w-6 p-0"
             onClick={() => rotateShape(selectedShape.id)}
           >
             <RotateCw className="h-3 w-3" />
@@ -41,7 +41,7 @@ export function ShapePropertiesPanel({
           <Button
             size="sm"
             variant="ghost"
-            className="h-6 w-6 p-0 text-destructive"
+            className="h-9 w-9 sm:h-6 sm:w-6 p-0 text-destructive"
             onClick={() => removeShape(selectedShape.id)}
           >
             <Trash2 className="h-3 w-3" />
@@ -60,7 +60,7 @@ export function ShapePropertiesPanel({
                 width: Number(e.target.value),
               })
             }
-            className="h-7 text-xs font-mono bg-input border-border"
+            className="h-9 sm:h-7 text-xs font-mono bg-input border-border"
           />
         </div>
         <div className="space-y-0.5">
@@ -73,7 +73,7 @@ export function ShapePropertiesPanel({
                 height: Number(e.target.value),
               })
             }
-            className="h-7 text-xs font-mono bg-input border-border"
+            className="h-9 sm:h-7 text-xs font-mono bg-input border-border"
           />
         </div>
       </div>
@@ -89,7 +89,7 @@ export function ShapePropertiesPanel({
                 x: Number(e.target.value),
               })
             }
-            className="h-7 text-xs font-mono bg-input border-border"
+            className="h-9 sm:h-7 text-xs font-mono bg-input border-border"
           />
         </div>
         <div className="space-y-0.5">
@@ -102,7 +102,7 @@ export function ShapePropertiesPanel({
                 y: Number(e.target.value),
               })
             }
-            className="h-7 text-xs font-mono bg-input border-border"
+            className="h-9 sm:h-7 text-xs font-mono bg-input border-border"
           />
         </div>
       </div>
@@ -117,7 +117,7 @@ export function ShapePropertiesPanel({
               bleed: Number(e.target.value),
             })
           }
-          className="h-7 text-xs font-mono bg-input border-border"
+          className="h-9 sm:h-7 text-xs font-mono bg-input border-border"
         />
       </div>
 

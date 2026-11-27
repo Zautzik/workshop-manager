@@ -507,7 +507,7 @@ const PurchasesManagement = () => {
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
                 <Label>Líneas (opcional — qué se pidió, material por material)</Label>
-                <Button type="button" variant="outline" size="sm" className="h-7 gap-1 text-xs" onClick={addLine}>
+                <Button type="button" variant="outline" size="sm" className="h-9 sm:h-7 gap-1 text-xs" onClick={addLine}>
                   <Plus className="h-3 w-3" /> Agregar línea
                 </Button>
               </div>

@@ -286,7 +286,7 @@ export function CostCenterManager() {
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-7 w-7"
+                        className="h-9 w-9 sm:h-7 sm:w-7"
                         onClick={() => {
                           setEditingItem(item);
                           setIsDialogOpen(true);
@@ -297,7 +297,7 @@ export function CostCenterManager() {
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-7 w-7 text-destructive"
+                        className="h-9 w-9 sm:h-7 sm:w-7 text-destructive"
                         onClick={() => handleDelete(item.id)}
                       >
                         <Trash2 className="h-3.5 w-3.5" />

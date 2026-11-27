@@ -79,7 +79,7 @@ export function CrearOrdenButton({ part }: { part: PartRow }) {
   return (
     <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) setAviso(null); }}>
       <DialogTrigger asChild>
-        <Button variant="ghost" size="sm" className="h-7 text-xs">
+        <Button variant="ghost" size="sm" className="h-9 sm:h-7 text-xs">
           Crear orden
         </Button>
       </DialogTrigger>

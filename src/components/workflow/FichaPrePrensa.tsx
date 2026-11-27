@@ -310,7 +310,7 @@ export function FichaPrePrensa({ otId, otNumber, spec, quotedPrice, firmPrice, d
 													{donde && (
 														<Link
 															href={donde.href(otId)}
-															className="ml-auto inline-flex items-center gap-1 text-xs font-medium text-primary underline-offset-4 hover:underline"
+															className="tap ml-auto inline-flex items-center gap-1 text-xs font-medium text-primary underline-offset-4 hover:underline"
 														>
 															{donde.texto} <ArrowRight className="h-3 w-3" />
 														</Link>

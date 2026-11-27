@@ -115,7 +115,7 @@ function ScheduleRowItem({
       ) : (
         // A disabled button cannot show a tooltip (pointer-events are off, and a
         // phone has no hover): the reason is said, with the way to fix it (M9).
-        <Link href="/equipos/ordenes?tab=pautas" className="shrink-0 text-right text-xs text-amber-700 hover:underline dark:text-amber-400">
+        <Link href="/equipos/ordenes?tab=pautas" className="tap shrink-0 text-right text-xs text-amber-700 hover:underline dark:text-amber-400">
           Sin checklist: agrégala en Pautas
         </Link>
       ))}

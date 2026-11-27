@@ -199,10 +199,10 @@ function InlineEditable({
           }}
           className="h-7 text-base px-2 py-0"
         />
-        <Button size="icon" variant="ghost" className="h-6 w-6" onClick={commit}>
+        <Button size="icon" variant="ghost" className="h-9 w-9 sm:h-6 sm:w-6" onClick={commit}>
           <Check className="h-3 w-3 text-green-600" />
         </Button>
-        <Button size="icon" variant="ghost" className="h-6 w-6" onClick={cancel}>
+        <Button size="icon" variant="ghost" className="h-9 w-9 sm:h-6 sm:w-6" onClick={cancel}>
           <X className="h-3 w-3 text-destructive" />
         </Button>
       </div>

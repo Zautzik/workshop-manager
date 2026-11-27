@@ -1134,18 +1134,18 @@ export default function PlantaBoard({ initialTab = 'layout' }: PlantaBoardProps)
                     key={v}
                     type="button"
                     onClick={() => setRosterView(v)}
-                    className={`rounded px-3 py-1 text-xs font-medium ${rosterView === v ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+                    className={`rounded px-3 py-2 text-xs font-medium sm:py-1 ${rosterView === v ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}
                   >
                     {v === 'semana' ? 'Semana' : 'Día'}
                   </button>
                 ))}
               </div>
               <div className="flex items-center gap-1 text-xs">
-                <Button variant="outline" size="sm" className="h-7 px-2" onClick={goToPreviousWeek} aria-label="Semana anterior">‹</Button>
+                <Button variant="outline" size="sm" className="h-9 px-3 sm:h-7 sm:px-2" onClick={goToPreviousWeek} aria-label="Semana anterior">‹</Button>
                 <span className="min-w-[9rem] text-center font-medium">
                   Semana del {weekDates[0]?.getDate()}/{(weekDates[0]?.getMonth() ?? 0) + 1} al {weekDates[6]?.getDate()}/{(weekDates[6]?.getMonth() ?? 0) + 1}
                 </span>
-                <Button variant="outline" size="sm" className="h-7 px-2" onClick={goToNextWeek} aria-label="Semana siguiente">›</Button>
+                <Button variant="outline" size="sm" className="h-9 px-3 sm:h-7 sm:px-2" onClick={goToNextWeek} aria-label="Semana siguiente">›</Button>
               </div>
               {rosterView === 'dia' && <span className="text-xs text-muted-foreground">Día {selectedDate}</span>}
             </div>
@@ -1193,7 +1193,7 @@ export default function PlantaBoard({ initialTab = 'layout' }: PlantaBoardProps)
                       size="sm"
                       onClick={() => setSelectedShiftId(opt.ids[0])}
                       variant={active ? "default" : "outline"}
-                      className={`h-6 px-2 text-xs ${active
+                      className={`h-9 px-2 text-xs sm:h-6 ${active
                         ? "bg-primary hover:bg-primary/90 text-primary-foreground"
                         : "border-border bg-card/50 hover:bg-card"}`}
                     >

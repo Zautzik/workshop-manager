@@ -72,7 +72,7 @@ export function FacturacionElectronicaCard() {
           </p>
         ) : clients && (
           <>
-            <button type="button" onClick={() => setOpen((v) => !v)} className="flex w-full items-center gap-3 text-left">
+            <button type="button" onClick={() => setOpen((v) => !v)} className="flex min-h-9 w-full items-center gap-3 text-left sm:min-h-0">
               <span className="text-xs">
                 <span className="font-semibold tabular-nums">{clients.ready} de {clients.total}</span> clientes listos para facturar al SII
               </span>
@@ -94,7 +94,7 @@ export function FacturacionElectronicaCard() {
               </ul>
             )}
             {clients.incompletos.length > 0 && (
-              <Link href="/comercial/clientes" className="mt-2 inline-block text-xs font-medium text-primary hover:underline">
+              <Link href="/comercial/clientes" className="tap mt-2 inline-block text-xs font-medium text-primary hover:underline">
                 Completar en Clientes
               </Link>
             )}

@@ -15,7 +15,7 @@
  *   - stretched (2560 only): content wider than the 1600 px cap on a capped page
  * Warns (listed under `warn`, phone only):
  *   - text under 12 px
- *   - tap targets (buttons, links, inputs) under 32 px tall
+ *   - FAIL: tap targets under 32 px tall on phone (checkboxes/switches 24 px; inline links in a sentence exempt)
  *
  * Set `ONLY` to a list of routes to check a subset.
  */
@@ -108,7 +108,11 @@ async (page) => {
               if (own && parseFloat(getComputedStyle(el).fontSize) < 12) {
                 small++; if (!smallSample) smallSample = `"${el.textContent.trim().slice(0, 25)}" ${getComputedStyle(el).fontSize}`;
               }
-              if (el.matches('button, a[href], input, select, [role=button], [role=tab]') && r.height < 32 && !el.closest('table')) {
+              // Checkboxes and switches are fine at 24 px; a link inside a sentence
+              // takes the line's height and is exempt (WCAG 2.5.8 inline exception).
+              const toggle = el.matches('input[type=checkbox], input[type=radio], [role=switch], [role=checkbox]');
+              const inline = el.matches('a[href]') && getComputedStyle(el).display === 'inline' && el.parentElement?.closest('p');
+              if (el.matches('button, a[href], input, select, [role=button], [role=tab]') && r.height > 0 && r.height < (toggle ? 24 : 32) && !inline && !el.closest('table')) {
                 taps++; if (!tapSample) tapSample = `${el.tagName.toLowerCase()} "${(el.textContent || el.getAttribute('aria-label') || '').trim().slice(0, 25)}" ${Math.round(r.height)}px`;
               }
             }
@@ -125,7 +129,7 @@ async (page) => {
         const landed = new URL(page.url()).pathname;
         if (vp.name === 'wide' && !WIDE.includes(landed) && m.span > 1600 + 64) results.fail.push(`${tag}: content spans ${m.span}px (cap 1600)`);
         if (m.small) results.warn.push(`${tag}: ${m.small} text <12px, e.g. ${m.smallSample}`);
-        if (m.taps) results.warn.push(`${tag}: ${m.taps} tap targets <32px, e.g. ${m.tapSample}`);
+        if (m.taps) results.fail.push(`${tag}: ${m.taps} tap targets too small (<32px, toggles <24px), e.g. ${m.tapSample}`);
       } catch (e) {
         results.fail.push(`${vp.width} ${route}: did not load (${String(e.message || e).slice(0, 80)})`);
       }

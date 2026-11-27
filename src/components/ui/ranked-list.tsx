@@ -62,7 +62,7 @@ function Row({ rank, item }: { rank: number; item: RankedListItem }) {
           type="button"
           onClick={item.onClick}
           title={item.title}
-          className="group flex w-full items-center gap-2 rounded-md px-1.5 py-1 text-left transition-colors hover:bg-muted/60"
+          className="group flex min-h-9 w-full items-center gap-2 rounded-md px-1.5 py-1 text-left transition-colors hover:bg-muted/60 sm:min-h-0"
         >
           {content}
         </button>
@@ -102,7 +102,7 @@ export function RankedList({
         <button
           type="button"
           onClick={() => setExpanded((v) => !v)}
-          className="text-xs font-medium text-primary underline-offset-4 hover:underline"
+          className="tap text-xs font-medium text-primary underline-offset-4 hover:underline"
         >
           {expanded
             ? (fewerLabel ?? `Mostrar sólo los primeros ${visibleCount}`)

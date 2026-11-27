@@ -555,7 +555,7 @@ export function UnifiedStepProduction({ form, updateForm }: Props) {
                       <Button
                         size="sm"
                         variant="ghost"
-                        className="h-7 w-7 p-0 text-destructive"
+                        className="h-9 w-9 sm:h-7 sm:w-7 p-0 text-destructive"
                         onClick={() => removePliego(pl.id)}
                       >
                         <Trash2 className="h-3 w-3" />

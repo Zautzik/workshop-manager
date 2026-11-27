@@ -47,7 +47,7 @@ export default function MachineEconomicsSummary() {
         </CardTitle>
         <Link
           href="/equipos/economia"
-          className="text-xs font-medium text-primary hover:underline flex items-center gap-1"
+          className="tap text-xs font-medium text-primary hover:underline flex items-center gap-1"
         >
           Ver análisis completo <ArrowRight className="h-3 w-3" />
         </Link>

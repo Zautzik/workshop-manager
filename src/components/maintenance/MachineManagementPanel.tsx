@@ -266,10 +266,10 @@ function MachineCard({
         </div>
         <div className="flex gap-1">
           <MachineQRButton machineId={machine.id} machineName={machine.name} />
-          <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => onEdit(machine)}>
+          <Button size="icon" variant="ghost" className="h-9 w-9 sm:h-7 sm:w-7" onClick={() => onEdit(machine)}>
             <Pencil className="h-3.5 w-3.5" />
           </Button>
-          <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive" onClick={() => onDelete(machine)}>
+          <Button size="icon" variant="ghost" className="h-9 w-9 text-destructive sm:h-7 sm:w-7" onClick={() => onDelete(machine)}>
             <Trash2 className="h-3.5 w-3.5" />
           </Button>
         </div>
@@ -316,7 +316,7 @@ function MachineCard({
         {/* Quick status switcher */}
         <div className="pt-1">
           <Select value={machine.status} onValueChange={v => onStatusChange(machine, v as MachineStatus)}>
-            <SelectTrigger className={cn('h-7 text-xs border-0 focus:ring-0 text-white font-medium gap-1', statusDot, 'bg-opacity-80 hover:bg-opacity-100')}>
+            <SelectTrigger className={cn('h-9 sm:h-7 text-xs border-0 focus:ring-0 text-white font-medium gap-1', statusDot, 'bg-opacity-80 hover:bg-opacity-100')}>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>

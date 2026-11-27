@@ -67,7 +67,7 @@ grids with no breakpoint, 45 tables with no phone layout, 17 headings at
 | F5 | Responsive grid presets | `grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4` and an auto-fit `minmax(18rem,1fr)` preset. | The 29 fixed grids |
 | F6 | Launchers on phone | `ModuleHexLanding` and `HomeDashboard`: hexagons from `md` up; below `md`, a two-column tile list (icon + name), every group visible. One component fix covers Inicio and all 8 module landings. | Clipped hexagons |
 | F7 | Density pass | Headings down one step, card padding `p-4 sm:p-5`, table rows `py-2`. No root font-size change (keeps rem-based spacing coherent). | "Too big" on phone |
-| F8 | Layout guard | `scripts/qa/layout-crawl.mjs`: opens every route at 390, 1280×720, 1920 and 2560; fails on sideways overflow, content clipped past the viewport, text < 12 px or tap target < 40 px on phone. `npm run qa:layout`. Run before every deploy. | Manual screenshot checks |
+| F8 | Layout guard | `scripts/qa/layout-crawl.mjs`: opens every route at 390, 1280×720, 1920 and 2560; fails on sideways overflow, content clipped past the viewport, content wider than 1600 px at 2560, or a tap target < 32 px on phone (toggles 24 px); warns on text < 12 px. `npm run qa:layout`. Run before every deploy. | Manual screenshot checks |
 
 **Done when:** the crawl reports zero overflow and zero clipping on all routes
 at all four widths, and Inicio, Operaciones, Clientes and Resumen are checked
@@ -95,11 +95,25 @@ cut off, no width cap). How each piece landed:
   honeycomb, scaled to the width (`useFitScale`).
 - F7: page titles `text-xl sm:text-2xl` (37), breadcrumb taps 32 px, 12 px
   text floor on phones in CSS (boards excluded via `data-board`).
-- F8: `scripts/qa/layout-crawl.js`, run through the Playwright MCP tool. An
-  `npm run qa:layout` needs `@playwright/test` as a dev dependency (not added).
+- F8: `scripts/qa/layout-crawl.js`; `npm run qa:layout` (every width) and
+  `npm run qa:layout:phone` (390 only, ~4 min) run it in headless Chromium
+  through `@playwright/test`, exit 1 on any failure. Run from PowerShell or
+  with an upper-case `C:` — Git Bash's `c:` path also loads Vitest twice.
 
-Still warnings, not failures: ~80 small tap targets on a few dense screens
-(Inventario filters, Planta week controls) — handled with those pages.
+**Closed 2026-11-27:** the ~210 small tap targets (Máquinas, Costos,
+Inventario, Planta, Rentabilidad, Pre-Prensa, WhatsApp…) are 36 px on a phone
+and unchanged from `sm` up (`h-9 sm:h-7`, `.tap` in `index.css`). Tap targets
+are now a FAILURE in the check: < 32 px, checkboxes/switches < 24 px; a link
+inside a sentence is exempt. Phone run: 0 failures. Two text-size warnings
+remain (Tendencias chart axis, Talento skill tree), both drawn boards.
+
+**Phone planning (2026-11-27):** below 768 px the Cronograma tab mounts
+`plan-movil/PlanMovil` instead of the Gantt — Ahora (now/next per machine),
+Carga (7-day heat map), Riesgo (late/blocked OTs) — and a stage panel
+(move with landing preview, release, delay simulation, make-ready). It reads
+the same `useProductionSchedule` and writes through the same
+`usePlanActions` → `/api/ot-schedule`; where a moved stage lands is
+`landingSlot` in `src/lib/plan-actions.ts`, shared with the Gantt drop.
 
 ---
 

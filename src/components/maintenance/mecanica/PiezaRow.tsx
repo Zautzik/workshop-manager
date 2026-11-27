@@ -103,7 +103,7 @@ export function PiezaRow({
           <Button
             variant="ghost"
             size="sm"
-            className="h-7 text-xs"
+            className="h-9 sm:h-7 text-xs"
             onClick={onReplace}
             disabled={replacing}
           >

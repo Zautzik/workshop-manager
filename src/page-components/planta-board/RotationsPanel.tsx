@@ -277,16 +277,16 @@ export function RotationsPanel({
 				</div>
 				{canEdit && (
 					<div className="flex flex-wrap items-center gap-1.5">
-						<Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setDraft(fromTemplate('equipos'))}>
+						<Button size="sm" variant="outline" className="h-9 sm:h-7 text-xs" onClick={() => setDraft(fromTemplate('equipos'))}>
 							<Plus className="mr-1 h-3 w-3" /> Dos equipos Mañana ⇄ Tarde
 						</Button>
-						<Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setDraft(fromTemplate('personas'))}>
+						<Button size="sm" variant="outline" className="h-9 sm:h-7 text-xs" onClick={() => setDraft(fromTemplate('personas'))}>
 							<Plus className="mr-1 h-3 w-3" /> Dos personas en una máquina
 						</Button>
-						<Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setDraft(fromTemplate('fijo'))}>
+						<Button size="sm" variant="outline" className="h-9 sm:h-7 text-xs" onClick={() => setDraft(fromTemplate('fijo'))}>
 							<Plus className="mr-1 h-3 w-3" /> Turno fijo
 						</Button>
-						<Button size="sm" className="h-7 text-xs" onClick={generate} disabled={generating || rotations.every((r) => !r.active)}>
+						<Button size="sm" className="h-9 sm:h-7 text-xs" onClick={generate} disabled={generating || rotations.every((r) => !r.active)}>
 							<RefreshCw className={cn('mr-1 h-3 w-3', generating && 'animate-spin')} /> Generar próximas 4 semanas
 						</Button>
 					</div>
@@ -318,16 +318,16 @@ export function RotationsPanel({
 									</div>
 									{canEdit && (
 										<div className="flex items-center gap-1">
-											<Button size="sm" variant="ghost" className="h-6 px-2 text-xs" onClick={() => shiftByOneWeek(r)} disabled={saving} title="Desde esta semana, cada equipo pasa al turno siguiente">
+											<Button size="sm" variant="ghost" className="h-9 px-2 text-xs sm:h-6" onClick={() => shiftByOneWeek(r)} disabled={saving} title="Desde esta semana, cada equipo pasa al turno siguiente">
 												<ArrowLeftRight className="mr-1 h-3 w-3" /> Intercambiar
 											</Button>
-											<Button size="sm" variant="ghost" className="h-6 px-2" onClick={() => save({ ...toPayload(fromRotation(r)), active: !r.active }, r.active ? `${r.name} en pausa` : `${r.name} activa`)} title={r.active ? 'Pausar' : 'Activar'}>
+											<Button size="sm" variant="ghost" className="h-9 px-2 sm:h-6" onClick={() => save({ ...toPayload(fromRotation(r)), active: !r.active }, r.active ? `${r.name} en pausa` : `${r.name} activa`)} title={r.active ? 'Pausar' : 'Activar'}>
 												{r.active ? <Pause className="h-3 w-3" /> : <Play className="h-3 w-3" />}
 											</Button>
-											<Button size="sm" variant="ghost" className="h-6 px-2" onClick={() => setDraft(fromRotation(r))} title="Editar">
+											<Button size="sm" variant="ghost" className="h-9 px-2 sm:h-6" onClick={() => setDraft(fromRotation(r))} title="Editar">
 												<Pencil className="h-3 w-3" />
 											</Button>
-											<Button size="sm" variant="ghost" className="h-6 px-2 text-red-600" onClick={() => remove(r)} title="Borrar">
+											<Button size="sm" variant="ghost" className="h-9 px-2 sm:h-6 text-red-600" onClick={() => remove(r)} title="Borrar">
 												<Trash2 className="h-3 w-3" />
 											</Button>
 										</div>

@@ -139,7 +139,7 @@ export function MovementTypesManager() {
 										<Button
 											size="sm"
 											variant={dirty ? 'default' : 'outline'}
-											className="h-7 gap-1 text-xs"
+											className="h-9 sm:h-7 gap-1 text-xs"
 											disabled={!dirty || update.isPending}
 											onClick={() => save(t)}
 										>

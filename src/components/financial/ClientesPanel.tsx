@@ -183,7 +183,7 @@ export function ClientesPanel({ onSelect }: { onSelect?: (q: string) => void }) 
 											type="button"
 											onClick={() => onSelect?.(f.client_name)}
 											title={`Factura ${formatCLP(f.revenue)} · costo ${formatCLP(f.actual_cost)}${f.ots_sin_costo > 0 ? ` · ${f.ots_sin_costo} OT sin costo cargado, fuera del cálculo` : ''}`}
-											className="group flex w-full items-center gap-2 rounded-md px-1.5 py-1 text-left transition-colors hover:bg-muted/60"
+											className="group flex min-h-9 w-full items-center gap-2 rounded-md px-1.5 py-1 text-left transition-colors hover:bg-muted/60 sm:min-h-0"
 										>
 											<span className="w-32 shrink-0 truncate text-xs font-medium text-foreground group-hover:text-primary">{f.client_name}</span>
 											<span className="w-10 shrink-0 text-[11px] text-muted-foreground">{f.ots} OT</span>
@@ -215,7 +215,7 @@ export function ClientesPanel({ onSelect }: { onSelect?: (q: string) => void }) 
 							<button
 								type="button"
 								onClick={() => setTodos((v) => !v)}
-								className="text-xs font-medium text-primary underline-offset-4 hover:underline"
+								className="tap text-xs font-medium text-primary underline-offset-4 hover:underline"
 							>
 								{todos ? `Mostrar sólo los primeros ${VISIBLES}` : `Ver los ${conCifra.length} clientes`}
 							</button>

@@ -697,10 +697,10 @@ export function UnifiedOTWizard({ onClose, onSuccess }: Props) {
                 Recuperamos un borrador sin terminar. Puedes continuarlo o empezar de cero.
               </span>
               <div className="flex items-center gap-2 shrink-0">
-                <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setDraftRestored(false)}>
+                <Button size="sm" variant="ghost" className="h-9 sm:h-7 text-xs" onClick={() => setDraftRestored(false)}>
                   Continuar
                 </Button>
-                <Button size="sm" variant="outline" className="h-7 text-xs" onClick={discardDraft}>
+                <Button size="sm" variant="outline" className="h-9 sm:h-7 text-xs" onClick={discardDraft}>
                   Empezar de cero
                 </Button>
               </div>

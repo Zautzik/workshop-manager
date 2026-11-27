@@ -135,7 +135,7 @@ export default function WhatsAppSimulatorPanel() {
             <button
               key={ex}
               onClick={() => setBody(ex)}
-              className="rounded-full border border-border px-2.5 py-0.5 text-xs text-muted-foreground hover:bg-muted transition-colors"
+              className="min-h-8 rounded-full border border-border px-2.5 py-1 text-xs sm:min-h-0 sm:py-0.5 text-muted-foreground hover:bg-muted transition-colors"
             >
               {ex}
             </button>

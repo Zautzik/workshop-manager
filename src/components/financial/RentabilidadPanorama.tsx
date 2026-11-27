@@ -180,7 +180,7 @@ function MargenRow({ ot, cliente, margen, pct, max, positivo, negativo, onSelect
 			<button
 				type="button"
 				onClick={() => onSelect?.(ot)}
-				className="group flex w-full items-center gap-2 rounded-md px-1.5 py-1 text-left transition-colors hover:bg-muted/60"
+				className="group flex min-h-9 w-full items-center gap-2 rounded-md px-1.5 py-1 text-left transition-colors hover:bg-muted/60 sm:min-h-0"
 			>
 				<span className="w-16 shrink-0 truncate font-mono text-xs font-semibold text-foreground group-hover:text-primary">{ot}</span>
 				<span className="w-20 shrink-0 truncate text-xs text-muted-foreground">{cliente}</span>
@@ -216,7 +216,7 @@ function ComposicionRow({ ot, parts, max, dark, onSelect }: {
 			<button
 				type="button"
 				onClick={() => onSelect?.(ot)}
-				className="group flex w-full items-center gap-2 rounded-md px-1.5 py-1 text-left transition-colors hover:bg-muted/60"
+				className="group flex min-h-9 w-full items-center gap-2 rounded-md px-1.5 py-1 text-left transition-colors hover:bg-muted/60 sm:min-h-0"
 			>
 				<span className="w-16 shrink-0 truncate font-mono text-xs font-semibold text-foreground group-hover:text-primary">{ot}</span>
 				<span className="max-w-[140px] flex-1 overflow-hidden rounded-full bg-muted">

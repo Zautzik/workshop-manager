@@ -156,7 +156,7 @@ export function HoraPrensaPanel({ onSelect }: { onSelect?: (q: string) => void }
 											type="button"
 											onClick={() => onSelect?.(t.ot)}
 											title={`Margen ${formatCLP(t.margen ?? 0)} · ${t.pressHours?.toFixed(1) ?? '—'} h de máquina${t.costoMillar !== null ? ` · costo ${formatCLP(Math.round(t.costoMillar))}/millar` : ''}`}
-											className="group flex w-full items-center gap-2 rounded-md px-1.5 py-1 text-left transition-colors hover:bg-muted/60"
+											className="group flex min-h-9 w-full items-center gap-2 rounded-md px-1.5 py-1 text-left transition-colors hover:bg-muted/60 sm:min-h-0"
 										>
 											<span className="w-4 shrink-0 font-mono text-[10px] text-muted-foreground">{i + 1}</span>
 											<span className="w-14 shrink-0 truncate font-mono text-xs font-semibold text-foreground group-hover:text-primary">{t.ot}</span>
@@ -181,7 +181,7 @@ export function HoraPrensaPanel({ onSelect }: { onSelect?: (q: string) => void }
 							<button
 								type="button"
 								onClick={() => setTodos((v) => !v)}
-								className="text-xs font-medium text-primary underline-offset-4 hover:underline"
+								className="tap text-xs font-medium text-primary underline-offset-4 hover:underline"
 							>
 								{todos ? `Mostrar sólo los primeros ${VISIBLES}` : `Ver la cola completa (${conCifra.length})`}
 							</button>

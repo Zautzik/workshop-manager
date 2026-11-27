@@ -376,7 +376,7 @@ export function ClientManager() {
                           <Button
                             variant="ghost"
                             size="sm"
-                            className="h-7 w-7 p-0"
+                            className="h-9 w-9 sm:h-7 sm:w-7 p-0"
                             onClick={() => openEdit(client)}
                           >
                             <Edit2 className="h-3.5 w-3.5" />
@@ -385,7 +385,7 @@ export function ClientManager() {
                             <Button
                               variant="ghost"
                               size="sm"
-                              className="h-7 w-7 p-0 text-muted-foreground hover:text-red-400"
+                              className="h-9 w-9 sm:h-7 sm:w-7 p-0 text-muted-foreground hover:text-red-400"
                               onClick={() => handleDeactivate(client)}
                             >
                               <Trash2 className="h-3.5 w-3.5" />
@@ -394,7 +394,7 @@ export function ClientManager() {
                             <Button
                               variant="ghost"
                               size="sm"
-                              className="h-7 text-xs text-amber-400 hover:text-amber-300"
+                              className="h-9 sm:h-7 text-xs text-amber-400 hover:text-amber-300"
                               onClick={() => handleReactivate(client)}
                             >
                               Reactivar

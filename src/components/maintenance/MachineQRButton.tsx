@@ -38,7 +38,7 @@ export function MachineQRButton({ machineId, machineName }: MachineQRButtonProps
       <Button
         size="icon"
         variant="ghost"
-        className="h-7 w-7"
+        className="h-9 w-9 sm:h-7 sm:w-7"
         title="Ver QR del equipo"
         onClick={() => setOpen(true)}
       >

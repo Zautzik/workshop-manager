@@ -320,7 +320,7 @@ export function MachineProfileEditor({ machine, onSaved, onCancel }: Props) {
                       <span className="flex-1 font-medium">{s.inventory_items?.name}</span>
                       <span className="text-muted-foreground text-xs">{s.consumption_rate} {s.rate_unit.replace('per_', '').replace('_', '/')}</span>
                       <Badge variant="outline" className="text-xs">{s.inventory_items?.unit}</Badge>
-                      <Button size="icon" variant="ghost" className="h-6 w-6 text-destructive" onClick={() => removeSupply(s.id)}>
+                      <Button size="icon" variant="ghost" className="h-9 w-9 sm:h-6 sm:w-6 text-destructive" onClick={() => removeSupply(s.id)}>
                         <Trash2 className="h-3 w-3" />
                       </Button>
                     </div>

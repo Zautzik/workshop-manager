@@ -23,7 +23,7 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
 
 function ManageLink({ href }: { href: string }) {
   return (
-    <Link href={href} className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline">
+    <Link href={href} className="tap inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline">
       Gestionar <ArrowRight className="h-3 w-3" />
     </Link>
   );
@@ -71,7 +71,7 @@ export default function AdminSettingsPage() {
             </CardHeader>
             <CardContent className="space-y-1">
               <Row label="Tema">
-                <Button variant="outline" size="sm" className="h-7 gap-1 text-xs" onClick={() => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')}>
+                <Button variant="outline" size="sm" className="h-9 gap-1 text-xs sm:h-7" onClick={() => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')}>
                   {!mounted ? 'Tema' : resolvedTheme === 'dark' ? <><Moon className="h-3 w-3" /> Oscuro</> : <><Sun className="h-3 w-3" /> Claro</>}
                 </Button>
               </Row>

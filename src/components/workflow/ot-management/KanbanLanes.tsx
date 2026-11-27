@@ -80,7 +80,7 @@ function OTRow({ ot, rgb, props }: { ot: any; rgb: string; props: Props }) {
           draggable={false}
           onDragStart={(e) => e.preventDefault()}
           onClick={(e) => { e.stopPropagation(); onPasadasOpen(ot); }}
-          className="shrink-0 rounded p-1 text-amber-600 hover:bg-amber-500/10"
+          className="shrink-0 rounded p-2 text-amber-600 hover:bg-amber-500/10 sm:p-1"
           title={`Faltan horas de: ${debe.map(otStatusLabel).join(', ')}`}
           aria-label={`Cerrar pasadas pendientes de ${ot.ot_number}`}
         >

@@ -130,7 +130,7 @@ export function WeekRosterGrid({
 						</span>
 					)}
 					<label className="flex cursor-pointer items-center gap-1 text-muted-foreground">
-						<input type="checkbox" checked={showAll} onChange={(e) => setShowAll(e.target.checked)} />
+						<input type="checkbox" className="h-6 w-6 sm:h-auto sm:w-auto" checked={showAll} onChange={(e) => setShowAll(e.target.checked)} />
 						todas las máquinas
 					</label>
 				</div>

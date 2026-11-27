@@ -382,7 +382,7 @@ export function UnifiedStepMontaje({ form, updateForm }: Props) {
                       },
                     })
                   }
-                  className="h-7 text-xs font-mono bg-input border-border"
+                  className="h-9 sm:h-7 text-xs font-mono bg-input border-border"
                 />
               </div>
               <div className="space-y-0.5">
@@ -394,7 +394,7 @@ export function UnifiedStepMontaje({ form, updateForm }: Props) {
                       montaje: { ...form.montaje, corte_hoja: e.target.value },
                     })
                   }
-                  className="h-7 text-xs bg-input border-border"
+                  className="h-9 sm:h-7 text-xs bg-input border-border"
                 />
               </div>
             </div>
@@ -411,7 +411,7 @@ export function UnifiedStepMontaje({ form, updateForm }: Props) {
                     },
                   })
                 }
-                className="h-7 text-xs bg-input border-border"
+                className="h-9 sm:h-7 text-xs bg-input border-border"
               />
             </div>
             <div className="space-y-0.5">
@@ -427,7 +427,7 @@ export function UnifiedStepMontaje({ form, updateForm }: Props) {
                     },
                   })
                 }
-                className="h-7 text-xs bg-input border-border"
+                className="h-9 sm:h-7 text-xs bg-input border-border"
               />
             </div>
           </Card>

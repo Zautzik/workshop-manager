@@ -118,7 +118,7 @@ export function TroquelDelEstante({ otId, widthCm, heightCm, productType, client
 
 								<Button
 									size="sm"
-									className="ml-auto h-7 text-xs"
+									className="ml-auto h-9 sm:h-7 text-xs"
 									disabled={guardando !== null}
 									onClick={() => elegir(d.id, `Se usa el ${d.code}, está en ${d.shelfLocation ?? 'el estante'}`)}
 								>
@@ -140,7 +140,7 @@ export function TroquelDelEstante({ otId, widthCm, heightCm, productType, client
 			<Button
 				variant="ghost"
 				size="sm"
-				className="h-7 text-xs text-muted-foreground"
+				className="h-9 sm:h-7 text-xs text-muted-foreground"
 				disabled={guardando !== null}
 				onClick={() => elegir(null, 'Anotado: se manda a hacer un troquel nuevo')}
 			>

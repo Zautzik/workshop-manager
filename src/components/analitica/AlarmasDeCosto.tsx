@@ -192,7 +192,7 @@ export function AlarmasDeCosto({ visibleCount = 5, className }: { visibleCount?:
               <button
                 type="button"
                 onClick={() => setAll((v) => !v)}
-                className="text-xs font-medium text-primary underline-offset-4 hover:underline"
+                className="tap text-xs font-medium text-primary underline-offset-4 hover:underline"
               >
                 {all ? `Mostrar sólo ${visibleCount}` : `Ver las ${sorted.length}`}
               </button>

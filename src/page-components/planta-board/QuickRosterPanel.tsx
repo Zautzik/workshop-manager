@@ -58,7 +58,7 @@ export function QuickRosterPanel({
         </Button>
         <div className="flex flex-wrap gap-1">
           {weekDates.map((date) => dateToLocalIso(date)).filter((d) => d !== selectedDate).map((dateIso) => (
-            <Button key={`copy-${dateIso}`} variant="outline" size="sm" disabled={!selectedShiftId || quickSetupLoading !== null} onClick={() => onCopyFromDay(dateIso)} className="h-6 px-2 text-[10px]">
+            <Button key={`copy-${dateIso}`} variant="outline" size="sm" disabled={!selectedShiftId || quickSetupLoading !== null} onClick={() => onCopyFromDay(dateIso)} className="h-9 px-2 text-xs sm:h-6 sm:text-[10px]">
               <Copy className="w-2.5 h-2.5 mr-0.5" />
               {dateIso}
             </Button>

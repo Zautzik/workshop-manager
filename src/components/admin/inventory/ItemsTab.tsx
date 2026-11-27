@@ -195,10 +195,10 @@ export function ItemsTab({
           {formatCLP(Number(item.weighted_unit_cost || item.estimated_unit_cost || 0))}
         </span>
         <div className="flex shrink-0 items-center">
-          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => onEdit(item)}>
+          <Button variant="ghost" size="icon" className="h-9 w-9 sm:h-6 sm:w-6" onClick={() => onEdit(item)}>
             <Pencil className="h-3 w-3" />
           </Button>
-          <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-destructive" onClick={() => onDelete(item.id)}>
+          <Button variant="ghost" size="icon" className="h-9 w-9 sm:h-6 sm:w-6 text-muted-foreground hover:text-destructive" onClick={() => onDelete(item.id)}>
             <Trash2 className="h-3 w-3" />
           </Button>
         </div>
@@ -388,7 +388,7 @@ export function ItemsTab({
         <button
           type="button"
           onClick={() => setMaterialFilter('all')}
-          className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
+          className={`rounded-full border px-3 py-2 text-xs font-medium transition-colors sm:py-1 ${
             materialFilter === 'all' ? 'border-foreground bg-foreground text-background' : 'border-input text-muted-foreground hover:border-foreground/40'
           }`}
         >
@@ -402,7 +402,7 @@ export function ItemsTab({
               key={k.value}
               type="button"
               onClick={() => setMaterialFilter(k.value)}
-              className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
+              className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-2 text-xs font-medium transition-colors sm:py-1 ${
                 active ? `border-transparent ${fs.chip}` : 'border-input text-muted-foreground hover:border-foreground/40'
               }`}
             >

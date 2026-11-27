@@ -475,7 +475,7 @@ export default function CraftSkillTree() {
             <Button
               size="sm"
               variant="ghost"
-              className="h-7 w-7 p-0 text-slate-400 hover:text-slate-200"
+              className="h-9 w-9 p-0 text-slate-400 hover:text-slate-200 sm:h-7 sm:w-7"
               onClick={() => setZoom(z => Math.max(0.3, z - 0.1))}
             >
               <ZoomOut className="w-3.5 h-3.5" />
@@ -486,7 +486,7 @@ export default function CraftSkillTree() {
             <Button
               size="sm"
               variant="ghost"
-              className="h-7 w-7 p-0 text-slate-400 hover:text-slate-200"
+              className="h-9 w-9 p-0 text-slate-400 hover:text-slate-200 sm:h-7 sm:w-7"
               onClick={() => setZoom(z => Math.min(1.5, z + 0.1))}
             >
               <ZoomIn className="w-3.5 h-3.5" />

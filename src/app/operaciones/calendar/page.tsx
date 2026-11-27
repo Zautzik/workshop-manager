@@ -7,6 +7,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
 import { GanttChart, Cpu, CalendarDays, CalendarRange } from 'lucide-react';
 import { OTGanttBoard } from '@/components/workflow/OTGanttBoard';
+import { PlanMovil } from '@/components/workflow/plan-movil/PlanMovil';
+import { useIsPhone } from '@/hooks/use-is-phone';
 import { ShiftManagement } from '@/components/workflow/ShiftManagement';
 import { UnifiedCalendar } from '@/components/UnifiedCalendar';
 import { PlanSemanal } from '@/components/workflow/PlanSemanal';
@@ -19,6 +21,7 @@ function PlanificacionTabs() {
   const router = useRouter();
   const params = useSearchParams();
   const { role } = useAuth();
+  const isPhone = useIsPhone();
   // Cronograma, Máquinas y Semanal pegan contra /api/ot-schedule*, que sólo
   // acepta supervisor/admin/manager. La página igual dejaba entrar a
   // hr_manager con las cuatro pestañas visibles — llegaba a la que sí es
@@ -59,8 +62,10 @@ function PlanificacionTabs() {
         </TabsTrigger>
       </TabsList>
 
-      <TabsContent value="cronograma" className="mt-6">
-        <OTGanttBoard />
+      <TabsContent value="cronograma" className="mt-4 md:mt-6">
+        {/* Phone: the same plan as heat map / now-and-next / at-risk with a
+            stage panel (owner, 2026-11-26). Only one of the two is mounted. */}
+        {isPhone ? <PlanMovil /> : <OTGanttBoard />}
       </TabsContent>
       <TabsContent value="maquinas" className="mt-6">
         <ShiftManagement />

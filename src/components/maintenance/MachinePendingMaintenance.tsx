@@ -195,7 +195,7 @@ function ScheduleDueCard({ schedule }: { schedule: any }) {
       </div>
       {!canCreate ? (
         // Said, not hidden in a tooltip a disabled button cannot show (M9).
-        <Link href="/equipos/ordenes?tab=pautas" className="shrink-0 text-right text-xs text-amber-700 hover:underline dark:text-amber-400">
+        <Link href="/equipos/ordenes?tab=pautas" className="tap shrink-0 text-right text-xs text-amber-700 hover:underline dark:text-amber-400">
           Sin checklist: agrégala en Pautas
         </Link>
       ) : (
