@@ -44,6 +44,36 @@ describe('analyzeCosts', () => {
 		expect(a.summary.total_actual).toBe(432_000);
 	});
 
+	it('no suma pliegos con kilos: con unidades mezcladas da el detalle y no inventa un costo unitario', () => {
+		const a = analyzeCosts(ops, [
+			...libro,
+			{ category: 'material', quantity: 3.5, unit: 'kg', total: 42_000, source: 'consumo', ref_type: 'inventory_tx' },
+		]);
+		const papel = a.line_items.find((i) => i.category === 'material')!;
+		expect(papel.actual_cost).toBe(192_000);
+		expect(papel.actual_qty).toBeNull();
+		expect(papel.actual_unit_cost).toBeNull();
+		expect(papel.actual_unit).toBe('varias unidades');
+		expect(papel.actual_quantities).toEqual([
+			{ unit: 'pliegos', qty: 1000 },
+			{ unit: 'kg', qty: 3.5 },
+		]);
+		// El presupuesto de una sola unidad sigue con su cantidad.
+		expect(papel.estimated_qty).toBe(1000);
+		expect(papel.estimated_unit).toBe('pliegos');
+	});
+
+	it('una corrección y su anulación se cancelan: cero en dinero y en cantidad', () => {
+		const a = analyzeCosts(ops, [
+			{ category: 'outsourced', quantity: 1, unit: 'servicio', total: 85_000, source: 'correccion', ref_type: 'correccion' },
+			{ category: 'outsourced', quantity: -1, unit: 'servicio', total: -85_000, source: 'anulacion', ref_type: 'correccion' },
+		]);
+		const terc = a.line_items.find((i) => i.category === 'outsourced')!;
+		expect(terc.actual_cost).toBe(0);
+		expect(terc.actual_quantities).toEqual([]);
+		expect(a.summary.corrections_total).toBe(0);
+	});
+
 	it('sin nada real todavía no hay desvío (pendiente, no −100 %)', () => {
 		const a = analyzeCosts(ops, []);
 		expect(a.summary.total_actual).toBe(0);

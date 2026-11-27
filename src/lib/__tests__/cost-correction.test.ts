@@ -10,10 +10,20 @@ import { ledgerCategory, recordCostCorrection } from '../cost-correction';
  * que no tiene otro dueño (un tercerizado, una terminación externa, un extra)
  * entra como corrección: al libro, con motivo, marcada como tal.
  */
-function base() {
+function base(otStatus: string | null = 'workshop') {
 	const filas: Record<string, unknown>[] = [];
 	const db = {
-		from: (_t: string) => ({
+		from: (t: string) => ({
+			// La OT: existe (con su estado) o no. Lo demás del libro se prueba
+			// contra la base en src/__tests__/correccion-de-costo.test.ts.
+			select: () => ({
+				eq: () => ({
+					maybeSingle: async () => ({
+						data: t === 'ots' && otStatus ? { id: OT, status: otStatus } : null,
+						error: null,
+					}),
+				}),
+			}),
 			insert: (rows: Record<string, unknown>[]) => ({
 				select: async () => {
 					rows.forEach((r, i) => filas.push({ ...r, id: `l-${filas.length + i + 1}` }));
@@ -81,6 +91,15 @@ describe('recordCostCorrection', () => {
 			});
 			expect(r.ok).toBe(false);
 			if (!r.ok) expect(r.error).toMatch(dice);
+			expect(filas).toHaveLength(0);
+		}
+	});
+
+	it('una OT que no existe es 404 y una terminada es 409; ninguna escribe', async () => {
+		for (const [status, esperado] of [[null, 404], ['completed', 409]] as const) {
+			const { db, filas } = base(status);
+			const r = await recordCostCorrection(db as never, { otId: OT, actorId: ACTOR, reason: 'Factura tardía', lines: [tercerizado] });
+			expect(r).toMatchObject({ ok: false, status: esperado });
 			expect(filas).toHaveLength(0);
 		}
 	});

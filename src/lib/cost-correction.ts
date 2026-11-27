@@ -75,6 +75,26 @@ export interface CorrectionLine {
 
 export type CorrectionResult = { ok: true; ids: string[] } | { ok: false; status: number; error: string };
 
+
+/** La anulación de una corrección: un asiento espejo, nunca un DELETE. */
+export const REVERSAL_SOURCE = 'anulacion';
+
+type Fail = { ok: false; status: number; error: string };
+
+/**
+ * La OT tiene que existir y seguir abierta. Una OT `completed` ya cerró su
+ * costo: corregirlo después movería un margen que alguien ya leyó.
+ */
+async function otAbierta(db: SupabaseClient, otId: string): Promise<Fail | null> {
+	const { data, error } = await db.from('ots').select('id, status').eq('id', otId).maybeSingle();
+	if (error) return { ok: false, status: 500, error: error.message };
+	if (!data) return { ok: false, status: 404, error: 'No existe esa OT.' };
+	if ((data as { status: string }).status === 'completed') {
+		return { ok: false, status: 409, error: 'La OT está terminada: su costo ya cerró y no se corrige.' };
+	}
+	return null;
+}
+
 export async function recordCostCorrection(
 	db: SupabaseClient,
 	args: { otId: string; actorId: string | null; reason: string; lines: CorrectionLine[] },
@@ -107,24 +127,65 @@ export async function recordCostCorrection(
 		});
 	}
 
+	const cerrada = await otAbierta(db, args.otId);
+	if (cerrada) return cerrada;
+
 	const { data, error } = await db.from('ot_cost_lines').insert(rows).select('id');
 	if (error) return { ok: false, status: 500, error: error.message };
 	return { ok: true, ids: ((data ?? []) as { id: string }[]).map((r) => r.id) };
 }
 
-/** Quita una corrección (sólo una corrección: lo medido no se borra a mano). */
-export async function removeCostCorrection(
+/**
+ * Anula una corrección con un asiento contrario (misma categoría, cantidad
+ * negativa, mismo costo unitario): las dos líneas quedan, el neto es cero, y
+ * el motivo de la anulación queda escrito. Sólo una corrección se anula —lo
+ * medido se corrige en su dueño— y sólo una vez (índice único en la base, por
+ * si dos personas lo intentan a la vez).
+ */
+export async function reverseCostCorrection(
 	db: SupabaseClient,
-	args: { otId: string; lineId: string },
-): Promise<{ ok: true } | { ok: false; status: number; error: string }> {
-	const { data, error } = await db
+	args: { otId: string; lineId: string; actorId: string | null; reason: string },
+): Promise<{ ok: true; id: string } | Fail> {
+	const reason = args.reason.trim();
+	if (reason.length < 3) return { ok: false, status: 400, error: 'Anular una corrección también necesita su motivo.' };
+
+	const cerrada = await otAbierta(db, args.otId);
+	if (cerrada) return cerrada;
+
+	const { data: orig, error: e1 } = await db
 		.from('ot_cost_lines')
-		.delete()
+		.select('id, category, description, quantity, unit, unit_cost')
 		.eq('id', args.lineId)
 		.eq('ot_id', args.otId)
-		.eq('ref_type', CORRECTION_REF)
-		.select('id');
-	if (error) return { ok: false, status: 500, error: error.message };
-	if (!data || data.length === 0) return { ok: false, status: 404, error: 'No hay una corrección con ese id en esta OT.' };
-	return { ok: true };
+		.eq('kind', 'actual')
+		.eq('source', CORRECTION_REF)
+		.maybeSingle();
+	if (e1) return { ok: false, status: 500, error: e1.message };
+	if (!orig) return { ok: false, status: 404, error: 'No hay una corrección con ese id en esta OT.' };
+	const o = orig as { id: string; category: LedgerCategory; description: string; quantity: number; unit: string; unit_cost: number };
+
+	const { data, error } = await db
+		.from('ot_cost_lines')
+		.insert({
+			ot_id: args.otId,
+			kind: 'actual' as const,
+			category: o.category,
+			description: `Anula: ${o.description}`,
+			quantity: -Number(o.quantity),
+			unit: o.unit,
+			unit_cost: Number(o.unit_cost),
+			occurred_at: new Date().toISOString(),
+			recorded_by: args.actorId,
+			source: REVERSAL_SOURCE,
+			ref_type: CORRECTION_REF,
+			ref_id: o.id,
+			notes: reason,
+		})
+		.select('id')
+		.single();
+	if (error) {
+		if (error.code === '23505') return { ok: false, status: 409, error: 'Esa corrección ya está anulada.' };
+		return { ok: false, status: 500, error: error.message };
+	}
+	return { ok: true, id: (data as { id: string }).id };
 }

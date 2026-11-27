@@ -114,7 +114,7 @@ adds them (or point CI at a throwaway project). Add `npm run qa:layout:phone`
 as an optional job.
 *Done when:* a push to master shows a green CI run.
 
-**B7 · One store for real costs (M).** ✅ code 2026-11-27 (owner chose: manual entry = a correction); ⏳ migration `20261127130000` waits for its cloud push. Manual lines now go to the ledger as corrections with a required reason (`src/lib/cost-correction.ts`, `/api/ots/[id]/cost-corrections`); paper, machine and labour are refused and corrected at their source. Cost analysis reads the ledger by category (`src/lib/cost-analysis.ts`). The migration sends reviewed WhatsApp extra lines straight to the ledger and drops `ot_real_costs`. Found by F1.
+**B7 · One store for real costs (M).** ✅ code 2026-11-27 (owner chose: manual entry = a correction); ⏳ migrations `20261127130000` and `20261127140000` wait for their cloud push (applied locally). Manual lines now go to the ledger as corrections with a required reason (`src/lib/cost-correction.ts`, `/api/ots/[id]/cost-corrections`); paper, machine and labour are refused and corrected at their source. Cost analysis reads the ledger by category (`src/lib/cost-analysis.ts`). The first migration sends reviewed WhatsApp extra lines straight to the ledger and drops `ot_real_costs`. Found by F1. Hardened the same day: a correction is cancelled by an opposite entry with its own reason, never deleted (`POST …/cost-corrections/[lineId]/reverse`; the second migration allows that negative line and a unique index stops a double reversal); unknown OT → 404, completed OT → 409; the analysis never adds sheets to kg (per-unit breakdown). Tested against the real DB in `src/__tests__/correccion-de-costo.test.ts`. After the cloud push: regenerate `types.ts` from the DB (the hand edit matches its 123 tables; 2 functions, `emitir_papel` and `devolver_salida_papel`, are missing from it from before).
 
 *Original note:*
 The ledger (`ot_cost_lines`, kind `actual`) is where paper, passes and labour
@@ -316,4 +316,5 @@ Ordered by value to the shop.
 | 2026-11-27 | Plan written | — |
 | 2026-11-27 | B1 deps, B2 portal → moveOT, B3 WhatsApp idempotency (migration on cloud) | 218bf40 |
 | 2026-11-27 | F1 end-to-end test; dispatch gate reads the ledger; B7 raised | bed02e0 |
-| 2026-11-27 | B7 code: corrections to the ledger, cost analysis on the ledger (migration pending) | (this commit) |
+| 2026-11-27 | B7 code: corrections to the ledger, cost analysis on the ledger (migration pending) | 478f636 |
+| 2026-11-27 | B7 hardening: reversal instead of delete, closed-OT guard, per-unit quantities | (this commit) |

@@ -3,11 +3,12 @@ import { z } from 'zod';
 import { requireAuth, isAuthError } from '@/lib/api-middleware';
 import { supabaseAdmin } from '@/integrations/supabase/server';
 import { amountCLP, units } from '@/lib/limits';
-import { recordCostCorrection, removeCostCorrection } from '@/lib/cost-correction';
+import { recordCostCorrection } from '@/lib/cost-correction';
 
 /**
  * POST   /api/ots/[id]/cost-corrections  — registra una corrección del costo real
- * DELETE /api/ots/[id]/cost-corrections?line=<id> — quita una corrección
+ * Para anular una: POST /api/ots/[id]/cost-corrections/[lineId]/reverse (asiento
+ * contrario con motivo; nunca se borra).
  *
  * La regla vive en `src/lib/cost-correction.ts`: al libro, con motivo, sólo lo
  * que no tiene otro dueño. Reemplaza a `/real-costs`, que escribía en
@@ -59,18 +60,4 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 	});
 	if (!result.ok) return NextResponse.json({ error: result.error }, { status: result.status });
 	return NextResponse.json({ ids: result.ids }, { status: 201 });
-}
-
-export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-	const auth = await requireAuth(['admin', 'supervisor']);
-	if (isAuthError(auth)) return auth;
-
-	const { id } = await params;
-	const line = new URL(req.url).searchParams.get('line') ?? '';
-	if (!z.string().guid().safeParse(id).success || !z.string().guid().safeParse(line).success) {
-		return NextResponse.json({ error: 'Se requieren el ID de la OT y de la corrección' }, { status: 400 });
-	}
-	const result = await removeCostCorrection(supabaseAdmin, { otId: id, lineId: line });
-	if (!result.ok) return NextResponse.json({ error: result.error }, { status: result.status });
-	return NextResponse.json({ ok: true });
 }

@@ -51,6 +51,9 @@ interface CostLineItem {
   actual_unit: string;
   actual_unit_cost: number | null;
   actual_cost: number;
+  /** Por unidad: un rubro puede mezclar pliegos y kg, y esos no se suman. */
+  estimated_quantities?: { unit: string; qty: number }[];
+  actual_quantities?: { unit: string; qty: number }[];
   deviation_pct: number | null;
   has_actual: boolean;
   workflow_steps: string[];
@@ -176,6 +179,11 @@ export function OTCostAnalysisReport() {
   };
 
   const fmtMoney = (n: number) => `$${Math.round(n).toLocaleString()}`;
+  /** Una unidad: el número. Varias: «1.000 pliegos + 3,5 kg». Ninguna: —. */
+  const fmtQtys = (single: number | null, list: { unit: string; qty: number }[] | undefined) => {
+    if (list && list.length > 1) return list.map((q) => `${q.qty.toLocaleString()} ${q.unit}`).join(' + ');
+    return single !== null && single > 0 ? single.toLocaleString() : '—';
+  };
 
   return (
     <div className="space-y-6">
@@ -410,13 +418,13 @@ export function OTCostAnalysisReport() {
                           )}
                         </TableCell>
                         <TableCell className="text-right text-sm">
-                          {item.estimated_qty > 0 ? item.estimated_qty.toLocaleString() : '—'}
+                          {fmtQtys(item.estimated_qty, item.estimated_quantities)}
                         </TableCell>
                         <TableCell className="text-xs text-muted-foreground">
                           {item.estimated_unit || item.actual_unit}
                         </TableCell>
                         <TableCell className="text-right text-sm">
-                          {item.actual_qty !== null ? item.actual_qty.toLocaleString() : '—'}
+                          {fmtQtys(item.actual_qty, item.actual_quantities)}
                         </TableCell>
                         <TableCell className="text-right text-sm">
                           {item.estimated_cost > 0 ? fmtMoney(item.estimated_cost) : '—'}

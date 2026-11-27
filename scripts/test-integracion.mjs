@@ -82,6 +82,9 @@ const INTEGRATION_FILES = [
 	// The golden thread end to end: quote → OT → production → dispatch →
 	// invoice. Writes one ZZTEST OT and removes it (npm run test:e2e alone).
 	'src/__tests__/hilo-dorado.test.ts',
+	// Cost corrections against the real ledger: reversal entry, one reversal
+	// per correction under a race, closed OTs refused. One ZZTEST OT, removed.
+	'src/__tests__/correccion-de-costo.test.ts',
 ];
 
 // --only=<file> runs one of them (npm run test:e2e).
