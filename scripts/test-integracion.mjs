@@ -79,12 +79,24 @@ console.log(`Stack local: ${url}`);
 const INTEGRATION_FILES = [
 	'src/__tests__/cierre-desde-la-etiqueta.test.ts',
 	'src/__tests__/rutas-de-lectura.test.ts',
+	// The golden thread end to end: quote → OT → production → dispatch →
+	// invoice. Writes one ZZTEST OT and removes it (npm run test:e2e alone).
+	'src/__tests__/hilo-dorado.test.ts',
 ];
 
-const extra = process.argv.slice(2);
+// --only=<file> runs one of them (npm run test:e2e).
+const only = process.argv.find((a) => a.startsWith('--only='))?.slice('--only='.length);
+const files = only ? INTEGRATION_FILES.filter((f) => f.endsWith(only)) : INTEGRATION_FILES;
+if (only && files.length === 0) {
+	console.error(`
+--only=${only} no es una de las pruebas de integración.
+`);
+	process.exit(1);
+}
+const extra = process.argv.slice(2).filter((a) => !a.startsWith('--only='));
 const r = spawnSync(
 	npx,
-	['vitest', 'run', ...INTEGRATION_FILES, ...extra],
+	['vitest', 'run', ...files, ...extra],
 	{
 		stdio: 'inherit',
 		...conShell,

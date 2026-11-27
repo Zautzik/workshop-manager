@@ -85,7 +85,7 @@ keep the token as the only authorization; write a test where a customer
 approval moves the OT and writes the same history as the Tablero.
 *Done when:* `grep "from('ots').update" src/app/api` returns only `moveOT`'s own path.
 
-**B3 · Webhook idempotency check (S).** ✅ code 2026-11-27, ⏳ migration `20261127120000` waiting for cloud push. Found two real bugs: (1) one message with FIN + INICIO lost the INICIO as a "duplicate" — each event now keys `wamid`, `wamid#1`…; (2) bodega deduped only within 60 s — now keyed by wamid with a unique index (`src/lib/warehouse-log.ts`). Signatures: fail closed, constant-time — OK.
+**B3 · Webhook idempotency check (S).** ✅ 2026-11-27, migration `20261127120000` on the cloud. Found two real bugs: (1) one message with FIN + INICIO lost the INICIO as a "duplicate" — each event now keys `wamid`, `wamid#1`…; (2) bodega deduped only within 60 s — now keyed by wamid with a unique index (`src/lib/warehouse-log.ts`). Signatures: fail closed, constant-time — OK.
  Confirm both WhatsApp webhooks
 (production and bodega) dedupe on `(wamid, event_index)` and verify Meta's
 signature. Add a test that sends the same message twice and one message with
@@ -113,6 +113,18 @@ secrets (`NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`) — **Owner**
 adds them (or point CI at a throwaway project). Add `npm run qa:layout:phone`
 as an optional job.
 *Done when:* a push to master shows a green CI run.
+
+**B7 · One store for real costs (M) — needs an owner decision.** Found by F1.
+The ledger (`ot_cost_lines`, kind `actual`) is where paper, passes and labour
+write. The old table `ot_real_costs` (1 row, last written 2026-09) still has a
+writer and a reader: `RealCostEntryDialog` (OT management, manual real-cost
+entry) writes it, and Rentabilidad's per-OT cost analysis
+(`OTCostAnalysisReport` via `/api/ots/[id]/cost-analysis`) reads only it — so
+that report shows no real cost for any OT costed today. Owner rule
+(2026-11-10): cost only when consumed, never from manual entry. Proposal:
+cost analysis reads the ledger; the manual-entry dialog is removed (or turned
+into a correction on a pass/consumption); `ot_real_costs` is dropped after.
+*Done when:* no code reads or writes `ot_real_costs`.
 
 ---
 
@@ -197,12 +209,17 @@ shop works meanwhile (A6), how paper reports are loaded afterwards.
 
 ## Phase F — Testing and acceptance
 
-**F1 · Golden-thread end-to-end test (M).** There is no e2e test (audit S-3).
-With `@playwright/test` (already installed): create quote → convert to OT →
-route → plan → issue paper → close passes (Tablero and a WhatsApp report) →
-dispatch → invoice, asserting cost lines, stock and status at each step. Runs
-against the local stack.
-*Done when:* `npm run test:e2e` is green and part of the pre-deploy checks.
+**F1 · Golden-thread end-to-end test (M).** ✅ 2026-11-27 —
+`src/__tests__/hilo-dorado.test.ts`, `npm run test:e2e` (8 steps, ~8 s, local
+stack only, cleans up its ZZTEST rows). Quote → convert → Pre-Prensa gates →
+customer approves by link (moveOT) → paper issued once at lot cost → passes
+valued (Tablero + reviewed WhatsApp report) → quality → dispatch → invoice =
+OT price → completed; then the ledger is checked (one material line, one
+machine line per machine pass, each move once in history, paper out once).
+**Found a launch blocker:** `moveOT`'s "has real costs" gate read the old
+`ot_real_costs` table, so no new OT could be dispatched or completed — now
+reads the ledger. Also found B7.
+Add `npm run test:e2e` to the pre-deploy checks.
 
 **F2 · A day per role on staging (M).** Each role (A4) runs a normal day with
 the seed: vendedor quotes, supervisor plans and moves, operators report by
@@ -285,7 +302,8 @@ Ordered by value to the shop.
 - Every migration: new timestamped file → `npm run db:dry-run` locally →
   explicit OK → push → apply locally → audits (§2 of [AGENTS.md](AGENTS.md)).
 - Before each deploy: `npx tsc --noEmit`, `npm run lint`, `npm test` (from
-  PowerShell — Git Bash's `c:` path breaks Vitest), `npm run qa:layout:phone`.
+  PowerShell — Git Bash's `c:` path breaks Vitest), `npm run test:e2e`,
+  `npm run qa:layout:phone`.
 - Data changes on real records: ask first; dry-run first.
 - Update this file when an item closes: tick it, add the commit hash.
 
@@ -294,4 +312,5 @@ Ordered by value to the shop.
 | Date | Item | Commit |
 | --- | --- | --- |
 | 2026-11-27 | Plan written | — |
-| 2026-11-27 | B1 deps, B2 portal → moveOT, B3 WhatsApp idempotency (migration pending) | — |
+| 2026-11-27 | B1 deps, B2 portal → moveOT, B3 WhatsApp idempotency (migration on cloud) | 218bf40 |
+| 2026-11-27 | F1 end-to-end test; dispatch gate reads the ledger; B7 raised | (this commit) |

@@ -23,6 +23,7 @@
 		"check:functions": "node scripts/check-dead-function-refs.cjs",
 		"test": "vitest run",
 		"test:integracion": "node scripts/test-integracion.mjs",
+		"test:e2e": "node scripts/test-integracion.mjs --only=hilo-dorado.test.ts",
 		"test:smoke": "node scripts/smoke.mjs",
 		"test:smoke:static": "node scripts/smoke.mjs --static",
 		"check:anon": "node scripts/check-anon-visibility.mjs",
