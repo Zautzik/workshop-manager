@@ -325,15 +325,18 @@ export type Database = {
         Row: {
           address: string | null
           city: string | null
+          comuna_code: string | null
           contact_name: string | null
           created_at: string
           email: string | null
+          giro: string | null
           id: string
           is_active: boolean
           name: string
           notes: string | null
           payment_terms: string | null
           phone: string | null
+          region_code: string | null
           rut: string | null
           salesman_id: string | null
           updated_at: string
@@ -341,15 +344,18 @@ export type Database = {
         Insert: {
           address?: string | null
           city?: string | null
+          comuna_code?: string | null
           contact_name?: string | null
           created_at?: string
           email?: string | null
+          giro?: string | null
           id?: string
           is_active?: boolean
           name: string
           notes?: string | null
           payment_terms?: string | null
           phone?: string | null
+          region_code?: string | null
           rut?: string | null
           salesman_id?: string | null
           updated_at?: string
@@ -357,15 +363,18 @@ export type Database = {
         Update: {
           address?: string | null
           city?: string | null
+          comuna_code?: string | null
           contact_name?: string | null
           created_at?: string
           email?: string | null
+          giro?: string | null
           id?: string
           is_active?: boolean
           name?: string
           notes?: string | null
           payment_terms?: string | null
           phone?: string | null
+          region_code?: string | null
           rut?: string | null
           salesman_id?: string | null
           updated_at?: string
@@ -602,10 +611,23 @@ export type Database = {
       dispatch_guides: {
         Row: {
           carrier: string | null
+          carrier_rut: string | null
           client_id: string | null
           client_name: string | null
           created_at: string
+          destination_comuna_code: string | null
           dispatch_date: string
+          driver_name: string | null
+          driver_rut: string | null
+          dte_checked_at: string | null
+          dte_errors: Json | null
+          dte_folio: string | null
+          dte_idempotency_key: string | null
+          dte_provider: string | null
+          dte_provider_id: string | null
+          dte_sent_at: string | null
+          dte_status: Database["public"]["Enums"]["dte_status"]
+          dte_type: number | null
           guide_number: string
           id: string
           invoice_id: string | null
@@ -619,10 +641,23 @@ export type Database = {
         }
         Insert: {
           carrier?: string | null
+          carrier_rut?: string | null
           client_id?: string | null
           client_name?: string | null
           created_at?: string
+          destination_comuna_code?: string | null
           dispatch_date?: string
+          driver_name?: string | null
+          driver_rut?: string | null
+          dte_checked_at?: string | null
+          dte_errors?: Json | null
+          dte_folio?: string | null
+          dte_idempotency_key?: string | null
+          dte_provider?: string | null
+          dte_provider_id?: string | null
+          dte_sent_at?: string | null
+          dte_status?: Database["public"]["Enums"]["dte_status"]
+          dte_type?: number | null
           guide_number?: string
           id?: string
           invoice_id?: string | null
@@ -636,10 +671,23 @@ export type Database = {
         }
         Update: {
           carrier?: string | null
+          carrier_rut?: string | null
           client_id?: string | null
           client_name?: string | null
           created_at?: string
+          destination_comuna_code?: string | null
           dispatch_date?: string
+          driver_name?: string | null
+          driver_rut?: string | null
+          dte_checked_at?: string | null
+          dte_errors?: Json | null
+          dte_folio?: string | null
+          dte_idempotency_key?: string | null
+          dte_provider?: string | null
+          dte_provider_id?: string | null
+          dte_sent_at?: string | null
+          dte_status?: Database["public"]["Enums"]["dte_status"]
+          dte_type?: number | null
           guide_number?: string
           id?: string
           invoice_id?: string | null
@@ -4011,6 +4059,7 @@ export type Database = {
           category: Database["public"]["Enums"]["cost_line_category"]
           created_at: string
           description: string
+          employee_id: string | null
           id: string
           kind: Database["public"]["Enums"]["cost_line_kind"]
           notes: string | null
@@ -4030,6 +4079,7 @@ export type Database = {
           category?: Database["public"]["Enums"]["cost_line_category"]
           created_at?: string
           description: string
+          employee_id?: string | null
           id?: string
           kind: Database["public"]["Enums"]["cost_line_kind"]
           notes?: string | null
@@ -4049,6 +4099,7 @@ export type Database = {
           category?: Database["public"]["Enums"]["cost_line_category"]
           created_at?: string
           description?: string
+          employee_id?: string | null
           id?: string
           kind?: Database["public"]["Enums"]["cost_line_kind"]
           notes?: string | null
@@ -4064,6 +4115,20 @@ export type Database = {
           unit_cost?: number
         }
         Relationships: [
+          {
+            foreignKeyName: "ot_cost_lines_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ot_cost_lines_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "worker_stats"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "ot_cost_lines_ot_id_fkey"
             columns: ["ot_id"]
@@ -6015,6 +6080,15 @@ export type Database = {
           client_id: string | null
           client_name: string | null
           created_at: string
+          dte_checked_at: string | null
+          dte_errors: Json | null
+          dte_folio: string | null
+          dte_idempotency_key: string | null
+          dte_provider: string | null
+          dte_provider_id: string | null
+          dte_sent_at: string | null
+          dte_status: Database["public"]["Enums"]["dte_status"]
+          dte_type: number | null
           due_date: string | null
           id: string
           invoice_number: string
@@ -6032,6 +6106,15 @@ export type Database = {
           client_id?: string | null
           client_name?: string | null
           created_at?: string
+          dte_checked_at?: string | null
+          dte_errors?: Json | null
+          dte_folio?: string | null
+          dte_idempotency_key?: string | null
+          dte_provider?: string | null
+          dte_provider_id?: string | null
+          dte_sent_at?: string | null
+          dte_status?: Database["public"]["Enums"]["dte_status"]
+          dte_type?: number | null
           due_date?: string | null
           id?: string
           invoice_number?: string
@@ -6049,6 +6132,15 @@ export type Database = {
           client_id?: string | null
           client_name?: string | null
           created_at?: string
+          dte_checked_at?: string | null
+          dte_errors?: Json | null
+          dte_folio?: string | null
+          dte_idempotency_key?: string | null
+          dte_provider?: string | null
+          dte_provider_id?: string | null
+          dte_sent_at?: string | null
+          dte_status?: Database["public"]["Enums"]["dte_status"]
+          dte_type?: number | null
           due_date?: string | null
           id?: string
           invoice_number?: string
@@ -7074,6 +7166,24 @@ export type Database = {
           version?: number
           week_end?: string
           week_start?: string
+        }
+        Relationships: []
+      }
+      whatsapp_inbound_claims: {
+        Row: {
+          channel: string
+          claimed_at: string
+          wamid: string
+        }
+        Insert: {
+          channel: string
+          claimed_at?: string
+          wamid: string
+        }
+        Update: {
+          channel?: string
+          claimed_at?: string
+          wamid?: string
         }
         Relationships: []
       }
@@ -8773,6 +8883,10 @@ export type Database = {
           schedule: string
         }[]
       }
+      devolver_salida_papel: {
+        Args: { p_by?: string; p_tx_ids: string[] }
+        Returns: number
+      }
       emitir_oc: {
         Args: {
           p_issued_by: string
@@ -8808,6 +8922,15 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      emitir_papel: {
+        Args: {
+          p_by?: string
+          p_lines: Json
+          p_ot_id: string
+          p_stage?: string
+        }
+        Returns: Json
       }
       enforce_hr_data_retention: {
         Args: { p_dry_run?: boolean; p_reference_time?: string }
@@ -9148,6 +9271,7 @@ export type Database = {
           production_detail: Json | null
           quantity: number
           relieve_matrix_code: string | null
+          route_steps: string[] | null
           salesman_id: string | null
           share_token: string
           sin_arte: boolean
@@ -9256,6 +9380,7 @@ export type Database = {
         | "other"
       cost_line_kind: "estimate" | "committed" | "actual"
       dispatch_status: "draft" | "dispatched" | "delivered" | "cancelled"
+      dte_status: "not_sent" | "pending" | "accepted" | "rejected" | "error"
       employee_status: "active" | "inactive" | "on_leave" | "terminated"
       employment_contract_type:
         | "full_time"
@@ -9622,6 +9747,7 @@ export const Constants = {
       ],
       cost_line_kind: ["estimate", "committed", "actual"],
       dispatch_status: ["draft", "dispatched", "delivered", "cancelled"],
+      dte_status: ["not_sent", "pending", "accepted", "rejected", "error"],
       employee_status: ["active", "inactive", "on_leave", "terminated"],
       employment_contract_type: [
         "full_time",
