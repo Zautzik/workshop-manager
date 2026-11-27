@@ -305,7 +305,7 @@ export function OTCostAnalysisReport() {
                   <strong>{fmtMoney(analysis.ot.budget_amount)}</strong>
                 </div>
                 <div>
-                  <span className="text-muted-foreground">Etapas reportadas:</span>{' '}
+                  <span className="text-muted-foreground">Orígenes del costo real:</span>{' '}
                   <strong>{analysis.workflow_steps_reported.length}</strong>
                 </div>
               </div>
@@ -461,7 +461,7 @@ export function OTCostAnalysisReport() {
               {/* Workflow Steps Legend */}
               {analysis.workflow_steps_reported.length > 0 && (
                 <div className="mt-4 text-xs text-muted-foreground">
-                  <span className="font-medium">Etapas con costos reportados:</span>{' '}
+                  <span className="font-medium">De dónde sale el costo real:</span>{' '}
                   {analysis.workflow_steps_reported.map((step) => (
                     <Badge key={step} variant="outline" className="ml-1 text-[10px]">
                       {step}

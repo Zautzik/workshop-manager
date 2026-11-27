@@ -15,7 +15,6 @@ export const REVIEW_AFFECTED_KEYS = [
 	['ots'],             // tablero (incluye ['ots', 'active'])
 	['ot-open-passes'],  // pasadas abiertas del tablero
 	['ot-cost-summary'], // costo real por OT
-	['ot-real-costs'],
 	['cost-alerts'],
 	['inventory'],       // partes de bodega
 ] as const;

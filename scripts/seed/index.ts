@@ -66,7 +66,7 @@ function titulo(t: string) {
 const TRANSACCIONALES = [
 	'capture_events', 'whatsapp_production_logs', 'whatsapp_warehouse_logs',
 	'worker_assignments', 'ot_machine_schedule',
-	'ot_cost_lines', 'ot_operations', 'ot_real_costs', 'ot_financials',
+	'ot_cost_lines', 'ot_operations', 'ot_financials',
 	'ot_status_history', 'ot_state_transitions', 'ot_approvals', 'ot_attachments',
 	'sales_invoices', 'dispatch_guides', 'purchase_invoices', 'purchase_items',
 	'inventory_stock_transactions', 'inventory_lots', 'purchases',

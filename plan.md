@@ -114,7 +114,9 @@ adds them (or point CI at a throwaway project). Add `npm run qa:layout:phone`
 as an optional job.
 *Done when:* a push to master shows a green CI run.
 
-**B7 · One store for real costs (M) — needs an owner decision.** Found by F1.
+**B7 · One store for real costs (M).** ✅ code 2026-11-27 (owner chose: manual entry = a correction); ⏳ migration `20261127130000` waits for its cloud push. Manual lines now go to the ledger as corrections with a required reason (`src/lib/cost-correction.ts`, `/api/ots/[id]/cost-corrections`); paper, machine and labour are refused and corrected at their source. Cost analysis reads the ledger by category (`src/lib/cost-analysis.ts`). The migration sends reviewed WhatsApp extra lines straight to the ledger and drops `ot_real_costs`. Found by F1.
+
+*Original note:*
 The ledger (`ot_cost_lines`, kind `actual`) is where paper, passes and labour
 write. The old table `ot_real_costs` (1 row, last written 2026-09) still has a
 writer and a reader: `RealCostEntryDialog` (OT management, manual real-cost
@@ -313,4 +315,5 @@ Ordered by value to the shop.
 | --- | --- | --- |
 | 2026-11-27 | Plan written | — |
 | 2026-11-27 | B1 deps, B2 portal → moveOT, B3 WhatsApp idempotency (migration on cloud) | 218bf40 |
-| 2026-11-27 | F1 end-to-end test; dispatch gate reads the ledger; B7 raised | (this commit) |
+| 2026-11-27 | F1 end-to-end test; dispatch gate reads the ledger; B7 raised | bed02e0 |
+| 2026-11-27 | B7 code: corrections to the ledger, cost analysis on the ledger (migration pending) | (this commit) |

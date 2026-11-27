@@ -133,7 +133,7 @@ export interface WhatsAppProductionLog {
   corrected_data: Partial<ParsedProductionData> | null;
   /** Supervisor's corrected costs */
   corrected_costs: Partial<InferredCostData> | null;
-  /** Whether this log has been fed into ot_real_costs */
+  /** Whether this log has been applied to the cost ledger (ot_cost_lines) */
   fed_to_system: boolean;
   /** Created at */
   created_at: string;

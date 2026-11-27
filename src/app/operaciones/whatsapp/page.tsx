@@ -14,7 +14,7 @@
  * 1. Operator sends "INICIO OT-1234" via WhatsApp â†’ system logs start time
  * 2. Operator sends "FIN OT-1234 500 pliegos, 3 merma, doblado ok" â†’ system parses data, infers costs
  * 3. Supervisor reviews parsed data & inferred costs â†’ approves/rejects
- * 4. Approved data feeds into ot_real_costs for financial tracking
+ * 4. Approved data feeds the cost ledger (ot_cost_lines) via apply_capture_event
  */
 'use client';
 

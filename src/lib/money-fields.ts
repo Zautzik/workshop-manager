@@ -29,7 +29,7 @@ export const OT_MONEY_FIELDS = [
 ] as const;
 
 /** Lo mismo, para una línea de operación u costo real (`ot_operations`,
- *  `ot_real_costs`): cuánto cuesta esa línea puntual. */
+ *  `ot_cost_lines`): cuánto cuesta esa línea puntual. */
 export const OPERATION_MONEY_FIELDS = ['unit_cost', 'total_cost'] as const;
 
 /**

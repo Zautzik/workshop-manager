@@ -48,8 +48,8 @@
  * H3′ (docs/capture-understanding-phase0.md): el JSON de costos llegaba del
  * cliente sin validar y aterrizaba en ot_real_costs. Ahora pasa por
  * `CorrectionsSchema` (campos, rangos y categorías conocidas), el total de cada
- * línea lo recalcula el servidor y, en la base, `ot_real_costs.total_cost` es
- * una columna generada. Los datos corregidos se fusionan con el parse original
+ * línea lo recalcula el servidor y las líneas extra van directo al libro
+ * (`ot_cost_lines`, cuyo `total` es una columna generada). Los datos corregidos se fusionan con el parse original
  * en el servidor: el cliente manda sólo lo que cambió.
  */
 

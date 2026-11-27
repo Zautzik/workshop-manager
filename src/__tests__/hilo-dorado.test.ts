@@ -385,6 +385,41 @@ describe.skipIf(!hayStack)('hilo dorado: cotización → OT → producción → 
 		expect(despues.filter((l) => l.category === 'material')).toHaveLength(1);
 	});
 
+	it('6b. una corrección manual entra al libro con su motivo, y el análisis de costo lee el libro', async () => {
+		const corregir = (cuerpo: unknown) =>
+			llamar(import('@/app/api/ots/[id]/cost-corrections/route'), 'POST', `/api/ots/${otId}/cost-corrections`, cuerpo, { id: otId });
+
+		// Lo que tiene dueño no se corrige con una línea: el papel, en su lote.
+		const papel = await corregir({
+			reason: 'sobró papel',
+			lines: [{ category: 'materiales', description: 'Papel', quantity: 10, unit: 'pliegos', unit_cost: 150 }],
+		});
+		expect(papel.status).toBe(422);
+
+		const ok = await corregir({
+			reason: 'Llegó la factura del laminado externo',
+			lines: [{ category: 'tercerizado', description: 'Laminado externo', quantity: 1, unit: 'servicio', unit_cost: 85_000 }],
+		});
+		expect(ok.status, JSON.stringify(ok.json)).toBe(201);
+
+		const { data: linea } = await db
+			.from('ot_cost_lines')
+			.select('kind, category, ref_type, total, notes')
+			.eq('ot_id', otId)
+			.eq('ref_type', 'correccion');
+		expect(linea).toEqual([
+			{ kind: 'actual', category: 'outsourced', ref_type: 'correccion', total: 85_000, notes: 'Llegó la factura del laminado externo' },
+		]);
+
+		// El análisis de Rentabilidad suma exactamente lo que dice el libro.
+		const an = await llamar(import('@/app/api/ots/[id]/cost-analysis/route'), 'GET', `/api/ots/${otId}/cost-analysis`, undefined, { id: otId });
+		expect(an.status).toBe(200);
+		const libro = (await lineasReales()).reduce((t, l) => t + Number(l.total), 0);
+		expect(an.json.summary.total_actual).toBeCloseTo(libro, 2);
+		expect(an.json.summary.corrections_total).toBe(85_000);
+		expect(an.json.line_items.find((i: J) => i.category === 'material').actual_cost).toBe(PLIEGOS * COSTO_PLIEGO);
+	});
+
 	it('7. calidad, despacho, factura y cierre', async () => {
 		const { nextStatusOnRoute } = await import('@/lib/production-route');
 		const { data: maquinas } = await db.from('machines').select('id, type');
