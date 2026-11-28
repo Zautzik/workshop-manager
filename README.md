@@ -13,7 +13,7 @@ the biggest margin.
 Tailwind + Radix · Zod · Recharts · Vitest
 
 ```
-191 migrations   164 API routes   88 domain libraries   1,058 tests
+220 migrations   184 API routes   129 domain libraries   1,429 tests + an end-to-end walk
 ```
 
 ---
@@ -30,8 +30,8 @@ and every feature either extends it or reads from it:
 
 ```
 client → quote → work order → purchase order → paper lot
-       → machine schedule → labour shift (tied to the order)
-       → shop-floor report → stock consumption → real cost → dispatch → invoice
+       → machine schedule → paper issued → stage pass (hours × rate + the people on shift)
+       → shop-floor report → real cost → dispatch → invoice
 ```
 
 Each link only exists because the previous one does. That constraint is what makes the
@@ -44,6 +44,24 @@ listed in [`src/lib/golden-thread.ts`](src/lib/golden-thread.ts): every channel
 through `POST /api/captures/review`, and every approved report reaches real costs or
 stock through a single database function, `apply_capture_event`. There are no
 per-channel writers; a function named after one channel is a side door.
+
+Real cost follows one rule: **it enters an order only when something is consumed**, at the
+real cost of what was used, and each kind of cost has exactly one writer. A guard trigger
+(`trg_actual_cost_only_when_consumed`) rejects any other:
+
+| Cost | Its one writer | When |
+|---|---|---|
+| Paper and ink | the lot-movement trigger, at the lot's real cost | paper leaves the warehouse **once**, when the order enters the first stage of its declared route |
+| Machine | [`stage-valuation.ts`](src/lib/stage-valuation.ts) | a stage pass closes (hours × the stage's rate) |
+| Labour | [`labor-from-shifts.ts`](src/lib/labor-from-shifts.ts), inside the same valuation | the people Planta rostered on that machine during the pass, at each person's rate on that date |
+| Anything else | [`cost-correction.ts`](src/lib/cost-correction.ts) | a person, with a required reason; cancelled by an opposite entry, never deleted |
+
+Moving an order is one function too — [`ot-move.ts`](src/lib/ot-move.ts) — whether the
+move comes from the board, a WhatsApp report or the customer's approval link. Going
+backwards undoes the passes from the target stage on and returns later paper with a
+return movement; cancelling is a mark with a reason, not a status; a split fragment is
+gated on its whole lineage. [`golden-thread.ts`](src/lib/golden-thread.ts) names the owner
+of every datum.
 
 Two links in that chain are themselves three-lane ledgers, not single numbers — a
 purchase order is a match between what you ordered, what arrived, and what you were
@@ -93,8 +111,14 @@ logic lives as a pure, tested module — never inside a component.
 | [`purchasing.ts`](src/lib/purchasing.ts) | The three-way match — ordered vs. received vs. invoiced, with the two gaps (warehouse, accounts payable) reported separately so they can't cancel out to zero |
 | [`margin-confidence.ts`](src/lib/margin-confidence.ts) | Zero cost is not 100% margin. It is an unfinished account, and the screen says so |
 | [`whatsapp-parser.ts`](src/lib/whatsapp-parser.ts) | Free-form Spanish from the shop floor into structured production data |
-| [`assignment-rules.ts`](src/lib/assignment-rules.ts) | A shift on a production machine must name the order it served |
 | [`machine-competency.ts`](src/lib/machine-competency.ts) | Whether a given person may run a given machine, from a skill tree |
+| [`labor-from-shifts.ts`](src/lib/labor-from-shifts.ts) | A pass's hours placed backwards from its close, only inside that machine's staffed shifts, minus lunch; what no shift covers stays *unstaffed* rather than invented |
+| [`rollback-reversal.ts`](src/lib/rollback-reversal.ts) | What going back to a stage undoes: passes are records of *leaving* a stage, paper leaves on *entering* one |
+| [`ot-split-lineage.ts`](src/lib/ot-split-lineage.ts) | Which evidence a split fragment inherits from its parent, and the one approval it never does |
+| [`whatsapp-claim.ts`](src/lib/whatsapp-claim.ts) | Meta delivers at least once: each message is claimed by its wamid before anything runs |
+| [`production-scheduler.ts`](src/lib/production-scheduler.ts) | The machine Gantt: in-progress work first, then priority and due date, inside real staffed hours |
+| [`shift-rotation.ts`](src/lib/shift-rotation.ts) | Crews that swap Mañana ⇄ Tarde every Monday, from one rule: team *p* works shift *(p + weeks) mod teams* |
+| [`dte/`](src/lib/dte) | Electronic invoicing to Chile's SII through Nubox — built, validated, and switched off until the owner turns it on |
 
 ### One decision worth reading
 
@@ -140,6 +164,17 @@ An ESLint rule flags the pattern; see [NOTES.md](NOTES.md) §12.
 column — personal contact details are protected with column-level grants, not a policy
 that looks like it works.
 
+**The browser reads through the server.** A browser query that RLS does not allow
+returns zero rows and no error, which renders as an empty plant rather than a forbidden
+one. Screens read through API routes or the declared registry
+`GET /api/reads/[name]`; `check:anon` asks the live database what the publishable key
+can actually see.
+
+**The database is the fact; the migration files are a claim.** `check:rls-drift`
+compares the two in both directions. The migrations cannot rebuild the database from
+zero (replay dies at #20), so the local stack is restored from a dump of the cloud and
+production will start from a reviewed schema baseline.
+
 ---
 
 ## Running it
@@ -147,9 +182,17 @@ that looks like it works.
 ```bash
 npm install
 cp .env.example .env.local        # Supabase URL + keys
-npx supabase db push              # 191 migrations
+npm run db:local:restore          # local stack from a dump of the cloud (needs Docker)
 npm run dev
 ```
+
+The migrations are a history, not a recipe: `supabase db reset` cannot replay them (see
+[NOTES.md](NOTES.md) §17), so `supabase/config.toml` keeps them off for the local stack.
+New migrations are pushed to the linked project with `npx supabase db push --linked`
+after a `--dry-run`. The CLI applies that same `enabled = false` to the linked project
+and then reports *"up to date"*, so the flag is turned on for the push only and restored
+afterwards (NOTES §21). Regenerate types from the database with
+`npx supabase gen types typescript --linked --schema public`.
 
 First admin account (no password in source control):
 
@@ -174,11 +217,17 @@ target. See [`scripts/seed/model.ts`](scripts/seed/model.ts).
 
 ```bash
 npm run typecheck        # tsc --noEmit
-npm test                 # 1,058 tests, 67 files
+npm test                 # 1,429 tests, 104 files
 npm run lint
+npm run test:e2e         # one OT, quote → invoice, against the local stack; audits the ledger
+npm run test:integracion # read routes and cost corrections against the local stack
+npm run qa:layout        # every screen at phone, laptop and wide widths
 npm run verify:csp       # asserts no CDN escapes the Content-Security-Policy
 npm run check:migrations # lists every function more than one migration defines
 npm run check:functions  # lists every function naming a column that no longer exists
+npm run check:anon       # what the publishable key can actually read, asked of the live DB
+npm run check:rls-drift  # migration files vs. live catalog, both directions
+npm run db:dry-run -- change.sql   # a data change inside BEGIN … ROLLBACK, before approval
 ```
 
 `check:functions` asks the database, not the source. `DROP COLUMN` does not validate
@@ -193,16 +242,17 @@ time a person uses one. It happened four times before it became a script; see
 
 ```
 src/
-  app/              164 route files · 274 API handlers
+  app/              76 screens · 184 API route files · 198 handlers
   components/       UI, grouped by module
   lib/              ← the domain. pure, tested, no React
   lib/__tests__/    one test file per module
   integrations/     Supabase clients (browser anon vs. service role)
 supabase/
-  migrations/       191, ordered, each explaining its own reasoning
+  migrations/       220, ordered, each explaining its own reasoning
 scripts/
   seed/             the demo shop: a pure model + a writer
 docs/               design records and audits
+plan.md             ← the plan to go live: gates, phases, what is left
 NOTES.md            ← engineering log: the bugs worth reading about
 MASTERCLASS.md      ← the domain science, techniques and tools, distilled
 ```
@@ -225,9 +275,10 @@ See [NOTES.md](NOTES.md).)
 The durable layer between the two: what a print shop taught about sheets, press passes,
 make-ready and spoilage bands; the engineering techniques that came out of getting them
 wrong — gates that name what is missing, blocking on impossible data but never on absent
-data, deriving instead of storing a second truth, asking the catalog instead of the grep;
-and what each tool in the stack actually taught. Ends with a failure taxonomy and
-eighteen working rules.
+data, deriving instead of storing a second truth, asking the catalog instead of the grep,
+costing only what was consumed, taking the lock before the work, correcting with a new
+line instead of an eraser; and what each tool in the stack actually taught. Ends with a
+failure taxonomy and the short version of twenty-five working habits.
 
 ---
 
@@ -236,8 +287,10 @@ eighteen working rules.
 The engineering log — what broke, how it was found, and what the fix taught. Written to
 be read: a costing engine that preferred a corrupt price book by explicit rule, a logo
 invisible on desktop for reasons that had nothing to do with the logo, a regex that
-silently searched for the letter `d`, and two months of green CI over a production
-build that had been failing the whole time.
+silently searched for the letter `d`, two months of green CI over a production
+build that had been failing the whole time, a staffing screen that showed an empty plant
+for three months without a single error, and a dispatch gate that would have let no new
+order ship — found only by walking one order through the whole shop.
 
 ---
 
