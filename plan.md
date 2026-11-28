@@ -1,6 +1,6 @@
 # GonsAdmin — Master plan to go live
 
-Last updated: 2026-11-28 · `master` (`fe6349a`, PR #3 merged)
+Last updated: 2026-11-28 · `master` (`51a84fb`, PR #3 and PR #4 merged)
 
 This file says where the project stands and what is left before the print shop
 runs on it. Read it at the start of every session and tick items as they close.
@@ -28,9 +28,12 @@ Every step lists a *Done when* — the check that proves it, not "looks done".
 - Every one of the 220 migrations is applied to the cloud and recorded in its
   history (verified 2026-11-28 with `migration list --remote`; the WhatsApp
   lock `20261115120000` had run without a history row and is now recorded).
-- OTs can be cancelled (a mark with a reason, not a status), a rollback undoes
-  the passes and paper it un-did, and a split fragment is gated on its whole
-  lineage (PR #3, `d9f77b4`).
+- OTs can be cancelled (a mark with a reason, not a status; the person declares
+  per lot how many sheets go back to stock). A rollback asks why: *rework* keeps
+  every cost incurred; *moved by mistake* voids the passes written since the OT
+  last reached that stage and returns the paper issued for later stages. A
+  split fragment is gated on its whole lineage (PR #3, `d9f77b4`). Open gaps
+  from that work: B8, B9, B10, F7, I11.
 - Checks green: typecheck, lint 0 errors (131 warnings), 1,389 unit tests
   passing (40 skipped, 104 files), read-route integration tests.
 
@@ -132,6 +135,44 @@ that report shows no real cost for any OT costed today. Owner rule
 cost analysis reads the ledger; the manual-entry dialog is removed (or turned
 into a correction on a pass/consumption); `ot_real_costs` is dropped after.
 *Done when:* no code reads or writes `ot_real_costs`.
+
+**B8 · The client sign-off can be skipped by jumping (S).** The forward-only
+rule lets an OT go from `visto_bueno` straight to `in_storage` or later in one
+move, and the client-approval gate only fires when the target is exactly
+`paper_purchase` (`src/lib/ot-state-machine.ts:277`). Same shape as the
+Pre-Prensa gate bug closed on 2026-08-30. The jump also works from
+`pre_press` with a complete spec (gate 1 passes, gate 1b never looks), and the
+price-drift gate right below it (`REPRICE_REQUIRED`, line 290) has the same
+`toStatus === 'paper_purchase'` test, so a long jump skips it too. Steps: both
+gates fire for any forward move that crosses `paper_purchase` (from before it
+to at or past it), not only for that exact target; failing tests first (TDD
+rule in AGENTS.md).
+*Done when:* tests moving `visto_bueno` → `in_storage` and `pre_press` →
+`in_storage` with no approval get `APPROVAL_REQUIRED`, the same jump with a
+risen price gets `REPRICE_REQUIRED`, and the Tablero still lets an approved
+OT through.
+
+**B9 · Cancelled OTs still show outside the Tablero (M).** Only the
+`/api/ots` lists hide them (`cancelled_at` is read in 3 places; 52 files in
+`src/app/api`, `src/hooks`, `src/lib` query `ots` directly). Planning,
+analytics, purchases, Pre-Prensa, open passes and the WhatsApp OT lookup will
+still list a cancelled OT, and a cancelled OT's revenue still counts in
+Rentabilidad. Steps: list every reader of `ots`; decide per screen (hide, or
+show greyed with the reason); one shared filter helper rather than 52 copies.
+*Done when:* a cancelled test OT appears in no active list and its margin is
+shown apart in Rentabilidad.
+
+**B10 · A risen price blocks the OT for good (S).** `moveOT` loads the quoted
+and firm price and the gate asks for `metadata.reprice_approved`
+(`src/lib/ot-move.ts:240`), but no screen, hook or route sends it (grep for
+`reprice` outside `src/lib` finds nothing). An OT whose firm price rose above
+the quote cannot reach `paper_purchase` from the Tablero, only by an admin
+editing the price back down. Open since audit 3F (2026-10-14). Steps: when the
+move returns `REPRICE_REQUIRED`, the Tablero shows the drift note and an
+admin/supervisor "Reconfirmar precio" action that retries with the flag; record
+who reconfirmed in the history row.
+*Done when:* a test OT with a risen firm price is blocked, reconfirmed from the
+Tablero, moves to `paper_purchase`, and the history shows who approved it.
 
 ---
 
@@ -250,6 +291,20 @@ Mecánica (~29 s) were slow on load. Fetch per tab and page long lists.
 **F6 · Printouts (S).** Quote PDF, Hoja de Producción, OT ticket, labels/QR
 print correctly on the plant's printers.
 
+**F7 · Cancel, rollback and split on staging, with real paper (S).** PR #3 was
+checked live on 2026-11-15 only for what touches no stock: the fragment gates
+(visto bueno, Pre-Prensa, quality, costs) and the two rollback kinds on machine
+hours (rework keeps $170.000 + $255.000; mistaken move removed only the wrong
+$34.975). Never run live: cancelling an OT (the migration was not yet applied
+then), paper going back to a lot on cancel or on a mistaken-move rollback, a
+fragment whose parent has a pending requirement, a fragment split straight to
+Completado getting `completed_at`, and a portal sign-off counting for paper
+purchase. Steps: one throwaway OT on staging; issue paper from a seed lot;
+cancel with a partial return; check the lot balance, the OT's material line and
+the history row; repeat with a mistaken-move rollback; delete the test rows.
+*Done when:* each case above has run once and the lot kardex nets to what was
+declared.
+
 ---
 
 ## Phase G — Monitoring and operation
@@ -298,8 +353,10 @@ Ordered by value to the shop.
 | I6 | **One permissions module** (≈130 literal role checks in `src/app/api`) — audit C-5 | Changing who can do what in one place, not 130. | M |
 | I7 | **Code health:** 258 `as any`, 131 lint warnings (69 of them an unread Postgrest `error` — up from ~50), big components (PlantaBoard 1,300 lines, OTGanttBoard 1,200), API response-shape sweep, tests for the warehouse/WhatsApp libraries that still have none | Safer changes, fewer hidden bugs. | L (ongoing) |
 | I8 | **Dependency refresh** (supabase-js, Sentry, React Query, Vite config warnings) | Stay on supported versions. | M |
-| I9 | **Leftovers:** `ot_machine_schedule.actual_hours` duplicates pass hours; maintenance Phase 7 (drop retired tables); two phone text-size warnings (Tendencias axis, Talento tree) | Remove the last second copies of a fact. | S–M |
+| I9 | **Leftovers:** `ot_machine_schedule.actual_hours` duplicates pass hours; maintenance Phase 7 (drop retired tables); two phone text-size warnings (Tendencias axis, Talento tree); `CompraDePapelDialog` is still mounted nowhere (audit 3B) — mount it or delete it once the reception reason is confirmed to have another path; two WhatsApp reports from August still sit in the review queue (`0ad03360…`, 2026-08-31, an "end" with no OT; and one from 2026-08-26) — reject or attach them so the queue starts empty | Remove the last second copies of a fact. | S–M |
 | I10 | **Press integration** (JDF/JMF counters) | Automatic counts instead of typed ones, for bigger presses. | L |
+| I11 | **Cancel / rollback / split leftovers (PR #3):** (a) `split_ot` copies a fixed column list and misses `sin_arte`, `ink_coverage` and the tooling columns (`die_*`, `cliche_code`, `relieve_matrix_code`, `lamination_type`) — `moveOT` fills them from the owner at gate time, but the fragment rows themselves stay incomplete; needs a forward migration. (b) The Pre-Prensa list (`/api/ots/pre-press`) counts schedule, operations and artwork per OT id, so a rolled-back fragment shows gaps the gate no longer enforces — use `lineageIds`. (c) A fragment can be dispatched while the pass that produced it is still open on the parent (passes hang from the parent). (d) No screen lists cancelled OTs or undoes a cancel (the API accepts `?cancelled=true`). (e) Cancel returns paper only; other material, and lots that cannot be converted to sheets, go back through Bodega. (f) Finding a fragment's birth pass on a mistaken-move rollback matches stage + units + time; if none or two match it warns instead of guessing. (g) Staging has 8 OT+stage pairs with a duplicate pass from rollbacks made before PR #3 (2 OTs) — demo data, so only worth cleaning if staging margins are used for training. | Each one makes a cancelled, rolled-back or split OT read slightly wrong somewhere. | S each |
+| I12 | **Branch cleanup.** Every branch is merged into `master` (checked 2026-11-28). Delete the merged ones, local and on GitHub: `audit/captura-local-fase-1a`, `audit/ot-i18n-types-hardening` (its local-only commit `000b235` is already in `master`), `chore/audit-cleanup`, `chore/next-16.4.5-seguridad`, `docs/lecciones-2026-11`, `feat/cierre-de-etapa-y-captura-sin-teclado`, `fix/build-sin-secretos`, `lauren`. `chore/next-16.4.5-security` has one commit not in `master` (`69686a6`, Next 16.4.0 → 16.4.5), but `master` already has Next 16.4.5 through `-seguridad`, so it can be dropped too. Ask the owner before deleting remote branches. | Old branches make it unclear which one holds current work. | S |
 
 ---
 
@@ -334,4 +391,7 @@ Ordered by value to the shop.
 | 2026-11-27 | B7 hardening: reversal instead of delete, closed-OT guard, per-unit quantities | 8f1a9aa |
 | 2026-11-27 | B7 closed: both migrations on the cloud; types.ts regenerated from the cloud | 337ce66 |
 | 2026-11-28 | PR #3: WhatsApp claim before processing; master merged (owner settled the key scheme and both bodega layers); OT cancel, rollback reversal, split lineage. Migrations `20261115120000` (recorded) and `20261128120000` (renamed from a duplicate version) on the cloud | fe6349a |
-| 2026-11-28 | README, NOTES (§15–§22), MASTERCLASS and this plan brought up to date | (this commit) |
+| 2026-11-28 | README, NOTES (§15–§22), MASTERCLASS and this plan brought up to date | 6d1bcc6 |
+| 2026-11-28 | PR #4 merged (docs); all branches synced with GitHub and found merged; I12 branch cleanup raised | 51a84fb |
+| 2026-11-28 | Pending items from the PR #3 session written down: B8 (widened to the `pre_press` jump and the reprice gate), B9, B10 (reprice never sent, open since audit 3F), F7, I11 | (this commit) |
+| 2026-11-28 | Rechecked the 2026-11-03 "approved WhatsApp report didn't reach the Tablero" diagnosis — all closed by `790bea7`: one review door (`/api/captures/review`), `invalidateAfterReview` refreshes the Tablero, stated hours go to the pass. Live: OT 41221's "fin … 6 horas" pass has 6 h and split 41221-B into offset. Only leftover: 2 stale August reports in the queue (I9) | (this commit) |
