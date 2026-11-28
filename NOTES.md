@@ -345,9 +345,19 @@ run length.
 **Labour that cost nothing.** `worker_assignments.ot_id` was nullable and the UI left it
 null. Every shift not tied to an order contributed zero to that order's cost, so margins
 came out high and clean. The data looked complete. It was
-[now enforced server-side](src/lib/assignment-rules.ts): if the machine produces, the
+then enforced server-side (`assignment-rules.ts`): if the machine produces, the
 shift names the order. Delivery vehicles are exempt on purpose — a truck carries several
 orders and forcing it to pick one would invent an attribution.
+
+*Reversed 2026-10-28, and the reversal is the better lesson.* The plant corrected the rule:
+people are paid monthly and stand at their machine whether or not there is work, and a
+maintenance job is work with no OT. Requiring the order forced someone to invent, before
+the shift happened, which job it would be charged to — the same invented attribution the
+truck exemption existed to avoid, applied to everyone. An assignment now only says the
+person **is at their post**. Labour reaches an order through the closed pass instead
+(§18): the hours the OT actually spent on that machine, inside the shifts of the people
+rostered there. Hours no pass covers are plant time — waiting, maintenance, cleaning —
+counted as unattributed rather than silently zero. `assignment-rules.ts` was deleted.
 
 ---
 
@@ -749,6 +759,302 @@ it from the function that owns it.
 
 ---
 
+## 15 · Reading the migrations is not reading the database
+
+The October security pass was planned from the migration files: parse every `CREATE
+TABLE`, every `ENABLE ROW LEVEL SECURITY`, every policy, and count what is open. The
+counts were confident. The database disagreed with them three times.
+
+**The push failed twice, and both times it failed well.** Migration `120000` aborted
+because `deprecated_worker_fields` does not exist — a file creates it with `IF NOT
+EXISTS`, no file drops it, and it is not there. Migration `121000` aborted because
+`DROP POLICY IF EXISTS … ON public.workstations` throws `42P01` when the *table* is
+gone: the `IF EXISTS` guards the policy, not the table it hangs off. Each migration is a
+transaction, so nothing applied halfway, and each failure corrected a count that static
+analysis had got wrong.
+
+**`user_roles` was readable by anyone.** The migration that creates it says `ENABLE ROW
+LEVEL SECURITY`, and its one policy is `TO authenticated USING (auth.uid() = user_id)`.
+On that reading, the publishable key sees zero rows. It saw all four — the map of who is
+an administrator, in a key that ships in the browser bundle. RLS was off on the server.
+The file was a claim about the database, and the claim had stopped being true.
+
+**And the other direction.** The first run of the new drift check found eleven objects
+that exist in the database and that no migration creates. One of them was `public.users`
+— RLS off, no policies, two email addresses readable by the publishable key, and, per
+Supabase's own documentation, writable by any role with a grant. It was scaffolding from
+the project's first day; nothing in `src/` reads it.
+
+**The grant nobody revoked.** A later audit against `pg_default_acl` found that the
+default privileges of `postgres` in `public` gave `EXECUTE` to `anon` and
+`authenticated` by name. The earlier hardening had revoked it from `PUBLIC` only. Every
+function created or restored after that was born callable from the browser.
+
+### What it taught
+
+*"All migrations applied"* means the history table has a row for each file. It does not
+mean each file ran, and it says nothing about what changed by hand since. Every number
+derived from parsing SQL is a hypothesis until a query against the catalog confirms it.
+The response was two probes that ask the server: `check:anon` (what does the publishable
+key actually return?) and `check:rls-drift` (do the files and the catalog agree, in both
+directions?). An orphan table without RLS now fails the second one.
+
+---
+
+## 16 · Planta was blind for three months, and it looked like nobody was assigning
+
+`worker_assignments` has had RLS with no policies since August. Planta read it with the
+browser client. That combination does not error: it returns zero rows. Every machine
+showed `Capacity 0/N`, every operator showed as available, and an assignment — whose
+write *did* go through the API — succeeded and then vanished from the screen.
+
+The most likely reason the roster was empty is that the screen made assigning look
+useless. The data loss was not in the database; it was in the people, who stopped
+entering what the board would not show them.
+
+Found by a test scenario that counted the same table twice: 28 rows with the service
+role, 0 with the browser key. The fix moved the read behind `GET /api/worker-assignments`.
+The later audit (H5) found 27 more direct browser reads and moved all of them behind the
+server — existing routes, or a declared registry, `GET /api/reads/[name]`, where each
+name fixes its table, columns, filters and roles.
+
+### What it taught
+
+A read without permission is not a failure, it is an empty world. RLS answers *"which
+rows may you see?"* — and to a client with no matching policy, the honest answer is
+*none*, delivered with a 200. The only screens that can tell *empty* from *forbidden* are
+the ones that never ask with the wrong credentials.
+
+---
+
+## 17 · The migrations cannot rebuild the database
+
+Tested on 2026-10-19 against the local stack: `supabase db reset` dies at migration 20 of
+196, 62 of the rest fail after it, and two tables in daily use —
+`maintenance_schedules`, `machine_downtime_logs` — are created by no migration at all.
+The reset exits with code 0 even when it fails, so a script that trusts `$?` lies.
+
+So the local database is restored from a dump of the cloud
+(`npm run db:local:restore`), `config.toml` turns migrations off for the local stack so
+`supabase start` does not die halfway, and the production database will be created from
+a schema baseline rather than by replay (plan.md C1).
+
+### What it taught
+
+A migration folder is a history, not a recipe. It is only a recipe if someone has
+replayed it from zero recently — and nobody had, so it was not.
+
+---
+
+## 18 · A cost enters the job when something is consumed
+
+The owner's rule, 2026-11-10: real cost enters an OT only when something is consumed, at
+the real cost of what was used. The estimate stays in its own lane, so the gap between
+the two can be read. Before that rule, real cost had several doors and each one wrote
+its own version.
+
+After it, each kind of cost has exactly one writer, and a guard trigger,
+`trg_actual_cost_only_when_consumed`, rejects any `actual` line for material, machine or
+labour that did not come from its owner:
+
+| Cost | The one writer | Triggered by |
+|---|---|---|
+| Material | `trg_cost_ot_material_movement`, at the lot's real cost | a lot movement — paper leaves the warehouse **once**, when the OT enters the first stage of its route |
+| Machine | `stage-valuation.ts`, hours × the stage's rate | a closed pass |
+| Labour | `labor-from-shifts.ts`, inside the same valuation | the people Planta put on that machine, during its shifts, at each person's rate on that date |
+| Anything else | `cost-correction.ts`, with a required reason | a person, deliberately (§19) |
+
+WhatsApp stopped writing costs at all: it contributes hours, sheets and waste, and the
+owners turn them into money.
+
+Pushing a real OT through that chain — warehouse → first cut → offset → die-cut — and
+following its cost into the profitability screen found four things that were each
+invisible on their own:
+
+- **The quote had been saved as real cost.** The old stage dialog wrote a copy of the
+  estimate into `ot_real_costs` at every stage: 101 rows, 9 OTs, $14.8M. OT 41240 went
+  from **−234%** margin to **+4.8%** when they were removed.
+- **A filter longer than the URL.** Three analytics routes filtered with `.in('ot_id',
+  <250 ids>)`. The request URL overflowed; one route did not read `error` and showed
+  *"250 of 250 OTs have no real cost"*, the other two answered 500.
+- **A second labour truth.** Rentabilidad's labour tab recalculated from kiosk punches —
+  the method retired the day before — and disagreed with the margin. It now reads the
+  ledger's labour lines, the same ones the margin sums (224 OTs, $92.4M, exact match).
+- **The live channel had never delivered an event.** The `supabase_realtime`
+  publication was empty. Every screen subscribed, nothing was ever published, and every
+  "real-time" update in the app had been a refetch on focus. The thirteen tables the
+  provider listens to are now published, and the list lives in one place, `TABLE_SCOPE`.
+
+The same week retired three second copies of a fact: `ot_machine_schedule.actual_hours`
+(only the seed filled it), a per-screen hourly-rate lookup in Equipos → Economía that
+compared every machine against the press operator's wage, and `machine_cost_entries` (0
+rows). `golden-thread.ts` now names the owner of each datum, so the next person asks
+there before adding a column.
+
+### What it taught
+
+*"One writer per fact"* is only true if something refuses the second writer. The guard
+trigger is what turns the rule from a convention into a property of the database.
+
+---
+
+## 19 · The end-to-end walk found the blocker every unit test had stepped around
+
+`src/__tests__/hilo-dorado.test.ts` walks one OT through the whole thread against the
+local database: quote → convert → Pre-Prensa gates → the customer approves through the
+public link → paper issued once at lot cost → passes valued from the board and from a
+reviewed WhatsApp report → quality → dispatch → invoice → completed. Then it checks the
+ledger: one material line, one machine line per pass, every move once in history, paper
+out once.
+
+Its first run could not finish. `moveOT`'s *"has real costs"* gate — the one that guards
+dispatch and completion — still read `ot_real_costs`. Since §18, nothing wrote that
+table. **No new OT could be dispatched or completed.** Every unit test of the gate passed,
+because each test handed the gate a fixture that said *"yes, there are costs"*. Only a
+test that produced its costs the way production does could see that the gate was asking
+the wrong table.
+
+The same walk raised the last question about that table: a manual cost-entry dialog
+still wrote it and a cost-analysis report still read only it. The owner's decision
+(2026-11-27): a manual entry is a **correction in the ledger** — `ref_type =
+'correccion'`, a reason required — and paper, machine and labour are refused there and
+corrected at their source (the lot, the pass, the shift). `ot_real_costs` was dropped.
+
+Then the correction itself got the same treatment the ledger gives everything else: it
+cannot be deleted. It is cancelled by a mirror entry — negative quantity, its own reason,
+pointing at the correction — and a partial unique index allows exactly one such reversal
+per correction, also under a race.
+
+### What it taught
+
+A unit test proves a function answers its question correctly. It cannot prove the
+function is asking the right question. Only a walk that produces its inputs the way
+production does can catch a gate wired to a table nobody writes anymore.
+
+---
+
+## 20 · Meta delivers at least once, so a message is claimed before it is processed
+
+The webhook's idempotency lived in one place: a unique index on
+`whatsapp_production_logs.external_message_id`. It protected start/end reports and
+nothing else. Everything else a message can cause runs beside that insert and never sees
+it: a maintenance reply closes a work order and logs downtime, a `cancel` searches for an
+open start and rejects it, a photo is downloaded and recorded. On every redelivery from
+Meta, each of those ran again, in full.
+
+The fix is a lock taken **before** the work, not a check after it. The webhook inserts
+`(channel, wamid)` into `whatsapp_inbound_claims` and proceeds only if the row is its
+own — the primary key decides, not a prior `SELECT`, so two simultaneous deliveries
+cannot both pass. If processing throws, or ends in 429/5xx, the claim is released, so the
+retry is not swallowed by a lock on a message that never ran. Strict: no wamid, no lock,
+no processing.
+
+Writing the tests found two older bugs on the same path:
+
+- **A compound message lost its second half.** *"Fin OT 40879, 7600 pliegos, entro OT
+  40965"* is one wamid and two events. Both used the bare wamid as their key, so the
+  START collided with the END and was dropped as a duplicate: the next OT never opened.
+  Each event now keys `wamid`, `wamid#1`, … — the first keeps the bare wamid so rows
+  already stored still match their redeliveries.
+- **The warehouse deduplicated by a 60-second window.** Same item, same operator, same
+  action, within a minute. A retry a few minutes later created a second pending
+  movement, and approving both moved the stock twice. It now keys on the wamid too, with
+  its own unique index as a backstop under the lock.
+
+### What it taught
+
+*"At least once"* is a promise about the sender, and it makes every side effect the
+receiver's problem. A unique index on one table protects that table. A lock at the door
+protects everything behind it.
+
+---
+
+## 21 · Two branches fixed the same bug, and the CLI said there was nothing to push
+
+Merging `master` into the WhatsApp-lock branch on 2026-11-28 produced the conflicts git
+can see — and three that it cannot.
+
+**Two fixes for one bug.** Both branches had independently fixed the compound-message
+key from §20, in two different schemes: `wamid#0, wamid#1` on one side, `wamid, wamid#1`
+on the other. Git flagged the one call site. It could not flag that the two schemes
+disagree on the first event, or that one of them was already live. Both branches had
+also deduplicated the warehouse, one with a lock and one with a unique index. Neither is
+a text conflict; both are behaviour. They were settled by asking, not by picking the
+newer side: master's key scheme (already in production), both warehouse layers kept.
+
+**Two migrations with one version.** Both branches had a file numbered
+`20261116120000`. The CLI keys migrations by version, so the second one would have been
+treated as applied and **never run** — silently, on a migration that adds columns the
+code already reads. Renamed to a free version before the push.
+
+**A migration that ran and was never recorded.** The lock's own migration had been
+applied with `supabase db query --remote`, which executes a file without writing the
+history row. The table existed in the cloud; the history said it did not. It was
+idempotent, so the push re-ran it harmlessly — but a non-idempotent one in that state
+fails on the second run, or worse, half-succeeds.
+
+**And the push that said everything was fine.** `config.toml` turns migrations off on
+purpose (§17). Both CLI v2 and v3 apply that switch to the *linked* project too, print
+*"Skipping migrations because it is disabled"*, and then report **"Remote database is
+up to date"** — with two migrations pending. The flag is now flipped only for the length
+of the push, inside a `try/finally` that restores the file.
+
+### What it taught
+
+A merge tool reconciles text. When two lines of work fixed the same problem, the
+dangerous conflict is the one with no conflict markers. And a tool that reports success
+after skipping its own work is the green CI badge from §12 again, in a smaller costume:
+**check what it did, not what it said.**
+
+---
+
+## 22 · Rolling back moved the card and nothing else
+
+Three gaps in how an OT leaves the straight line, closed in one change because they share
+a cause: each treated an exception as a change of column.
+
+**A rollback counted the hours twice.** Moving an OT back changed `ots.status` and
+nothing else. The passes for the stages it "un-did" stayed in `ot_stage_reports`, and
+machine time and labour are valued from passes (§18). When the OT moved forward again,
+`moveOT` wrote a *new* pass for the same stage: the hours were in the cost twice, and an
+open pass from the first round kept blocking dispatch for a stage that had since been
+closed again.
+
+The rule that fixes it comes from what a pass *is*: the record of having **left** a
+stage. An OT that returns to stage T has not left T or anything after it, so every pass
+from T onwards stops counting, and their ledger lines go with them. Paper is the
+opposite case, because paper leaves the warehouse on **entering** a stage: what left to
+enter T stays (the OT is still inside T), and what left to enter a later stage comes
+back through a return movement — never by deleting the issue, because the return is
+what credits the cost. Manual corrections and the competency matrix's practice hours are
+untouched: the person was at the machine, however the OT ended.
+
+**A split fragment could not pass its own gates.** Splitting an OT creates a fragment
+with its own id and no child rows. The schedule, the operations, the artwork, the
+customer's approval, the requirements — all still hang off the parent. Every gate looked
+them up by the fragment's id, found nothing, and the fragment could never move. Gates
+now read the whole lineage, with one exception kept deliberately narrow: internal quality
+approval belongs to the OT being moved, and is never satisfied by the public portal.
+
+**There was no way to cancel.** The flow ended at `completed`. A job the customer
+cancelled stayed in its column forever with its issued paper charged to it, or someone
+rolled it back to Pre-Prensa to get it off the board. Cancelling is now a **mark**, not a
+status — `cancelled_at`, a required reason, who did it — because `ot_status` is read by
+every gate, the role matrix, every board and every report, and adding a value would have
+forced each of them to learn what to do with it. The OT keeps the stage it reached, which
+is the honest record of how far the work got, and disappears from every list unless
+asked for. Paper returning to the warehouse is declared lot by lot by the person
+cancelling: what was already cut or printed does not come back, and stays as real cost.
+
+### What it taught
+
+An exception to the flow is not a different column. It is a question about every fact
+the normal flow wrote on the way: which of them are still true? Answering it per fact —
+passes from when you *left*, paper from when you *entered* — is what made the rule
+derivable instead of a list of special cases.
+
+---
+
 ## What is still wrong
 
 Kept here rather than in a private list, because a log that only contains solved
@@ -766,19 +1072,30 @@ problems is marketing.
   *expressed* in sheets/hour so `FINISH_RATES` keeps its shape, but
   `machines.optimal_speed_sheets_hr` has the same defect underneath and needs a
   sheets-per-lift column to be fixed properly.
-- **Twenty-one of eighty-seven libraries have no tests.** `auth`, `api-middleware` and
-  `dev-bypass-guard` closed since this was last written — the security perimeter that
-  decides who gets in. Ten of the remaining twenty-one are one path: `identity`,
-  `whatsapp-ingest`, `whatsapp-send`, `whatsapp-apply`, `whatsapp-cost-inference`,
-  `whatsapp-maintenance-ingest`, `whatsapp-media`, `warehouse-parser`,
-  `warehouse-photo-ingest`, `warehouse-qr` — the WhatsApp/warehouse ingest perimeter. The
-  domain is tested; the newest door into it is not.
-- **~50 unread-`error` sites remain**, held at `warn` by the ESLint tripwire in §12.
-  The same pattern was behind the `due_date` bug and at least five further findings in
-  that pass, so each site needs individual verification rather than a bulk edit. The
-  golden-thread routes go first.
-- **`LanguageContext` survives in six components** of an application that has decided
-  to speak Spanish — another instance of §5 that has not been closed yet.
+- **Forty of 129 libraries have no test file of their own.** Some of the most important
+  are covered from outside instead — `ot-move`, `stage-valuation` and the paper issue by
+  the end-to-end walk (§19), `whatsapp-ingest` and `whatsapp-claim` by the webhook
+  idempotency tests (§20). Still uncovered by anything: `warehouse-parser`,
+  `warehouse-photo-ingest`, `warehouse-qr`, `whatsapp-media`, `whatsapp-send`,
+  `whatsapp-apply`, `whatsapp-cost-inference`, `whatsapp-maintenance-ingest`. The newest
+  door into the domain is still the least tested one.
+- **69 unread-`error` sites remain**, held at `warn` by the ESLint tripwire in §12 —
+  *more* than the ~50 it found on its first run. A rule at `warn` counts the debt; it
+  does not stop it growing. Each site still needs individual verification rather than a
+  bulk edit, golden-thread routes first.
+- **`LanguageContext` survives in five files** of an application that has decided to
+  speak Spanish — another instance of §5 that has not been closed yet.
+- **The migrations cannot rebuild the database** (§17). Until production is created
+  from a reviewed schema baseline, the only way to reproduce the database is a dump of
+  it.
+- **The local stack drifts from the cloud between dumps.** It lacks
+  `whatsapp_inbound_claims` and the OT-cancel columns until the next restore, so
+  `db:dry-run` and the integration tests run against a slightly older schema than
+  production.
+- **Who may do what is written ~130 times.** Role checks in `src/app/api` are literal
+  arrays, one per handler. Changing a permission means finding all of them (plan.md I6).
+- **A restore has never been tested** (plan.md E2). There is a backup procedure; there
+  is no evidence it works.
 - **`get_order_labor_margin` is broken and unused.** Eleven dead column references,
   found by `check:functions` on its first run (§13). Repairing it is not a mechanical
   rename: `employee_incentives.payment_date` has no obvious successor, and the function
@@ -795,7 +1112,8 @@ problems is marketing.
   to write it directly, never shipped. The scan station now emits capture events and the
   warehouse photo path writes them, but the two `whatsapp_*_logs` tables remain the
   system of record for text messages.
-- **Nothing sends a reply.** The WhatsApp paths — production reports, warehouse photos —
-  compose an answer for the operator and return it in the webhook response, where only
-  the simulator can see it. Until outbound is wired, a warehouse worker photographing a
-  pallet gets silence, and silence is indistinguishable from failure.
+- **Nothing replies to an operator.** The WhatsApp paths — production reports,
+  warehouse photos — compose an answer and return it in the webhook response, where only
+  the simulator can see it. The one outbound sender is maintenance notices. Until replies
+  are wired, a warehouse worker photographing a pallet gets silence, and silence is
+  indistinguishable from failure.
