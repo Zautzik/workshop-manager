@@ -1,7 +1,7 @@
 'use client';
 
 import { useRef, useState } from 'react';
-import { ArrowRight, Calendar, Layers, Package, Ruler, DollarSign, Image as ImageIcon, Scissors, Edit2, Share2, Check, Puzzle, AlertTriangle } from 'lucide-react';
+import { ArrowRight, Calendar, Layers, Package, Ruler, DollarSign, Image as ImageIcon, Scissors, Edit2, Share2, Check, Puzzle, AlertTriangle, Ban } from 'lucide-react';
 import { formatCLP } from '@/lib/format';
 import { OTStatusSchema } from '@/lib/ot-state-machine';
 import { otStatusLabel, otStatusHex } from '@/lib/status-labels';
@@ -19,10 +19,12 @@ interface OTHoverCardProps {
   onEdit?: (ot: any) => void;
   /** Abre EditBudgetWizard: montaje, máquina y operaciones para esta OT. */
   onEditBudget?: (ot: any) => void;
+  /** Abre CancelOTDialog: la OT sale del flujo y el papel sin usar vuelve a bodega. */
+  onCancelOT?: (ot: any) => void;
   nextStatuses?: { key: string; labelEs: string }[];
 }
 
-export function OTHoverCard({ ot, anchorRect, onClose, onAdvance, onSplit, onEdit, onEditBudget, nextStatuses = [] }: OTHoverCardProps) {
+export function OTHoverCard({ ot, anchorRect, onClose, onAdvance, onSplit, onEdit, onEditBudget, onCancelOT, nextStatuses = [] }: OTHoverCardProps) {
   const ref = useRef<HTMLDivElement>(null);
 
   // Position: try right of anchor, fall back to left if near viewport edge
@@ -242,6 +244,20 @@ export function OTHoverCard({ ot, anchorRect, onClose, onAdvance, onSplit, onEdi
               }}
             >
               <Puzzle size={8} /> Montaje/Costos
+            </button>
+          )}
+          {/* Una OT que ya salió a entrega no se cancela desde acá. */}
+          {onCancelOT && ot.status !== 'in_delivery' && ot.status !== 'completed' && (
+            <button
+              onClick={e => { e.stopPropagation(); onCancelOT(ot); onClose(); }}
+              title="Cancelar la OT: sale del Tablero y el papel sin usar vuelve a bodega"
+              style={{
+                fontSize: 9, fontWeight: 700, cursor: 'pointer', border: '1px solid #ef444466',
+                background: '#ef444422', color: '#ef4444', borderRadius: 4,
+                padding: '2px 7px', display: 'flex', alignItems: 'center', gap: 3,
+              }}
+            >
+              <Ban size={8} /> Cancelar OT
             </button>
           )}
       </div>

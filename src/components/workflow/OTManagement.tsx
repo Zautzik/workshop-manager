@@ -12,6 +12,7 @@ import { ComprasDialog } from "./ComprasDialog";
 import { RealCostEntryDialog } from "./RealCostEntryDialog";
 import { OTHoverCard } from "./OTHoverCard";
 import { SplitOTDialog } from "./SplitOTDialog";
+import { CancelOTDialog } from "./CancelOTDialog";
 // El recorrido real de una OT vive en el motor de estados: el prensista que
 // manda «fin, entro OT 40965» tiene que llegar a la misma etapa a la que lo
 // llevaría este tablero.
@@ -29,6 +30,7 @@ import { KanbanHexBoard } from './ot-management/KanbanHexBoard';
 import { KanbanLanes } from './ot-management/KanbanLanes';
 import { ViaRapidaPanel } from './ot-management/ViaRapidaPanel';
 import { RollbackDialog, type RollbackTarget } from './ot-management/RollbackDialog';
+import type { RollbackKind } from '@/lib/ot-move';
 
 interface OTManagementProps {
   onOTSelect: (ot: any) => void;
@@ -110,6 +112,7 @@ export function OTManagement({ onOTSelect }: OTManagementProps) {
   const [costEntryOT,     setCostEntryOT]     = useState<any>(null);
   const [costEntryTarget, setCostEntryTarget] = useState<{ key: string; label: string } | null>(null);
   const [splitOT,         setSplitOT]         = useState<any>(null);
+  const [cancelOT,        setCancelOT]        = useState<any>(null);
   const [pasadasOT,       setPasadasOT]       = useState<any>(null);
   const [splitTarget,     setSplitTarget]     = useState<{ key: string; label: string } | null>(null);
   const [rollbackTarget,  setRollbackTarget]  = useState<RollbackTarget | null>(null);
@@ -191,6 +194,7 @@ export function OTManagement({ onOTSelect }: OTManagementProps) {
     rollback = false,
     stageReport: StageReportPayload | null = null,
     paperIssue: PaperIssuePayload[] | null = null,
+    rollbackKind: RollbackKind | null = null,
   ) => {
     // 1. Snapshot the current list before we touch anything.
     // `useBoardOTs()` envuelve su data en `{ rows, total, isTruncated }` (auditoría
@@ -212,6 +216,8 @@ export function OTManagement({ onOTSelect }: OTManagementProps) {
         to_status: newStatus,
         reason: rollback ? 'kanban_rollback' : 'kanban_advance',
         rollback,
+        // Reproceso (los costos quedan) o movimiento equivocado (se revierten).
+        rollback_kind: rollback ? rollbackKind : undefined,
         // El cierre de la etapa viaja con el movimiento, no en un pedido
         // aparte: si fueran dos, la que falla deja la OT movida sin horas.
         stage_report: stageReport,
@@ -233,9 +239,27 @@ export function OTManagement({ onOTSelect }: OTManagementProps) {
     // esconde detrás del toast de éxito.
     const body = await res.json().catch(() => null);
     if (body?.warning) {
-      toast({ title: 'OT avanzada, cierre no guardado', description: body.warning, variant: 'destructive' });
+      toast({
+        title: rollback ? 'OT retrocedida, reverso incompleto' : 'OT avanzada, cierre no guardado',
+        description: body.warning,
+        variant: 'destructive',
+      });
     } else {
-      toast({ title: rollback ? "OT retrocedida" : "OT avanzada", description: `→ ${getStatusInfo(newStatus).labelEs}` });
+      // En un retroceso se dice qué salió del costo: es plata que cambia de lugar
+      // y quien retrocede tiene que verlo, no enterarse en Rentabilidad.
+      const rev = body?.reversal;
+      const clp = (n: number) => `$${Math.round(n ?? 0).toLocaleString('es-CL')}`;
+      const partes: string[] = [];
+      if (rev?.passes?.length) {
+        partes.push(`${rev.passes.length} pasada(s) revertida(s): ${clp(rev.machineReversed)} de máquina y ${clp(rev.laborReversed)} de mano de obra`);
+      }
+      if (rev?.returned?.length) {
+        partes.push(`${rev.returned.length} salida(s) de material devuelta(s) a bodega (${clp(rev.materialReversed)})`);
+      }
+      toast({
+        title: rollback ? "OT retrocedida" : "OT avanzada",
+        description: [`→ ${getStatusInfo(newStatus).labelEs}`, ...partes].join(' · '),
+      });
     }
     // 4. Background refetch to pull any server-computed fields (updated_at, etc.).
     refetchOTs();
@@ -319,8 +343,8 @@ export function OTManagement({ onOTSelect }: OTManagementProps) {
     setCostEntryOT(null);
     setCostEntryTarget(null);
   };
-  const confirmRollback = () => {
-    if (rollbackTarget) updateOTStatus(rollbackTarget.ot.id, rollbackTarget.key, true);
+  const confirmRollback = (kind: RollbackKind) => {
+    if (rollbackTarget) updateOTStatus(rollbackTarget.ot.id, rollbackTarget.key, true, null, null, kind);
     setRollbackTarget(null);
   };
 
@@ -539,8 +563,17 @@ export function OTManagement({ onOTSelect }: OTManagementProps) {
           nextStatuses={getAllNextStatuses(hoveredOT.ot)}
           onAdvance={(ot, key, label) => requestAdvance(ot, key, label)}
           onSplit={(ot, key, label) => { setSplitOT(ot); setSplitTarget({ key, label }); }}
+          onCancelOT={(ot) => setCancelOT(ot)}
           onEdit={(ot) => { setEditingOT(ot); setShowEditDialog(true); }}
           onEditBudget={(ot) => setBudgetEditOT(ot)}
+        />
+      )}
+      {cancelOT && (
+        <CancelOTDialog
+          open={!!cancelOT}
+          onOpenChange={(open) => { if (!open) setCancelOT(null); }}
+          ot={cancelOT}
+          onSuccess={() => { refetchOTs(); refetchOpenPasses(); setCancelOT(null); }}
         />
       )}
       {splitOT && splitTarget && (

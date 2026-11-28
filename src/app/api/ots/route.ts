@@ -164,6 +164,9 @@ const PageSchema = z.object({
 // Active statuses come from the state machine (single source) — see
 // ACTIVE_OT_STATUSES in ot-state-machine.ts.
 
+/** El 42703 de PostgREST cuando `ots.cancelled_at` todavía no existe. */
+const CANCELLED_COLUMN_MISSING = /cancelled_at.*does not exist/i;
+
 export async function GET(req: NextRequest) {
 	const auth = await requireAuth();
 	if (isAuthError(auth)) return auth;
@@ -183,26 +186,45 @@ export async function GET(req: NextRequest) {
 	// ops/management roles see the whole plant.
 	const scope = await resolveSalesScope(auth);
 
+	// Una OT cancelada conserva su estado pero salió del flujo: no aparece en
+	// ninguna lista —tablero, activas, búsqueda ni la paginada— salvo que se
+	// pida (`?cancelled=true`).
+	const includeCancelled = searchParams.get('cancelled') === 'true';
+
 	const SELECT = '*, machine:machines!assigned_machine_id(id,name,brand,model,type,status,location,colors,nominal_speed_sheets_hr,power_kw)';
-	const base = () => {
+	const base = (hideCancelled: boolean) => {
 		let qb = supabaseAdmin.from('ots').select(SELECT, { count: 'exact' });
 		if (!scope.all) qb = qb.eq('salesman_id', scopeFilterId(scope));
+		if (hideCancelled) qb = qb.is('cancelled_at' as never, null);
 		return qb;
 	};
 
 	// Unpaged shapes: the whole set, in pages of 1000 under the hood.
 	if (active === 'true' || board === 'true') {
-		try {
+		const loadUnpaged = async (hideCancelled: boolean) => {
 			const inFlight = await fetchAll<any>((a, b) =>
-				base().in('status', [...ACTIVE_OT_STATUSES]).order('priority', { ascending: false }).order('created_at', { ascending: false }).range(a, b) as any,
+				base(hideCancelled).in('status', [...ACTIVE_OT_STATUSES]).order('priority', { ascending: false }).order('created_at', { ascending: false }).range(a, b) as any,
 			);
 			let rows = inFlight.rows;
 			if (board === 'true') {
 				const since = new Date(Date.now() - BOARD_COMPLETED_DAYS * 86_400_000).toISOString();
 				const done = await fetchAll<any>((a, b) =>
-					base().eq('status', 'completed').gte('completed_at', since).order('completed_at', { ascending: false }).range(a, b) as any,
+					base(hideCancelled).eq('status', 'completed').gte('completed_at', since).order('completed_at', { ascending: false }).range(a, b) as any,
 				);
 				rows = [...rows, ...done.rows];
+			}
+			return rows;
+		};
+		try {
+			let rows: any[];
+			try {
+				rows = await loadUnpaged(!includeCancelled);
+			} catch (err) {
+				// fetchAll sólo conserva el mensaje, no el código: el 42703 de abajo
+				// se reconoce por el texto. Sin la migración 20261128120000 no hay
+				// OTs canceladas que esconder.
+				if (!(err instanceof Error && CANCELLED_COLUMN_MISSING.test(err.message))) throw err;
+				rows = await loadUnpaged(false);
 			}
 			return NextResponse.json({ data: redactMoney(rows, auth.role), total: rows.length, page: 1, limit: rows.length, totalPages: 1 });
 		} catch (error) {
@@ -212,22 +234,28 @@ export async function GET(req: NextRequest) {
 	}
 
 	try {
-		let query = base();
-		if (q) {
-			// Search: newest first, over every OT. Characters that PostgREST's
-			// or() grammar reserves are dropped so a client name cannot break it.
-			const term = q.replace(/[,()*%\\]/g, ' ').trim();
-			if (term) query = query.or(`ot_number.ilike.%${term}%,client_name.ilike.%${term}%,product_name.ilike.%${term}%`);
-			query = query.order('created_at', { ascending: false });
-		} else {
-			query = query.order('priority', { ascending: false }).order('created_at', { ascending: false });
-		}
+		const run = (hideCancelled: boolean) => {
+			let query = base(hideCancelled);
+			if (q) {
+				// Search: newest first, over every OT. Characters that PostgREST's
+				// or() grammar reserves are dropped so a client name cannot break it.
+				const term = q.replace(/[,()*%\\]/g, ' ').trim();
+				if (term) query = query.or(`ot_number.ilike.%${term}%,client_name.ilike.%${term}%,product_name.ilike.%${term}%`);
+				query = query.order('created_at', { ascending: false });
+			} else {
+				query = query.order('priority', { ascending: false }).order('created_at', { ascending: false });
+			}
 
-		if (status) {
-			query = query.eq('status', status);
-		}
+			if (status) {
+				query = query.eq('status', status);
+			}
+			return query.range(offset, offset + limit - 1);
+		};
 
-		const { data, error, count } = await query.range(offset, offset + limit - 1);
+		let { data, error, count } = await run(!includeCancelled);
+		// 42703 = la columna no existe: la base todavía no tiene la migración
+		// 20261128120000. Sin ella no hay OTs canceladas que esconder.
+		if (error?.code === '42703') ({ data, error, count } = await run(false));
 
 		if (error) {
 			console.error('Error fetching OTs:', error);

@@ -24,6 +24,11 @@
  *   3. la pasada     — ot_stage_reports de la etapa que se deja (o se completa
  *                     una que ya existía, si quien mueve la cerró antes), y
  *                     con ella la máquina y la mano de obra (stage-valuation.ts);
+ *   4. el reverso    — sólo en un retroceso declarado como movimiento equivocado:
+ *                     las pasadas de las etapas deshechas dejan de valer (y con
+ *                     ellas su máquina y su mano de obra) y el material de
+ *                     etapas posteriores vuelve a bodega (rollback-reversal.ts).
+ *                     Un reproceso conserva todo: esos costos se incurrieron;
  *   5. historial     — ot_status_history, con el canal a la vista;
  *   6. aviso         — el evento de dominio y sus notificaciones.
  *
@@ -38,13 +43,25 @@ import { buildOTSpec, type OTSpec } from '@/lib/ot-spec';
 import { estimatedHoursFor, promptsStageReport } from '@/lib/stage-report';
 import { loadRoleAccess } from '@/lib/transition-rules';
 import { dispatchNotifications, emitDomainEvent } from '@/lib/domain-events';
-import { aprobacionParaMover } from '@/lib/ot-approval-origin';
+import {
+	SPLIT_GROUP_SELECT,
+	approvalOpensGate,
+	inheritSpecColumns,
+	lineageIds,
+	splitOwner,
+	type LineageApproval,
+	type SplitMember,
+} from '@/lib/ot-split-lineage';
 import { valueStagePassesSafely } from '@/lib/stage-valuation';
 import { resolvePassMachine } from '@/lib/stage-machine';
+import { reverseForRollback, type RollbackReversalSummary } from '@/lib/rollback-reversal-server';
 import { issuePaper, planPaperIssue, returnIssuedPaper, type PaperIssueLine } from '@/lib/paper-issue-server';
 import type { AppRole } from '@/types/app-role';
 
 export const PAPER_ISSUE_REQUIRED = 'PAPER_ISSUE_REQUIRED';
+
+export const ROLLBACK_KINDS = ['reproceso', 'error_de_movimiento'] as const;
+export type RollbackKind = (typeof ROLLBACK_KINDS)[number];
 
 /** La ficha entera: las compuertas de completitud necesitan saber qué sabe la OT, no sólo dónde está. */
 export const OT_MOVE_SELECT =
@@ -97,6 +114,13 @@ export interface MoveInput {
 	 */
 	paperIssue?: PaperIssueLine[] | null;
 	rollback?: boolean;
+	/**
+	 * Por qué se retrocede. `reproceso` (y la ausencia): el trabajo se hizo y hay
+	 * que rehacerlo — los costos quedan. `error_de_movimiento`: la OT se movió de
+	 * más y las etapas no se trabajaron — sus pasadas y el material de etapas
+	 * posteriores se revierten (rollback-reversal.ts).
+	 */
+	rollbackKind?: RollbackKind | null;
 	reason?: string | null;
 	metadata?: Record<string, unknown>;
 }
@@ -108,6 +132,8 @@ export type MoveResult =
 			/** Sólo en un avance parcial: el fragmento que avanzó, y lo que devuelve `split_ot`. */
 			fragment?: { id: string; ot_number: string; quantity: number };
 			split?: Record<string, unknown>;
+			/** Sólo en un retroceso: lo que salió del libro de costos y lo que volvió a bodega. */
+			reversal?: RollbackReversalSummary;
 			warnings: string[];
 	  }
 	| { ok: false; status: number; error: string; code?: string };
@@ -132,31 +158,66 @@ export async function moveOT(input: MoveInput): Promise<MoveResult> {
 	if (!isValidStatus(o.status)) return { ok: false, status: 409, error: 'OT tiene un estado actual inválido.' };
 	const fromStatus = o.status as OTWorkflowStatus;
 
+	// Una OT cancelada salió del flujo: no se mueve por ninguna puerta. Consulta
+	// aparte y tolerante: en una base sin la migración 20261128120000 la columna
+	// no existe, y ahí no hay nada cancelado que frenar.
+	const { data: cancelRow, error: cancelError } = await supabaseAdmin
+		.from('ots')
+		.select('cancelled_at' as never)
+		.eq('id', otId)
+		.maybeSingle();
+	if (!cancelError && (cancelRow as Row | null)?.cancelled_at) {
+		return { ok: false, status: 409, error: 'La OT está cancelada: no se puede mover.', code: 'OT_CANCELADA' };
+	}
+
+	// ── 0. El linaje ───────────────────────────────────────────────────────
+	//
+	// Un fragmento nace con id propio y sin ninguna fila hija: el programa, las
+	// operaciones, el arte, el visto bueno del cliente, los requisitos y los
+	// costos siguen colgando de la OT de la que salió. Buscar la evidencia sólo
+	// por su id lo dejaba sin salida (ot-split-lineage.ts). Si el grupo no se
+	// puede leer, la OT responde por sí misma, como antes.
+	let owner: Row = o;
+	if (o.split_group_id) {
+		const { data: grupo, error: grupoError } = await supabaseAdmin
+			.from('ots')
+			.select(SPLIT_GROUP_SELECT)
+			.eq('split_group_id', o.split_group_id);
+		if (grupoError) console.error('No se pudo leer el grupo de la OT partida:', grupoError);
+		owner = splitOwner(o as SplitMember & Row, (grupo ?? []) as unknown as (SplitMember & Row)[]);
+	}
+	const linaje = lineageIds(o as SplitMember, owner as SplitMember);
+
 	// ── 1. Compuertas ──────────────────────────────────────────────────────
 	const [approvalResult, costsResult, roleAccess, programa, operaciones, arte, cotizacion, requisitos, abiertas] =
 		await Promise.all([
-			// Comprar papel cuenta la firma del cliente, también la del portal; la
-			// compuerta de calidad no (auditoría 2026-10 §Quality): `aprobacionParaMover`.
-			supabaseAdmin.from('ot_approvals').select('status, confirmed_via, recorded_by').eq('ot_id', otId).eq('status', 'approved'),
+			// Qué aprobación abre qué compuerta —el visto bueno del cliente vale para
+			// todo el linaje; la calidad interna es propia y nunca la del portal
+			// (auditoría 2026-10 §Quality)— lo decide `approvalOpensGate`.
+			supabaseAdmin.from('ot_approvals').select('ot_id, status, confirmed_via, recorded_by').in('ot_id', linaje).eq('status', 'approved'),
 			// «Hay costo real» se pregunta al libro (ot_cost_lines, kind actual): ahí
 			// escriben el papel que salió, las pasadas y la mano de obra. Leía
 			// `ot_real_costs`, que desde 2026-11 nadie escribe: ninguna OT nueva
 			// podía despacharse ni completarse (hallado por hilo-dorado.test.ts).
-			supabaseAdmin.from('ot_cost_lines').select('id', { count: 'exact', head: true }).eq('ot_id', otId).eq('kind', 'actual'),
+			// Sobre todo el linaje: el papel de un grupo partido sale a nombre de
+			// la dueña (paper-issue-server.ts), las pasadas a nombre de cada fragmento.
+			supabaseAdmin.from('ot_cost_lines').select('id', { count: 'exact', head: true }).in('ot_id', linaje).eq('kind', 'actual'),
 			loadRoleAccess(),
 			// `impositionConfirmed` y `operationsReviewed` no son columnas: se deducen
 			// de que exista lo que producen.
-			supabaseAdmin.from('ot_machine_schedule').select('id', { count: 'exact', head: true }).eq('ot_id', otId),
-			supabaseAdmin.from('ot_operations').select('id', { count: 'exact', head: true }).eq('ot_id', otId),
-			supabaseAdmin.from('ot_attachments').select('id', { count: 'exact', head: true }).eq('ot_id', otId),
+			supabaseAdmin.from('ot_machine_schedule').select('id', { count: 'exact', head: true }).in('ot_id', linaje),
+			supabaseAdmin.from('ot_operations').select('id', { count: 'exact', head: true }).in('ot_id', linaje),
+			supabaseAdmin.from('ot_attachments').select('id', { count: 'exact', head: true }).in('ot_id', linaje),
 			o.vb_id
 				? supabaseAdmin.from('vistos_buenos').select('total_price').eq('id', o.vb_id).maybeSingle()
 				: Promise.resolve({ data: null }),
-			supabaseAdmin.from('ot_requirements').select('description, status').eq('ot_id', otId),
+			// Lo que hay que conseguir es para el trabajo entero: el fragmento no
+			// entra a bodega con un requisito de su dueña sin resolver.
+			supabaseAdmin.from('ot_requirements').select('description, status').in('ot_id', linaje),
 			supabaseAdmin.from('ot_stage_reports').select('id, workflow_step, created_at').eq('ot_id', otId).is('hours', null),
 		]);
 
-	const spec: OTSpec = buildOTSpec(o, {
+	const spec: OTSpec = buildOTSpec(inheritSpecColumns(o, owner), {
 		impositionConfirmed: (programa.count ?? 0) > 0,
 		operationsReviewed: (operaciones.count ?? 0) > 0,
 		artAttached: (arte.count ?? 0) > 0,
@@ -177,7 +238,7 @@ export async function moveOT(input: MoveInput): Promise<MoveResult> {
 		quotedPrice: (cotizacion as { data: { total_price?: number } | null })?.data?.total_price ?? null,
 		firmPrice: o.total_price ?? null,
 		repriceApproved: Boolean(input.metadata?.reprice_approved),
-		hasApprovedApproval: aprobacionParaMover(toStatus, approvalResult.data ?? []),
+		hasApprovedApproval: ((approvalResult.data ?? []) as LineageApproval[]).some((a) => approvalOpensGate(toStatus, a, otId)),
 		hasAnyRealCosts: (costsResult.count ?? 0) > 0,
 		rollback,
 		// `?? undefined` y no `?? []`: sin dato, la compuerta no corre — una lista
@@ -259,6 +320,12 @@ export async function moveOT(input: MoveInput): Promise<MoveResult> {
 		split = data as Record<string, unknown>;
 		const f = (split as { split?: { id: string; ot_number: string; quantity: number } }).split;
 		if (f?.id) fragment = { id: f.id, ot_number: f.ot_number, quantity: Number(f.quantity) };
+		// `split_ot` inserta el fragmento con `completed_at` en NULL sea cual sea el
+		// destino: uno que nace terminado quedaba completado sin fecha.
+		if (fragment && toStatus === 'completed') {
+			const { error: closeError } = await supabaseAdmin.from('ots').update({ completed_at: nowIso }).eq('id', fragment.id);
+			if (closeError) warnings.push('El fragmento quedó completado, pero sin fecha de término. Avisá para que se corrija.');
+		}
 		moved = { id: otId, ot_number: o.ot_number, status: fromStatus };
 	} else {
 		// Guardia de concurrencia: si otro la movió entre la lectura y esto, cero
@@ -325,6 +392,32 @@ export async function moveOT(input: MoveInput): Promise<MoveResult> {
 		}
 	}
 
+	// ── 4. El reverso de un retroceso ──────────────────────────────────────
+	//
+	// Volver atrás deshace lo que las etapas des-hechas dejaron en el libro: sus
+	// pasadas (y con ellas el tiempo de máquina y la mano de obra) y el material
+	// que salió para entrar a etapas posteriores. Sin esto, la OT volvía a avanzar
+	// y cobraba las mismas horas dos veces (rollback-reversal.ts). Lo deshecho
+	// queda entero en el historial del retroceso, más abajo.
+	//
+	// Sólo si quien retrocede dijo que fue un movimiento equivocado. Un reproceso
+	// —el caso normal: hubo un error en producción y la OT vuelve a un proceso
+	// anterior— conserva todo, porque esos costos se incurrieron. Sin indicación
+	// no se revierte nada: sacar costo del libro es una decisión, no un efecto
+	// secundario de mover una tarjeta.
+	let reversal: RollbackReversalSummary | undefined;
+	if (rollback && input.rollbackKind === 'error_de_movimiento') {
+		const rev = await reverseForRollback({
+			ot: { id: otId, ot_number: o.ot_number, quantity: o.quantity, split_group_id: o.split_group_id },
+			toStatus,
+			actorId: actor.id,
+			reversePasses: true,
+			returnMaterial: true,
+		});
+		reversal = rev.summary;
+		warnings.push(...rev.warnings);
+	}
+
 	// ── 5. Historial ───────────────────────────────────────────────────────
 	// Best-effort: no bloquea el movimiento. En un parcial habla del fragmento,
 	// que es el que cambió de columna.
@@ -337,7 +430,12 @@ export async function moveOT(input: MoveInput): Promise<MoveResult> {
 		changed_by_role: actor.role,
 		reason: input.reason ?? null,
 		rollback,
-		metadata: { ...(input.metadata ?? {}), ...(fragment ? { split_from_ot_id: otId } : {}) } as unknown as Json,
+		metadata: {
+			...(input.metadata ?? {}),
+			...(fragment ? { split_from_ot_id: otId } : {}),
+			...(rollback && input.rollbackKind ? { rollback_kind: input.rollbackKind } : {}),
+			...(reversal ? { reversal } : {}),
+		} as unknown as Json,
 	});
 	if (historyError) console.error('Error writing OT status history:', historyError);
 
@@ -362,5 +460,5 @@ export async function moveOT(input: MoveInput): Promise<MoveResult> {
 	});
 	if (event) await dispatchNotifications(event);
 
-	return { ok: true, ot: moved, ...(fragment ? { fragment, split } : {}), warnings };
+	return { ok: true, ot: moved, ...(fragment ? { fragment, split } : {}), ...(reversal ? { reversal } : {}), warnings };
 }

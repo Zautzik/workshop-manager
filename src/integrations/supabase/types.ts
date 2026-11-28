@@ -5019,6 +5019,9 @@ export type Database = {
           calc_print_hours: number | null
           calc_sheets: number | null
           calc_substrate_kg: number | null
+          cancel_reason: string | null
+          cancelled_at: string | null
+          cancelled_by: string | null
           cliche_code: string | null
           client_id: string | null
           client_name: string
@@ -5100,6 +5103,9 @@ export type Database = {
           calc_print_hours?: number | null
           calc_sheets?: number | null
           calc_substrate_kg?: number | null
+          cancel_reason?: string | null
+          cancelled_at?: string | null
+          cancelled_by?: string | null
           cliche_code?: string | null
           client_id?: string | null
           client_name: string
@@ -5181,6 +5187,9 @@ export type Database = {
           calc_print_hours?: number | null
           calc_sheets?: number | null
           calc_substrate_kg?: number | null
+          cancel_reason?: string | null
+          cancelled_at?: string | null
+          cancelled_by?: string | null
           cliche_code?: string | null
           client_id?: string | null
           client_name?: string
@@ -9219,6 +9228,9 @@ export type Database = {
           calc_print_hours: number | null
           calc_sheets: number | null
           calc_substrate_kg: number | null
+          cancel_reason: string | null
+          cancelled_at: string | null
+          cancelled_by: string | null
           cliche_code: string | null
           client_id: string | null
           client_name: string

@@ -28,6 +28,8 @@ import {
   extractMetaInbound,
 } from '@/lib/whatsapp-intake';
 import { processWarehousePhoto } from '@/lib/warehouse-photo-ingest';
+import { runUnderClaim } from '@/lib/whatsapp-claim';
+import logger from '@/lib/logger';
 import { insertWarehouseLog } from '@/lib/warehouse-log';
 import type { Json } from '@/integrations/supabase/types';
 
@@ -41,7 +43,11 @@ const WebhookSchema = z.object({
   timestamp: z.string().optional(),
   MessageSid: z.string().optional(),
   ProfileName: z.string().max(100).optional(),
-  /** El wamid de Meta: la llave de idempotencia del movimiento (warehouse-log.ts). */
+  /**
+   * El wamid de Meta. Dos capas usan la misma llave: el candado antes de
+   * procesar (whatsapp-claim.ts) y el índice único del movimiento como
+   * respaldo en la base (warehouse-log.ts).
+   */
   message_id: z.string().max(200).optional(),
 });
 
@@ -352,6 +358,21 @@ export async function POST(req: NextRequest) {
 
       const results: Record<string, unknown>[] = [];
       for (const msg of intake.messages) {
+        // ── Candado de idempotencia ──────────────────────────────────────
+        //
+        // Cada mensaje se toma por su wamid ANTES de procesarlo (ver
+        // src/lib/whatsapp-claim.ts). La ventana de 60 segundos de más abajo
+        // sólo cubría una reentrega rápida del mismo ítem y acción, y la foto
+        // no tenía ninguna: cada reintento de Meta la volvía a descargar y a
+        // registrar. Estricto: sin wamid no hay candado, y sin candado no se
+        // procesa.
+        const wamid = msg.message_id;
+        if (!wamid) {
+          logger.warn('WhatsApp bodega: mensaje de Meta sin wamid, no se procesa');
+          results.push({ status: 'ignored', reason: 'Mensaje sin wamid' });
+          continue;
+        }
+
         // ── La foto es el mensaje ────────────────────────────────────────
         //
         // Bodega no escribe: está de pie, con guantes, al lado de un pallet. El
@@ -359,30 +380,37 @@ export async function POST(req: NextRequest) {
         // foto se descartaba antes de llegar a ningún lado. Va por su propio
         // camino porque no hay texto que parsear — el código viene en los
         // píxeles.
-        if (msg.media_only && msg.media_id) {
-          const photo = await processWarehousePhoto({
-            from: msg.from,
-            media_id: msg.media_id,
-            media_mime: msg.media_mime,
-            profile_name: msg.ProfileName,
-            timestamp: msg.timestamp,
-          });
-          results.push(photo.payload);
-          continue;
+        const mediaId = msg.media_only ? msg.media_id : undefined;
+        let work: () => Promise<ProcessResult>;
+        if (mediaId) {
+          work = () =>
+            processWarehousePhoto({
+              from: msg.from,
+              media_id: mediaId,
+              media_mime: msg.media_mime,
+              profile_name: msg.ProfileName,
+              timestamp: msg.timestamp,
+            });
+        } else {
+          const parsed = WebhookSchema.safeParse(msg);
+          if (!parsed.success) {
+            results.push({ status: 'invalid', details: parsed.error.flatten() });
+            continue;
+          }
+          work = () => processMessage(parsed.data);
         }
 
-        const parsed = WebhookSchema.safeParse(msg);
-        if (!parsed.success) {
-          results.push({ status: 'invalid', details: parsed.error.flatten() });
-          continue;
-        }
-        const result = await processMessage(parsed.data);
-        results.push(result.payload);
+        // Si esto lanza, sale por el catch de abajo con 500 y Meta reintenta
+        // el sobre entero: lo ya procesado conserva su candado y se salta; lo
+        // que falló lo soltó y vuelve a entrar.
+        const outcome = await runUnderClaim('warehouse', wamid, work);
+        results.push(
+          outcome.duplicate ? { status: 'duplicate', message_id: wamid } : outcome.result.payload,
+        );
       }
 
       // Always 200 toward Meta: a non-2xx makes the Cloud API retry the whole
-      // envelope, re-running messages that already succeeded. Per-message
-      // errors are in the payload and logged server-side.
+      // envelope. Per-message errors are in the payload and logged server-side.
       return NextResponse.json(
         results.length === 1 ? results[0] : { status: 'batch', results },
       );
@@ -395,6 +423,20 @@ export async function POST(req: NextRequest) {
         { error: 'Invalid payload', details: parsed.error.flatten() },
         { status: 400 },
       );
+    }
+
+    // El proveedor genérico puede no mandar id: con `message_id` se aplica el
+    // mismo candado; sin él se procesa como antes.
+    const wamid = parsed.data.message_id;
+    if (wamid) {
+      const outcome = await runUnderClaim('warehouse', wamid, () => processMessage(parsed.data));
+      if (outcome.duplicate) {
+        return NextResponse.json({ status: 'duplicate', message_id: wamid });
+      }
+      return NextResponse.json(outcome.result.payload, {
+        status: outcome.result.status,
+        headers: outcome.result.headers,
+      });
     }
 
     const result = await processMessage(parsed.data);
