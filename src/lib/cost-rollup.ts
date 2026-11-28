@@ -145,7 +145,11 @@ export function rollupCosts(
     // Un margen es utilizable cuando hay ingreso y al menos una línea de costo
     // real. Sin costo real, "margen = ingreso" y eso es 100% de utilidad, que
     // es la mentira más cara que puede contar una app de imprenta.
-    const unreliable = revenue <= 0 || actualTotal === 0 || seedLines > 0;
+    //
+    // Y contar líneas no alcanza: una OT retrocedida conserva la salida de
+    // material Y su devolución —dos líneas reales que suman cero—. Para el
+    // margen eso es lo mismo que no tener costo.
+    const unreliable = revenue <= 0 || actualTotal === 0 || actual_cost <= 0 || seedLines > 0;
 
     return {
       ot_id: r.ot_id,
@@ -160,7 +164,7 @@ export function rollupCosts(
       margin_pct: revenue > 0 ? Math.round((gross_margin / revenue) * 1000) / 10 : null,
       provenance: {
         realLines, legacyLines, seedLines, estimateLines, confidence,
-        label: describeProvenance({ realLines, legacyLines, seedLines, estimateLines }),
+        label: describeProvenance({ realLines, legacyLines, seedLines, estimateLines }, actual_cost),
       },
       unreliable,
     };
@@ -250,18 +254,21 @@ export function rollupFromDbAggregates(
           legacyLines: a.legacy_lines,
           seedLines: a.seed_lines,
           estimateLines: a.estimate_lines,
-        }),
+        }, a.actual_cost),
       },
-      unreliable: revenue <= 0 || actualTotal === 0 || a.seed_lines > 0,
+      unreliable: revenue <= 0 || actualTotal === 0 || a.actual_cost <= 0 || a.seed_lines > 0,
     };
   });
 }
 
-function describeProvenance(p: Omit<Provenance, 'confidence' | 'label'>): string {
+function describeProvenance(p: Omit<Provenance, 'confidence' | 'label'>, actualCost: number): string {
   if (p.seedLines > 0) {
     return 'Datos de demostración: este margen no describe un trabajo real.';
   }
   const actuales = p.realLines + p.legacyLines;
+  if (actuales > 0 && actualCost <= 0) {
+    return `El costo real cargado se revirtió por completo (${actuales} línea(s) que suman cero). El margen mostrado sería el ingreso completo.`;
+  }
   if (actuales === 0) {
     return p.estimateLines > 0
       ? `Sin costo real cargado. Sólo hay ${p.estimateLines} línea(s) estimada(s) del presupuesto.`

@@ -26,13 +26,15 @@ import {
 	type PaperItem,
 } from '@/lib/paper-issue';
 
+import { splitOwner, type SplitMember } from '@/lib/ot-split-lineage';
+
 const OT_FIELDS =
 	'id, ot_number, status, quantity, split_group_id, calc_sheets, calc_substrate_kg, calc_print_hours, calc_finish_hours, ' +
 	'substrate_type, grammage_gsm, product_type, color_front, color_back, assigned_machine_id, die_id, die_code, ' +
 	'finish_troquelado, finish_plegado, finish_pegado, finish_laminado, finish_barniz, finish_relieve, finish_perforado, ' +
 	'finish_hot_stamping, finish_uv_localizado, finish_numeracion, route_steps';
 
-const ITEM_FIELDS = 'id, name, unit, sheet_width_cm, sheet_height_cm, grammage_gsm, sheets_per_package, material_kind, is_certification_required';
+export const ITEM_FIELDS = 'id, name, unit, sheet_width_cm, sheet_height_cm, grammage_gsm, sheets_per_package, material_kind, is_certification_required';
 
 type Row = Record<string, any>;
 
@@ -80,7 +82,7 @@ export interface PaperIssueLine {
 	overrideReason?: string | null;
 }
 
-const isPaper = (item: Row | null | undefined) =>
+export const isPaper = (item: Row | null | undefined) =>
 	item?.material_kind === 'papel' || (!item?.material_kind && !/^tinta/i.test(String(item?.name ?? '')));
 
 async function loadOwner(ot: Row): Promise<{ owner: Row; groupUnits: number }> {
@@ -88,8 +90,7 @@ async function loadOwner(ot: Row): Promise<{ owner: Row; groupUnits: number }> {
 	const { data, error } = await supabaseAdmin.from('ots').select(OT_FIELDS).eq('split_group_id', ot.split_group_id);
 	if (error) throw new Error(`No se pudo leer el grupo de la OT: ${error.message}`);
 	const group = (data ?? []) as unknown as Row[];
-	const base = String(ot.ot_number).split('-')[0];
-	const owner = group.find((g) => g.ot_number === base) ?? ot;
+	const owner = splitOwner(ot as SplitMember & Row, group as (SplitMember & Row)[]);
 	const groupUnits = group.reduce((s, g) => s + Number(g.quantity ?? 0), 0) || Number(ot.quantity ?? 0);
 	return { owner, groupUnits };
 }

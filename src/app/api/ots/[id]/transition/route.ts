@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { isAuthError, requireAuth } from '@/lib/api-middleware';
 import { buildRateLimitActor, enforceRouteRateLimit } from '@/lib/api-rate-limit';
 import { isValidStatus, type OTWorkflowStatus } from '@/lib/ot-state-machine';
-import { moveOT } from '@/lib/ot-move';
+import { moveOT, ROLLBACK_KINDS } from '@/lib/ot-move';
 import { PaperIssueSchema, toPaperIssueLines } from '@/lib/paper-issue-schema';
 
 /**
@@ -31,6 +31,9 @@ const TransitionSchema = z.object({
   reason: z.string().max(500).optional().nullable(),
   metadata: z.record(z.string(), z.any()).optional(),
   rollback: z.boolean().optional(),
+  // Por qué se retrocede: un reproceso conserva los costos; un movimiento
+  // equivocado los revierte (ot-move.ts).
+  rollback_kind: z.enum(ROLLBACK_KINDS).optional().nullable(),
   stage_report: StageReportSchema.optional().nullable(),
   // El papel que sale al entrar a la primera etapa de la ruta (paper-issue.ts).
   paper_issue: PaperIssueSchema,
@@ -74,6 +77,7 @@ export async function POST(
       toStatus: parsed.data.to_status as OTWorkflowStatus,
       actor: { id: auth.id, role: auth.role!, name: auth.name ?? auth.email },
       rollback: parsed.data.rollback ?? false,
+      rollbackKind: parsed.data.rollback_kind ?? null,
       reason: parsed.data.reason ?? null,
       metadata: parsed.data.metadata ?? {},
       paperIssue: toPaperIssueLines(parsed.data.paper_issue),
@@ -92,9 +96,11 @@ export async function POST(
     if (!result.ok) {
       return NextResponse.json({ error: result.error, code: result.code }, { status: result.status });
     }
-    return NextResponse.json(
-      result.warnings.length > 0 ? { ...result.ot, warning: result.warnings.join(' ') } : result.ot,
-    );
+    return NextResponse.json({
+      ...result.ot,
+      ...(result.reversal ? { reversal: result.reversal } : {}),
+      ...(result.warnings.length > 0 ? { warning: result.warnings.join(' ') } : {}),
+    });
   } catch (error) {
     console.error('Error transitioning OT:', error);
     return NextResponse.json({ error: 'No se pudo mover la OT de estado' }, { status: 500 });
