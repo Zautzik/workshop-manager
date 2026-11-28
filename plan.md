@@ -1,6 +1,6 @@
 # GonsAdmin — Master plan to go live
 
-Last updated: 2026-11-27 · Branch `audit/captura-local-fase-1a` = `master` (`b7f103c`)
+Last updated: 2026-11-28 · `master` (`fe6349a`, PR #3 merged)
 
 This file says where the project stands and what is left before the print shop
 runs on it. Read it at the start of every session and tick items as they close.
@@ -25,9 +25,14 @@ Every step lists a *Done when* — the check that proves it, not "looks done".
   [docs/plan-arreglos-y-pantallas-2026-11-25.md](docs/plan-arreglos-y-pantallas-2026-11-25.md)).
 - Works on phone, laptop and wide screens; `npm run qa:layout` checks it (228
   page loads, 0 failures). Phone planning: heat map / now-next / risk + stage panel.
-- Every one of the 216 migrations is applied to the cloud (verified 2026-11-27).
-- Checks green: typecheck, lint 0 errors, 1,303 unit tests, read-route
-  integration tests.
+- Every one of the 220 migrations is applied to the cloud and recorded in its
+  history (verified 2026-11-28 with `migration list --remote`; the WhatsApp
+  lock `20261115120000` had run without a history row and is now recorded).
+- OTs can be cancelled (a mark with a reason, not a status), a rollback undoes
+  the passes and paper it un-did, and a split fragment is gated on its whole
+  lineage (PR #3, `d9f77b4`).
+- Checks green: typecheck, lint 0 errors (131 warnings), 1,389 unit tests
+  passing (40 skipped, 104 files), read-route integration tests.
 
 **Not ready for real use, in one sentence:** the database is all demo data, no
 one but admins has used it, there is no tested way to restore it, and the
@@ -85,7 +90,7 @@ keep the token as the only authorization; write a test where a customer
 approval moves the OT and writes the same history as the Tablero.
 *Done when:* `grep "from('ots').update" src/app/api` returns only `moveOT`'s own path.
 
-**B3 · Webhook idempotency check (S).** ✅ 2026-11-27, migration `20261127120000` on the cloud. Found two real bugs: (1) one message with FIN + INICIO lost the INICIO as a "duplicate" — each event now keys `wamid`, `wamid#1`…; (2) bodega deduped only within 60 s — now keyed by wamid with a unique index (`src/lib/warehouse-log.ts`). Signatures: fail closed, constant-time — OK.
+**B3 · Webhook idempotency check (S).** ✅ 2026-11-27, migration `20261127120000` on the cloud. Completed 2026-11-28 by PR #3: a claim on `whatsapp_inbound_claims` before any processing (`src/lib/whatsapp-claim.ts`) covers maintenance replies, `cancel` and photos, which the per-table indexes never saw; bodega keeps both the claim and its unique index. Found two real bugs: (1) one message with FIN + INICIO lost the INICIO as a "duplicate" — each event now keys `wamid`, `wamid#1`…; (2) bodega deduped only within 60 s — now keyed by wamid with a unique index (`src/lib/warehouse-log.ts`). Signatures: fail closed, constant-time — OK.
  Confirm both WhatsApp webhooks
 (production and bodega) dedupe on `(wamid, event_index)` and verify Meta's
 signature. Add a test that sends the same message twice and one message with
@@ -114,7 +119,7 @@ adds them (or point CI at a throwaway project). Add `npm run qa:layout:phone`
 as an optional job.
 *Done when:* a push to master shows a green CI run.
 
-**B7 · One store for real costs (M).** ✅ 2026-11-27 (owner chose: manual entry = a correction); migrations `20261127130000` and `20261127140000` on the cloud. Manual lines now go to the ledger as corrections with a required reason (`src/lib/cost-correction.ts`, `/api/ots/[id]/cost-corrections`); paper, machine and labour are refused and corrected at their source. Cost analysis reads the ledger by category (`src/lib/cost-analysis.ts`). The first migration sends reviewed WhatsApp extra lines straight to the ledger and drops `ot_real_costs`. Found by F1. Hardened the same day: a correction is cancelled by an opposite entry with its own reason, never deleted (`POST …/cost-corrections/[lineId]/reverse`; the second migration allows that negative line and a unique index stops a double reversal); unknown OT → 404, completed OT → 409; the analysis never adds sheets to kg (per-unit breakdown). Tested against the real DB in `src/__tests__/correccion-de-costo.test.ts`. `types.ts` regenerated from the cloud with `npx supabase gen types typescript --linked --schema public` (only additions: DTE columns, `whatsapp_inbound_claims`, `emitir_papel`, `devolver_salida_papel`; typecheck clean). Note: the cloud has `whatsapp_inbound_claims`, the local DB does not — local drift, refresh it with the next dump (E2).
+**B7 · One store for real costs (M).** ✅ 2026-11-27 (owner chose: manual entry = a correction); migrations `20261127130000` and `20261127140000` on the cloud. Manual lines now go to the ledger as corrections with a required reason (`src/lib/cost-correction.ts`, `/api/ots/[id]/cost-corrections`); paper, machine and labour are refused and corrected at their source. Cost analysis reads the ledger by category (`src/lib/cost-analysis.ts`). The first migration sends reviewed WhatsApp extra lines straight to the ledger and drops `ot_real_costs`. Found by F1. Hardened the same day: a correction is cancelled by an opposite entry with its own reason, never deleted (`POST …/cost-corrections/[lineId]/reverse`; the second migration allows that negative line and a unique index stops a double reversal); unknown OT → 404, completed OT → 409; the analysis never adds sheets to kg (per-unit breakdown). Tested against the real DB in `src/__tests__/correccion-de-costo.test.ts`. `types.ts` regenerated from the cloud with `npx supabase gen types typescript --linked --schema public` (only additions: DTE columns, `whatsapp_inbound_claims`, `emitir_papel`, `devolver_salida_papel`; typecheck clean). Note: the cloud has `whatsapp_inbound_claims` and (since 2026-11-28) the OT-cancel columns; the local DB has neither — local drift, refresh it with the next dump (`npm run db:local:refresh`, E2).
 
 *Original note:*
 The ledger (`ot_cost_lines`, kind `actual`) is where paper, passes and labour
@@ -132,7 +137,7 @@ into a correction on a pass/consumption); `ot_real_costs` is dropped after.
 
 ## Phase C — Production environment (Dev + Owner)
 
-**C1 · Production database from a baseline (L).** The 216 migrations cannot
+**C1 · Production database from a baseline (L).** The 220 migrations cannot
 rebuild the database (they break at #20; see memory/docs S-2). Steps:
 1. Dump the staging **schema only** (`supabase db dump`), review it, and save it
    as one baseline migration.
@@ -289,9 +294,9 @@ Ordered by value to the shop.
 | I2 | **OEE per machine** (availability × performance × quality) | All inputs already exist; cheapest high-value metric. | M |
 | I3 | **Hours without an OT** attributed to the OTs the machine ran that shift | Today they are "plant time"; margin per OT misses them. | M |
 | I4 | **Blocked-OT ETA** (paper arrival by OC, pending V°B°) | Planning can say when a blocked job can start. | M |
-| I5 | **Offline shop-floor station** (PWA for `/estacion`, `/escanear`) | Plant Wi-Fi drops; reports should queue and sync. | L |
-| I6 | **One permissions module** (≈197 literal role arrays in `src/app/api`) — audit C-5 | Changing who can do what in one place, not 200. | M |
-| I7 | **Code health:** 325 `as any`, 131 lint warnings, big components (PlantaBoard 1,300 lines, OTGanttBoard 1,200), API response-shape sweep | Safer changes, fewer hidden bugs. | L (ongoing) |
+| I5 | **Offline shop-floor scanning** (PWA for `/escanear`; the `/estacion` kiosk was removed 2026-11-25) | Plant Wi-Fi drops; reports should queue and sync. | L |
+| I6 | **One permissions module** (≈130 literal role checks in `src/app/api`) — audit C-5 | Changing who can do what in one place, not 130. | M |
+| I7 | **Code health:** 258 `as any`, 131 lint warnings (69 of them an unread Postgrest `error` — up from ~50), big components (PlantaBoard 1,300 lines, OTGanttBoard 1,200), API response-shape sweep, tests for the warehouse/WhatsApp libraries that still have none | Safer changes, fewer hidden bugs. | L (ongoing) |
 | I8 | **Dependency refresh** (supabase-js, Sentry, React Query, Vite config warnings) | Stay on supported versions. | M |
 | I9 | **Leftovers:** `ot_machine_schedule.actual_hours` duplicates pass hours; maintenance Phase 7 (drop retired tables); two phone text-size warnings (Tendencias axis, Talento tree) | Remove the last second copies of a fact. | S–M |
 | I10 | **Press integration** (JDF/JMF counters) | Automatic counts instead of typed ones, for bigger presses. | L |
@@ -303,6 +308,15 @@ Ordered by value to the shop.
 - One writer per fact; never add a per-channel writer — extend the shared one.
 - Every migration: new timestamped file → `npm run db:dry-run` locally →
   explicit OK → push → apply locally → audits (§2 of [AGENTS.md](AGENTS.md)).
+- Pushing migrations (NOTES.md §21): `config.toml` disables them on purpose and
+  the CLI then skips the linked project too while saying "up to date". Turn the
+  flag on only for the command, restore it in a `finally`, and always run
+  `npx supabase@2 db push --linked --include-all --dry-run` first — the list
+  it prints is the truth, not the last line. Never apply a migration file with
+  `db query --remote`: it runs without a history row.
+- After every merge: check `supabase/migrations` for two files with the same
+  version (the second is treated as applied and never runs), and ask the owner
+  about any behaviour both sides changed, even with no conflict markers.
 - Before each deploy: `npx tsc --noEmit`, `npm run lint`, `npm test` (from
   PowerShell — Git Bash's `c:` path breaks Vitest), `npm run test:e2e`,
   `npm run qa:layout:phone`.
@@ -318,4 +332,6 @@ Ordered by value to the shop.
 | 2026-11-27 | F1 end-to-end test; dispatch gate reads the ledger; B7 raised | bed02e0 |
 | 2026-11-27 | B7 code: corrections to the ledger, cost analysis on the ledger (migration pending) | 478f636 |
 | 2026-11-27 | B7 hardening: reversal instead of delete, closed-OT guard, per-unit quantities | 8f1a9aa |
-| 2026-11-27 | B7 closed: both migrations on the cloud; types.ts regenerated from the cloud | (next commit; see git log) |
+| 2026-11-27 | B7 closed: both migrations on the cloud; types.ts regenerated from the cloud | 337ce66 |
+| 2026-11-28 | PR #3: WhatsApp claim before processing; master merged (owner settled the key scheme and both bodega layers); OT cancel, rollback reversal, split lineage. Migrations `20261115120000` (recorded) and `20261128120000` (renamed from a duplicate version) on the cloud | fe6349a |
+| 2026-11-28 | README, NOTES (§15–§22), MASTERCLASS and this plan brought up to date | (this commit) |
