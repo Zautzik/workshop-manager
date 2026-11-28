@@ -14,10 +14,12 @@ diary — what broke, and how it got fixed — then think of this one as the pro
 where the actual lessons live, kept around long after the incident that taught them has
 been forgotten by everyone who lived through it.
 
-By now, those lessons add up to something you could measure: 187 separate trips back
-into the database to fix or extend something, 163 little doors the software answers
-questions through, 87 small rulebooks written in code, 75 different screens, and 1,058
-automatic checks that all have to agree before anything new ships. None of that is the
+By now, those lessons add up to something you could measure: 220 separate trips back
+into the database to fix or extend something, 184 little doors the software answers
+questions through, 129 small rulebooks written in code, 76 different screens, and 1,429
+automatic checks that all have to agree before anything new ships — plus one long walk
+that pushes a single job through the entire shop, start to finish, against a real
+database. None of that is the
 point. The point is everything underneath it — so let's get into it.
 
 ---
@@ -196,13 +198,21 @@ something true to compare itself against.
 
 There's a chain here that runs from a person, to their wage, to the machine they were
 running, to the order that machine was working on — and every link in that chain already
-existed somewhere in the system. What was missing was simply wiring them together. A
-kiosk with a QR code captures when someone actually clocks in and out. A separate record
-already tracks which person was assigned to which machine, on which shift, for which
-order. A third record holds each person's hourly wage and overtime rate — and crucially,
-holds the wage *that was actually true on that date*, not just whatever it is today.
-Multiply those together correctly, and the answer lands where it belongs: on that order's
-real cost.
+existed somewhere in the system. What was missing was simply wiring them together. The
+plant's own roster records which person was put on which machine, on which shift. The
+step-by-step record of each job says when that machine finished its part of the order.
+A third record holds each person's hourly wage and overtime rate — and crucially, holds
+the wage *that was actually true on that date*, not just whatever it is today. Lay the
+job's hours back from the moment the step closed, only inside that machine's staffed
+shifts, minus lunch, and each person on the roster carries their own share at their own
+rate. The answer lands where it belongs: on that order's real cost.
+
+For a while there was also a kiosk with a QR code where people clocked in and out, and
+the first version of this chain was built on its punches. The owner decided the shop
+doesn't take attendance through the app, so the kiosk went — and nothing in the cost
+moved, because by then labour was already coming from the roster, not from the clock.
+Hours that don't fall inside anyone's shift stay visibly marked as *unstaffed*. The
+system doesn't invent who was standing there.
 
 That last piece — using the wage that was true on the date the work happened, not
 today's rate — matters more than it sounds. Payroll for work done in March has to use
@@ -211,9 +221,10 @@ history the moment anyone gets a raise, understating what every past job actuall
 run.
 
 And once that chain existed, it had to be taught to handle the shop floor as it actually
-behaves, not as a spreadsheet imagines it does: an operator who forgets to clock out, a
-double-punch on the kiosk, a night shift that crosses over midnight, one station juggling
-several different orders in a single day. Every one of those real situations got decided
+behaves, not as a spreadsheet imagines it does: a night shift that crosses over midnight,
+a guillotine with fewer shifts than the press beside it, three guillotines where only one
+had people on it when the step closed, one machine juggling several different orders in a
+single day. Every one of those real situations got decided
 once, carefully, in one place — instead of being improvised fresh, slightly differently,
 every single time one of them showed up somewhere new.
 
@@ -278,7 +289,108 @@ it only limits what the system is honestly allowed to promise someone else — a
 expires on its own if nobody follows through, so a job that falls apart releases its
 claim on that paper automatically, without anyone having to remember to go do it by hand.
 
-## 10 · The one where we admit we haven't fixed it yet
+## 10 · A cost enters the job only when something is actually used up
+
+This is the owner's rule, and it sounds obvious until you count how many ways the system
+used to break it. A job's real cost is what it actually consumed, at the real price of
+what was consumed — and nothing else. The estimate is a different thing, kept in its own
+lane, so that the gap between the two can be read later instead of being blended away.
+
+Before that rule, real cost had several doors. A purchase order arriving could cost the
+job. Someone could type a number into a dialog. A text message could carry a cost. One
+old screen even saved a copy of the *quote* as the real cost at every step, which made
+one job look like it had lost more than twice its price when it had actually made a
+small profit. Each door was reasonable on its own. Together, they meant that "real cost"
+was whatever the last door to speak had said.
+
+Now each kind of cost has exactly one way in, and that way in is the moment of
+consumption. Paper costs the job when it physically leaves the warehouse for it, at what
+that exact batch cost to buy. Machine time costs the job when a step on that machine is
+closed, at the machine's rate. Labour costs the job through the people the plant actually
+put on that machine during those hours. And there's a guard sitting in the database
+itself that refuses any real cost for paper, machine or labour that didn't come through
+its proper door — because a rule that only lives in people's heads lasts exactly until
+the first busy afternoon.
+
+Anything that genuinely doesn't fit — a subcontracted job, a courier, an extra — goes in
+as a **correction**, with a reason that can't be left blank. And a correction can't be
+erased afterwards either. If it was wrong, it gets cancelled by an equal and opposite
+entry with its own reason, and both stay in the book. That's not bureaucracy. It's the
+oldest rule in accounting, and it exists for the same reason here as anywhere: a ledger
+you can erase is a ledger nobody can audit.
+
+## 11 · Paper leaves the warehouse once, when the job walks through the first door
+
+A sheet of paper in a print shop gets touched by several machines. It might be trimmed
+first, then printed, then die-cut, then trimmed again. The old instinct was to record
+paper at each step that used it — and that's how the same sheet ended up being charged
+to a job two or three times, once per machine that touched it.
+
+The physical truth is simpler: the paper leaves the warehouse exactly once, the moment
+the job enters the first step of its route, and the same sheets then travel from machine
+to machine. So the system now asks for the paper at that one moment, takes it out of
+stock all at once — every batch or none of them — and if the job doesn't actually manage
+to move forward, puts it straight back.
+
+That only works if the system knows what the first step is, and not every job goes
+through every machine. So a job now declares its route when it's created — trimmed first
+or not, offset or digital, die-cut or not — and everything downstream follows that
+declared route instead of guessing. The planning board stopped offering "send to digital
+printing" for a job that was always going to offset, for the plain reason that it had
+finally been told.
+
+## 12 · Going backwards: a step is something you *leave*, paper is something you *enter* with
+
+Jobs don't always move forward. Sometimes a job gets pushed back a step because it was
+moved too early, or needs reworking. For a long time, moving a job backwards changed
+which column its card sat in, and nothing else — and that quietly broke the cost.
+
+Here's how. The record of a step is made when a job *leaves* that step, and machine time
+and labour are worked out from those records. Move a job back, and the old records stay
+behind. Move it forward again, and a new record gets written for the same step. Now the
+hours are in the cost twice — and an old, half-open record from the first time through
+keeps blocking the job from shipping, for a step that's since been properly closed.
+
+The fix came from asking what each kind of fact actually means. A step record means
+"this job left this step." A job that's gone back to step T hasn't left T, or anything
+after it — so every record from T onwards stops counting, and their cost goes with them.
+Paper is the mirror image, because paper leaves the warehouse when a job *enters* a step.
+Whatever went out so the job could enter T stays out, because the job is still inside T.
+Whatever went out for a later step comes back into stock with a proper return — never by
+deleting the original issue, because the return is exactly what gives the job its money
+back.
+
+Two things are deliberately left alone. Corrections someone wrote by hand stay. And the
+hours a person spent learning a machine still count toward their training, because they
+really were standing at that machine, however the job ended up.
+
+## 13 · Cancelling isn't one more step, and half a job still belongs to the whole
+
+The workflow used to end in exactly one place: *finished*. A job the customer cancelled
+had nowhere to go. It sat in its column forever, carrying the paper already issued to
+it, or someone dragged it all the way back to the start just to get it off the board.
+
+The tempting fix is a new status called *cancelled*. It's the wrong one. That status
+field is read by every checkpoint, every permission rule, every board and every report in
+the system, and adding a value to it means teaching every single one of them what to do
+with it — and the one that forgets becomes the bug. So cancelling is a **mark** on the
+job instead: when, who, and a reason that can't be blank. The job keeps the stage it had
+reached, because that's the honest record of how far the work actually got, and it simply
+disappears from every list unless someone asks to see the cancelled ones. The paper going
+back to the warehouse is declared batch by batch by the person cancelling, because only
+they know what's still a clean sheet and what was already cut or printed — and what was
+already used stays as the job's real cost.
+
+A related lesson came from jobs that get split in two, so half can ship while the rest is
+still in production. The new half is born with its own identity and nothing attached to
+it — the schedule, the artwork, the customer's approval, the paper all still hang off the
+original. Every checkpoint looked for those things under the new half's name, found
+nothing, and the new half could never move. Now each checkpoint looks across the whole
+family: the customer approved the *work*, not one half of it. With one deliberate
+exception — the shop's own internal quality check has to be done on the half that's
+actually leaving, and a customer clicking a link can never stand in for it.
+
+## 14 · The one where we admit we haven't fixed it yet
 
 This one stays in here on purpose, because it's unfinished, and that's exactly what makes
 it worth reading.
@@ -759,6 +871,135 @@ verified — and if the original shape ever changes and even one of those copies
 the memo, the type checker will wave everything through without blinking, because as far
 as it's concerned, nothing it was ever told checking turned out to be false.
 
+## 20 · The written plan of the building is not the building
+
+Every change ever made to this database is written down as its own file, in order, and
+it's very tempting to treat that folder as the truth: read the files, and you know what
+the database looks like. The October security review was planned exactly that way. The
+database proved it wrong three separate times.
+
+One table the files said was locked turned out to be wide open — the map of who is an
+administrator, readable by anyone holding the key that ships inside every visitor's
+browser. The file that created it said "lock this." The live server had the lock
+switched off. In the other direction, a table that no file had ever created was sitting
+there with two email addresses in it, open to anyone. And a default permission nobody
+had looked at was handing every new database recipe straight to the public, the moment
+it was created.
+
+Then, in November, the same lesson came back from a different angle. One change had
+been applied by running its file directly, which does the work but doesn't write the
+entry in the log that says "this one's done." The database had the change; the log
+swore it didn't. And two separate pieces of work, merged together, each carried a file
+with the *same number* — and the tool that applies them goes by number, so the second
+one would have been quietly treated as already done and never actually run.
+
+**The files are a claim about the database. Only the database is the fact.** Every number
+worked out from reading the files is a guess until a question asked of the real server
+confirms it. That's why there are now two small probes that ask the live server directly
+— what can a stranger actually read, and do the files and the server agree, in both
+directions — instead of anyone reading the folder and feeling reassured.
+
+## 21 · Asking without permission doesn't get you an error. It gets you an empty world.
+
+The plant's staffing screen spent three months showing every machine with nobody on it.
+It wasn't broken in any way that announced itself. The screen was asking the database
+for the roster directly from the browser, with credentials that weren't allowed to see
+it — and the database's privacy rules don't answer that kind of request with *"you're
+not allowed."* They answer with *"here are all the rows you're allowed to see: none."*
+Politely. Successfully. Every time.
+
+So the supervisor would assign someone to a press, the assignment would save perfectly —
+that part went through the server, properly — and then the person would vanish from the
+screen. The most likely reason the roster was nearly empty is that people concluded,
+reasonably, that assigning didn't work, and stopped doing it. The data wasn't lost in the
+database. It was lost in the people, who stopped typing what the screen refused to show
+them.
+
+The fix was to stop letting screens ask the database directly at all. Every read now goes
+through the server, which asks with the right credentials and decides on its own who's
+allowed to see what. An audit afterwards found twenty-seven more screens doing the same
+thing, and moved every one of them. **A system can't tell "there's nothing here" from
+"you're not allowed to see what's here" if it's asking in a way that's never allowed to
+see anything.**
+
+## 22 · Take the lock before you do the work, not after
+
+Meta, which carries the shop's WhatsApp messages, promises to deliver every message *at
+least* once. Read that sentence twice: at least. If the system takes a moment too long to
+say "got it," Meta sends the whole thing again. Which means anything a message causes —
+closing a maintenance order, cancelling a job's start, saving a photo — can happen two or
+three times, unless something stops it.
+
+Something did stop it, but only in one place: the table where start-and-finish reports
+are saved refused to store the same message twice. Everything else a message could do
+happened beside that table, never asked it anything, and ran again in full on every
+re-delivery.
+
+The fix is a lock at the front door. Before the system does anything at all with a
+message, it writes that message's unique ID into a list — and it only continues if it was
+the one that wrote it. The database decides that in a single indivisible step, so two
+copies arriving at the same instant can't both get through. If the work then fails in a
+way that Meta will retry, the lock is released, so the retry isn't wrongly turned away.
+**A check after the work protects one table. A lock before the work protects everything
+behind the door.**
+
+## 23 · A walk through the whole shop finds what no single test can
+
+There's a kind of test that checks one rule at a time: hand it a pretend situation, see if
+it gives the right answer. This project has well over a thousand of them, and they're
+genuinely valuable. But there's one thing that kind of test can't do — tell you that the
+rule is asking the wrong question.
+
+So one test does something very different. It takes a single job and walks it through the
+whole shop, against a real database: quote, order, the customer approving through their
+link, paper leaving the warehouse, steps on the press and the die-cutter reported both from
+the board and by text message, quality, shipping, invoice, done. Then it checks the books.
+
+The very first time it ran, it couldn't finish. The checkpoint that decides whether a job
+can ship asks *"does this job have real costs yet?"* — and it was still asking a table that,
+after the costing change in Part I §10, nothing wrote to anymore. **No new job in the whole
+shop could have been shipped.** Every individual test of that checkpoint had passed for
+weeks, because each one handed it a pretend job that already said "yes, there are costs."
+Only a walk that made its costs the way the real shop does could see the checkpoint was
+looking in an empty drawer.
+
+## 24 · Fix a mistake by writing a new line, never with an eraser
+
+This one shows up so many times in this project that it deserves a name. A cost correction
+that turns out to be wrong isn't deleted — it's cancelled by an equal and opposite entry,
+with its own reason. Paper that comes back from a cancelled or rolled-back job isn't
+handled by deleting the record of it leaving — it comes back through a return, which is
+exactly what gives the job its money back. A cancelled job isn't deleted or turned into a
+new kind of status — it gets a mark, with who and why, and keeps the history of how far it
+got. Even the database's own guard allows exactly one reversal per correction, so two
+people clicking "undo" at the same moment can't cancel the same thing twice.
+
+The reason is the same every time. Every one of those records might one day be the answer
+to *"what actually happened here?"* — from an auditor, from a customer recall, or just from
+the owner wondering why a margin moved. **If the past can be edited, it can't be asked.**
+
+## 25 · The conflicts that matter are the ones with no warning sign
+
+When two pieces of work get merged together, the merge tool flags every line where both
+changed the same text. Those are the easy ones. The dangerous ones are when both pieces of
+work solved the *same problem in two different ways*, in different places — because there's
+no single line in conflict, so nothing gets flagged at all.
+
+That's exactly what happened here: two separate lines of work had each independently fixed
+how a multi-part text message gets its ID numbers, using two schemes that disagreed about
+the very first part — and one of those schemes was already live, with real records depending
+on it. Both had also fixed duplicate warehouse movements, one with a lock at the door and
+one with a rule inside the database. None of that shows up as a text conflict. All of it is
+behaviour. The right move wasn't to pick whichever was newer; it was to stop and ask the
+person who owns the decision, one specific question at a time.
+
+The same day produced a smaller cousin of that lesson. The tool that applies database
+changes was told, on purpose, to skip them for the local copy — and it applied that switch
+to the real one too, skipped everything, and then cheerfully reported *"the database is up
+to date."* It wasn't. **Check what a tool did, not what it said it did.** A success message
+from something that quietly skipped its own job is the green badge from Part III's Next.js
+story all over again.
+
 ---
 
 # Part III · The toolbox, and what it taught us
@@ -811,6 +1052,17 @@ and read, but they cannot ever be edited or deleted afterward — not by anyone,
 any reason, at the database level itself. Evidence that can quietly be edited later isn't
 really evidence at all. It's a diary with an eraser built right into the spine.
 
+A few newer lessons from the same strict teacher. Its default permissions are a setting of
+their own, separate from any one table or recipe — and one of them was quietly handing
+every new recipe to the public the moment it was created, long after someone believed that
+door had been shut. Its "live updates" feature only announces changes to tables that have
+been explicitly put on a list — and that list was empty, so every screen in the app had been
+listening carefully to a channel that had never once said anything. "Drop this rule, if it
+exists" only protects you from the *rule* being missing, not the *table* it belongs to; if
+the table's already gone, the whole change fails. And a uniqueness rule can be limited to
+just one slice of a table, which is exactly how "one reversal per correction" is enforced:
+no matter how many people click at once, the second one is refused by the database itself.
+
 ## Supabase — the front door on top of that filing cabinet
 
 Supabase is the service that wraps that same database with a friendlier web-facing front
@@ -821,7 +1073,18 @@ request is just plain, invisible text as far as any automated checker is concern
 project's own internal map of the database's shape gets completely regenerated after
 every single change to the database for exactly that reason — so a mismatch between what
 the code expects and what the database actually has becomes an error the moment code is
-written, in the one place it's actually still possible to catch it cheaply.
+written, in the one place it's actually still possible to catch it cheaply. That map has to
+be generated by asking the database itself, not the web-facing front door: after the
+permissions were tightened, the front door stopped describing most of the recipes, and the
+old generator quietly produced a map with a third of the database missing.
+
+Its command-line tool taught three lessons in a single afternoon. The log of applied changes
+is just a log — a change applied by running its file directly does the work and leaves no
+entry, so the log and the database can disagree with nobody noticing. A full rebuild from the
+change files dies a fifth of the way through, and still reports success when it does — so the
+real database can only be reproduced from a copy of itself, never by replaying its history.
+And when changes are switched off for the local copy, the tool skips them for the real one
+too, and then says everything is up to date.
 
 ## Next.js, React, and TypeScript — the actual website
 
@@ -861,10 +1124,16 @@ never once actually tells anyone that what they really typed in was minutes, not
 The doorman can tell you a number's out of range. Only the rule further inside actually
 understands what that number means.
 
-## Vitest — 1,058 small, fast promises that keep getting checked
+Upgrading Zod from version 3 to 4 — to close a security advisory where an oversized input
+could exhaust memory — came with a quiet trap of its own: the new version checks IDs much
+more strictly than the old one did, and every ID this database already holds had only ever
+been checked by the looser rule. The upgrade kept the old, looser check on purpose. Tightening a
+doorman's rules on a building full of people who are already inside is a separate decision.
 
-This is the tool that runs the project's automatic tests — 1,058 of them, spread across
-67 files, and the overwhelming majority of them aimed squarely at the pure rules from
+## Vitest — 1,429 small, fast promises that keep getting checked
+
+This is the tool that runs the project's automatic tests — 1,429 of them, spread across
+104 files, and the overwhelming majority of them aimed squarely at the pure rules from
 Part II.15. They run fast for a genuinely simple reason: nothing in them fakes a database
 connection, because the rules that matter most in this whole system never touch one in
 the first place.
@@ -888,6 +1157,14 @@ phone would, bury it inside a larger 3000-pixel image the way a real photo would
 then genuinely try to read it back out again. **A decoder that's never actually been
 tested by decoding something real is a decoder nobody has actually run.**
 
+A small number of tests are deliberately different: they run against a real copy of the
+database instead of pretend data. One checks that every screen's reading route returns
+what the database really holds. One proves that a cost correction can only be reversed
+once, even when two requests race each other. And one is the long walk from Part II.23,
+which pushes a single job through the entire shop and then audits the books. They're
+slower and they need the local database running, so they're run on purpose, before a
+release — not on every save.
+
 ## Meta's WhatsApp system — how a shop-floor phone talks to the system
 
 This is how messages sent from an ordinary phone on the shop floor actually make it into
@@ -902,6 +1179,12 @@ link, using the same access credentials all over again. And a photo sent in with
 caption text attached to it has, technically speaking, no message body at all — which for
 a while meant the system simply dropped it, discarding the single most natural, most
 common thing anyone standing in a warehouse actually does with their phone.
+
+And the lesson that cost the most: Meta delivers each message *at least* once. Answering
+quickly makes re-deliveries rarer; it doesn't make them impossible. So every message is
+now claimed by its unique ID before anything happens (Part II.22) — and one message can
+carry two events, like "finished job A, starting job B," so each event inside it needs its
+own key, or the second one gets thrown away as a duplicate of the first.
 
 ## Reading barcodes out of photographs
 
@@ -922,16 +1205,33 @@ measurably *worse* one for a barcode reader — because smoothing is precisely w
 away the sharp, hard edge between a black square and a white one that the reader is
 straining to find in the first place.
 
+## Git — where two lines of work meet
+
+Git is the tool that keeps every version of the code and merges separate lines of work
+back together. It's superb at its actual job, which is text: it will find every line two
+people both changed and refuse to guess between them. What it can't see is two people
+solving the same problem in two different places (Part II.25) — and it can't see a
+database change file at all, beyond its text, so two files carrying the same number merge
+without a murmur. The habit that came out of it: after every merge, look at the new
+database change files side by side, and ask the owner about any behaviour both sides
+touched, even where Git found nothing to complain about.
+
 ## The small watchdogs that run on their own
 
 A handful of small, automatic scripts sit quietly in the background of this whole
 project: one lists every case where the exact same database recipe accidentally got
 written down twice in two different places. One checks whether any recipe still refers to
-a database column that no longer actually exists. One confirms a particular security
-setting is wired up correctly everywhere it needs to be. One simply confirms the
-application still starts up and actually serves a page. And one builds a realistic
-practice dataset — printing out exactly what it *would* do first, and only actually
-writing anything to the database if it's explicitly told to go ahead.
+a database column that no longer actually exists. Two ask the live server, directly, what a
+stranger holding the public key can actually read, and whether the server and the change
+files still agree with each other. One confirms a particular security setting is wired up
+correctly everywhere it needs to be. One simply confirms the application still starts up
+and actually serves a page. One opens every screen at phone, laptop and wide-monitor sizes
+and reports anything that spills off the edge. One tries a proposed change to real data
+inside a copy of the database, shows exactly what it would do or which rule would refuse
+it, and then throws the whole attempt away — before anyone is ever asked to approve it.
+And one builds a realistic practice dataset — printing out exactly what it *would* do
+first, and only actually writing anything to the database if it's explicitly told to go
+ahead.
 
 That last habit — describing the dangerous action out loud before ever taking it — is the
 exact same instinct as the truncation flag from Part II.10: **make the genuinely
@@ -983,6 +1283,34 @@ absolutely no outward sign anything at all was wrong.
 And a number that happened to be wrong in the flattering direction — caught, eventually,
 only by simple suspicion, and by a real human being actually sitting down and reviewing
 it.
+
+Since then, the list has grown, and the new entries have a family resemblance:
+
+A lock on a table that the change files said was switched on, and the live server had
+switched off — caught only by asking the server what a stranger could actually read.
+Reading the files, however carefully, said everything was fine.
+
+A staffing screen showing an empty plant for three months, because it asked with
+credentials that could see nothing and was politely told *nothing* — caught by counting
+the same table twice, once with each set of credentials. No error ever appeared anywhere.
+
+A checkpoint that made it impossible to ship any new job, because it was asking a table
+nothing wrote to anymore — caught only by walking a whole job through the whole shop. Every
+single test of that checkpoint had passed.
+
+A "live" update feature that had never delivered one live update, because the list of
+things it announced was empty — caught by someone following one job's cost from the floor
+to the profitability screen and asking why the screen hadn't moved.
+
+A text message that started one job and finished another, where the second half was thrown
+away as a duplicate of the first — caught only by writing the test for the duplicate
+protection itself.
+
+A rolled-back job paying for the same machine hours twice — caught by asking what each
+kind of record actually means, and noticing that moving the card answered none of it.
+
+And two database changes carrying the same number, plus a tool reporting "up to date" with
+work still waiting — caught only by reading the tool's full output instead of its last line.
 
 An honest summary from an audit conducted in July of 2026 still holds up today, word for
 word:
@@ -1050,6 +1378,15 @@ power to make.
 Write down the *why* behind a decision, and be honest about naming the scar it's actually
 covering — so a safeguard never gets casually "simplified" straight back into the exact
 bug it was built to prevent in the first place.
+
+Trust the database over the files that describe it, and trust what a tool did over what
+it said. Read through the server, never around it, because a request without permission
+doesn't fail — it just sees an empty world. Take the lock before the work, not after it.
+Let a cost in only at the moment something is really used up, through exactly one door,
+and fix a mistake with a new line rather than an eraser. Walk one real job through the
+whole shop now and then, because a thousand tests of single rules can't tell you a rule is
+asking the wrong question. And when two lines of work meet, look hardest where nothing is
+flagged — then ask the person who owns the decision, instead of quietly picking a side.
 
 And underneath every single one of those: meet people where they actually already are —
 wearing gloves, holding a phone, standing in front of a machine that's still running. If
