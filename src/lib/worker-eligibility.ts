@@ -57,16 +57,23 @@ export function isWorkerEligibleForStation(
 }
 
 /**
- * Más alto es mejor candidata. Rating pesa más que costo a propósito —
+ * Más alto es mejor candidata. La aptitud pesa más que el costo a propósito —
  * llenar el turno con la persona más barata y no con la más apta es
  * optimizar la métrica equivocada.
+ *
+ * La aptitud es el nivel de la competencia que pide ESA estación (1–5, de
+ * employee_skills vía getWorkerQualificationScore), no `overall_rating`: esa
+ * columna nadie la escribe y valía 75 para casi todos, así que ordenaba por
+ * costo con un número inventado encima (auditoría C4, 2026-11-25). Un nivel
+ * de diferencia (200) pesa más que la diferencia normal de tarifa entre dos
+ * operarios (~3.000 $/h → 150).
  */
 export function workerSortScore(
-	worker: { overall_rating?: number } | null | undefined,
+	skillLevel: number | null | undefined,
 	hourlyRate: number,
 	isOvertime: boolean,
 ): number {
-	const rating = Number(worker?.overall_rating || 0);
+	const skill = Number(skillLevel || 0);
 	const overtimePenalty = isOvertime ? 10 : 0;
-	return rating * 2 - hourlyRate * 0.05 - overtimePenalty;
+	return skill * 200 - hourlyRate * 0.05 - overtimePenalty;
 }

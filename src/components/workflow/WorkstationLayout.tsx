@@ -221,7 +221,8 @@ export function WorkstationLayout({
 		const overtime = isOvertimeWorker(worker);
 		const costInfo = getWorkerCostInfo(worker, overtime);
 		const skillScore = Number(getWorkerQualificationScore(worker, type) ?? 0);
-		const rating = Number(worker?.overall_rating ?? 0);
+		// null = never evaluated (audit C4): it counts as neutral, never as a 75.
+		const rating = worker?.overall_rating == null ? null : Number(worker.overall_rating);
 
 		const availabilityScore = overtime
 			? worker?.overtime_availability
@@ -240,7 +241,7 @@ export function WorkstationLayout({
 			PLANNING_WEIGHTS.availability * availabilityScore +
 			PLANNING_WEIGHTS.cost * costScore * 100 +
 			PLANNING_WEIGHTS.overtimeRisk * overtimeRiskScore +
-			(0.05 * (rating / 100));
+			(0.05 * ((rating ?? 50) / 100));
 
 		const planningScore = Math.max(0, Math.min(100, weighted * 100));
 
@@ -254,7 +255,7 @@ export function WorkstationLayout({
 			costInfo?.hourlyRate
 				? `Costo estimado: ${formatCLP(costInfo.estimatedCost || 0)} (tarifa ${formatCLP(costInfo.hourlyRate)}/h)`
 				: 'Cost estimate: no active compensation rate for selected date',
-			`Performance rating: ${rating.toFixed(0)}/100`,
+			rating == null ? 'Performance rating: not evaluated' : `Performance rating: ${rating.toFixed(0)}/100`,
 			`Selection rationale balances skill, availability, cost, and overtime risk`,
 		];
 
@@ -290,7 +291,7 @@ export function WorkstationLayout({
 			return {
 				worker,
 				cost: costInfo?.estimatedCost,
-				rating: Number(worker?.overall_rating ?? 0),
+				rating: worker?.overall_rating == null ? null : Number(worker.overall_rating),
 				skill: Number(skillScore),
 			};
 		});
@@ -298,7 +299,7 @@ export function WorkstationLayout({
 		const costValues = entries
 			.map(entry => entry.cost)
 			.filter(value => Number.isFinite(value)) as number[];
-		const ratingValues = entries.map(entry => entry.rating);
+		const ratingValues = entries.map(entry => entry.rating).filter((v): v is number => v != null);
 		const skillValues = entries.map(entry => entry.skill);
 
 		const costMin = costValues.length ? Math.min(...costValues) : 0;
@@ -323,7 +324,8 @@ export function WorkstationLayout({
 					? normalize(entry.cost as number, costMin, costMax)
 					: 1;
 				const costScore = preferLowerCost ? 1 - costNorm : costNorm;
-				const ratingScore = normalize(entry.rating, ratingMin, ratingMax);
+				// Not evaluated sits in the middle: neither rewarded nor punished.
+				const ratingScore = entry.rating == null ? 0.5 : normalize(entry.rating, ratingMin, ratingMax);
 				const skillScore = normalize(entry.skill, skillMin, skillMax);
 
 				const weightedScore = totalWeight > 0

@@ -2,8 +2,8 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { shiftPaidHours } from '@/lib/shift-hours';
-import { supabase } from '@/integrations/supabase/client';
-import { fetchAll, truncationNote } from '@/lib/fetch-all';
+import { truncationNote } from '@/lib/fetch-all';
+import { readApi } from '@/lib/read-api';
 
 const queryKeys = {
   machineCosts: ['machineCosts'] as const,
@@ -32,9 +32,8 @@ export function useMachineCosts() {
   return useQuery({
     queryKey: queryKeys.machineCosts,
     queryFn: async () => {
-      const { data, error } = await supabase.from('machine_costs').select('*, machines(name, type)');
-      if (error) throw error;
-      return data ?? [];
+      // Server read (audit H5): GET /api/reads/machine-costs.
+      return readApi<any[]>('machine-costs');
     },
   });
 }
@@ -43,9 +42,7 @@ export function useEquipmentInvestments() {
   return useQuery({
     queryKey: queryKeys.equipmentInvestments,
     queryFn: async () => {
-      const { data, error } = await supabase.from('equipment_investments').select('*, machines(name)');
-      if (error) throw error;
-      return data ?? [];
+      return readApi<any[]>('equipment-investments');
     },
   });
 }
@@ -164,42 +161,16 @@ export function useMonthlyPayroll(year: number, month: number) {
       const monthStart = `${safeYear}-${String(safeMonth).padStart(2, '0')}-01`;
       const monthEnd = new Date(safeYear, safeMonth, 0).toISOString().split('T')[0];
 
-      // Sin límite, corridas desde el navegador: expuestas al mismo tope por
-      // defecto de PostgREST (1000 filas) que ya mostró margen 82% en vez de
-      // 22% en /api/ots/cost-summary (ver fetch-all.ts). Acá el resultado
-      // sería una nómina calculada sobre una parte, sin ningún aviso
-      // (auditoría 2026-09-07). `fetchAll` pagina hasta agotar y dice si no
-      // pudo — la misma herramienta que ya se usa ahí.
-      const [employeesR, assignmentsR, compensationR, incentivesR] = await Promise.all([
-        fetchAll<any>((from, to) =>
-          supabase.from('employees').select('id, full_name').range(from, to),
-        ),
-        fetchAll<any>((from, to) =>
-          supabase
-            .from('worker_assignments')
-            .select('employee_id, date, role, hours_worked, shift:shifts(start_time, end_time)')
-            .gte('date', monthStart)
-            .lte('date', monthEnd)
-            .range(from, to),
-        ),
-        fetchAll<any>((from, to) =>
-          supabase
-            .from('compensation_rates')
-            .select(
-              'employee_id, hourly_rate, overtime_multiplier_50, overtime_multiplier_100, night_shift_multiplier, weekend_multiplier, currency_code, effective_from, effective_to'
-            )
-            .range(from, to),
-        ),
-        fetchAll<any>((from, to) =>
-          supabase
-            .from('employee_incentives')
-            .select('employee_id, amount, currency_code, status, awarded_date')
-            .gte('awarded_date', monthStart)
-            .lte('awarded_date', monthEnd)
-            .in('status', ['approved', 'paid'])
-            .range(from, to),
-        ),
-      ]);
+      // The four datasets come from the server (GET /api/reads/payroll-month,
+      // audit H5), each paged past PostgREST's 1,000-row cap with fetchAll and
+      // carrying its own `truncated` — a payroll computed on part of the data
+      // must say so (audit 2026-09-07). The calculation below is unchanged.
+      type Part = { rows: any[]; truncated: boolean; pages: number };
+      const { employees: employeesR, assignments: assignmentsR, compensation: compensationR, incentives: incentivesR } =
+        await readApi<{ employees: Part; assignments: Part; compensation: Part; incentives: Part }>('payroll-month', {
+          from: monthStart,
+          to: monthEnd,
+        });
 
       const truncated =
         truncationNote(employeesR, 'empleados') ??
@@ -287,7 +258,7 @@ export function useMonthlyPayroll(year: number, month: number) {
         // no overtime real ese día. `hours_worked` en `worker_assignments`
         // es lo que de verdad se registró para ESA asignación, y es lo que
         // ya usa el motor de acumulación de habilidades (skill-accrual.ts) y
-        // el modelo de sobretiempo real (labor-attribution.ts). Nómina tenía
+        // el cálculo por turnos (labor-from-shifts.ts). Nómina tenía
         // su propia segunda cuenta de "cuántas horas trabajó esta persona",
         // que podía discrepar de las otras dos cada vez que alguien hacía
         // horas extra o salía antes (auditoría 2026-08). El horario nominal
@@ -459,32 +430,32 @@ export function useEmployeeCostTimeline(
   });
 }
 
+/**
+ * Una fila de `/api/analytics/labor-margin` — exactamente lo que el endpoint
+ * devuelve. La forma vieja (order_date, incentive_cost, gross_margin…) venía de
+ * la RPC get_order_labor_margin; cuando el endpoint pasó a leer el libro
+ * (2026-11-12) el tipo quedó mintiendo y la pestaña reventaba con
+ * `new Date(undefined)` (2026-11-24).
+ */
 export interface OrderLaborMarginRow {
   ot_id: string;
-  ot_number: string;
-  client_name: string;
-  order_date: string;
-  completion_date: string | null;
+  ot_number: string | null;
+  client_name: string | null;
   revenue: number;
-  base_labor_cost: number;
-  overtime_premium: number;
-  night_differential: number;
-  weekend_differential: number;
-  total_labor_cost: number;
-  incentive_cost: number;
-  total_cost: number;
-  gross_margin: number;
-  margin_percentage: number;
-  labor_hours: number;
+  last_labor_at: string | null;
+  total_hours: number;
   overtime_hours: number;
-  cost_per_hour: number;
+  total_labor_cost: number;
+  /** null cuando la OT no tiene precio: no hay contra qué dividir. */
+  labor_pct_of_revenue: number | null;
+  people: string[];
 }
 
 /**
  * Margen laboral por OT.
  *
  * Antes esto recalculaba el costo laboral EN EL NAVEGADOR, en 312 líneas sin
- * un solo test, mientras `labor-attribution.ts` —el motor puro con 20 tests que
+ * un solo test, mientras `labor-attribution.ts` (ya borrado) —el motor puro con 20 tests que
  * resuelve el turno sin salida marcada, el cruce de medianoche y la tarifa con
  * fecha de vigencia— quedaba sin usar. Dos motores de costo laboral: el probado
  * desconectado, el conectado sin probar.

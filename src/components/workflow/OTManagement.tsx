@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from '@tanstack/react-query';
-import { useOTs } from "@/hooks/use-workflow-queries";
+import { useBoardOTs } from "@/hooks/use-workflow-queries";
 import { queryKeys } from "@/hooks/use-workflow-queries";
 import { useToast } from "@/hooks/use-toast";
 import { UnifiedOTWizard } from "./UnifiedOTWizard";
@@ -26,6 +26,7 @@ import {
 } from './ot-management/kanban-constants';
 import { KanbanToolbar } from './ot-management/KanbanToolbar';
 import { KanbanHexBoard } from './ot-management/KanbanHexBoard';
+import { KanbanLanes } from './ot-management/KanbanLanes';
 import { ViaRapidaPanel } from './ot-management/ViaRapidaPanel';
 import { RollbackDialog, type RollbackTarget } from './ot-management/RollbackDialog';
 
@@ -34,7 +35,7 @@ interface OTManagementProps {
 }
 
 export function OTManagement({ onOTSelect }: OTManagementProps) {
-  const { data: otsQuery = [], isFetching: otsFetching, refetch: refetchOTs } = useOTs();
+  const { data: otsQuery = [], isFetching: otsFetching, refetch: refetchOTs } = useBoardOTs();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -114,6 +115,17 @@ export function OTManagement({ onOTSelect }: OTManagementProps) {
   const [rollbackTarget,  setRollbackTarget]  = useState<RollbackTarget | null>(null);
   const [searchTerm,      setSearchTerm]      = useState("");
   const [showCompleted,   setShowCompleted]   = useState(false);
+  // Lanes are the default (audit M2); the hex board stays as "Vista general".
+  // Remembered per browser — a convenience, so storage errors are ignored.
+  const [view, setView] = useState<'carriles' | 'general'>(() => {
+    try {
+      return typeof window !== 'undefined' && window.localStorage.getItem('tablero:vista') === 'general' ? 'general' : 'carriles';
+    } catch { return 'carriles'; }
+  });
+  const changeView = (v: 'carriles' | 'general') => {
+    setView(v);
+    try { window.localStorage.setItem('tablero:vista', v); } catch { /* private mode */ }
+  };
   const [draggedOT,       setDraggedOT]       = useState<any>(null);
   const [dragOverCol,     setDragOverCol]     = useState<string | null>(null);
   const [draggingId,      setDraggingId]      = useState<string | null>(null);
@@ -143,7 +155,9 @@ export function OTManagement({ onOTSelect }: OTManagementProps) {
     ro.observe(el);
     window.addEventListener('resize', update);
     return () => { cancelAnimationFrame(raf); ro.disconnect(); window.removeEventListener('resize', update); };
-  }, []);
+    // `view`: the hex board mounts only in "Vista general", so it is measured
+    // again whenever it appears.
+  }, [view]);
 
   // A 3.25-wide beehive can't live on a phone, so below the breakpoint the board
   // becomes a single full-width column of stage hexes that flows top -> bottom and
@@ -179,7 +193,7 @@ export function OTManagement({ onOTSelect }: OTManagementProps) {
     paperIssue: PaperIssuePayload[] | null = null,
   ) => {
     // 1. Snapshot the current list before we touch anything.
-    // `useOTs()` envuelve su data en `{ rows, total, isTruncated }` (auditoría
+    // `useBoardOTs()` envuelve su data en `{ rows, total, isTruncated }` (auditoría
     // 2026-09-07, para no confiar a ciegas en 200 filas) — esta caché cruda
     // guarda ese mismo objeto, no un array, así que leerla/escribirla tiene
     // que respetar esa forma en vez de asumir un array directo (si no,
@@ -390,6 +404,8 @@ export function OTManagement({ onOTSelect }: OTManagementProps) {
         setSearchTerm={setSearchTerm}
         showCompleted={showCompleted}
         setShowCompleted={setShowCompleted}
+        view={view}
+        onViewChange={changeView}
         onCreateNew={() => setCreateFlow('wizard')}
       />
 
@@ -400,7 +416,26 @@ export function OTManagement({ onOTSelect }: OTManagementProps) {
         </div>
       )}
 
+      {view === 'carriles' && (
+        <KanbanLanes
+          getByStatus={getByStatus}
+          dragOverCol={dragOverCol}
+          draggingId={draggingId}
+          openPasses={openPasses}
+          splitGroupTotals={splitGroupTotals}
+          onDragStart={onDragStart}
+          onDragEnd={onDragEnd}
+          onColEnter={onColEnter}
+          onColLeave={onColLeave}
+          onColOver={onColOver}
+          onColDrop={onColDrop}
+          onOTSelect={onOTSelect}
+          onPasadasOpen={setPasadasOT}
+        />
+      )}
+
       {/* -- Honeycomb stage board: 6 process hexes, scales to fit width -- */}
+      {view === 'general' && (
       <KanbanHexBoard
         boardWrapRef={boardWrapRef}
         isMobile={isMobile}
@@ -426,6 +461,7 @@ export function OTManagement({ onOTSelect }: OTManagementProps) {
         onOTSelect={onOTSelect}
         onPasadasOpen={setPasadasOT}
       />
+      )}
 
       {/* Vía Rápida: urgent OTs */}
       <ViaRapidaPanel

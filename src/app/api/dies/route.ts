@@ -82,7 +82,7 @@ const NuevoSchema = z.object({
 	heightCm: z.number().positive().max(300).nullish(),
 	cavities: z.number().int().min(1).max(200).default(1),
 	shelfLocation: z.string().max(60).nullish(),
-	clientId: z.string().uuid().nullish(),
+	clientId: z.string().guid().nullish(),
 	exclusive: z.boolean().default(false),
 	acquisitionCost: z.number().min(0).max(50_000_000).nullish(),
 	notes: z.string().max(1000).nullish(),

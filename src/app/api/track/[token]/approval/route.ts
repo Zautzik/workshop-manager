@@ -5,9 +5,7 @@ import { supabaseAdmin } from '@/integrations/supabase/server';
 import { buildRateLimitActor, enforceRouteRateLimit } from '@/lib/api-rate-limit';
 import { approvalState, nextRound, validateApproval, type ApprovalRow } from '@/lib/approval';
 import { PORTAL_ACTOR } from '@/lib/ot-approval-origin';
-import { validateTransition } from '@/lib/ot-state-machine';
-import { loadRoleAccess } from '@/lib/transition-rules';
-import { dispatchNotifications, emitDomainEvent } from '@/lib/domain-events';
+import { moveOT } from '@/lib/ot-move';
 
 export const dynamic = 'force-dynamic';
 
@@ -180,74 +178,26 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ tok
   // que necesita reconfirmación no debe borrar la decisión del cliente.
   let avanzo = false;
   if (parsed.data.decision === 'approved') {
-    const { data: vb } = (ot as any).vb_id
-      ? await supabaseAdmin.from('vistos_buenos').select('total_price').eq('id', (ot as any).vb_id).maybeSingle()
-      : { data: null };
-
-    const check = validateTransition({
-      fromStatus: 'visto_bueno',
+    // La misma puerta que el Tablero, la división y WhatsApp (`moveOT`):
+    // compuertas, guardia de concurrencia, historial y aviso, una vez. Hasta
+    // 2026-11 esta ruta tenía su propia copia del UPDATE (auditoría C-3).
+    //
+    // No hay una persona con sesión: es el sistema completando lo que la propia
+    // aprobación del cliente autoriza. `admin` es el único rol con acceso a
+    // `paper_purchase` que no representa a alguien con permisos que un cliente
+    // no debería heredar — el gate real de quién puede hacer esto es el token.
+    const movida = await moveOT({
+      otId: (ot as any).id,
       toStatus: 'paper_purchase',
-      // No hay un usuario humano acá: es el sistema completando la acción que
-      // la propia aprobación del cliente autoriza. `admin` es el único rol
-      // con acceso a `paper_purchase` que no representa a una persona con
-      // permisos que un cliente no debería heredar -- el gate real de "quién
-      // puede hacer esto" es el token en sí, no este parámetro.
-      role: 'admin',
-      roleAccess: await loadRoleAccess(),
-      hasApprovedApproval: true,
-      hasAnyRealCosts: false,
-      quotedPrice: (vb as any)?.total_price ?? null,
-      firmPrice: (ot as any).total_price ?? null,
+      actor: { id: null, role: 'admin', name: 'el cliente (enlace de seguimiento)' },
+      reason: 'visto_bueno_portal',
+      metadata: { via: 'track_link', round: (creada as any).round },
     });
-
-    if (check.ok) {
-      const nowIso = new Date().toISOString();
-      const { data: movida, error: movidaError } = await supabaseAdmin
-        .from('ots')
-        .update({ status: 'paper_purchase', updated_at: nowIso })
-        .eq('id', (ot as any).id)
-        .eq('status', 'visto_bueno')
-        .select('id')
-        .maybeSingle();
-      // Mejor esfuerzo a propósito (ver comentario más arriba): la
-      // aprobación ya quedó guardada aunque esto falle. Pero un fallo real
-      // acá no debe leerse igual que "otro proceso ya la movió" -- se
-      // registra para que alguien lo note, en vez de quedar indistinguible
-      // de la guarda de concurrencia.
-      if (movidaError) console.error('track approval: fallo avanzando a paper_purchase:', movidaError.message);
-
-      if (movida) {
-        avanzo = true;
-        await supabaseAdmin.from('ot_status_history').insert({
-          ot_id: (ot as any).id,
-          from_status: 'visto_bueno',
-          to_status: 'paper_purchase',
-          changed_by: null,
-          changed_by_role: null,
-          reason: 'visto_bueno_portal',
-          rollback: false,
-          metadata: { via: 'track_link', round: (creada as any).round },
-        });
-        // `paper_purchase` no es un hito hoy, así que esto no dispara aviso —
-        // pero es el tercer camino que mueve `ots.status` y se completa la
-        // bitácora igual que /transition y /split.
-        const event = await emitDomainEvent({
-          type: 'ot.status_changed',
-          otId: (ot as any).id,
-          actorId: null,
-          actorRole: null,
-          payload: {
-            ot_number: (ot as any).ot_number ?? null,
-            from_status: 'visto_bueno',
-            to_status: 'paper_purchase',
-            by_role: null,
-            actor_name: 'el cliente (enlace de seguimiento)',
-            reason: 'visto_bueno_portal',
-          },
-        });
-        if (event) await dispatchNotifications(event);
-      }
-    }
+    // Mejor esfuerzo a propósito: la aprobación ya quedó guardada aunque la OT
+    // no avance (un desvío de precio pide reconfirmar). Un fallo real se
+    // registra para que no se lea igual que «otro proceso ya la movió».
+    if (movida.ok) avanzo = true;
+    else if (movida.status >= 500) console.error('track approval: fallo avanzando a paper_purchase:', movida.error);
   }
 
   return NextResponse.json({

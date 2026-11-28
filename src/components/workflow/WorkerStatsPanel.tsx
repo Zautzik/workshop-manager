@@ -22,10 +22,12 @@ export function WorkerStatsPanel({
 }: WorkerStatsPanelProps) {
 
   const getProfileLabel = (worker: any) => {
-    const quality = Number(worker?.quality_score || 0);
-    const teamwork = Number(worker?.teamwork_rating || 0);
-    const attendance = Number(worker?.attendance_score || 0);
-    const avg = (quality + teamwork + attendance) / 3;
+    // Only scores someone entered count; a missing one is not a 0 (audit C4).
+    const scores = [worker?.quality_score, worker?.teamwork_rating, worker?.attendance_score]
+      .filter((v) => v != null)
+      .map(Number);
+    if (scores.length === 0) return 'Sin evaluar';
+    const avg = scores.reduce((s, v) => s + v, 0) / scores.length;
 
     if (avg >= 80) return 'Alta consistencia';
     if (avg >= 60) return 'Desempeño estable';
@@ -91,7 +93,7 @@ export function WorkerStatsPanel({
                   <span className="text-sm font-medium">Teamwork</span>
                 </div>
                 <span className={`text-lg font-bold ${getStatColor(selectedWorker.teamwork_rating || 0)}`}>
-                  {selectedWorker.teamwork_rating || 0}
+                  {selectedWorker.teamwork_rating ?? '—'}
                 </span>
               </div>
               <Progress 
@@ -107,7 +109,7 @@ export function WorkerStatsPanel({
                   <span className="text-sm font-medium">Quality</span>
                 </div>
                 <span className={`text-lg font-bold ${getStatColor(selectedWorker.quality_score || 0)}`}>
-                  {selectedWorker.quality_score || 0}
+                  {selectedWorker.quality_score ?? '—'}
                 </span>
               </div>
               <Progress 
@@ -123,7 +125,7 @@ export function WorkerStatsPanel({
                   <span className="text-sm font-medium">Speed</span>
                 </div>
                 <span className={`text-lg font-bold ${getStatColor(selectedWorker.speed_score || 0)}`}>
-                  {selectedWorker.speed_score || 0}
+                  {selectedWorker.speed_score ?? '—'}
                 </span>
               </div>
               <Progress 
@@ -139,7 +141,7 @@ export function WorkerStatsPanel({
                   <span className="text-sm font-medium">Attendance</span>
                 </div>
                 <span className={`text-lg font-bold ${getStatColor(selectedWorker.attendance_score || 0)}`}>
-                  {selectedWorker.attendance_score || 0}
+                  {selectedWorker.attendance_score ?? '—'}
                 </span>
               </div>
               <Progress 

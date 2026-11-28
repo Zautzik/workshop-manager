@@ -27,7 +27,7 @@ export const dynamic = 'force-dynamic';
 const Schema = z.object({
   /** Lo que leyó la cámara. Crudo: acá se interpreta. */
   qr: z.string().min(1).max(500),
-  ot_id: z.string().uuid(),
+  ot_id: z.string().guid(),
   quantity: z.coerce.number().positive(),
   /** Dónde se está consumiendo: 'primer_corte', 'impresion', … */
   stage: z.string().max(60).optional().nullable(),

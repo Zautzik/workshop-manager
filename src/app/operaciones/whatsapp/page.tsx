@@ -14,18 +14,19 @@
  * 1. Operator sends "INICIO OT-1234" via WhatsApp â†’ system logs start time
  * 2. Operator sends "FIN OT-1234 500 pliegos, 3 merma, doblado ok" â†’ system parses data, infers costs
  * 3. Supervisor reviews parsed data & inferred costs â†’ approves/rejects
- * 4. Approved data feeds into ot_real_costs for financial tracking
+ * 4. Approved data feeds the cost ledger (ot_cost_lines) via apply_capture_event
  */
 'use client';
 
 import ProtectedRoute from '@/components/ProtectedRoute';
 import WhatsAppDashboard from '@/components/workflow/WhatsAppDashboard';
 import WhatsAppSimulatorPanel from '@/components/workflow/WhatsAppSimulatorPanel';
+import { PageShell } from '@/components/layout/PageShell';
 
 export default function WhatsAppPage() {
   return (
     <ProtectedRoute allowedRoles={['admin', 'supervisor', 'manager']}>
-      <div className="p-6 space-y-6">
+      <PageShell>
         <div>
           <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
             📱 WhatsApp — Control de Producción
@@ -37,7 +38,7 @@ export default function WhatsAppPage() {
         {/* Dev/demo only — hides itself when the simulator API is disabled */}
         <WhatsAppSimulatorPanel />
         <WhatsAppDashboard />
-      </div>
+      </PageShell>
     </ProtectedRoute>
   );
 }

@@ -6,27 +6,23 @@ import {
   compareToCatalog,
   DEFAULT_MONTHLY_PRODUCTIVE_HOURS,
 } from '@/lib/machine-economics';
+import { machineHourRate } from '@/lib/costing-resolver';
+import { DEFAULT_COSTS } from '@/lib/ot-calculations';
+import type { CostCenterItem } from '@/types/work-category';
 
 export const dynamic = 'force-dynamic';
-
-interface CatalogRow {
-  catalog_key: string | null;
-  name: string | null;
-  unit_cost: number;
-  is_active: boolean | null;
-}
-
-/** Catalog rows that represent an HOUR of press time (never a per-click rate). */
-const PRESS_RATE_KEYS = ['offset_print_per_hour', 'impresion_offset', 'operador_prensa'];
-/** Engine fallback when the catalog has nothing — mirrors production-costs.ts. */
-const FALLBACK_PRESS_RATE = 55000;
 
 /**
  * GET /api/machines/economics?hours=195
  *
- * What each machine really costs per hour, next to what the costing catalog
- * charges for it. The two numbers lived in different modules and were never
+ * What each machine really costs per hour, next to what the ledger charges for
+ * an hour on it. The two numbers lived in different modules and were never
  * compared, so a quote could drift from reality with nothing to show for it.
+ *
+ * The charged rate comes from `machineHourRate` — the same resolution that
+ * values a closed stage pass (stage-valuation.ts). This route used to look the
+ * rate up on its own and ended up comparing every machine against the press
+ * operator's wage; one resolver means the screen and the ledger cannot disagree.
  *
  * Reporting only — this does not change any price. Making the gap visible is
  * the point; deciding what to do about it is the owner's call.
@@ -43,34 +39,27 @@ export async function GET(req: NextRequest) {
     supabaseAdmin
       .from('machines')
       .select(
-        'id, name, type, status, energy_cost_per_hr, maintenance_cost_monthly, depreciation_monthly, power_kw, nominal_speed_sheets_hr'
+        'id, name, type, status, colors, energy_cost_per_hr, maintenance_cost_monthly, depreciation_monthly, power_kw, nominal_speed_sheets_hr'
       )
       .eq('is_active', true)
       .order('name'),
-    supabaseAdmin.from('cost_catalog' as any).select('catalog_key, name, unit_cost, is_active'),
+    supabaseAdmin.from('cost_catalog').select('id, catalog_key, name, category, unit, unit_cost, is_active'),
   ]);
 
-  if (machinesRes.error) {
-    return NextResponse.json({ error: machinesRes.error.message }, { status: 500 });
+  // A failed catalog read used to fall through to a hard-coded rate, so the
+  // screen showed a confident comparison against a number nobody had set.
+  const failed = machinesRes.error ?? catalogRes.error;
+  if (failed) {
+    return NextResponse.json({ error: failed.message }, { status: 500 });
   }
 
-  // Match by stable catalog_key only. A fuzzy name match here picked up
-  // "Impresión Digital" — a per-CLICK rate of 595 — and silently compared it to
-  // an hourly cost. Wrong unit is worse than no answer.
-  const catalogRows = ((catalogRes.data ?? []) as unknown as CatalogRow[]).filter(
-    (c) => c.is_active !== false
-  );
-  const catalogRate =
-    catalogRows.find((c) => c.catalog_key && PRESS_RATE_KEYS.includes(String(c.catalog_key)))?.unit_cost ??
-    FALLBACK_PRESS_RATE;
+  const catalog = (catalogRes.data ?? []) as unknown as CostCenterItem[];
 
   // One currency (CLP) since migration 20260726150000, so machine economics and
-  // the catalog are directly comparable. Before that the schema mixed USD wages
-  // with a CLP catalog — the same number ~950× apart — and any "drift %" across
-  // that gap was noise dressed as a finding.
+  // the catalog are directly comparable.
   const machines = (machinesRes.data ?? []).map((m) => {
     const derived = deriveMachineHourlyCost(m, hours);
-    const drift = compareToCatalog(derived.hourly, Number(catalogRate));
+    const charged = machineHourRate({ type: String(m.type), colors: m.colors }, catalog, DEFAULT_COSTS);
     return {
       machine_id: m.id,
       name: m.name,
@@ -80,15 +69,19 @@ export async function GET(req: NextRequest) {
       breakdown: derived.breakdown,
       data_complete: derived.complete,
       missing_fields: derived.missing,
-      drift,
+      // null = this machine type is not charged per machine-hour in the ledger.
+      charged_hourly: charged?.rate ?? null,
+      charged_label: charged?.label ?? null,
+      // 'supuesto' = the catalog has no rate and the engine default was used.
+      charged_source: charged?.source ?? null,
+      drift: charged ? compareToCatalog(derived.hourly, charged.rate) : null,
     };
   });
 
-  const measurable = machines.filter((m) => m.data_complete);
+  const measurable = machines.filter((m) => m.data_complete && m.drift);
 
   return NextResponse.json({
     monthly_productive_hours: hours,
-    catalog_hourly: Number(catalogRate),
     machines,
     currency: 'CLP',
     summary: {
@@ -98,6 +91,7 @@ export async function GET(req: NextRequest) {
       undercharging: measurable.filter((m) => m.drift?.direction === 'under').length,
       overcharging: measurable.filter((m) => m.drift?.direction === 'over').length,
       aligned: measurable.filter((m) => m.drift?.direction === 'aligned').length,
+      not_charged_hourly: machines.filter((m) => !m.drift).length,
     },
   });
 }

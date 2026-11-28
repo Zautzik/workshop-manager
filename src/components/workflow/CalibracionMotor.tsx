@@ -275,7 +275,7 @@ function DesvioAutomatico() {
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
             Desvío real, medido solo
           </CardTitle>
-          <Button size="sm" variant="outline" className="h-7 gap-1.5 text-xs" onClick={recalcular} disabled={recalculando}>
+          <Button size="sm" variant="outline" className="h-9 gap-1.5 text-xs sm:h-7" onClick={recalcular} disabled={recalculando}>
             <RefreshCw className={`h-3 w-3 ${recalculando ? 'animate-spin' : ''}`} />
             Recalcular mes en curso
           </Button>
@@ -454,8 +454,8 @@ function PropuestasCalibracion({ evidencia }: { evidencia: unknown }) {
                   <p className="mt-0.5 text-muted-foreground">{p.reason}</p>
                 </div>
                 <div className="flex shrink-0 gap-1">
-                  <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => resolver(p, 'applied')}>Marcar aplicada</Button>
-                  <Button size="sm" variant="ghost" className="h-7 text-xs text-red-600" onClick={() => resolver(p, 'rejected')}>Rechazar</Button>
+                  <Button size="sm" variant="outline" className="h-9 sm:h-7 text-xs" onClick={() => resolver(p, 'applied')}>Marcar aplicada</Button>
+                  <Button size="sm" variant="ghost" className="h-9 sm:h-7 text-xs text-red-600" onClick={() => resolver(p, 'rejected')}>Rechazar</Button>
                 </div>
               </div>
             ))}
@@ -665,6 +665,7 @@ export function CalibracionMotor() {
               <label className="mt-2 flex w-fit items-center gap-2 text-xs text-muted-foreground">
                 <input
                   type="checkbox"
+                  className="h-6 w-6 sm:h-auto sm:w-auto"
                   checked={job.troquelado}
                   onChange={(e) => update(job.id, { troquelado: e.target.checked })}
                 />

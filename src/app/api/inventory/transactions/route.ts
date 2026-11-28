@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
+import { units } from '@/lib/limits';
 import { requireAuth, isAuthError } from '@/lib/api-middleware';
 import { supabaseAdmin } from '@/integrations/supabase/server';
 import { MOVEMENT_TYPE_CODE_VALUES } from '@/types/movement-type-code';
@@ -12,15 +13,15 @@ export const dynamic = 'force-dynamic';
  */
 const TxSchema = z
   .object({
-    item_id: z.string().uuid(),
-    lot_id: z.string().uuid().nullable().optional(),
+    item_id: z.string().guid(),
+    lot_id: z.string().guid().nullable().optional(),
     // Los códigos válidos siguen acotados por el enum de Postgres (ver
     // src/types/movement-type-code.ts); cuál de ellos EXIGE una OT ya no lo
     // decide esta lista, lo decide `movement_types` (ver el .refine de abajo).
     tx_type: z.enum(MOVEMENT_TYPE_CODE_VALUES),
-    quantity: z.coerce.number().gt(0),
+    quantity: units().gt(0),
     unit_cost: z.coerce.number().min(0).nullable().optional(),
-    work_order_id: z.string().uuid().nullable().optional(),
+    work_order_id: z.string().guid().nullable().optional(),
     reference_code: z.string().max(255).nullable().optional(),
     notes: z.string().max(2000).nullable().optional(),
   })

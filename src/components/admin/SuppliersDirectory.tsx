@@ -146,7 +146,7 @@ export function SuppliersDirectory() {
                         >
                           <Ban className="h-3.5 w-3.5" />
                         </Button>
-                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setDialog({ mode: 'edit', supplier: s })}><Pencil className="h-3.5 w-3.5" /></Button>
+                        <Button variant="ghost" size="icon" className="h-9 w-9 sm:h-7 sm:w-7" onClick={() => setDialog({ mode: 'edit', supplier: s })}><Pencil className="h-3.5 w-3.5" /></Button>
                       </div>
                     </td>
                   </tr>
@@ -294,7 +294,7 @@ function SupplierDialog({ state, onClose }: { state: DialogState; onClose: () =>
                   <span className="text-xs text-muted-foreground font-mono">{c.code || '—'}</span>
                   {c.expires_on && <span className={`text-xs ${isExpired(c) ? 'text-red-600' : 'text-muted-foreground'}`}>vence {new Date(c.expires_on).toLocaleDateString('es-CL')}</span>}
                 </div>
-                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setCerts((p) => p.filter((_, j) => j !== i))}><X className="h-3.5 w-3.5" /></Button>
+                <Button variant="ghost" size="icon" className="h-9 w-9 sm:h-6 sm:w-6" onClick={() => setCerts((p) => p.filter((_, j) => j !== i))}><X className="h-3.5 w-3.5" /></Button>
               </div>
             ))}
           </div>

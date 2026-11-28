@@ -7,16 +7,16 @@ const CreateTemplateSchema = z.object({
   name: z.string().min(1).max(200),
   department: z.string().max(100).optional().nullable(),
   role: z.enum(['admin', 'supervisor', 'manager', 'hr_manager', 'technician']).optional().nullable(),
-  permissions: z.record(z.boolean()).default({}),
+  permissions: z.record(z.string(), z.boolean()).default({}),
   is_active: z.boolean().optional(),
 });
 
 const UpdateTemplateSchema = z.object({
-  id: z.string().uuid(),
+  id: z.string().guid(),
   name: z.string().min(1).max(200).optional(),
   department: z.string().max(100).nullable().optional(),
   role: z.enum(['admin', 'supervisor', 'manager', 'hr_manager', 'technician']).nullable().optional(),
-  permissions: z.record(z.boolean()).optional(),
+  permissions: z.record(z.string(), z.boolean()).optional(),
   is_active: z.boolean().optional(),
 });
 

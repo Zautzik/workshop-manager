@@ -24,6 +24,7 @@ import ProtectedRoute from '@/components/ProtectedRoute';
 import { Card, CardContent } from '@/components/ui/card';
 import { FichaPrePrensa } from '@/components/workflow/FichaPrePrensa';
 import type { OTSpec } from '@/lib/ot-spec';
+import { PageShell } from '@/components/layout/PageShell';
 
 interface Trabajo {
 	ot_id: string;
@@ -234,13 +235,13 @@ function PrePrensaInner() {
 export default function PrePrensaPage() {
 	return (
 		<ProtectedRoute allowedRoles={['admin', 'supervisor', 'manager']}>
-			<div className="space-y-6 p-4 md:p-6">
+			<PageShell>
 				<div className="flex items-center gap-3">
 					<span className="rounded-xl bg-amber-500/10 p-3">
 						<FileStack className="h-6 w-6 text-amber-500" />
 					</span>
 					<div>
-						<h1 className="text-2xl font-bold text-foreground">Pre-Prensa</h1>
+						<h1 className="text-xl sm:text-2xl font-bold text-foreground">Pre-Prensa</h1>
 						<p className="mt-0.5 text-sm text-muted-foreground">
 							Completar la ficha antes de mandar la prueba. Firmarla compromete el trabajo:
 							después se compra papel y se graban planchas.
@@ -248,7 +249,7 @@ export default function PrePrensaPage() {
 					</div>
 				</div>
 				<PrePrensaInner />
-			</div>
+			</PageShell>
 		</ProtectedRoute>
 	);
 }

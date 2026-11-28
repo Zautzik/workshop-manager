@@ -19,7 +19,7 @@ export const dynamic = 'force-dynamic';
 
 const Schema = z.object({
 	/** El del estante. `null` = se manda a hacer uno nuevo. */
-	dieId: z.string().uuid().nullable(),
+	dieId: z.string().guid().nullable(),
 });
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {

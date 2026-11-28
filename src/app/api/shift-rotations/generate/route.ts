@@ -15,7 +15,7 @@ const BodySchema = z.object({
 	from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
 	weeks: z.number().int().min(1).max(8).default(4),
 	/** Una sola rotación; sin esto, todas las activas. */
-	rotation_id: z.string().uuid().optional(),
+	rotation_id: z.string().guid().optional(),
 });
 
 const REASON_LABEL = { manual: 'tiene un cambio hecho a mano', licencia: 'tiene licencia o vacaciones', quitado: 'se lo quitaron a mano' } as const;

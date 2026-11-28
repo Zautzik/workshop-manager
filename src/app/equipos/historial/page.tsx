@@ -1,11 +1,12 @@
 'use client';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { HistorialPanel } from '@/components/maintenance/HistorialPanel';
+import { PageShell } from '@/components/layout/PageShell';
 
 export default function MaintenanceHistorialPage() {
   return (
     <ProtectedRoute allowedRoles={['admin', 'manager', 'supervisor']}>
-      <div className="p-6 space-y-6">
+      <PageShell>
         <div>
           <h1 className="text-2xl font-bold text-foreground tracking-tight">Historial & KPIs</h1>
           <p className="text-sm text-muted-foreground mt-0.5">
@@ -13,7 +14,7 @@ export default function MaintenanceHistorialPage() {
           </p>
         </div>
         <HistorialPanel />
-      </div>
+      </PageShell>
     </ProtectedRoute>
   );
 }

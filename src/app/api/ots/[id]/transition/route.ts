@@ -29,7 +29,7 @@ const StageReportSchema = z.object({
 const TransitionSchema = z.object({
   to_status: z.string().min(1),
   reason: z.string().max(500).optional().nullable(),
-  metadata: z.record(z.any()).optional(),
+  metadata: z.record(z.string(), z.any()).optional(),
   rollback: z.boolean().optional(),
   stage_report: StageReportSchema.optional().nullable(),
   // El papel que sale al entrar a la primera etapa de la ruta (paper-issue.ts).

@@ -33,6 +33,9 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { queryKeys } from '@/hooks/use-workflow-queries';
+import { useProductionSchedule } from '@/hooks/use-production-schedule';
+import { usePlanActions } from '@/hooks/use-plan-actions';
+import { landingSlot, SNAP_H } from '@/lib/plan-actions';
 import { useRouter } from 'next/navigation';
 import { AJUSTE_SOURCE_LABEL, plantDate, type OperatorAjuste } from '@/lib/ajuste';
 import { shiftCovering, shiftLabel, shiftWindow, type ShiftInstance } from '@/lib/machine-calendar';
@@ -78,7 +81,7 @@ type ZoomKey = (typeof ZOOMS)[number]['key'];
 const LANE_H = 40;
 const HEADER_H = 40;
 const LABEL_W = 184;
-const SNAP_H = 0.25;
+// SNAP_H comes from plan-actions.ts (shared with the phone stage panel).
 
 /** Tonos fijos por OT: el mismo trabajo tiene el mismo color en todas las máquinas. */
 const OT_PALETTE = [
@@ -93,30 +96,6 @@ function otColor(otId: string): string {
 
 const shortOt = (n: string) => n.replace(/^OT-?/i, '');
 
-function usePlanificacion() {
-	return useQuery<PlanPayload>({
-		queryKey: ['planificacion'],
-		queryFn: async () => {
-			const res = await fetch('/api/planificacion');
-			if (!res.ok) throw new Error(`No se pudo cargar el programa (${res.status})`);
-			return res.json();
-		},
-		staleTime: 60_000,
-		// Sin reintentos largos: con la red caída, tres reintentos de 10 s
-		// mostraban "nada programado" durante medio minuto en vez del error.
-		retry: 1,
-	});
-}
-
-function useNow(stepMs = 60_000) {
-	const [now, setNow] = useState(() => Date.now());
-	useEffect(() => {
-		const t = setInterval(() => setNow(Date.now()), stepMs);
-		return () => clearInterval(t);
-	}, [stepMs]);
-	return now;
-}
-
 interface DragState {
 	block: Block;
 	originX: number;
@@ -130,8 +109,10 @@ export function OTGanttBoard() {
 	const { role } = useAuth();
 	const canEdit = role === 'admin' || role === 'supervisor';
 	const queryClient = useQueryClient();
-	const { data, isLoading, isError, error, refetch } = usePlanificacion();
-	const now = useNow();
+	// Pin / release / make-ready writes, shared with the phone stage panel.
+	const planActions = usePlanActions();
+	// The same schedule Hoja de Producción prints (use-production-schedule.ts).
+	const { data, isLoading, isError, error, refetch, now, planNow, plan, schedule: base } = useProductionSchedule();
 
 	const router = useRouter();
 	const [zoomKey, setZoomKey] = useState<ZoomKey>('1s');
@@ -142,14 +123,6 @@ export function OTGanttBoard() {
 	const [drag, setDrag] = useState<DragState | null>(null);
 	const [saving, setSaving] = useState(false);
 
-	// Se recalcula con `now` redondeado al cuarto de hora: el programa no tiene
-	// por qué moverse cada minuto, y así no se rearma mientras se arrastra.
-	const planNow = Math.floor(now / (15 * 60_000)) * 15 * 60_000;
-	const plan = useMemo(() => (data ? buildPlanInput(data) : null), [data]);
-	const base = useMemo(
-		() => (plan ? buildSchedule({ now: planNow, ots: plan.ots, machines: plan.machines, pins: plan.pins, maintenance: plan.maintenance }) : null),
-		[plan, planNow],
-	);
 	const simulating = Object.values(delays).some((h) => h > 0);
 	const simulated = useMemo(
 		() =>
@@ -227,18 +200,17 @@ export function OTGanttBoard() {
 		const lane = allowed.find((l) => l.id === wanted.id) ?? lanes[drag.laneIndex];
 		// El desplazamiento se traduce por el eje (que salta noches), no como
 		// píxeles × horas: arrastrar al día siguiente es pasar de las 22 a las 07.
-		const snap = SNAP_H * MS.HOUR;
-		const wantedStart = Math.round(axis.msAt(axis.xOf(drag.block.start) + drag.dx) / snap) * snap;
-		// Al cambiar de prensa cambia el ajuste: se descuenta el de la prensa de
-		// origen y se suma el de la de destino.
-		const setupHere = drag.block.setupDone
-			? 0
-			: setupFor(lane, drag.block.setupColors, otById.get(drag.block.otId)?.ajuste_minutes).hours;
-		const durationH = drag.block.pinned
-			? workingHoursBetween(laneOf(lanes, drag.block.laneId).calendar, drag.block.start, drag.block.end)
-			: drag.block.hours - drag.block.delayHours - drag.block.setupHours + setupHere;
-		const start = nextWorkingInstant(lane.calendar, Math.max(wantedStart, planNow));
-		const end = addWorkingHours(lane.calendar, start, Math.max(durationH, SNAP_H));
+		// Where it lands and for how long: the same rule the phone's stage panel
+		// uses (plan-actions.ts) — make-ready of the destination press, pinned
+		// stages keep their hours, never in the past.
+		const { start, end } = landingSlot({
+			block: drag.block,
+			fromLane: laneOf(lanes, drag.block.laneId),
+			toLane: lane,
+			wantedStart: axis.msAt(axis.xOf(drag.block.start) + drag.dx),
+			now: planNow,
+			otAjusteMinutes: otById.get(drag.block.otId)?.ajuste_minutes,
+		});
 		return { lane, start, end, valid: !lane.virtual && allowed.some((l) => l.id === lane.id) };
 	}, [drag, view, shownLanes, axis, planNow, otById]);
 
@@ -256,37 +228,11 @@ export function OTGanttBoard() {
 			toast.error('Esa etapa no se puede hacer en esa máquina');
 			return;
 		}
-		const body = {
-			machine_id: target.lane.machineId,
-			scheduled_start: new Date(target.start).toISOString(),
-			scheduled_end: new Date(target.end).toISOString(),
-			plan_step: d.block.step,
-		};
+		// The one pin writer, shared with the phone stage panel.
 		setSaving(true);
-		const res = d.block.slotId
-			? await fetch(`/api/ot-schedule/${d.block.slotId}`, {
-					method: 'PATCH',
-					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify(body),
-				})
-			: await fetch('/api/ot-schedule', {
-					method: 'POST',
-					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify({ ...body, ot_id: d.block.otId, estimated_hours: d.block.estimatedHours }),
-				});
+		await planActions.pin(d.block, target.lane, target.start, target.end, shortOt(otById.get(d.block.otId)?.ot_number ?? ''));
 		setSaving(false);
-		if (!res.ok) {
-			toast.error('No se pudo fijar el bloque', { description: `El servidor respondió ${res.status}.` });
-			return;
-		}
-		const ot = otById.get(d.block.otId);
-		toast.success(
-			`${shortOt(ot?.ot_number ?? '')} · ${PLAN_STEP_BY_KEY[d.block.step].label} fijada en ${target.lane.name}, ${formatPlantDateTime(target.start)}`,
-		);
-		queryClient.invalidateQueries({ queryKey: ['planificacion'] });
-		queryClient.invalidateQueries({ queryKey: ['schedule'] });
-		if (d.block.step === 'offset' || d.block.step === 'digital') queryClient.invalidateQueries({ queryKey: queryKeys.ots });
-	}, [drag, dropTarget, otById, queryClient]);
+	}, [drag, dropTarget, otById, planActions]);
 
 	useEffect(() => {
 		if (!drag) return;
@@ -307,30 +253,11 @@ export function OTGanttBoard() {
 	// Corregir el ajuste de UN trabajo. Vive en la OT (`ots.ajuste_minutes`), así
 	// que lo ve cualquier pantalla que la lea, y manda sobre lo de la prensa.
 	const saveAjuste = async (otId: string, minutes: number | null) => {
-		const res = await fetch(`/api/ots/${otId}`, {
-			method: 'PATCH',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ ajuste_minutes: minutes }),
-		});
-		if (!res.ok) {
-			toast.error('No se pudo guardar el ajuste', { description: `El servidor respondió ${res.status}.` });
-			return;
-		}
-		toast.success(minutes == null ? 'Ajuste vuelve al de la prensa' : `Ajuste de este trabajo: ${minutes} min por pasada`);
-		queryClient.invalidateQueries({ queryKey: ['planificacion'] });
-		queryClient.invalidateQueries({ queryKey: queryKeys.ots });
+		await planActions.saveAjuste(otId, minutes);
 	};
 
 	const release = async (block: Block) => {
-		if (!block.slotId) return;
-		const res = await fetch(`/api/ot-schedule/${block.slotId}`, { method: 'DELETE' });
-		if (!res.ok) {
-			toast.error('No se pudo liberar el bloque');
-			return;
-		}
-		toast.success(`${PLAN_STEP_BY_KEY[block.step].label} vuelve a programarse sola`);
-		queryClient.invalidateQueries({ queryKey: ['planificacion'] });
-		queryClient.invalidateQueries({ queryKey: ['schedule'] });
+		await planActions.release(block);
 	};
 
 	/* ── Estados vacíos ────────────────────────────────────────────────────── */

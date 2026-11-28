@@ -33,7 +33,7 @@ import {
   useInventoryLots,
   useInventoryTransactions,
 } from '@/hooks/use-admin-queries';
-import { useOTs } from '@/hooks/use-operations-queries';
+import { useActiveOTs } from '@/hooks/use-operations-queries';
 import { useMovementTypes } from '@/hooks/use-movement-types';
 import { useAuth } from '@/contexts/AuthContext';
 import { MovementTypesManager } from './MovementTypesManager';
@@ -56,7 +56,7 @@ const InventoryManagement = () => {
   const { data: items = [], refetch: refetchItems } = useInventoryItems();
   const { data: lots = [], refetch: refetchLots, isLoading: lotsLoading, isError: lotsError } = useInventoryLots();
   const { data: transactions = [], refetch: refetchTransactions } = useInventoryTransactions();
-  const { data: ots = [] } = useOTs();
+  const { data: ots = [] } = useActiveOTs();
   const { role } = useAuth();
   const isAdmin = role === 'admin';
   const { data: movementTypes = [] } = useMovementTypes();

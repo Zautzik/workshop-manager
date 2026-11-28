@@ -1,14 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
+import { units } from '@/lib/limits';
 import { isAuthError, requireAuth } from '@/lib/api-middleware';
 import { supabaseAdmin } from '@/integrations/supabase/server';
-import { lineReceiptVariance } from '@/lib/purchasing';
+import { canReceive, lineReceiptVariance } from '@/lib/purchasing';
+import { loadOcProgress, settlePurchase } from '@/lib/purchase-settle';
 
 const OPS = ['admin', 'manager', 'supervisor'] as const;
 
 const ReceiveSchema = z.object({
-  item_id: z.string().uuid(),
-  quantity: z.coerce.number().positive(),
+  item_id: z.string().guid(),
+  quantity: units().positive(),
   unit_cost: z.coerce.number().min(0).optional().nullable(),
   lot_number: z.string().max(100).optional().nullable(),
   cert_code: z.string().max(100).optional().nullable(),
@@ -37,6 +39,17 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     );
   }
   const d = parsed.data;
+
+  // The same rule as the button (ocActions → canReceive): nothing is received
+  // into an OC that is closed, voided, or already fully delivered (audit M6).
+  const state = await loadOcProgress(id).catch(() => null);
+  if (!state) return NextResponse.json({ error: 'OC no encontrada.' }, { status: 404 });
+  if (!canReceive(state.status, state.progress)) {
+    return NextResponse.json(
+      { error: state.status === 'sent' || state.status === 'received' || state.status === 'invoiced' ? 'Ya se recibió todo lo pedido en esta OC.' : 'Esta OC no admite recepciones en su estado actual.', code: 'NO_RECIBIBLE' },
+      { status: 409 }
+    );
+  }
 
   // La diferencia contra lo pedido se verifica ACÁ y no en el formulario: es el
   // punto donde se pierde plata en silencio, y un control que sólo vive en la
@@ -105,6 +118,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   // El papel llegó: ESO es la señal. Capturarla del acto de recibir, no de que
   // alguien se acuerde de arrastrar la tarjeta y de marcar la pastilla PAP.
   const paper = await advanceOtOnPaperArrival(id, d.item_id);
+
+  // Close the OC if this completed it (one rule: isSettled). A failure here
+  // must not undo what was just recorded, so it is logged, not returned.
+  await settlePurchase(id).catch((e) => console.error('settlePurchase:', e));
 
   return NextResponse.json({ lot_id: data, ...(paper ? { ot: paper } : {}) }, { status: 201 });
 }

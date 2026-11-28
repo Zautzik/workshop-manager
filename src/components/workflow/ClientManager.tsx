@@ -24,6 +24,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { MobileCardList, MobileCard } from '@/components/layout/MobileCardList';
 import { useToast } from '@/hooks/use-toast';
 import {
   Building2,
@@ -49,6 +50,9 @@ interface ClientFormState {
   city: string;
   payment_terms: string;
   notes: string;
+  giro: string;
+  region_code: string;
+  comuna_code: string;
 }
 
 const EMPTY_FORM: ClientFormState = {
@@ -61,7 +65,22 @@ const EMPTY_FORM: ClientFormState = {
   city: '',
   payment_terms: '30 días',
   notes: '',
+  giro: '',
+  region_code: '',
+  comuna_code: '',
 };
+
+// Códigos de región del SII / INE, en orden norte → sur.
+const REGIONES: { code: string; name: string }[] = [
+  { code: '15', name: 'Arica y Parinacota' }, { code: '1', name: 'Tarapacá' },
+  { code: '2', name: 'Antofagasta' }, { code: '3', name: 'Atacama' },
+  { code: '4', name: 'Coquimbo' }, { code: '5', name: 'Valparaíso' },
+  { code: '13', name: 'Metropolitana' }, { code: '6', name: "O'Higgins" },
+  { code: '7', name: 'Maule' }, { code: '16', name: 'Ñuble' },
+  { code: '8', name: 'Biobío' }, { code: '9', name: 'La Araucanía' },
+  { code: '14', name: 'Los Ríos' }, { code: '10', name: 'Los Lagos' },
+  { code: '11', name: 'Aysén' }, { code: '12', name: 'Magallanes' },
+];
 
 export function ClientManager() {
   const { toast } = useToast();
@@ -71,6 +90,10 @@ export function ClientManager() {
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<ClientFormState>(EMPTY_FORM);
+  // Los campos del DTE aparecen sólo si la base ya tiene sus columnas
+  // (migración 20261125120000): la API devuelve `select *`, así que basta mirar
+  // una fila. Antes de la migración, mandarlos haría fallar el guardado.
+  const dteFields = clients.length > 0 && 'comuna_code' in clients[0];
   const [saving, setSaving] = useState(false);
   const [showInactive, setShowInactive] = useState(false);
 
@@ -124,6 +147,9 @@ export function ClientManager() {
       city: client.city || '',
       payment_terms: client.payment_terms || '30 días',
       notes: client.notes || '',
+      giro: client.giro || '',
+      region_code: client.region_code || '',
+      comuna_code: client.comuna_code || '',
     });
     setShowForm(true);
   };
@@ -146,6 +172,14 @@ export function ClientManager() {
         city: form.city.trim() || null,
         payment_terms: form.payment_terms.trim() || null,
         notes: form.notes.trim() || null,
+        // Sólo se mandan si la base ya tiene las columnas (ver `dteFields`).
+        ...(dteFields
+          ? {
+              giro: form.giro.trim() || null,
+              region_code: form.region_code || null,
+              comuna_code: form.comuna_code.trim() || null,
+            }
+          : {}),
       };
 
       const url = editingId ? `/api/clients/${editingId}` : '/api/clients';
@@ -221,17 +255,18 @@ export function ClientManager() {
             Gestión de Clientes
           </h2>
           <p className="text-sm text-muted-foreground">
-            {filtered.length} cliente{filtered.length !== 1 ? 's' : ''}
+            {/* No count until the list arrives: "0 clientes" while loading read as an empty book (audit M4). */}
+            {loading ? <span className="inline-block h-3 w-20 animate-pulse rounded bg-muted align-middle" aria-label="Cargando" /> : <>{filtered.length} cliente{filtered.length !== 1 ? 's' : ''}</>}
           </p>
         </div>
-        <div className="flex items-center gap-3">
-          <div className="relative">
+        <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:gap-3">
+          <div className="relative w-full sm:w-auto">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Buscar cliente..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-9 w-64 bg-input border-border"
+              className="pl-9 w-full sm:w-64 bg-input border-border"
             />
           </div>
           <Button
@@ -262,7 +297,32 @@ export function ClientManager() {
               <p>No se encontraron clientes</p>
             </div>
           ) : (
-            <ScrollArea className="max-h-[600px]">
+            <>
+            <MobileCardList>
+              {filtered.map((client) => (
+                <MobileCard
+                  key={client.id}
+                  muted={!client.is_active}
+                  leading={<Building2 className="h-4 w-4" />}
+                  title={client.name}
+                  badge={!client.is_active && (
+                    <Badge variant="outline" className="text-[10px] border-amber-500/40 text-amber-400">Inactivo</Badge>
+                  )}
+                  meta={[client.rut, client.contact_name, client.city]}
+                  onClick={() => openEdit(client)}
+                  actions={client.is_active ? (
+                    <Button variant="ghost" size="sm" className="h-9 w-9 p-0 text-muted-foreground hover:text-red-400" aria-label="Desactivar" onClick={() => handleDeactivate(client)}>
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  ) : (
+                    <Button variant="ghost" size="sm" className="h-9 text-xs text-amber-400" onClick={() => handleReactivate(client)}>
+                      Reactivar
+                    </Button>
+                  )}
+                />
+              ))}
+            </MobileCardList>
+            <ScrollArea className="hidden max-h-[600px] md:block">
               <Table>
                 <TableHeader>
                   <TableRow className="bg-muted/30">
@@ -316,7 +376,7 @@ export function ClientManager() {
                           <Button
                             variant="ghost"
                             size="sm"
-                            className="h-7 w-7 p-0"
+                            className="h-9 w-9 sm:h-7 sm:w-7 p-0"
                             onClick={() => openEdit(client)}
                           >
                             <Edit2 className="h-3.5 w-3.5" />
@@ -325,7 +385,7 @@ export function ClientManager() {
                             <Button
                               variant="ghost"
                               size="sm"
-                              className="h-7 w-7 p-0 text-muted-foreground hover:text-red-400"
+                              className="h-9 w-9 sm:h-7 sm:w-7 p-0 text-muted-foreground hover:text-red-400"
                               onClick={() => handleDeactivate(client)}
                             >
                               <Trash2 className="h-3.5 w-3.5" />
@@ -334,7 +394,7 @@ export function ClientManager() {
                             <Button
                               variant="ghost"
                               size="sm"
-                              className="h-7 text-xs text-amber-400 hover:text-amber-300"
+                              className="h-9 sm:h-7 text-xs text-amber-400 hover:text-amber-300"
                               onClick={() => handleReactivate(client)}
                             >
                               Reactivar
@@ -347,6 +407,7 @@ export function ClientManager() {
                 </TableBody>
               </Table>
             </ScrollArea>
+            </>
           )}
         </CardContent>
       </Card>
@@ -436,6 +497,47 @@ export function ClientManager() {
                   className="mt-1"
                 />
               </div>
+              {dteFields && (
+                <>
+                  <div className="col-span-2">
+                    <Label className="text-xs font-medium">Giro</Label>
+                    <Input
+                      value={form.giro}
+                      maxLength={40}
+                      onChange={(e) => updateField('giro', e.target.value)}
+                      placeholder="Actividad principal, como figura en el SII"
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs font-medium">Región</Label>
+                    <select
+                      value={form.region_code}
+                      onChange={(e) => updateField('region_code', e.target.value)}
+                      className="mt-1 h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                    >
+                      <option value="">Elegir…</option>
+                      {REGIONES.map((r) => (
+                        <option key={r.code} value={r.code}>{r.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <Label className="text-xs font-medium">Código de comuna</Label>
+                    <Input
+                      value={form.comuna_code}
+                      inputMode="numeric"
+                      maxLength={5}
+                      onChange={(e) => updateField('comuna_code', e.target.value.replace(/\D/g, ''))}
+                      placeholder="13101 (Santiago)"
+                      className="mt-1"
+                    />
+                  </div>
+                  <p className="col-span-2 -mt-1 text-[11px] text-muted-foreground">
+                    Giro, región y comuna los exige el SII para la factura electrónica.
+                  </p>
+                </>
+              )}
               <div className="col-span-2">
                 <Label className="text-xs font-medium">Condición de Pago</Label>
                 <Input

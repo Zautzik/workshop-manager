@@ -38,7 +38,7 @@ import { buildOTSpec, type OTSpec } from '@/lib/ot-spec';
 import { estimatedHoursFor, promptsStageReport } from '@/lib/stage-report';
 import { loadRoleAccess } from '@/lib/transition-rules';
 import { dispatchNotifications, emitDomainEvent } from '@/lib/domain-events';
-import { cuentaParaCalidadInterna } from '@/lib/ot-approval-origin';
+import { aprobacionParaMover } from '@/lib/ot-approval-origin';
 import { valueStagePassesSafely } from '@/lib/stage-valuation';
 import { resolvePassMachine } from '@/lib/stage-machine';
 import { issuePaper, planPaperIssue, returnIssuedPaper, type PaperIssueLine } from '@/lib/paper-issue-server';
@@ -135,10 +135,14 @@ export async function moveOT(input: MoveInput): Promise<MoveResult> {
 	// ── 1. Compuertas ──────────────────────────────────────────────────────
 	const [approvalResult, costsResult, roleAccess, programa, operaciones, arte, cotizacion, requisitos, abiertas] =
 		await Promise.all([
-			// La compuerta de calidad NO cuenta lo que firmó el portal público
-			// (auditoría 2026-10 §Quality); el predicado vive en `cuentaParaCalidadInterna`.
+			// Comprar papel cuenta la firma del cliente, también la del portal; la
+			// compuerta de calidad no (auditoría 2026-10 §Quality): `aprobacionParaMover`.
 			supabaseAdmin.from('ot_approvals').select('status, confirmed_via, recorded_by').eq('ot_id', otId).eq('status', 'approved'),
-			supabaseAdmin.from('ot_real_costs').select('id', { count: 'exact', head: true }).eq('ot_id', otId),
+			// «Hay costo real» se pregunta al libro (ot_cost_lines, kind actual): ahí
+			// escriben el papel que salió, las pasadas y la mano de obra. Leía
+			// `ot_real_costs`, que desde 2026-11 nadie escribe: ninguna OT nueva
+			// podía despacharse ni completarse (hallado por hilo-dorado.test.ts).
+			supabaseAdmin.from('ot_cost_lines').select('id', { count: 'exact', head: true }).eq('ot_id', otId).eq('kind', 'actual'),
 			loadRoleAccess(),
 			// `impositionConfirmed` y `operationsReviewed` no son columnas: se deducen
 			// de que exista lo que producen.
@@ -173,7 +177,7 @@ export async function moveOT(input: MoveInput): Promise<MoveResult> {
 		quotedPrice: (cotizacion as { data: { total_price?: number } | null })?.data?.total_price ?? null,
 		firmPrice: o.total_price ?? null,
 		repriceApproved: Boolean(input.metadata?.reprice_approved),
-		hasApprovedApproval: (approvalResult.data ?? []).some(cuentaParaCalidadInterna),
+		hasApprovedApproval: aprobacionParaMover(toStatus, approvalResult.data ?? []),
 		hasAnyRealCosts: (costsResult.count ?? 0) > 0,
 		rollback,
 		// `?? undefined` y no `?? []`: sin dato, la compuerta no corre — una lista

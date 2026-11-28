@@ -1,6 +1,8 @@
 'use client';
 
-export function ScoreBar({ label, value }: { label: string; value: number }) {
+/** A 0–100 evaluation. Renders nothing when it was never set. */
+export function ScoreBar({ label, value }: { label: string; value: number | null }) {
+  if (value == null) return null;
   return (
     <div className="space-y-1">
       <div className="flex justify-between text-xs text-muted-foreground">

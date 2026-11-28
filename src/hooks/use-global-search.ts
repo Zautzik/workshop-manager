@@ -20,7 +20,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { FileText, Users, Wrench, Building2, Package } from 'lucide-react';
-import { useOTs, useWorkers, useMachines } from '@/hooks/use-operations-queries';
+import { useOTSearch, useWorkers, useMachines } from '@/hooks/use-operations-queries';
 import { useAuth } from '@/contexts/AuthContext';
 import type { AppRole } from '@/types/app-role';
 
@@ -65,13 +65,15 @@ function useDebounced<T>(value: T, delayMs: number): T {
  *   búsqueda que casi nunca se abre. Cerrada, sólo lee lo que ya esté en caché.
  */
 export function useGlobalSearchResults(query: string, active = true): ResultItem[] {
-  const { data: otsRaw  = [] } = useOTs({ enabled: active });
   const { data: workers = [] } = useWorkers({ enabled: active });
   const { data: machines = [] } = useMachines({ enabled: active });
   const { role } = useAuth();
 
   const trimmed = query.trim();
   const debouncedQuery = useDebounced(trimmed, 250);
+  // OTs are searched on the server, over all of them — a client-side filter
+  // over "the first 200" could never find an older OT (audit C2).
+  const { data: otsRaw = [] } = useOTSearch(debouncedQuery, { limit: 3, enabled: active && debouncedQuery.length >= 1 });
   const canSearchAdvanced = role != null && ADVANCED_SEARCH_ROLES.includes(role);
 
   const { data: advanced } = useQuery({
@@ -103,11 +105,7 @@ export function useGlobalSearchResults(query: string, active = true): ResultItem
     // ?ot= param is inert today; it carries the id for a future deep link.
     for (const ot of otsRaw as any[]) {
       if (ots.length >= 3) break;
-      if (
-        normalize(ot.ot_number ?? '').includes(q) ||
-        normalize(ot.client_name ?? '').includes(q) ||
-        normalize(ot.status ?? '').includes(q)
-      ) {
+      {
         ots.push({
           id: `ot-${ot.id}`,
           label: ot.ot_number ?? ot.id,

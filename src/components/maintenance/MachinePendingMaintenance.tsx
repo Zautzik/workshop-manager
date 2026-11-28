@@ -193,10 +193,15 @@ function ScheduleDueCard({ schedule }: { schedule: any }) {
         <p className="text-sm font-medium">{schedule.checklist_name ?? schedule.description ?? 'Pauta vencida'}</p>
         <p className="text-xs text-muted-foreground">{schedule.due?.reason}</p>
       </div>
+      {!canCreate ? (
+        // Said, not hidden in a tooltip a disabled button cannot show (M9).
+        <Link href="/equipos/ordenes?tab=pautas" className="tap shrink-0 text-right text-xs text-amber-700 hover:underline dark:text-amber-400">
+          Sin checklist: agrégala en Pautas
+        </Link>
+      ) : (
       <Button
         size="sm"
-        disabled={!canCreate || createOrder.isPending}
-        title={canCreate ? undefined : 'Sin checklist -- agrégale una en Pautas'}
+        disabled={createOrder.isPending}
         onClick={() =>
           createOrder.mutate(schedule, {
             onSuccess: () => toast({ title: 'Orden creada' }),
@@ -206,6 +211,7 @@ function ScheduleDueCard({ schedule }: { schedule: any }) {
       >
         {createOrder.isPending ? '…' : 'Crear orden'}
       </Button>
+      )}
     </div>
   );
 }

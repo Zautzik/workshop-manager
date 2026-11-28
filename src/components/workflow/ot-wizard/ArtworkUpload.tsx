@@ -132,7 +132,7 @@ export function ArtworkUpload({ files, onFilesChange }: Props) {
                   type="button"
                   variant="ghost"
                   size="icon"
-                  className="h-7 w-7 shrink-0"
+                  className="h-9 w-9 sm:h-7 sm:w-7 shrink-0"
                   onClick={(e) => {
                     e.stopPropagation();
                     removeFile(idx);

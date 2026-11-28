@@ -212,7 +212,7 @@ export function resolveCostOverrides(
  * `compareToCatalog`).
  *
  * Sólo las etapas de MÁQUINA tienen tarifa por hora. El operario no está acá:
- * su costo real viene de los turnos (labor-attribution), y sumarlo también acá
+ * su costo real viene de los turnos (labor-from-shifts), y sumarlo también acá
  * lo contaría dos veces. Digital se cobra por click, no por hora; taller,
  * revisión y despacho son mano de obra.
  */
@@ -251,4 +251,56 @@ export function stageMachineRate(
   if (typeof resolved === 'number' && resolved > 0) return { rate: resolved, label: def.label, source: 'catalogo' };
   const assumed = fallback[def.key as keyof typeof fallback];
   return assumed > 0 ? { rate: assumed, label: def.label, source: 'supuesto' } : null;
+}
+
+/* ─── La tarifa de una máquina ─────────────────────────────────────────────
+ *
+ * Equipos → Economía compara lo que una máquina cuesta de verdad contra lo que
+ * se cobra por su hora. Buscaba esa tarifa por su cuenta, con tres claves de
+ * catálogo de las que sólo existía `operador_prensa` — el sueldo del operario,
+ * $8.500/h — y la aplicaba a TODAS las máquinas, guillotinas incluidas. La
+ * comparación salía contra un sueldo (auditoría 2026-11-13).
+ *
+ * La hora de una máquina es la hora de la etapa que esa máquina hace, y esa ya
+ * tiene un solo dueño: `stageMachineRate`. Esto sólo traduce tipo de máquina →
+ * etapa, para que la pantalla compare contra el mismo número que el libro
+ * carga cuando se cierra una pasada.
+ *
+ * Los tipos que no están acá (dobladora, laminadora, taller, despacho) no se
+ * cargan por hora de máquina en el libro: devolver un número para ellos sería
+ * inventar una tarifa que nadie cobra.
+ */
+const MACHINE_TYPE_STAGE: Partial<Record<string, string>> = {
+  offset_printer: 'offset_printing',
+  guillotine: 'guillotine_final_cut',
+  die_cutter: 'die_cutting',
+};
+
+/** Colores de la prensa → el modo de color con que se elige su tarifa offset. */
+function colorModeFor(colors: number | null | undefined): string {
+  const n = Number(colors);
+  if (n === 1) return '1_color';
+  if (n === 2) return '2_color';
+  // 3 o más, o sin dato: la tarifa de cuatricromía, que es la que más se cotiza.
+  return 'cmyk';
+}
+
+/**
+ * La tarifa por hora que el libro carga por una máquina de este tipo, o null
+ * si ese tipo no se cobra por hora de máquina.
+ */
+export function machineHourRate(
+  machine: { type: string; colors?: number | null },
+  catalog: CostCenterItem[],
+  fallback: Required<Pick<CostOverrides, 'offset_print_per_hour' | 'cut_per_hour' | 'troquelado_per_hour'>>,
+): StageRate | null {
+  const stage = MACHINE_TYPE_STAGE[machine.type];
+  if (!stage) return null;
+  const spec: CostSpec = {
+    color_front: colorModeFor(machine.colors),
+    color_back: 'sin_impresion',
+    substrate_type: '',
+    grammage_gsm: 0,
+  };
+  return stageMachineRate(stage, spec, catalog, fallback);
 }

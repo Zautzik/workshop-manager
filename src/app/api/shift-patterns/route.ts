@@ -32,8 +32,8 @@ export async function GET() {
 }
 
 const PutSchema = z.object({
-	machine_id: z.string().uuid(),
-	shift_id: z.string().uuid(),
+	machine_id: z.string().guid(),
+	shift_id: z.string().guid(),
 	/** Días en que la máquina trabaja ese turno (0 = domingo). Vacío = no lo trabaja. */
 	weekdays: z.array(z.number().int().min(0).max(6)).max(7),
 });

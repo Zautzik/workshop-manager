@@ -27,7 +27,7 @@ const CreateChecklistSchema = z.object({
 });
 
 const UpdateChecklistSchema = z.object({
-	id: z.string().uuid(),
+	id: z.string().guid(),
 	name: z.string().min(1).max(255).optional(),
 	machineType: z.string().min(1).max(100).optional(),
 	maintenanceType: z.enum(['preventive', 'corrective', 'emergency', 'inspection', 'cleaning']).optional(),
@@ -141,7 +141,7 @@ export async function DELETE(request: NextRequest) {
 		const { searchParams } = new URL(request.url);
 		const id = searchParams.get('id');
 
-		if (!id || !z.string().uuid().safeParse(id).success) {
+		if (!id || !z.string().guid().safeParse(id).success) {
 			return NextResponse.json({ error: 'Valid checklist ID required' }, { status: 400 });
 		}
 

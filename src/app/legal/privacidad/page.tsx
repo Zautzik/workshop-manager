@@ -48,8 +48,11 @@ export const metadata: Metadata = {
 const ACTUALIZADA = '16 de octubre de 2026';
 const VERSION = '2.0';
 
-/** Canal único para ejercer derechos. */
-const CONTACTO_PRIVACIDAD = 'rzautzikg@gmail.com';
+/**
+ * Canal único para ejercer derechos: la casilla de la empresa, del registro de
+ * identidad (src/lib/company.ts), no una casilla personal (2026-11-26).
+ */
+const CONTACTO_PRIVACIDAD = EMPRESA.email;
 
 /**
  * Cierra una frase con punto, sin duplicarlo.
@@ -144,8 +147,7 @@ export default function PoliticaPrivacidadPage() {
 					</li>
 					<li>remuneración: tarifa por hora, recargos, bonos e incentivos, y su historial;</li>
 					<li>
-						marcas de entrada y salida en las estaciones, y el código de la credencial con que
-						se registran;
+						los turnos asignados y las horas registradas en cada pasada de producción;
 					</li>
 					<li>competencias y certificaciones, con su fecha de evaluación y de vencimiento;</li>
 					<li>licencias, permisos y ausencias, y los documentos de personal que la ley obliga a conservar.</li>

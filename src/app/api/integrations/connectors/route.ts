@@ -7,13 +7,13 @@ const CreateConnectorSchema = z.object({
   provider: z.string().min(1).max(100),
   name: z.string().min(1).max(200),
   status: z.enum(['inactive', 'active', 'error']).optional(),
-  config: z.record(z.any()).optional(),
+  config: z.record(z.string(), z.any()).optional(),
 });
 
 const UpdateConnectorSchema = z.object({
-  id: z.string().uuid(),
+  id: z.string().guid(),
   status: z.enum(['inactive', 'active', 'error']).optional(),
-  config: z.record(z.any()).optional(),
+  config: z.record(z.string(), z.any()).optional(),
   last_error: z.string().max(2000).nullable().optional(),
   last_sync_at: z.string().datetime().nullable().optional(),
 });

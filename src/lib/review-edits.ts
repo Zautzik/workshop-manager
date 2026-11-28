@@ -86,7 +86,7 @@ export function newDraftLine(): DraftLine {
  * Lo que viaja al servidor (`CorrectionsSchema`, src/lib/golden-thread.ts):
  * sólo los datos editables y las líneas, sin totales. El servidor fusiona los
  * datos con el parse original y recalcula cada total — y en la base
- * `ot_real_costs.total_cost` es una columna generada.
+ * `ot_cost_lines.total` es una columna generada.
  *
  * El material y la máquina se descartan ANTES de normalizar la categoría: si
  * no, una línea de papel o de prensa vieja viajaría como «otros» y entraría al

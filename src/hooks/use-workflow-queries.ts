@@ -2,7 +2,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { shiftPaidHours } from '@/lib/shift-hours';
-import { supabase } from '@/integrations/supabase/client';
+import { readApi } from '@/lib/read-api';
 import { ACTIVE_OT_STATUSES } from '@/lib/ot-state-machine';
 
 export const queryKeys = {
@@ -70,9 +70,9 @@ export function useWorkersByRating() {
         name: worker?.name ?? worker?.full_name ?? worker?.display_name ?? worker?.employee_name ?? 'Operario',
       }));
 
-      return normalized.sort(
-        (a: any, b: any) => Number(b?.overall_rating ?? 0) - Number(a?.overall_rating ?? 0)
-      );
+      // By name: sorting by overall_rating ordered people by a column default
+      // nobody writes (audit C4).
+      return normalized.sort((a: any, b: any) => String(a.name).localeCompare(String(b.name), 'es'));
     },
     retry: 10,
     retryDelay: 1000,
@@ -106,55 +106,69 @@ export function useMachines(options: { enabled?: boolean } = {}) {
   });
 }
 
-/**
- * Las 200 OT más recientes — cubre cualquier tablero de trabajo activo.
+/*
+ * OT lists — three shapes, none of them cut off (audit C2, 2026-11-25).
  *
- * El corte en 200 ya se quedó corto una vez, en silencio: `useOtCostSummary`
- * (use-financial-queries.ts) existe en parte porque este hook no avisaba
- * cuando había más de 200 OT (234, en producción) — se le construyó un
- * camino aparte en vez de arreglar éste. `/api/ots` YA devuelve `total` en
- * el sobre paginado; antes se descartaba. Ahora `isTruncated` viaja junto a
- * `data`, aditivo — ninguno de los ~20 consumidores actuales (que
- * desestructuran `{ data }` como si fuera el arreglo) se rompe, y quien
- * necesite saber si está viendo todo puede mirar `isTruncated` en vez de
- * confiar a ciegas en 200 filas (auditoría 2026-09-07).
+ * There used to be a `useOTs()` that fetched "the 200 most recent" and ~14
+ * screens used it for everything: totals, pickers, the board. With 250 OTs the
+ * 50 oldest were invisible to all of them — Expediente (5-year FSSC retention)
+ * could not find a May OT. It is gone. Pick the shape that matches the job:
+ *
+ *   useBoardOTs()     the Tablero: every OT in flight + completed in 30 days.
+ *   useActiveOTs()    every OT in flight (pickers for current work, totals of
+ *                     open work).
+ *   useOTSearch(q)    find any OT, old ones included, by number/client/product.
+ *
+ * Totals over all history belong in a server route (see /api/analytics/*).
  */
-export function useOTs(options: { enabled?: boolean } = {}) {
+
+const unwrap = (payload: any) => (Array.isArray(payload) ? payload : (payload?.data ?? [])) as any[];
+
+/** The Tablero's OTs. Keeps the `{ rows, total, isTruncated }` cache shape its optimistic moves write. */
+export function useBoardOTs() {
   const query = useQuery({
-    // `enabled: false` no borra lo que ya está en caché: quien lo apaga (la
-    // búsqueda del shell, cerrada) sigue viendo las OT si otra pantalla ya las
-    // trajo, pero no dispara 200 filas por su cuenta.
-    enabled: options.enabled ?? true,
     queryKey: queryKeys.ots,
     queryFn: async () => {
-      const res = await fetch('/api/ots?limit=200');
+      const res = await fetch('/api/ots?board=true', { credentials: 'include' });
       if (!res.ok) throw new Error(`Failed to fetch OTs: ${res.status}`);
-      const payload = await res.json();
-      // Unwrap paginated envelope { data, total, ... }; fall back to plain array.
-      const data = (Array.isArray(payload) ? payload : (payload?.data ?? [])) as any[];
-      const total = Array.isArray(payload) ? data.length : Number(payload?.total ?? data.length);
-      return { rows: data, total, isTruncated: total > data.length };
+      const rows = unwrap(await res.json());
+      return { rows, total: rows.length, isTruncated: false };
     },
   });
-
-  return {
-    ...query,
-    data: query.data?.rows,
-    total: query.data?.total,
-    isTruncated: query.data?.isTruncated ?? false,
-  };
+  return { ...query, data: query.data?.rows, total: query.data?.total, isTruncated: false };
 }
 
-export function useActiveOTs() {
+export function useActiveOTs(options: { enabled?: boolean } = {}) {
   return useQuery({
+    enabled: options.enabled ?? true,
     queryKey: [...queryKeys.ots, 'active'],
     queryFn: async () => {
-      const res = await fetch('/api/ots?active=true&limit=200', { credentials: 'include' });
+      const res = await fetch('/api/ots?active=true', { credentials: 'include' });
       if (!res.ok) throw new Error(`Failed to fetch active OTs: ${res.status}`);
-      const payload = await res.json();
-      // Unwrap paginated envelope { data, total, ... }; fall back to plain array.
-      return (Array.isArray(payload) ? payload : (payload?.data ?? [])) as any[];
+      return unwrap(await res.json());
     },
+  });
+}
+
+/**
+ * Search every OT by number, client or product, newest first. An empty query
+ * returns the most recent ones (useful as a picker's default list).
+ */
+export function useOTSearch(q: string, options: { limit?: number; enabled?: boolean } = {}) {
+  const term = q.trim();
+  const limit = options.limit ?? 20;
+  return useQuery({
+    enabled: options.enabled ?? true,
+    queryKey: [...queryKeys.ots, 'search', term, limit],
+    queryFn: async () => {
+      const params = new URLSearchParams({ limit: String(limit) });
+      if (term) params.set('q', term);
+      const res = await fetch(`/api/ots?${params}`, { credentials: 'include' });
+      if (!res.ok) throw new Error(`Failed to search OTs: ${res.status}`);
+      return unwrap(await res.json());
+    },
+    staleTime: 30_000,
+    placeholderData: (prev) => prev,
   });
 }
 
@@ -376,15 +390,8 @@ export function useCompensationRatesForDate(date?: string) {
   return useQuery({
     queryKey: queryKeys.compensationRates(dateValue),
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('compensation_rates')
-        .select(
-          'employee_id, hourly_rate, currency_code, overtime_multiplier_50, overtime_multiplier_100, night_shift_multiplier, weekend_multiplier, effective_from, effective_to'
-        )
-        .lte('effective_from', dateValue)
-        .or(`effective_to.is.null,effective_to.gte.${dateValue}`);
-      if (error) throw error;
-      return data ?? [];
+      // Server reads, not the tables (audit H5): /api/reads/*.
+      return readApi<any[]>('compensation-on', { date: dateValue });
     },
   });
 }
@@ -393,15 +400,9 @@ export function useSchedulingCostModel() {
   return useQuery({
     queryKey: queryKeys.schedulingCostModel,
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('scheduling_cost_models')
-        .select('*')
-        .eq('is_active', true)
-        .order('updated_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      if (error) throw error;
-      return data ?? null;
+      const res = await fetch('/api/scheduling-cost-models', { credentials: 'include' });
+      if (!res.ok) throw new Error(`No se pudo cargar el modelo de costos (${res.status})`);
+      return (await res.json()) ?? null;
     },
   });
 }
@@ -509,14 +510,7 @@ export function useWorkflowLeaveStatuses(referenceDate?: string) {
   return useQuery({
     queryKey: queryKeys.workflowLeaveStatuses(dateValue),
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('leave_requests')
-        .select('employee_id, leave_type, status, start_date, end_date')
-        .lte('start_date', dateValue)
-        .gte('end_date', dateValue)
-        .in('status', ['approved', 'pending']);
-      if (error) throw error;
-      return data ?? [];
+      return readApi<any[]>('leave-on', { date: dateValue });
     },
   });
 }
@@ -534,13 +528,7 @@ export function useWorkflowIncentiveStatuses(referenceDate?: string) {
   return useQuery({
     queryKey: queryKeys.workflowIncentives(`${monthStart}:${monthEnd}`),
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('employee_incentives')
-        .select('employee_id, status, awarded_date, amount')
-        .gte('awarded_date', monthStart)
-        .lte('awarded_date', monthEnd);
-      if (error) throw error;
-      return data ?? [];
+      return readApi<any[]>('incentives-between', { from: monthStart, to: monthEnd });
     },
   });
 }
@@ -554,15 +542,7 @@ export function useWorkflowCertificationAlerts(referenceDate?: string) {
   return useQuery({
     queryKey: queryKeys.workflowCertAlerts(dateValue),
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('hr_documents')
-        .select('employee_id, title, status, expires_on, doc_type')
-        .eq('doc_type', 'certification')
-        .not('expires_on', 'is', null)
-        .lte('expires_on', cutoffDate)
-        .neq('status', 'archived');
-      if (error) throw error;
-      return data ?? [];
+      return readApi<any[]>('certification-alerts', { until: cutoffDate });
     },
   });
 }
@@ -572,11 +552,7 @@ export function useWorkflowContracts(referenceDate?: string) {
   return useQuery({
     queryKey: queryKeys.workflowContracts(dateValue),
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('employment_contracts')
-        .select('*')
-        .order('id', { ascending: false });
-      if (error) throw error;
+      const data = await readApi<any[]>('contracts');
 
       const normalized = (data ?? []).map((contract: any) => {
         const start = contract.contract_start_date ?? contract.start_date ?? null;

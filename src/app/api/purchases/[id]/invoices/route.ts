@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
+import { amountCLP } from '@/lib/limits';
 import { isAuthError, requireAuth } from '@/lib/api-middleware';
 import { supabaseAdmin } from '@/integrations/supabase/server';
 import { canInvoice, invoiceArithmetic, threeWayMatch } from '@/lib/purchasing';
+import { settlePurchase } from '@/lib/purchase-settle';
 
 const OPS = ['admin', 'manager', 'supervisor'] as const;
 
@@ -24,7 +26,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
 
 const CreateFacturaSchema = z.object({
   invoice_number: z.string().min(1).max(100),
-  amount: z.coerce.number().min(0),
+  amount: amountCLP(),
   invoice_date: z.string().optional(),
   status: z.enum(['received', 'matched', 'disputed', 'paid']).default('received'),
   notes: z.string().max(2000).optional().nullable(),
@@ -147,6 +149,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   // Receiving a factura advances the OC to 'invoiced'; re-derive the ledger.
   await supabaseAdmin.from('purchases' as any).update({ status: 'invoiced' } as any).eq('id', id);
   await supabaseAdmin.rpc('sync_purchase_ledger' as any, { p_purchase_id: id });
+
+  // Close the OC if this completed it (one rule: isSettled). A failure here
+  // must not undo what was just recorded, so it is logged, not returned.
+  await settlePurchase(id).catch((e) => console.error('settlePurchase:', e));
 
   // El calce viaja en la respuesta para que la pantalla muestre la diferencia
   // en el momento de guardar y no en un informe de fin de mes.

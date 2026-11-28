@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
+import { amountCLP, units } from '@/lib/limits';
 import { isAuthError, requireAuth } from '@/lib/api-middleware';
 import { supabaseAdmin } from '@/integrations/supabase/server';
 import { fetchAll } from '@/lib/fetch-all';
@@ -40,8 +41,8 @@ export async function GET(req: NextRequest) {
 }
 
 const OCLineSchema = z.object({
-  item_id: z.string().uuid(),
-  quantity: z.coerce.number().positive(),
+  item_id: z.string().guid(),
+  quantity: units().positive(),
   unit_cost: z.coerce.number().min(0).optional().nullable(),
   description: z.string().max(255).optional().nullable(),
 });
@@ -49,12 +50,12 @@ const OCLineSchema = z.object({
 const CreateOCSchema = z.object({
   supplier: z.string().min(1).max(255),
   supplier_rut: z.string().max(50).optional().nullable(),
-  ot_id: z.string().uuid().optional().nullable(),
+  ot_id: z.string().guid().optional().nullable(),
   // Sostenido para una OC sin líneas (gasto genérico, sin ítem de inventario
   // que citar). Cuando `items` trae algo, el total se deriva de las líneas —
   // ver más abajo — y este valor se ignora, para no tener dos fuentes de la
   // misma plata.
-  total_cost: z.coerce.number().min(0).default(0),
+  total_cost: amountCLP().default(0),
   // Nace SIEMPRE en borrador. El esquema aceptaba las seis fases de vida de
   // una OC ('sent'|'received'|...), pero la base exige `oc_number`,
   // `issued_by` e `issued_at` en cuanto el estado no es 'draft'

@@ -51,7 +51,7 @@ export function RouteStepsPicker({ form, updateForm }: Props) {
 					</p>
 				</div>
 				{isCustom && (
-					<Button type="button" variant="ghost" size="sm" className="h-7 text-xs" onClick={() => updateForm({ route_steps: null })}>
+					<Button type="button" variant="ghost" size="sm" className="h-9 sm:h-7 text-xs" onClick={() => updateForm({ route_steps: null })}>
 						<RotateCcw className="mr-1 h-3 w-3" />
 						Volver a la sugerida
 					</Button>

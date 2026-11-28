@@ -25,7 +25,7 @@ const UpdateIncentiveSchema = z
 		{ message: 'La fecha de término no puede ser anterior a la de inicio', path: ['effective_to'] },
 	);
 
-const IdParamSchema = z.string().uuid();
+const IdParamSchema = z.string().guid();
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
 	// RLS ("Admins and HR managers can manage incentive rules"): admin + hr_manager.

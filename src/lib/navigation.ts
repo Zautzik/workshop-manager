@@ -14,7 +14,7 @@ import type { AppRole } from '@/types/app-role';
 import {
   Home, Factory, Users, Wrench, TrendingUp, ShieldCheck, Target,
   ClipboardList, GanttChart, FileSpreadsheet, Archive, FileStack,
-  Clock, Calendar, CalendarRange,
+  Calendar, CalendarRange,
   Package, ShoppingCart, MessageSquare,
   UserCheck, Wallet, Network, GraduationCap, HardHat,
   Cpu, AlertCircle, BarChart3, PieChart, DollarSign,
@@ -129,7 +129,6 @@ export const MODULES: NavModule[] = [
         label: 'Piso & Planificación',
         color: 'from-emerald-500/10 to-teal-500/5', border: 'border-emerald-500/20', heading: 'text-emerald-400',
         items: [
-          { label: 'Estación',      href: '/estacion',             description: 'Kiosko de fichaje por credencial QR (sin login)', icon: Clock,        color: 'bg-cyan-500/10 text-cyan-400' },
           { label: 'Planta',        href: '/operaciones/planta',   description: 'Estaciones y asignación de operarios',           icon: Factory,       color: 'bg-emerald-500/10 text-emerald-400' },
           { label: 'Planificación', href: '/operaciones/calendar', description: 'Cronograma de OTs, máquinas, calendario y plan semanal', icon: CalendarRange, color: 'bg-sky-500/10 text-sky-400' },
         ],
@@ -140,9 +139,8 @@ export const MODULES: NavModule[] = [
         items: [
           { label: 'Inventario', href: '/operaciones/inventario',  description: 'Stock, materiales y movimientos de almacén',   icon: Package,      color: 'bg-teal-500/10 text-teal-400' },
           { label: 'Compras',    href: '/operaciones/compras',     description: 'Órdenes de compra, cotizaciones y proveedores (incluye proveedores)', icon: ShoppingCart, color: 'bg-orange-500/10 text-orange-400' },
-          // Absorbido por la pestaña Lotes de Inventario — el destino cambió,
-          // no la entrada del menú (auditoría 2026-08).
-          { label: 'Lotes', href: '/operaciones/inventario?tab=lots', description: 'Etiquetas de lo recién recibido y qué lote no se puede usar', icon: Archive, color: 'bg-teal-500/10 text-teal-400' },
+          // Lotes no tiene tile propio: es la pestaña "Lotes" de Inventario.
+          // /operaciones/lotes sigue redirigiendo ahí para marcadores viejos.
         ],
       },
       {
@@ -151,8 +149,8 @@ export const MODULES: NavModule[] = [
         items: [
           { label: 'Capturas',  href: '/operaciones/captures', description: 'Bandeja unificada: producción y bodega vía WhatsApp / QR', icon: Inbox,         color: 'bg-green-500/10 text-green-400' },
           { label: 'WhatsApp', href: '/operaciones/whatsapp', description: 'Captura de producción en campo en tiempo real', icon: MessageSquare, color: 'bg-green-500/10 text-green-400' },
-          // Mismo defecto que Lotes: la pantalla de escaneo de QR para
-          // consumir papel existía sin puerta de entrada (auditoría 2026-08).
+          // La pantalla de escaneo de QR para consumir papel existía sin
+          // puerta de entrada (auditoría 2026-08).
           { label: 'Escanear', href: '/operaciones/escanear', description: 'Consumir papel escaneando el QR del lote en cada etapa', icon: QrCode, color: 'bg-green-500/10 text-green-400' },
         ],
       },
@@ -350,9 +348,9 @@ export const MODULES: NavModule[] = [
           //
           // Una entrada de menú que no puede tener datos es peor que una ruta
           // inalcanzable: la primera se lee como 'el taller no tiene
-          // productividad', la segunda no se lee. La página sigue en
-          // /analitica/rendimiento para quien tenga el enlace, y vuelve al menú
-          // cuando algo escriba esas columnas.
+          // productividad', la segunda no se lee. Desde el 2026-11-26 la ruta
+          // /analitica/rendimiento redirige al Resumen (auditoría M13); vuelve al
+          // menú cuando algo escriba esas columnas.
         ],
       },
     ],

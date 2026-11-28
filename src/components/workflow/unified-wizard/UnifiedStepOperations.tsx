@@ -425,7 +425,7 @@ export function UnifiedStepOperations({ form, updateForm }: Props) {
                           <Button
                             size="sm"
                             variant="ghost"
-                            className="h-7 w-7 p-0"
+                            className="h-9 w-9 sm:h-7 sm:w-7 p-0"
                             onClick={() => openEditDialog(op)}
                           >
                             <Pencil className="h-3 w-3" />
@@ -433,7 +433,7 @@ export function UnifiedStepOperations({ form, updateForm }: Props) {
                           <Button
                             size="sm"
                             variant="ghost"
-                            className="h-7 w-7 p-0 text-destructive"
+                            className="h-9 w-9 sm:h-7 sm:w-7 p-0 text-destructive"
                             onClick={() => removeOp(op.id)}
                           >
                             <Trash2 className="h-3 w-3" />

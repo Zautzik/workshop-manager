@@ -18,6 +18,23 @@
  *   5. Refresco     invalidateAfterReview     src/hooks/review-cache.ts
  *                   todas las pantallas que el parte toca
  *
+ * ── Un dueño por dato (2026-11-16) ──────────────────────────────────────────
+ *
+ * El mismo principio, aplicado a lo que el parte produce. Antes de agregar una
+ * columna, una tabla o una búsqueda de tarifa, mirar acá: si el dato ya tiene
+ * dueño, se lee de ahí.
+ *
+ *   Horas trabajadas     ot_stage_reports.hours — la única copia. De ahí salen
+ *                        el costo (stage-valuation.ts) y el historial con que
+ *                        `estimate_ot_hours` afina el Cronograma.
+ *   Tarifa de la hora    stageMachineRate / machineHourRate (costing-resolver.ts)
+ *                        — cotizar, valorizar una pasada y Equipos → Economía
+ *                        preguntan lo mismo al mismo lugar.
+ *   Costo real           ot_cost_lines — el libro. Las vistas y la analítica
+ *                        leen de ahí, no de copias.
+ *   Aviso a las demás    TABLE_SCOPE (RealtimeProductionContext.tsx) + la
+ *   pantallas            publicación supabase_realtime: una lista de tablas.
+ *
  * ── Dónde se escribe la decisión ────────────────────────────────────────────
  *
  * Un mensaje de WhatsApp vive en su log legado y el disparador
@@ -31,12 +48,13 @@
  * H3′ (docs/capture-understanding-phase0.md): el JSON de costos llegaba del
  * cliente sin validar y aterrizaba en ot_real_costs. Ahora pasa por
  * `CorrectionsSchema` (campos, rangos y categorías conocidas), el total de cada
- * línea lo recalcula el servidor y, en la base, `ot_real_costs.total_cost` es
- * una columna generada. Los datos corregidos se fusionan con el parse original
+ * línea lo recalcula el servidor y las líneas extra van directo al libro
+ * (`ot_cost_lines`, cuyo `total` es una columna generada). Los datos corregidos se fusionan con el parse original
  * en el servidor: el cliente manda sólo lo que cambió.
  */
 
 import { z } from 'zod';
+import { MAX_UNITS, MAX_UNIT_COST_CLP } from '@/lib/limits';
 import { supabaseAdmin } from '@/integrations/supabase/server';
 import { applyApprovedProductionReport, previewProductionMove, type ApprovedReportResult } from '@/lib/apply-approved-report';
 import { PROCESOS_CONOCIDOS } from '@/lib/whatsapp-flow';
@@ -46,7 +64,7 @@ import { PaperIssueLineSchema } from '@/lib/paper-issue-schema';
 
 /* ─── Correcciones ───────────────────────────────────────────────────────── */
 
-const count = z.number().int().min(0).max(10_000_000).nullable();
+const count = z.number().int().min(0).max(MAX_UNITS).nullable();
 
 export const CorrectionsSchema = z.object({
 	/** Producción: lo que el parser leyó (decide etapa, horas y destino de la OT). */
@@ -63,9 +81,9 @@ export const CorrectionsSchema = z.object({
 	costLines: z.array(z.object({
 		category: z.enum(COST_CATEGORIES),
 		description: z.string().trim().min(1).max(200),
-		quantity: z.number().min(0).max(10_000_000),
+		quantity: z.number().min(0).max(MAX_UNITS),
 		unit: z.string().trim().min(1).max(20),
-		unit_cost: z.number().min(0).max(1_000_000_000),
+		unit_cost: z.number().min(0).max(MAX_UNIT_COST_CLP),
 		source: z.enum(['parsed', 'inferred', 'default']).default('default'),
 	}).strict()).max(30).optional(),
 	/**
@@ -74,9 +92,9 @@ export const CorrectionsSchema = z.object({
 	 */
 	paperIssue: z.array(PaperIssueLineSchema).min(1).max(10).optional(),
 	/** Bodega. */
-	quantity: z.number().positive().max(10_000_000).optional(),
-	unitCost: z.number().min(0).max(1_000_000_000).optional(),
-	lotId: z.string().uuid().optional(),
+	quantity: z.number().positive().max(MAX_UNITS).optional(),
+	unitCost: z.number().min(0).max(MAX_UNIT_COST_CLP).optional(),
+	lotId: z.string().guid().optional(),
 }).strict();
 
 export type Corrections = z.infer<typeof CorrectionsSchema>;

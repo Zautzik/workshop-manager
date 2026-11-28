@@ -24,7 +24,17 @@ export const notificationQueryKeys = {
   unread: ['notifications', 'unread'] as const,
 };
 
-export function useNotifications(opts?: { unreadOnly?: boolean; limit?: number }) {
+/**
+ * The ONE live subscription to the user's notifications — mounted once, by
+ * AppShell. It writes into the same query cache every reader uses.
+ *
+ * It used to live inside useNotifications, so every component that read the
+ * list opened its own `notifications-<user>` channel. With the bell and the
+ * Notificaciones page both mounted, Supabase handed the second caller the
+ * already-subscribed channel and `.on()` threw — the page crashed on open,
+ * in production too (audit C1, 2026-11-25).
+ */
+export function useNotificationsRealtime() {
   const qc = useQueryClient();
   const { user } = useAuth();
 
@@ -91,7 +101,10 @@ export function useNotifications(opts?: { unreadOnly?: boolean; limit?: number }
       supabase.removeChannel(channel);
     };
   }, [qc, unreadKey, allKey, user?.id]);
+}
 
+/** Reads the notification list. Live updates come from useNotificationsRealtime (AppShell). */
+export function useNotifications(opts?: { unreadOnly?: boolean; limit?: number }) {
   return useQuery<NotificationItem[]>({
     queryKey: opts?.unreadOnly ? notificationQueryKeys.unread : notificationQueryKeys.all,
     queryFn: async () => {

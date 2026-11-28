@@ -1,7 +1,6 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
 
 const queryKeys = {
   workers: (dept?: string) => ['workers', { dept }] as const,
@@ -55,22 +54,8 @@ export function useWorkerStats(departmentFilter?: string) {
   });
 }
 
-export function useWorkerName(workerId?: string | null, enabled = true) {
-  return useQuery({
-    queryKey: queryKeys.workerName(workerId),
-    queryFn: async () => {
-      if (!workerId) return null;
-      const { data, error } = await supabase
-        .from('employees')
-        .select('full_name')
-        .eq('id', workerId)
-        .maybeSingle();
-      if (error) throw error;
-      return data?.full_name ?? null;
-    },
-    enabled: Boolean(workerId) && enabled,
-  });
-}
+// useWorkerName read employees from the browser and had no callers;
+// removed in the server-read sweep (audit H5, 2026-11-26).
 
 /**
  * Mismo bug de fondo que useOTs() (ver commit 297fd8b): esta función y la de
@@ -99,19 +84,8 @@ export { useMachines } from '@/hooks/use-workflow-queries';
  * ya esperan los ~14 consumidores de ESTE archivo (todos desestructuran
  * `{ data: x = [] }`), más `total`/`isTruncated` de regalo.
  */
-export { useOTs } from '@/hooks/use-workflow-queries';
+// useOTs (the first 200) is gone — see the note above useBoardOTs (audit C2).
+export { useActiveOTs, useBoardOTs, useOTSearch } from '@/hooks/use-workflow-queries';
 
-export function useBatchesAvailable() {
-  return useQuery<any[]>({
-    queryKey: queryKeys.batchesAvailable,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('batches' as any)
-        .select('*')
-        .gt('quantity_remaining', 0)
-        .order('batch_number');
-      if (error) throw error;
-      return (data ?? []) as any[];
-    },
-  });
-}
+// useBatchesAvailable read a `batches` table that no longer exists and had no
+// callers; removed in the server-read sweep (audit H5, 2026-11-26).

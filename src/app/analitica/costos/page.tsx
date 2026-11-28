@@ -6,14 +6,15 @@ import { MaterialCostPanel } from '@/components/financial/MaterialCostPanel';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Settings2, Package } from 'lucide-react';
+import { PageShell } from '@/components/layout/PageShell';
 
 export default function AnaliticaCostosPage() {
   return (
     <ProtectedRoute allowedRoles={['admin', 'manager']}>
-      <Suspense fallback={<div className="space-y-4 p-6"><Skeleton className="h-10 w-48" /><Skeleton className="h-96 w-full" /></div>}>
-        <div className="p-6 space-y-6">
+      <Suspense fallback={<PageShell><Skeleton className="h-10 w-48" /><Skeleton className="h-96 w-full" /></PageShell>}>
+        <PageShell>
           <div>
-            <h1 className="text-2xl font-bold text-foreground">Centro de Costos</h1>
+            <h1 className="text-xl sm:text-2xl font-bold text-foreground">Centro de Costos</h1>
             <p className="text-sm text-muted-foreground mt-1">Catálogo de tarifas (configuración) y costo real de materiales desde compras</p>
           </div>
           <Tabs defaultValue="catalogo">
@@ -24,7 +25,7 @@ export default function AnaliticaCostosPage() {
             <TabsContent value="catalogo" className="mt-6"><CostCenterManager /></TabsContent>
             <TabsContent value="real" className="mt-6"><MaterialCostPanel /></TabsContent>
           </Tabs>
-        </div>
+        </PageShell>
       </Suspense>
     </ProtectedRoute>
   );

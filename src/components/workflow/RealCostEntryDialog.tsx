@@ -80,6 +80,9 @@ export function RealCostEntryDialog({
 }: RealCostEntryDialogProps) {
   const { toast } = useToast();
   const [lines, setLines] = useState<RealCostLine[]>([]);
+  // Las líneas son una CORRECCIÓN del costo real (decisión del dueño,
+  // 2026-11-27): van al libro con su motivo (src/lib/cost-correction.ts).
+  const [motivo, setMotivo] = useState('');
   const [saving, setSaving] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [imageFile, setImageFile] = useState<File | null>(null);
@@ -173,6 +176,7 @@ export function RealCostEntryDialog({
     if (!open) {
       setLoaded(false);
       setLines([]);
+      setMotivo('');
       setImageFile(null);
       setImagePreview(null);
       // El cierre NO se arrastra a la próxima OT: cuatro horas y media
@@ -284,25 +288,31 @@ export function RealCostEntryDialog({
     // presupuesto nunca cargó) versus una línea a medio llenar por error.
     const validLines = lines.filter((l) => l.description.trim().length > 0);
     const hasNothingToRecord = validLines.length === 0;
+    if (!hasNothingToRecord && motivo.trim().length < 3) {
+      toast({
+        title: 'Falta el motivo de la corrección',
+        description: 'Decí qué pasó: por ejemplo «llegó la factura del laminador externo».',
+        variant: 'destructive',
+      });
+      return;
+    }
 
     setSaving(true);
 
     try {
       if (!hasNothingToRecord) {
         const payload = {
-          workflow_step: ot.status, // Record costs for the CURRENT step (before advancing)
-          costs: validLines.map((l) => ({
-            operation_code: l.operation_code,
-            description: l.description.trim(),
+          reason: [motivo.trim(), ...validLines.map((l) => l.notes?.trim()).filter(Boolean)].join(' — '),
+          lines: validLines.map((l) => ({
             category: l.category,
+            description: l.description.trim(),
             quantity: l.quantity,
             unit: l.unit,
             unit_cost: l.unit_cost,
-            notes: l.notes || null,
           })),
         };
 
-        const res = await fetch(`/api/ots/${ot.id}/real-costs`, {
+        const res = await fetch(`/api/ots/${ot.id}/cost-corrections`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),
@@ -314,8 +324,8 @@ export function RealCostEntryDialog({
         }
 
         toast({
-          title: 'Costos reales registrados',
-          description: `${validLines.length} ítems guardados para ${ot.ot_number}`,
+          title: 'Corrección registrada',
+          description: `${validLines.length} ${validLines.length === 1 ? 'línea' : 'líneas'} al costo real de ${ot.ot_number}`,
         });
       }
 
@@ -379,7 +389,7 @@ export function RealCostEntryDialog({
           <AlertCircle className="h-4 w-4 flex-shrink-0" />
           {needsClosure
             ? 'Todo lo de abajo es opcional y se puede completar después. Lo que no se llene queda pendiente y se pide antes de despachar la OT.'
-            : 'El papel y la tinta se cargan al salir de bodega, al costo real del lote; las horas, con el cierre. Acá sólo lo que no tiene otro registro: tercerizados, despachos, extras.'}
+            : 'El papel y la tinta se cargan al salir de bodega, al costo real del lote; las horas, con el cierre. Acá sólo se corrige lo que no tiene otro registro —tercerizados, despachos, extras—, con su motivo.'}
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-[1fr_220px] gap-3 p-3 rounded-md border border-border bg-muted/30">
@@ -431,6 +441,20 @@ export function RealCostEntryDialog({
         {open && (
           <SalidaDePapel otId={ot.id} toStatus={targetStatus} movedUnits={movedQuantity} onChange={setPapel} />
         )}
+
+        <div>
+          <Label htmlFor="motivo-correccion" className="text-xs text-muted-foreground">
+            Motivo de la corrección (sólo si agregás líneas abajo)
+          </Label>
+          <Textarea
+            id="motivo-correccion"
+            value={motivo}
+            onChange={(e) => setMotivo(e.target.value)}
+            placeholder="Ej.: llegó la factura del laminado externo"
+            rows={2}
+            className="mt-1 text-sm"
+          />
+        </div>
 
         <ScrollArea className="flex-1 max-h-[50vh] pr-2">
           <div className="space-y-3">

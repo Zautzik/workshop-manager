@@ -17,7 +17,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 	if (isAuthError(auth)) return auth;
 
 	const { id } = await params;
-	if (!z.string().uuid().safeParse(id).success) {
+	if (!z.string().guid().safeParse(id).success) {
 		return NextResponse.json({ error: 'Se requiere un ID de OT válido' }, { status: 400 });
 	}
 	const url = new URL(req.url);

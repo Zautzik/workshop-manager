@@ -2,18 +2,19 @@
 
 import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
-import { ChevronRight, Star, MapPin, Pencil, Wallet } from 'lucide-react';
+import { ChevronRight, MapPin, Pencil, Wallet } from 'lucide-react';
 import { CONTRACT_LABEL, formatMoney, type MergedPerson, type TodayAssignment } from './personas-shared';
 import { ScoreBar } from './ScoreBar';
 import { EditableFicha } from './EditableFicha';
 
-export function FragmentRow({ person: p, expanded, contractType, hrsWeek, assignment, presentNow, onToggle, onSaved }: {
+export function FragmentRow({ person: p, expanded, contractType, hrsWeek, assignment, hoursMonth, onToggle, onSaved }: {
   person: MergedPerson;
   expanded: boolean;
   contractType?: string;
   hrsWeek?: number;
   assignment: TodayAssignment | null;
-  presentNow: boolean;
+  /** Hours from the ledger this month; null while loading. */
+  hoursMonth: number | null;
   onToggle: () => void;
   onSaved: () => void;
 }) {
@@ -28,18 +29,8 @@ export function FragmentRow({ person: p, expanded, contractType, hrsWeek, assign
           <ChevronRight className={`h-4 w-4 transition-transform ${expanded ? 'rotate-90' : ''}`} />
         </td>
         <td className="py-3 px-2">
-          <div className="flex items-center gap-1.5">
-            {/* Live from the station kiosk — green means clocked in right now. */}
-            <span
-              title={presentNow ? 'Presente ahora (marcó entrada)' : 'Sin marca de entrada activa'}
-              aria-label={presentNow ? 'Presente ahora' : 'Ausente'}
-              className={`h-2 w-2 shrink-0 rounded-full ${
-                presentNow ? 'bg-emerald-500' : 'bg-muted-foreground/25'
-              }`}
-            />
-            <span className="font-semibold text-foreground text-[15px]">{p.full_name}</span>
-          </div>
-          {p.employee_code && <div className="text-xs text-muted-foreground font-mono pl-3.5">{p.employee_code}</div>}
+          <div className="font-semibold text-foreground text-[15px]">{p.full_name}</div>
+          {p.employee_code && <div className="text-xs text-muted-foreground font-mono">{p.employee_code}</div>}
         </td>
         <td className="py-3 px-2 text-muted-foreground">{p.department || '—'}</td>
         <td className="py-3 px-2">
@@ -60,10 +51,8 @@ export function FragmentRow({ person: p, expanded, contractType, hrsWeek, assign
           )}
         </td>
         <td className="py-3 px-2 text-right">
-          {p.rating > 0 ? (
-            <span className="inline-flex items-center gap-1 tabular-nums font-medium text-foreground">
-              <Star className="h-3.5 w-3.5 text-amber-500 fill-amber-500" />{p.rating}
-            </span>
+          {hoursMonth ? (
+            <span className="tabular-nums font-medium text-foreground">{hoursMonth.toLocaleString('es-CL')} h</span>
           ) : <span className="text-muted-foreground">—</span>}
         </td>
         <td className="py-3 px-2">
@@ -109,47 +98,60 @@ export function FragmentRow({ person: p, expanded, contractType, hrsWeek, assign
         <tr className="border-b border-border bg-muted/20">
           <td></td>
           <td colSpan={8} className="py-4 pr-4">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {/* Column 1: the editable ficha */}
-              <EditableFicha person={p} onSaved={onSaved} />
-
-              {/* Column 2: performance breakdown */}
-              <div className="space-y-2.5">
-                <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Rendimiento</div>
-                <ScoreBar label="Calidad" value={p.quality} />
-                <ScoreBar label="Velocidad" value={p.speed} />
-                <ScoreBar label="Asistencia" value={p.attendance} />
-                <ScoreBar label="Trabajo en equipo" value={p.teamwork} />
-              </div>
-
-              {/* Column 3: skills + actions */}
-              <div className="space-y-3">
-                <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Competencias</div>
-                {p.skills.length > 0 ? (
-                  <div className="flex flex-wrap gap-1.5">
-                    {p.skills.map((s: any, i: number) => (
-                      <Badge key={i} variant="outline" className="border-border font-normal">
-                        {s?.skill?.name || s?.skill?.code}
-                        <span className="ml-1 text-muted-foreground">N{s?.proficiency_level ?? '?'}</span>
-                      </Badge>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-sm text-muted-foreground">Sin competencias registradas</div>
-                )}
-                <div className="flex flex-wrap gap-2 pt-1">
-                  <Link href="/personas/consola?tab=equipo" className="inline-flex items-center gap-1 text-xs text-primary hover:underline">
-                    <Pencil className="h-3 w-3" /> Editar ficha
-                  </Link>
-                  <Link href="/personas/consola?tab=retribucion" className="inline-flex items-center gap-1 text-xs text-primary hover:underline">
-                    <Wallet className="h-3 w-3" /> Ver nómina
-                  </Link>
-                </div>
-              </div>
-            </div>
+            <PersonDetail person={p} onSaved={onSaved} />
           </td>
         </tr>
       )}
     </>
+  );
+}
+
+/**
+ * A person's detail: editable ficha, evaluations, skills. One component for
+ * the desktop row and the phone card, so the two can't drift apart.
+ */
+export function PersonDetail({ person: p, onSaved }: { person: MergedPerson; onSaved: () => void }) {
+  return (
+    <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+      {/* Column 1: the editable ficha */}
+      <EditableFicha person={p} onSaved={onSaved} />
+
+      {/* Column 2: performance breakdown */}
+      <div className="space-y-2.5">
+        <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Rendimiento</div>
+        {[p.quality, p.speed, p.attendance, p.teamwork].every((v) => v == null) && (
+          <p className="text-xs text-muted-foreground">Sin evaluar.</p>
+        )}
+        <ScoreBar label="Calidad" value={p.quality} />
+        <ScoreBar label="Velocidad" value={p.speed} />
+        <ScoreBar label="Asistencia" value={p.attendance} />
+        <ScoreBar label="Trabajo en equipo" value={p.teamwork} />
+      </div>
+
+      {/* Column 3: skills + actions */}
+      <div className="space-y-3">
+        <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Competencias</div>
+        {p.skills.length > 0 ? (
+          <div className="flex flex-wrap gap-1.5">
+            {p.skills.map((s: any, i: number) => (
+              <Badge key={i} variant="outline" className="border-border font-normal">
+                {s?.skill?.name || s?.skill?.code}
+                <span className="ml-1 text-muted-foreground">N{s?.proficiency_level ?? '?'}</span>
+              </Badge>
+            ))}
+          </div>
+        ) : (
+          <div className="text-sm text-muted-foreground">Sin competencias registradas</div>
+        )}
+        <div className="flex flex-wrap gap-2 pt-1">
+          <Link href="/personas/consola?tab=equipo" className="inline-flex items-center gap-1 text-xs text-primary hover:underline">
+            <Pencil className="h-3 w-3" /> Editar ficha
+          </Link>
+          <Link href="/personas/consola?tab=retribucion" className="inline-flex items-center gap-1 text-xs text-primary hover:underline">
+            <Wallet className="h-3 w-3" /> Ver nómina
+          </Link>
+        </div>
+      </div>
+    </div>
   );
 }

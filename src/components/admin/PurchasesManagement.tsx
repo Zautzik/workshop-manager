@@ -2,7 +2,7 @@
 import { useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { KpiCard } from '@/components/ui/kpi-card';
+import { StatsBar } from '@/components/ui/stats-bar';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -21,7 +21,7 @@ import { Plus, Trash2, Receipt, Link2, AlertTriangle, PackageCheck, FileSignatur
 import { formatCLP } from '@/lib/format';
 import { ocActions, threeWayMatch, type OCStatus } from '@/lib/purchasing';
 import { usePurchases } from '@/hooks/use-admin-queries';
-import { useOTs } from '@/hooks/use-operations-queries';
+import { useActiveOTs } from '@/hooks/use-operations-queries';
 import {
   useCreateOC, useStockItems, useSuppliers,
   type OCRow, type StockItem,
@@ -29,6 +29,7 @@ import {
 import { OC_STATUS } from './purchase-status';
 import { ReceiveDialog } from './ReceiveDialog';
 import { FacturasDialog } from './FacturasDialog';
+import { MobileCardList, MobileCard } from '@/components/layout/MobileCardList';
 
 interface DraftLine {
   key: number;
@@ -54,7 +55,7 @@ const PurchasesManagement = () => {
       (oc.supplier ?? '').toLowerCase().includes(q)
     );
   }, [ocsAll, search]);
-  const { data: ots = [] } = useOTs();
+  const { data: ots = [] } = useActiveOTs();
   const createOC = useCreateOC();
 
   const [showNew, setShowNew] = useState(false);
@@ -251,12 +252,14 @@ const PurchasesManagement = () => {
       </CardHeader>
       <CardContent className="space-y-5">
         {/* KPIs */}
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <KpiCard label="Comprometido (en OT)" value={formatCLP(kpis.committed)} tone="info" />
-          <KpiCard label="Facturado" value={formatCLP(kpis.invoiced)} tone="success" />
-          <KpiCard label="Cobran de más" value={String(kpis.discrepancies)} tone={kpis.discrepancies > 0 ? 'warning' : 'default'} />
-          <KpiCard label="Certificado vencido" value={String(kpis.certVencidos)} tone={kpis.certVencidos > 0 ? 'critical' : 'default'} />
-        </div>
+        <StatsBar
+          stats={[
+            { label: 'Comprometido (en OT)', value: formatCLP(kpis.committed), tone: 'info' },
+            { label: 'Facturado', value: formatCLP(kpis.invoiced), tone: 'success' },
+            { label: 'Cobran de más', value: String(kpis.discrepancies), count: kpis.discrepancies, tone: 'warning', hideWhenZero: true },
+            { label: 'Certificado vencido', value: String(kpis.certVencidos), count: kpis.certVencidos, tone: 'critical', hideWhenZero: true },
+          ]}
+        />
 
         {/* El registro completo ya se trae server-side (fetchAll); esto sólo
             avisa en el único caso en que igual no alcanzó. */}
@@ -277,6 +280,42 @@ const PurchasesManagement = () => {
           />
         </div>
 
+        {/* Phone: one row per OC with its next action (F3). The same rules
+            (ocActions, threeWayMatch) decide what is offered. */}
+        {ocs.length === 0 && (
+          <p className="py-6 text-center text-sm text-muted-foreground md:hidden">{search.trim() ? 'Ninguna OC coincide con la búsqueda.' : 'Sin órdenes de compra.'}</p>
+        )}
+        <MobileCardList>
+          {ocs.map((oc) => {
+            const st = OC_STATUS[oc.status] ?? { label: oc.status, cls: '' };
+            const progress = { ordered: Number(oc.pedido ?? oc.total_cost ?? 0), received: Number(oc.recibido ?? 0), invoiced: Number(oc.facturado ?? 0) };
+            const calce = threeWayMatch(progress);
+            const acciones = ocActions(oc.status as OCStatus, progress);
+            return (
+              <MobileCard
+                key={oc.id}
+                title={`${oc.oc_number ?? 'Borrador'} · ${oc.supplier ?? '—'}`}
+                badge={<span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] ${st.cls}`}>{st.label}</span>}
+                meta={[
+                  oc.ot_number ? `OT ${oc.ot_number}` : null,
+                  formatCLP(progress.ordered),
+                  calce.status === 'ok' ? null : calce.status === 'con_diferencia' ? 'cobran de más' : 'en revisión',
+                ]}
+                actions={
+                  acciones.emitir ? (
+                    <Button size="sm" className="h-9" onClick={() => emitirOC(oc)}>Emitir</Button>
+                  ) : acciones.recibir ? (
+                    <Button size="sm" variant="outline" className="h-9" onClick={() => setReceiveFor(oc)}>Recibir</Button>
+                  ) : (
+                    <Button size="sm" variant="outline" className="h-9" onClick={() => setFacturasFor(oc)}>Facturas</Button>
+                  )
+                }
+              />
+            );
+          })}
+        </MobileCardList>
+
+        <div className="hidden md:block">
         <Table>
           <TableHeader>
             <TableRow>
@@ -308,7 +347,12 @@ const PurchasesManagement = () => {
                 received: Number(oc.recibido ?? 0),
                 invoiced: Number(oc.facturado ?? 0),
               });
-              const acciones = ocActions(oc.status as OCStatus);
+              // With progress, "Recibir" disappears once everything arrived (M6).
+              const acciones = ocActions(oc.status as OCStatus, {
+                ordered: Number(oc.pedido ?? oc.total_cost ?? 0),
+                received: Number(oc.recibido ?? 0),
+                invoiced: Number(oc.facturado ?? 0),
+              });
               return (
                 <TableRow key={oc.id}>
                   <TableCell className="font-mono text-xs">
@@ -408,6 +452,7 @@ const PurchasesManagement = () => {
             })}
           </TableBody>
         </Table>
+        </div>
       </CardContent>
 
       {/* Nueva OC */}
@@ -462,7 +507,7 @@ const PurchasesManagement = () => {
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
                 <Label>Líneas (opcional — qué se pidió, material por material)</Label>
-                <Button type="button" variant="outline" size="sm" className="h-7 gap-1 text-xs" onClick={addLine}>
+                <Button type="button" variant="outline" size="sm" className="h-9 sm:h-7 gap-1 text-xs" onClick={addLine}>
                   <Plus className="h-3 w-3" /> Agregar línea
                 </Button>
               </div>

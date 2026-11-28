@@ -24,7 +24,7 @@ export async function GET(
 	if (isAuthError(auth)) return auth;
 
 	const { id } = await params;
-	if (!id || !z.string().uuid().safeParse(id).success) {
+	if (!id || !z.string().guid().safeParse(id).success) {
 		return NextResponse.json({ error: 'Se requiere un ID de OT válido' }, { status: 400 });
 	}
 
@@ -55,7 +55,7 @@ export async function GET(
  * cuyo único objetivo ES el dato. Un cierre sin horas no cerraría nada.
  */
 const CloseSchema = z.object({
-	id: z.string().uuid(),
+	id: z.string().guid(),
 	hours: z.coerce.number().positive().max(999_999),
 	merma_sheets: z.coerce.number().int().min(0).optional().nullable(),
 	ajuste_minutes: z.coerce.number().int().positive().max(600).optional().nullable(),
@@ -72,7 +72,7 @@ export async function PATCH(
 	if (isAuthError(auth)) return auth;
 
 	const { id } = await params;
-	if (!id || !z.string().uuid().safeParse(id).success) {
+	if (!id || !z.string().guid().safeParse(id).success) {
 		return NextResponse.json({ error: 'Se requiere un ID de OT válido' }, { status: 400 });
 	}
 

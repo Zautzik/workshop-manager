@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
+import { units } from '@/lib/limits';
 import { requireAuth, isAuthError } from '@/lib/api-middleware';
 import { supabaseAdmin } from '@/integrations/supabase/server';
 
@@ -17,9 +18,9 @@ export const dynamic = 'force-dynamic';
  * balance as a real `purchase` transaction so the ledger stays the source of truth.
  */
 const LotSchema = z.object({
-  item_id: z.string().uuid(),
+  item_id: z.string().guid(),
   lot_number: z.string().min(1).max(150),
-  quantity_received: z.coerce.number().min(0).default(0),
+  quantity_received: units().default(0),
   unit_cost: z.coerce.number().min(0).default(0),
   received_date: z.string().min(1).optional(),
   supplier_name: z.string().max(255).nullable().optional(),

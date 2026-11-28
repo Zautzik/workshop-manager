@@ -30,7 +30,7 @@ export function WebhooksPanel({ data }: { data: DiagnosticsData }) {
 					</CardTitle>
 				</CardHeader>
 				<CardContent className="space-y-3">
-					<div className="grid grid-cols-4 gap-3">
+					<div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
 						{waStats.map(({ key, label, color }) => (
 							<div key={key} className="text-center">
 								<p className={`text-2xl font-bold ${color}`}>{whatsapp.byStatus[key] ?? 0}</p>
@@ -40,6 +40,7 @@ export function WebhooksPanel({ data }: { data: DiagnosticsData }) {
 					</div>
 					{/* Recent log entries */}
 					<div className="mt-3 border rounded-md overflow-hidden">
+						<div className="overflow-x-auto">
 						<table className="w-full text-xs">
 							<thead>
 								<tr className="bg-muted/50 text-muted-foreground">
@@ -65,6 +66,7 @@ export function WebhooksPanel({ data }: { data: DiagnosticsData }) {
 								)}
 							</tbody>
 						</table>
+						</div>
 					</div>
 				</CardContent>
 			</Card>

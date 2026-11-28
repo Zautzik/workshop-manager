@@ -76,7 +76,7 @@ export function DisenoDeLaOT({ otId, onChanged }: Props) {
 					e.target.value = '';
 				}}
 			/>
-			<Button size="sm" className="h-7 text-xs" disabled={subiendo} onClick={() => input.current?.click()}>
+			<Button size="sm" className="h-9 sm:h-7 text-xs" disabled={subiendo} onClick={() => input.current?.click()}>
 				{subiendo ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <FileUp className="mr-1 h-3 w-3" />}
 				Subir el diseño
 			</Button>
@@ -85,7 +85,7 @@ export function DisenoDeLaOT({ otId, onChanged }: Props) {
 			<Button
 				variant="ghost"
 				size="sm"
-				className="h-7 text-xs text-muted-foreground"
+				className="h-9 sm:h-7 text-xs text-muted-foreground"
 				disabled={subiendo}
 				onClick={declararSinDiseno}
 			>

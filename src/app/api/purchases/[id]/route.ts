@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
+import { amountCLP } from '@/lib/limits';
 import { isAuthError, requireAuth } from '@/lib/api-middleware';
 import { supabaseAdmin } from '@/integrations/supabase/server';
 
@@ -72,8 +73,8 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
 const UpdateOCSchema = z.object({
   supplier: z.string().min(1).max(255).optional(),
   supplier_rut: z.string().max(50).optional().nullable(),
-  ot_id: z.string().uuid().optional().nullable(),
-  total_cost: z.coerce.number().min(0).optional(),
+  ot_id: z.string().guid().optional().nullable(),
+  total_cost: amountCLP().optional(),
   status: z.enum(['draft', 'sent', 'received', 'invoiced', 'closed', 'cancelled']).optional(),
   expected_date: z.string().optional().nullable(),
   certification_details: z.string().max(2000).optional().nullable(),

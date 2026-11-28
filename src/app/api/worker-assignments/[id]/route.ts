@@ -11,11 +11,11 @@ export const dynamic = 'force-dynamic';
 // valor termina en `machine_id`.
 const UpdateAssignmentSchema = z
   .object({
-    employee_id: z.string().uuid().optional(),
-    workstation_id: z.string().uuid().optional(),
-    machine_id: z.string().uuid().optional(),
+    employee_id: z.string().guid().optional(),
+    workstation_id: z.string().guid().optional(),
+    machine_id: z.string().guid().optional(),
     role: z.string().min(1).optional(),
-    ot_id: z.string().uuid().nullable().optional(),
+    ot_id: z.string().guid().nullable().optional(),
   })
   .transform(({ workstation_id, ...rest }) => {
     const machine_id = rest.machine_id ?? workstation_id;

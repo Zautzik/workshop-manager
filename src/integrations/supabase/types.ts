@@ -32,75 +32,6 @@ export type Database = {
         }
         Relationships: []
       }
-      attendance_events: {
-        Row: {
-          at: string
-          created_at: string
-          employee_id: string | null
-          event_type: string
-          id: string
-          machine_id: string | null
-          metadata: Json
-          method: string
-        }
-        Insert: {
-          at?: string
-          created_at?: string
-          employee_id?: string | null
-          event_type: string
-          id?: string
-          machine_id?: string | null
-          metadata?: Json
-          method?: string
-        }
-        Update: {
-          at?: string
-          created_at?: string
-          employee_id?: string | null
-          event_type?: string
-          id?: string
-          machine_id?: string | null
-          metadata?: Json
-          method?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "attendance_events_employee_id_fkey"
-            columns: ["employee_id"]
-            isOneToOne: false
-            referencedRelation: "employees"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "attendance_events_employee_id_fkey"
-            columns: ["employee_id"]
-            isOneToOne: false
-            referencedRelation: "worker_stats"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "attendance_events_machine_id_fkey"
-            columns: ["machine_id"]
-            isOneToOne: false
-            referencedRelation: "machines"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "attendance_events_machine_id_fkey"
-            columns: ["machine_id"]
-            isOneToOne: false
-            referencedRelation: "planta_live"
-            referencedColumns: ["machine_id"]
-          },
-          {
-            foreignKeyName: "attendance_events_machine_id_fkey"
-            columns: ["machine_id"]
-            isOneToOne: false
-            referencedRelation: "planta_live"
-            referencedColumns: ["workstation_id"]
-          },
-        ]
-      }
       bulk_operation_jobs: {
         Row: {
           completed_at: string | null
@@ -394,15 +325,18 @@ export type Database = {
         Row: {
           address: string | null
           city: string | null
+          comuna_code: string | null
           contact_name: string | null
           created_at: string
           email: string | null
+          giro: string | null
           id: string
           is_active: boolean
           name: string
           notes: string | null
           payment_terms: string | null
           phone: string | null
+          region_code: string | null
           rut: string | null
           salesman_id: string | null
           updated_at: string
@@ -410,15 +344,18 @@ export type Database = {
         Insert: {
           address?: string | null
           city?: string | null
+          comuna_code?: string | null
           contact_name?: string | null
           created_at?: string
           email?: string | null
+          giro?: string | null
           id?: string
           is_active?: boolean
           name: string
           notes?: string | null
           payment_terms?: string | null
           phone?: string | null
+          region_code?: string | null
           rut?: string | null
           salesman_id?: string | null
           updated_at?: string
@@ -426,15 +363,18 @@ export type Database = {
         Update: {
           address?: string | null
           city?: string | null
+          comuna_code?: string | null
           contact_name?: string | null
           created_at?: string
           email?: string | null
+          giro?: string | null
           id?: string
           is_active?: boolean
           name?: string
           notes?: string | null
           payment_terms?: string | null
           phone?: string | null
+          region_code?: string | null
           rut?: string | null
           salesman_id?: string | null
           updated_at?: string
@@ -671,10 +611,23 @@ export type Database = {
       dispatch_guides: {
         Row: {
           carrier: string | null
+          carrier_rut: string | null
           client_id: string | null
           client_name: string | null
           created_at: string
+          destination_comuna_code: string | null
           dispatch_date: string
+          driver_name: string | null
+          driver_rut: string | null
+          dte_checked_at: string | null
+          dte_errors: Json | null
+          dte_folio: string | null
+          dte_idempotency_key: string | null
+          dte_provider: string | null
+          dte_provider_id: string | null
+          dte_sent_at: string | null
+          dte_status: Database["public"]["Enums"]["dte_status"]
+          dte_type: number | null
           guide_number: string
           id: string
           invoice_id: string | null
@@ -688,10 +641,23 @@ export type Database = {
         }
         Insert: {
           carrier?: string | null
+          carrier_rut?: string | null
           client_id?: string | null
           client_name?: string | null
           created_at?: string
+          destination_comuna_code?: string | null
           dispatch_date?: string
+          driver_name?: string | null
+          driver_rut?: string | null
+          dte_checked_at?: string | null
+          dte_errors?: Json | null
+          dte_folio?: string | null
+          dte_idempotency_key?: string | null
+          dte_provider?: string | null
+          dte_provider_id?: string | null
+          dte_sent_at?: string | null
+          dte_status?: Database["public"]["Enums"]["dte_status"]
+          dte_type?: number | null
           guide_number?: string
           id?: string
           invoice_id?: string | null
@@ -705,10 +671,23 @@ export type Database = {
         }
         Update: {
           carrier?: string | null
+          carrier_rut?: string | null
           client_id?: string | null
           client_name?: string | null
           created_at?: string
+          destination_comuna_code?: string | null
           dispatch_date?: string
+          driver_name?: string | null
+          driver_rut?: string | null
+          dte_checked_at?: string | null
+          dte_errors?: Json | null
+          dte_folio?: string | null
+          dte_idempotency_key?: string | null
+          dte_provider?: string | null
+          dte_provider_id?: string | null
+          dte_sent_at?: string | null
+          dte_status?: Database["public"]["Enums"]["dte_status"]
+          dte_type?: number | null
           guide_number?: string
           id?: string
           invoice_id?: string | null
@@ -2284,70 +2263,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "worker_stats"
             referencedColumns: ["id"]
-          },
-        ]
-      }
-      machine_cost_entries: {
-        Row: {
-          created_at: string
-          energy_cost: number | null
-          energy_kwh: number | null
-          id: string
-          machine_id: string
-          maintenance_cost: number | null
-          notes: string | null
-          other_cost: number | null
-          period_month: string
-          recorded_by: string | null
-          supplies_cost: number | null
-        }
-        Insert: {
-          created_at?: string
-          energy_cost?: number | null
-          energy_kwh?: number | null
-          id?: string
-          machine_id: string
-          maintenance_cost?: number | null
-          notes?: string | null
-          other_cost?: number | null
-          period_month: string
-          recorded_by?: string | null
-          supplies_cost?: number | null
-        }
-        Update: {
-          created_at?: string
-          energy_cost?: number | null
-          energy_kwh?: number | null
-          id?: string
-          machine_id?: string
-          maintenance_cost?: number | null
-          notes?: string | null
-          other_cost?: number | null
-          period_month?: string
-          recorded_by?: string | null
-          supplies_cost?: number | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "machine_cost_entries_machine_id_fkey"
-            columns: ["machine_id"]
-            isOneToOne: false
-            referencedRelation: "machines"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "machine_cost_entries_machine_id_fkey"
-            columns: ["machine_id"]
-            isOneToOne: false
-            referencedRelation: "planta_live"
-            referencedColumns: ["machine_id"]
-          },
-          {
-            foreignKeyName: "machine_cost_entries_machine_id_fkey"
-            columns: ["machine_id"]
-            isOneToOne: false
-            referencedRelation: "planta_live"
-            referencedColumns: ["workstation_id"]
           },
         ]
       }
@@ -4144,6 +4059,7 @@ export type Database = {
           category: Database["public"]["Enums"]["cost_line_category"]
           created_at: string
           description: string
+          employee_id: string | null
           id: string
           kind: Database["public"]["Enums"]["cost_line_kind"]
           notes: string | null
@@ -4163,6 +4079,7 @@ export type Database = {
           category?: Database["public"]["Enums"]["cost_line_category"]
           created_at?: string
           description: string
+          employee_id?: string | null
           id?: string
           kind: Database["public"]["Enums"]["cost_line_kind"]
           notes?: string | null
@@ -4182,6 +4099,7 @@ export type Database = {
           category?: Database["public"]["Enums"]["cost_line_category"]
           created_at?: string
           description?: string
+          employee_id?: string | null
           id?: string
           kind?: Database["public"]["Enums"]["cost_line_kind"]
           notes?: string | null
@@ -4197,6 +4115,20 @@ export type Database = {
           unit_cost?: number
         }
         Relationships: [
+          {
+            foreignKeyName: "ot_cost_lines_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ot_cost_lines_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "worker_stats"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "ot_cost_lines_ot_id_fkey"
             columns: ["ot_id"]
@@ -4357,7 +4289,6 @@ export type Database = {
       ot_machine_schedule: {
         Row: {
           actual_end: string | null
-          actual_hours: number | null
           actual_start: string | null
           calc_sheets: number | null
           created_at: string
@@ -4379,7 +4310,6 @@ export type Database = {
         }
         Insert: {
           actual_end?: string | null
-          actual_hours?: number | null
           actual_start?: string | null
           calc_sheets?: number | null
           created_at?: string
@@ -4401,7 +4331,6 @@ export type Database = {
         }
         Update: {
           actual_end?: string | null
-          actual_hours?: number | null
           actual_start?: string | null
           calc_sheets?: number | null
           created_at?: string
@@ -4554,93 +4483,6 @@ export type Database = {
           },
           {
             foreignKeyName: "ot_operations_ot_id_fkey"
-            columns: ["ot_id"]
-            isOneToOne: false
-            referencedRelation: "ots"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      ot_real_costs: {
-        Row: {
-          category: string
-          created_at: string
-          description: string
-          id: string
-          notes: string | null
-          operation_code: string
-          ot_id: string
-          quantity: number
-          recorded_by: string | null
-          total_cost: number | null
-          unit: string
-          unit_cost: number
-          updated_at: string
-          workflow_step: string
-        }
-        Insert: {
-          category?: string
-          created_at?: string
-          description: string
-          id?: string
-          notes?: string | null
-          operation_code: string
-          ot_id: string
-          quantity?: number
-          recorded_by?: string | null
-          total_cost?: number | null
-          unit?: string
-          unit_cost?: number
-          updated_at?: string
-          workflow_step: string
-        }
-        Update: {
-          category?: string
-          created_at?: string
-          description?: string
-          id?: string
-          notes?: string | null
-          operation_code?: string
-          ot_id?: string
-          quantity?: number
-          recorded_by?: string | null
-          total_cost?: number | null
-          unit?: string
-          unit_cost?: number
-          updated_at?: string
-          workflow_step?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "ot_real_costs_ot_id_fkey"
-            columns: ["ot_id"]
-            isOneToOne: false
-            referencedRelation: "ot_certificacion"
-            referencedColumns: ["ot_id"]
-          },
-          {
-            foreignKeyName: "ot_real_costs_ot_id_fkey"
-            columns: ["ot_id"]
-            isOneToOne: false
-            referencedRelation: "ot_compras_estado"
-            referencedColumns: ["ot_id"]
-          },
-          {
-            foreignKeyName: "ot_real_costs_ot_id_fkey"
-            columns: ["ot_id"]
-            isOneToOne: false
-            referencedRelation: "ot_cost_summary"
-            referencedColumns: ["ot_id"]
-          },
-          {
-            foreignKeyName: "ot_real_costs_ot_id_fkey"
-            columns: ["ot_id"]
-            isOneToOne: false
-            referencedRelation: "ot_fulfillment"
-            referencedColumns: ["ot_id"]
-          },
-          {
-            foreignKeyName: "ot_real_costs_ot_id_fkey"
             columns: ["ot_id"]
             isOneToOne: false
             referencedRelation: "ots"
@@ -6238,6 +6080,15 @@ export type Database = {
           client_id: string | null
           client_name: string | null
           created_at: string
+          dte_checked_at: string | null
+          dte_errors: Json | null
+          dte_folio: string | null
+          dte_idempotency_key: string | null
+          dte_provider: string | null
+          dte_provider_id: string | null
+          dte_sent_at: string | null
+          dte_status: Database["public"]["Enums"]["dte_status"]
+          dte_type: number | null
           due_date: string | null
           id: string
           invoice_number: string
@@ -6255,6 +6106,15 @@ export type Database = {
           client_id?: string | null
           client_name?: string | null
           created_at?: string
+          dte_checked_at?: string | null
+          dte_errors?: Json | null
+          dte_folio?: string | null
+          dte_idempotency_key?: string | null
+          dte_provider?: string | null
+          dte_provider_id?: string | null
+          dte_sent_at?: string | null
+          dte_status?: Database["public"]["Enums"]["dte_status"]
+          dte_type?: number | null
           due_date?: string | null
           id?: string
           invoice_number?: string
@@ -6272,6 +6132,15 @@ export type Database = {
           client_id?: string | null
           client_name?: string | null
           created_at?: string
+          dte_checked_at?: string | null
+          dte_errors?: Json | null
+          dte_folio?: string | null
+          dte_idempotency_key?: string | null
+          dte_provider?: string | null
+          dte_provider_id?: string | null
+          dte_sent_at?: string | null
+          dte_status?: Database["public"]["Enums"]["dte_status"]
+          dte_type?: number | null
           due_date?: string | null
           id?: string
           invoice_number?: string
@@ -7300,6 +7169,24 @@ export type Database = {
         }
         Relationships: []
       }
+      whatsapp_inbound_claims: {
+        Row: {
+          channel: string
+          claimed_at: string
+          wamid: string
+        }
+        Insert: {
+          channel: string
+          claimed_at?: string
+          wamid: string
+        }
+        Update: {
+          channel?: string
+          claimed_at?: string
+          wamid?: string
+        }
+        Relationships: []
+      }
       whatsapp_outbound_log: {
         Row: {
           body: string
@@ -7330,24 +7217,6 @@ export type Database = {
           ok?: boolean
           provider?: string
           to_phone?: string
-        }
-        Relationships: []
-      }
-      whatsapp_inbound_claims: {
-        Row: {
-          channel: string
-          claimed_at: string
-          wamid: string
-        }
-        Insert: {
-          channel: string
-          claimed_at?: string
-          wamid: string
-        }
-        Update: {
-          channel?: string
-          claimed_at?: string
-          wamid?: string
         }
         Relationships: []
       }
@@ -7506,6 +7375,7 @@ export type Database = {
           corrected_quantity: number | null
           corrected_unit_cost: number | null
           created_at: string
+          external_message_id: string | null
           fed_to_inventory: boolean
           id: string
           inventory_tx_id: string | null
@@ -7537,6 +7407,7 @@ export type Database = {
           corrected_quantity?: number | null
           corrected_unit_cost?: number | null
           created_at?: string
+          external_message_id?: string | null
           fed_to_inventory?: boolean
           id?: string
           inventory_tx_id?: string | null
@@ -7568,6 +7439,7 @@ export type Database = {
           corrected_quantity?: number | null
           corrected_unit_cost?: number | null
           created_at?: string
+          external_message_id?: string | null
           fed_to_inventory?: boolean
           id?: string
           inventory_tx_id?: string | null
@@ -9011,6 +8883,10 @@ export type Database = {
           schedule: string
         }[]
       }
+      devolver_salida_papel: {
+        Args: { p_by?: string; p_tx_ids: string[] }
+        Returns: number
+      }
       emitir_oc: {
         Args: {
           p_issued_by: string
@@ -9046,6 +8922,15 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      emitir_papel: {
+        Args: {
+          p_by?: string
+          p_lines: Json
+          p_ot_id: string
+          p_stage?: string
+        }
+        Returns: Json
       }
       enforce_hr_data_retention: {
         Args: { p_dry_run?: boolean; p_reference_time?: string }
@@ -9386,6 +9271,7 @@ export type Database = {
           production_detail: Json | null
           quantity: number
           relieve_matrix_code: string | null
+          route_steps: string[] | null
           salesman_id: string | null
           share_token: string
           sin_arte: boolean
@@ -9494,6 +9380,7 @@ export type Database = {
         | "other"
       cost_line_kind: "estimate" | "committed" | "actual"
       dispatch_status: "draft" | "dispatched" | "delivered" | "cancelled"
+      dte_status: "not_sent" | "pending" | "accepted" | "rejected" | "error"
       employee_status: "active" | "inactive" | "on_leave" | "terminated"
       employment_contract_type:
         | "full_time"
@@ -9860,6 +9747,7 @@ export const Constants = {
       ],
       cost_line_kind: ["estimate", "committed", "actual"],
       dispatch_status: ["draft", "dispatched", "delivered", "cancelled"],
+      dte_status: ["not_sent", "pending", "accepted", "rejected", "error"],
       employee_status: ["active", "inactive", "on_leave", "terminated"],
       employment_contract_type: [
         "full_time",

@@ -7,9 +7,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
 import { GanttChart, Cpu, CalendarDays, CalendarRange } from 'lucide-react';
 import { OTGanttBoard } from '@/components/workflow/OTGanttBoard';
+import { PlanMovil } from '@/components/workflow/plan-movil/PlanMovil';
+import { useIsPhone } from '@/hooks/use-is-phone';
 import { ShiftManagement } from '@/components/workflow/ShiftManagement';
 import { UnifiedCalendar } from '@/components/UnifiedCalendar';
 import { PlanSemanal } from '@/components/workflow/PlanSemanal';
+import { PageShell } from '@/components/layout/PageShell';
 
 const VALID_TABS = ['cronograma', 'maquinas', 'calendario', 'semanal'] as const;
 type TabKey = (typeof VALID_TABS)[number];
@@ -18,6 +21,7 @@ function PlanificacionTabs() {
   const router = useRouter();
   const params = useSearchParams();
   const { role } = useAuth();
+  const isPhone = useIsPhone();
   // Cronograma, Máquinas y Semanal pegan contra /api/ot-schedule*, que sólo
   // acepta supervisor/admin/manager. La página igual dejaba entrar a
   // hr_manager con las cuatro pestañas visibles — llegaba a la que sí es
@@ -43,7 +47,7 @@ function PlanificacionTabs() {
 
   return (
     <Tabs value={active} onValueChange={onChange} className="w-full">
-      <TabsList className="grid w-full max-w-2xl grid-cols-4">
+      <TabsList>
         <TabsTrigger value="cronograma" className="gap-2">
           <GanttChart className="h-4 w-4" /> Cronograma
         </TabsTrigger>
@@ -58,8 +62,10 @@ function PlanificacionTabs() {
         </TabsTrigger>
       </TabsList>
 
-      <TabsContent value="cronograma" className="mt-6">
-        <OTGanttBoard />
+      <TabsContent value="cronograma" className="mt-4 md:mt-6">
+        {/* Phone: the same plan as heat map / now-and-next / at-risk with a
+            stage panel (owner, 2026-11-26). Only one of the two is mounted. */}
+        {isPhone ? <PlanMovil /> : <OTGanttBoard />}
       </TabsContent>
       <TabsContent value="maquinas" className="mt-6">
         <ShiftManagement />
@@ -77,9 +83,9 @@ function PlanificacionTabs() {
 export default function PlanificacionPage() {
   return (
     <ProtectedRoute allowedRoles={['admin', 'supervisor', 'manager', 'hr_manager']}>
-      <div className="p-6 space-y-6">
+      <PageShell>
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Planificación</h1>
+          <h1 className="text-xl sm:text-2xl font-bold text-foreground">Planificación</h1>
           <p className="text-sm text-muted-foreground mt-1">
             Cronograma de OTs, programación de máquinas, calendario y plan semanal
           </p>
@@ -87,7 +93,7 @@ export default function PlanificacionPage() {
         <Suspense fallback={<Skeleton className="h-96 w-full" />}>
           <PlanificacionTabs />
         </Suspense>
-      </div>
+      </PageShell>
     </ProtectedRoute>
   );
 }

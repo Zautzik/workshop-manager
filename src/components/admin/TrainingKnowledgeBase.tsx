@@ -59,7 +59,7 @@ export default function TrainingKnowledgeBase() {
       setSlug('');
       setContent('');
       load();
-      toast({ title: 'Articulo creado' });
+      toast({ title: 'Artículo creado' });
     } catch (error: any) {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
     }
@@ -83,7 +83,7 @@ export default function TrainingKnowledgeBase() {
   return (
     <div className="space-y-4">
       <Card className="p-4 space-y-3">
-        <h3 className="font-semibold">Nuevo Articulo</h3>
+        <h3 className="font-semibold">Nuevo artículo</h3>
         <Input placeholder="Titulo" value={title} onChange={(e) => setTitle(e.target.value)} />
         <Input placeholder="Slug" value={slug} onChange={(e) => setSlug(e.target.value)} />
         <Textarea placeholder="Contenido markdown" value={content} onChange={(e) => setContent(e.target.value)} rows={5} />
@@ -91,11 +91,11 @@ export default function TrainingKnowledgeBase() {
       </Card>
 
       <Card className="p-4 space-y-3">
-        <Input placeholder="Buscar articulo" value={query} onChange={(e) => setQuery(e.target.value)} />
+        <Input placeholder="Buscar artículo" value={query} onChange={(e) => setQuery(e.target.value)} />
         {loading ? (
           <p className="text-sm text-muted-foreground">Cargando...</p>
         ) : items.length === 0 ? (
-          <p className="text-sm text-muted-foreground">Sin articulos.</p>
+          <p className="text-sm text-muted-foreground">Sin artículos.</p>
         ) : (
           <div className="space-y-2">
             {items.map((item) => (

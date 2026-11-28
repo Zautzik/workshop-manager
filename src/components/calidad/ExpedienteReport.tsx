@@ -15,7 +15,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
-import { useOTs } from '@/hooks/use-operations-queries';
+import { useOTSearch } from '@/hooks/use-operations-queries';
 import { useOTDossier, type CertStatus } from '@/hooks/use-ot-dossier';
 import { otStatusLabel, otStatusColor } from '@/lib/status-labels';
 
@@ -37,9 +37,10 @@ const fmtDate = (s: string | null | undefined) =>
   s && isValid(parseISO(s)) ? format(parseISO(s), 'PP', { locale: es }) : '—';
 
 export default function ExpedienteReport() {
-  const { data: otsData } = useOTs();
-  const ots = (otsData ?? []) as OtLite[];
   const [search, setSearch] = useState('');
+  // Searches EVERY OT on the server: Expediente keeps 5 years (FSSC 22000),
+  // so an OT from last year must be findable (audit C2).
+  const { data: found = [] } = useOTSearch(search, { limit: 6, enabled: search.trim().length > 0 });
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const { data: dossier, isLoading } = useOTDossier(selectedId);
   const { role } = useAuth();
@@ -89,13 +90,7 @@ export default function ExpedienteReport() {
     } catch { toast.error('No se pudo abrir el archivo'); }
   };
 
-  const suggestions = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    if (!q) return [];
-    return ots.filter((o) =>
-      o.ot_number?.toLowerCase().includes(q) || o.client_name?.toLowerCase().includes(q)
-    ).slice(0, 6);
-  }, [ots, search]);
+  const suggestions = (search.trim() ? found : []) as OtLite[];
 
   return (
     <div className="space-y-6">

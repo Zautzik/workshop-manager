@@ -87,6 +87,7 @@ export function ImportDialog({
               )}
 
               <div className="max-h-80 overflow-y-auto rounded-md border">
+                <div className="overflow-x-auto">
                 <table className="w-full text-xs">
                   <thead className="sticky top-0 bg-card">
                     <tr className="border-b text-left text-muted-foreground">
@@ -130,6 +131,7 @@ export function ImportDialog({
                     ))}
                   </tbody>
                 </table>
+                </div>
               </div>
             </div>
           )}

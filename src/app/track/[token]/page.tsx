@@ -17,6 +17,7 @@ import { CheckCircle2, Circle, Loader2, PackageX } from 'lucide-react';
 import WatercolorBackdrop from '@/components/branding/WatercolorBackdrop';
 import { ForgeHexLogo } from '@/components/branding/ForgeHexLogo';
 import { AprobarPrueba } from '@/components/track/AprobarPrueba';
+import { formatCalendarDate } from '@/lib/format';
 
 /** Internal status → client-facing phase (0-based). */
 const PHASE_OF: Record<string, number> = {
@@ -45,6 +46,10 @@ interface TrackData {
   quantity: number;
   status: string;
   deadline: string | null;
+  /** The promised date is behind us and the order is not done (server, plant date). */
+  deadline_passed?: boolean;
+  /** The shop's name (src/lib/company.ts). */
+  shop_name?: string | null;
   created_at: string;
   history: Array<{ status: string; at: string }>;
   approval: { puedeDecidir: boolean; aprobado: boolean; rondas: number; resumen: string | null };
@@ -90,8 +95,8 @@ export default function TrackPage() {
         <div className="flex items-center gap-3">
           <ForgeHexLogo size={40} showWordmark={false} />
           <div>
-            <p className="text-sm font-semibold tracking-tight text-foreground">GonsAdmin</p>
-            <p className="text-xs text-muted-foreground">Seguimiento de tu pedido</p>
+            {data?.shop_name && <p className="text-sm font-semibold tracking-tight text-foreground">{data.shop_name}</p>}
+            <p className={data?.shop_name ? 'text-xs text-muted-foreground' : 'text-sm font-semibold tracking-tight text-foreground'}>Seguimiento de tu pedido</p>
           </div>
         </div>
 
@@ -142,12 +147,16 @@ export default function TrackPage() {
               </p>
               <p className="text-sm text-muted-foreground">{data.client_name}</p>
               {data.deadline && !isDone && (
-                <p className="mt-3 text-sm text-muted-foreground">
-                  Entrega estimada:{' '}
-                  <span className="font-medium text-foreground">
-                    {format(new Date(data.deadline), "d 'de' MMMM", { locale: es })}
-                  </span>
-                </p>
+                data.deadline_passed ? (
+                  <p className="mt-3 text-sm text-muted-foreground">
+                    Entrega: <span className="font-medium text-foreground">en proceso, nueva fecha por confirmar</span>
+                  </p>
+                ) : (
+                  <p className="mt-3 text-sm text-muted-foreground">
+                    Entrega estimada:{' '}
+                    <span className="font-medium text-foreground">{formatCalendarDate(data.deadline, { withYear: false })}</span>
+                  </p>
+                )
               )}
             </div>
 

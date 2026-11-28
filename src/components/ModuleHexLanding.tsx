@@ -160,6 +160,50 @@ function HexTile({ item, size }: { item: HexLandingItem; size: number }) {
   );
 }
 
+// ─── Compact list (below lg) ──────────────────────────────────────────────────
+// The radial canvas is a fixed ~520–700 px drawing; on a phone or a tablet with
+// the rail open it does not fit, and the overflow-hidden wrapper cut whole
+// groups off (layout crawl 2026-11-25). Below lg the same groups render as a
+// list of tiles: every section reachable, one tap each.
+function TileList({ groups }: { groups: HexLandingGroup[] }) {
+  return (
+    <div className="space-y-5">
+      {groups.map((group) => (
+        <section key={group.label}>
+          <h2 className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.12em] text-foreground/70">
+            <Hexagon className={group.heading} fill="currentColor" fillOpacity={0.25} style={{ width: 12, height: 12 }} />
+            {group.label}
+          </h2>
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            {group.items.map((item) => {
+              const Icon = item.icon;
+              const r = getRgb(item.color);
+              return (
+                <Link
+                  key={item.href + item.label}
+                  href={item.href}
+                  className="flex min-h-[52px] items-center gap-3 rounded-xl border border-border/60 bg-card/80 px-3 py-2 transition-colors hover:bg-muted/60"
+                >
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg" style={{ background: `rgb(${r} / 0.16)` }}>
+                    <Icon style={{ width: 16, height: 16, color: `rgb(${r})` }} />
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block text-sm font-semibold text-foreground">
+                      {item.label}
+                      {item.external && <ExternalLink className="ml-1 inline h-3 w-3 opacity-60" />}
+                    </span>
+                    <span className="block truncate text-xs text-muted-foreground">{item.description}</span>
+                  </span>
+                </Link>
+              );
+            })}
+          </div>
+        </section>
+      ))}
+    </div>
+  );
+}
+
 // ─── Main — hub & spokes radial ───────────────────────────────────────────────
 export default function ModuleHexLanding({ title, subtitle, groups: rawGroups, hubIcon, tint = 'neutral' }: Props) {
   const { role } = useAuth();
@@ -228,7 +272,7 @@ export default function ModuleHexLanding({ title, subtitle, groups: rawGroups, h
 
   return (
     <TooltipProvider delayDuration={150}>
-      <div className="relative min-h-full flex flex-col overflow-hidden px-6 pt-5 pb-6 md:px-10">
+      <div className="relative min-h-full flex flex-col overflow-hidden px-4 pt-5 pb-6 sm:px-6 lg:px-10">
         <WatercolorBackdrop intensity="ambient" tint={tint} />
         {/* Header */}
         <div className="relative z-10 shrink-0">
@@ -239,8 +283,12 @@ export default function ModuleHexLanding({ title, subtitle, groups: rawGroups, h
           <p className="text-base text-muted-foreground mt-0.5">{subtitle}</p>
         </div>
 
+        <div className="relative z-10 mt-4 lg:hidden">
+          <TileList groups={groups} />
+        </div>
+
         {/* Radial canvas */}
-        <div className="relative z-10 flex-1 flex items-center justify-center">
+        <div className="relative z-10 hidden flex-1 items-center justify-center lg:flex">
           <div style={{ position: 'relative', width: W, height: H }}>
             {/* Decorative hub */}
             {hasHub && (

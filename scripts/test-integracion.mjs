@@ -74,10 +74,32 @@ if (host !== '127.0.0.1' && host !== 'localhost' && host !== '[::1]') {
 
 console.log(`Stack local: ${url}`);
 
-const extra = process.argv.slice(2);
+// Every test that needs the local database. Read-only ones (rutas-de-lectura)
+// and the one that writes (cierre-desde-la-etiqueta) share the same lock.
+const INTEGRATION_FILES = [
+	'src/__tests__/cierre-desde-la-etiqueta.test.ts',
+	'src/__tests__/rutas-de-lectura.test.ts',
+	// The golden thread end to end: quote → OT → production → dispatch →
+	// invoice. Writes one ZZTEST OT and removes it (npm run test:e2e alone).
+	'src/__tests__/hilo-dorado.test.ts',
+	// Cost corrections against the real ledger: reversal entry, one reversal
+	// per correction under a race, closed OTs refused. One ZZTEST OT, removed.
+	'src/__tests__/correccion-de-costo.test.ts',
+];
+
+// --only=<file> runs one of them (npm run test:e2e).
+const only = process.argv.find((a) => a.startsWith('--only='))?.slice('--only='.length);
+const files = only ? INTEGRATION_FILES.filter((f) => f.endsWith(only)) : INTEGRATION_FILES;
+if (only && files.length === 0) {
+	console.error(`
+--only=${only} no es una de las pruebas de integración.
+`);
+	process.exit(1);
+}
+const extra = process.argv.slice(2).filter((a) => !a.startsWith('--only='));
 const r = spawnSync(
 	npx,
-	['vitest', 'run', 'src/__tests__/cierre-desde-la-etiqueta.test.ts', ...extra],
+	['vitest', 'run', ...files, ...extra],
 	{
 		stdio: 'inherit',
 		...conShell,

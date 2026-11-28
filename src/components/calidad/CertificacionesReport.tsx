@@ -8,6 +8,7 @@ import { Search, ShieldCheck, ShieldAlert, Clock, AlertTriangle, Boxes, Scale } 
 import { format, parseISO, isValid } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
+import { MobileCardList, MobileCard } from '@/components/layout/MobileCardList';
 import { useCertifications, type CertState } from '@/hooks/use-certifications';
 import { useInventoryReconciliation, useRunInventoryReconciliation } from '@/hooks/use-inventory-reconciliation';
 
@@ -21,6 +22,10 @@ const STATE_META: Record<CertState, { label: string; cls: string }> = {
   faltante:        { label: 'Sin certificado', cls: 'bg-rose-500/15 text-rose-600 dark:text-rose-400' },
   sin_vencimiento: { label: 'Sin vencimiento', cls: 'bg-muted text-muted-foreground' },
 };
+
+/** Most urgent first. */
+const RISK_ORDER: Record<CertState, number> = { vencido: 0, faltante: 1, por_vencer: 2, sin_vencimiento: 3, vigente: 4 };
+const PAGE = 50;
 
 function Stat({ icon: Icon, label, value, tone, active, onClick }: {
   icon: React.ElementType; label: string; value: number; tone?: string; active?: boolean; onClick?: () => void;
@@ -45,20 +50,31 @@ export default function CertificacionesReport() {
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<CertState | null>(null);
 
-  const rows = useMemo(() => {
+  // What is at risk first (expired, missing, expiring), then by expiry date —
+  // and only the first PAGE rendered until asked (audit: 26,000 characters and
+  // 33 s to render every lot at once).
+  const [showAll, setShowAll] = useState(false);
+  const rowsAll = useMemo(() => {
     const all = data?.lots ?? [];
     const q = search.trim().toLowerCase();
-    return all.filter((l) => {
-      if (filter && l.state !== filter) return false;
-      if (!q) return true;
-      return (
-        l.lot_number?.toLowerCase().includes(q) ||
-        l.item_name?.toLowerCase().includes(q) ||
-        l.supplier_name?.toLowerCase().includes(q) ||
-        l.certification_code?.toLowerCase().includes(q)
+    return all
+      .filter((l) => {
+        if (filter && l.state !== filter) return false;
+        if (!q) return true;
+        return (
+          l.lot_number?.toLowerCase().includes(q) ||
+          l.item_name?.toLowerCase().includes(q) ||
+          l.supplier_name?.toLowerCase().includes(q) ||
+          l.certification_code?.toLowerCase().includes(q)
+        );
+      })
+      .sort(
+        (a, b) =>
+          RISK_ORDER[a.state] - RISK_ORDER[b.state] ||
+          String(a.certification_expires_on ?? '9999').localeCompare(String(b.certification_expires_on ?? '9999')),
       );
-    });
   }, [data, search, filter]);
+  const rows = showAll ? rowsAll : rowsAll.slice(0, PAGE);
 
   if (isLoading || !data) {
     return <div className="space-y-3"><Skeleton className="h-20 w-full" /><Skeleton className="h-72 w-full" /></div>;
@@ -137,7 +153,19 @@ export default function CertificacionesReport() {
           {rows.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-12">Sin lotes que coincidan.</p>
           ) : (
-            <div className="overflow-x-auto">
+            <>
+            {/* Phone: one card per lot (F3). */}
+            <MobileCardList>
+              {rows.map((l) => (
+                <MobileCard
+                  key={l.lot_id}
+                  title={l.item_name ?? '—'}
+                  badge={<span className={cn('shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium', STATE_META[l.state].cls)}>{STATE_META[l.state].label}</span>}
+                  meta={[`Lote ${l.lot_number}`, l.supplier_name, l.certification_expires_on ? `vence ${fmtDate(l.certification_expires_on)}` : null]}
+                />
+              ))}
+            </MobileCardList>
+            <div className="hidden overflow-x-auto md:block">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="text-left text-xs text-muted-foreground border-b">
@@ -172,6 +200,15 @@ export default function CertificacionesReport() {
                 </tbody>
               </table>
             </div>
+            {rowsAll.length > rows.length && (
+              <div className="border-t p-3 text-center">
+                <p className="mb-2 text-xs text-muted-foreground">Se ven {rows.length} de {rowsAll.length}, los de más riesgo primero.</p>
+                <Button variant="outline" size="sm" className="h-auto min-h-9 whitespace-normal" onClick={() => setShowAll(true)}>
+                  Ver los {rowsAll.length} lotes
+                </Button>
+              </div>
+            )}
+            </>
           )}
         </CardContent>
       </Card>

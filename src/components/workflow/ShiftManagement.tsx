@@ -26,7 +26,7 @@ import { Factory, Package, AlertCircle } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useOTs } from '@/hooks/use-operations-queries';
+import { useActiveOTs } from '@/hooks/use-operations-queries';
 import { useMachines, MACHINE_TYPE_LABELS, MACHINE_STATUS_LABELS, MACHINE_STATUS_COLOR } from '@/hooks/use-machines';
 import { useAuth } from '@/contexts/AuthContext';
 import { otStatusLabel, otStatusBadgeClass } from '@/lib/status-labels';
@@ -74,7 +74,7 @@ function OTCard({ ot, canEdit, machines, onReassign }: {
 
 export function ShiftManagement() {
   const { data: machines = [], isLoading: machinesLoading } = useMachines(true);
-  const { data: otsRaw = [], isLoading: otsLoading } = useOTs();
+  const { data: otsRaw = [], isLoading: otsLoading } = useActiveOTs();
   const { role } = useAuth();
   const queryClient = useQueryClient();
   // Mismo criterio que PlanSemanal y el cronograma: sólo admin/supervisor

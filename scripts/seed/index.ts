@@ -65,8 +65,8 @@ function titulo(t: string) {
  */
 const TRANSACCIONALES = [
 	'capture_events', 'whatsapp_production_logs', 'whatsapp_warehouse_logs',
-	'worker_assignments', 'attendance_events', 'ot_machine_schedule',
-	'ot_cost_lines', 'ot_operations', 'ot_real_costs', 'ot_financials',
+	'worker_assignments', 'ot_machine_schedule',
+	'ot_cost_lines', 'ot_operations', 'ot_financials',
 	'ot_status_history', 'ot_state_transitions', 'ot_approvals', 'ot_attachments',
 	'sales_invoices', 'dispatch_guides', 'purchase_invoices', 'purchase_items',
 	'inventory_stock_transactions', 'inventory_lots', 'purchases',
@@ -615,7 +615,6 @@ async function escribirTrabajos(
 		actual_start: enTiempo(j.startedOn, 8),
 		actual_end: j.finishedOn ? enTiempo(j.finishedOn, 17) : null,
 		estimated_hours: j.calcs.calc_print_hours,
-		actual_hours: j.closed ? Math.round(j.pressHours * 100) / 100 : null,
 		calc_sheets: j.calcs.calc_sheets,
 		sheet_width_cm: j.form.imposition?.format_w ?? null,
 		sheet_height_cm: j.form.imposition?.format_h ?? null,
@@ -644,22 +643,9 @@ async function escribirTrabajos(
 	if (ESCRIBIR) await insertar('worker_assignments', asignaciones);
 	console.log(`  ${asignaciones.length} turnos asignados, todos con OT`);
 
-	// Marcas de entrada y salida del mes en curso. Sin ellas el módulo de
-	// asistencia queda vacío y el código de credencial no demuestra nada; con
-	// los cuatro meses enteros serían diez mil filas que nadie va a mirar.
-	const mesActual = MONTHS[MONTHS.length - 1];
-	const marcas = trabajos
-		.filter((j) => j.month === mesActual)
-		.flatMap((j) => j.crew.flatMap((c) => [
-			// `clock_in` / `clock_out`, no `check_in`. Es el vocabulario del enum de
-			// la tabla y el que usa `/api/attendance/clock` — inventar un tercero
-			// habría dejado las marcas sembradas invisibles para la pantalla que
-			// las lee, aunque estuvieran en la base.
-			{ employee_id: c.personId, machine_id: c.machineId, event_type: 'clock_in', method: 'qr', at: enTiempo(c.date, TURNOS[c.turno].inicio) },
-			{ employee_id: c.personId, machine_id: c.machineId, event_type: 'clock_out', method: 'qr', at: enTiempo(c.date, TURNOS[c.turno].fin) },
-		]));
-	if (ESCRIBIR) await insertar('attendance_events', marcas);
-	console.log(`  ${marcas.length} marcas de asistencia del mes en curso`);
+	// Ya no se siembran marcas de asistencia: el kiosco se sacó (2026-11-25) y la
+	// tabla attendance_events se borró (migración 20261126140000).
+
 
 	// ── Los partes del taller ────────────────────────────────────────────────
 	const logs: any[] = [];

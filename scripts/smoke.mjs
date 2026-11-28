@@ -238,11 +238,12 @@ async function goldenThread() {
   // completed requires real costs (gate), then completed_at stamps (audit P1.4b/P1.8)
   const blocked = await post(`/api/ots/${id}/transition`, { to_status: 'completed' });
   blocked.status === 400 ? ok('completed without costs → blocked') : fail(`cost gate missing: HTTP ${blocked.status}`);
-  const costs = await post(`/api/ots/${id}/real-costs`, {
-    workflow_step: 'digital_printing',
-    costs: [{ operation_code: 'SMK', description: '[SMOKE] costo', category: 'impresion', quantity: 1, unit: 'h', unit_cost: 1000 }],
+  // A manual real cost is a correction in the ledger (src/lib/cost-correction.ts).
+  const costs = await post(`/api/ots/${id}/cost-corrections`, {
+    reason: '[SMOKE] corrección de prueba',
+    lines: [{ category: 'otros', description: '[SMOKE] costo', quantity: 1, unit: 'unit', unit_cost: 1000 }],
   });
-  costs.status === 201 ? ok('real costs recorded') : fail(`real-costs → HTTP ${costs.status}`);
+  costs.status === 201 ? ok('cost correction recorded') : fail(`cost-corrections → HTTP ${costs.status}`);
   const done = await post(`/api/ots/${id}/transition`, { to_status: 'completed', reason: '[SMOKE]' });
   done.status === 200 ? ok('transition → completed') : fail(`final transition → HTTP ${done.status}`);
   const final = await getJson(`/api/ots?limit=200`);

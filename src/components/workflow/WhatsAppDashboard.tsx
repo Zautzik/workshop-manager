@@ -319,7 +319,7 @@ export default function WhatsAppDashboard() {
 
       {/* ── Main Content ───────────────────────────────────── */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid grid-cols-3 w-full max-w-lg">
+        <TabsList>
           <TabsTrigger value="pending" className="gap-1">
             <Clock className="h-4 w-4" />
             Pendientes
@@ -360,7 +360,7 @@ export default function WhatsAppDashboard() {
                     type="checkbox"
                     checked={selectedIds.size === pendingLogs.length && pendingLogs.length > 0}
                     onChange={selectAll}
-                    className="h-4 w-4 rounded border-gray-300"
+                    className="h-6 w-6 rounded border-gray-300 sm:h-4 sm:w-4"
                   />
                   <span className="text-sm text-muted-foreground">
                     {selectedIds.size > 0 ? `${selectedIds.size} seleccionados` : 'Seleccionar todos'}
@@ -397,7 +397,7 @@ export default function WhatsAppDashboard() {
                     type="checkbox"
                     checked={selectedIds.has(log.id)}
                     onChange={() => toggleSelection(log.id)}
-                    className="h-4 w-4 mt-5 rounded border-gray-300"
+                    className="mt-5 h-6 w-6 rounded border-gray-300 sm:h-4 sm:w-4"
                   />
                   <div className="flex-1">
                     <ReviewCard
@@ -629,7 +629,7 @@ export default function WhatsAppDashboard() {
                         <ConfidenceBadge confidence={parsedData.confidence ?? 0} />
                       </div>
 
-                      <div className="grid grid-cols-3 gap-3">
+                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                         {parsedData.pliegos_produced !== null && (
                           <Card>
                             <CardContent className="p-3 text-center">

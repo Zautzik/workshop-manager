@@ -188,14 +188,17 @@ export function ItemsTab({
         >
           {coverageDays == null ? '—' : `≈${coverageDays}d`}
         </span>
-        <span className="w-20 shrink-0 text-right text-xs text-muted-foreground">
+        {/* Cost drops below sm: at 390 px the four fixed columns left the item
+            name no room at all (layout crawl 2026-11-25). Stock and coverage
+            stay — they are what someone on the floor opens this for. */}
+        <span className="hidden w-20 shrink-0 text-right text-xs text-muted-foreground sm:block">
           {formatCLP(Number(item.weighted_unit_cost || item.estimated_unit_cost || 0))}
         </span>
         <div className="flex shrink-0 items-center">
-          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => onEdit(item)}>
+          <Button variant="ghost" size="icon" className="h-9 w-9 sm:h-6 sm:w-6" onClick={() => onEdit(item)}>
             <Pencil className="h-3 w-3" />
           </Button>
-          <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-destructive" onClick={() => onDelete(item.id)}>
+          <Button variant="ghost" size="icon" className="h-9 w-9 sm:h-6 sm:w-6 text-muted-foreground hover:text-destructive" onClick={() => onDelete(item.id)}>
             <Trash2 className="h-3 w-3" />
           </Button>
         </div>
@@ -385,7 +388,7 @@ export function ItemsTab({
         <button
           type="button"
           onClick={() => setMaterialFilter('all')}
-          className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
+          className={`rounded-full border px-3 py-2 text-xs font-medium transition-colors sm:py-1 ${
             materialFilter === 'all' ? 'border-foreground bg-foreground text-background' : 'border-input text-muted-foreground hover:border-foreground/40'
           }`}
         >
@@ -399,7 +402,7 @@ export function ItemsTab({
               key={k.value}
               type="button"
               onClick={() => setMaterialFilter(k.value)}
-              className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
+              className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-2 text-xs font-medium transition-colors sm:py-1 ${
                 active ? `border-transparent ${fs.chip}` : 'border-input text-muted-foreground hover:border-foreground/40'
               }`}
             >
@@ -439,7 +442,7 @@ export function ItemsTab({
             <span className="flex-1">Ítem</span>
             <span className="w-28 shrink-0 text-right">Stock / mín.</span>
             <span className="w-16 shrink-0 text-right" title="Días de cobertura al ritmo de consumo real de los últimos 30 días">Cobertura</span>
-            <span className="w-20 shrink-0 text-right">Costo</span>
+            <span className="hidden w-20 shrink-0 text-right sm:block">Costo</span>
             <span className="w-14 shrink-0" />
           </div>
           {isSearching ? (

@@ -3,7 +3,7 @@
  *
  * Regla del dueño (2026-11-11): la mano de obra de una OT es la gente que
  * Planta tenía asignada a la máquina, por las horas que la OT estuvo en su
- * turno. No se tipea, no viene del kiosco ni del parte: la pasada cerrada dice
+ * turno. No se tipea, no viene de un reloj ni del parte: la pasada cerrada dice
  * cuántas horas estuvo la OT en la máquina, y Planta dice quién estaba ahí.
  *
  * ── Cómo se ubican las horas ───────────────────────────────────────────────

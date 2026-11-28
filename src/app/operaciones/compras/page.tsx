@@ -8,6 +8,7 @@ import { SuppliersDirectory } from '@/components/admin/SuppliersDirectory';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ShoppingCart, Truck } from 'lucide-react';
+import { PageShell } from '@/components/layout/PageShell';
 
 const VALID_TABS = ['compras', 'proveedores'] as const;
 type TabKey = (typeof VALID_TABS)[number];
@@ -50,15 +51,15 @@ function ComprasTabs() {
 export default function PurchasesPage() {
   return (
     <ProtectedRoute allowedRoles={['admin', 'manager', 'supervisor']}>
-      <div className="p-6 md:p-8 space-y-6">
+      <PageShell>
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Compras</h1>
+          <h1 className="text-xl sm:text-2xl font-bold text-foreground">Compras</h1>
           <p className="text-sm text-muted-foreground mt-1">Órdenes de compra y proveedores</p>
         </div>
         <Suspense fallback={<Skeleton className="h-96 w-full" />}>
           <ComprasTabs />
         </Suspense>
-      </div>
+      </PageShell>
     </ProtectedRoute>
   );
 }

@@ -286,7 +286,7 @@ export function SalidaDePapel({ otId, toStatus, movedUnits, onChange }: Props) {
 					type="button"
 					variant="outline"
 					size="sm"
-					className="h-7 text-xs"
+					className="h-9 sm:h-7 text-xs"
 					disabled={rows.length >= 5}
 					onClick={() => setRows((rs) => [...rs, { key: newKey(), lotId: '', sheets: 0, overrideReason: '' }])}
 				>

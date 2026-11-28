@@ -36,9 +36,14 @@ function Row({ rank, item }: { rank: number; item: RankedListItem }) {
   const content = (
     <>
       <span className="w-5 shrink-0 font-mono text-[10px] text-muted-foreground">{rank}</span>
-      <span className="min-w-0 flex-1 truncate text-xs font-medium text-foreground">
+      {/* On a phone the sublabel gets its own line instead of being cut off
+          after the label; the full text is in `title` either way. */}
+      <span
+        className="min-w-0 flex-1 truncate text-xs font-medium text-foreground"
+        title={item.sublabel ? `${item.label} · ${item.sublabel}` : item.label}
+      >
         {item.label}
-        {item.sublabel && <span className="ml-1.5 font-normal text-muted-foreground">{item.sublabel}</span>}
+        {item.sublabel && <span className="block truncate font-normal text-muted-foreground sm:ml-1.5 sm:inline">{item.sublabel}</span>}
       </span>
       <span className="h-1.5 w-full max-w-[120px] shrink-0 overflow-hidden rounded-full bg-muted">
         <span
@@ -57,7 +62,7 @@ function Row({ rank, item }: { rank: number; item: RankedListItem }) {
           type="button"
           onClick={item.onClick}
           title={item.title}
-          className="group flex w-full items-center gap-2 rounded-md px-1.5 py-1 text-left transition-colors hover:bg-muted/60"
+          className="group flex min-h-9 w-full items-center gap-2 rounded-md px-1.5 py-1 text-left transition-colors hover:bg-muted/60 sm:min-h-0"
         >
           {content}
         </button>
@@ -97,7 +102,7 @@ export function RankedList({
         <button
           type="button"
           onClick={() => setExpanded((v) => !v)}
-          className="text-xs font-medium text-primary underline-offset-4 hover:underline"
+          className="tap text-xs font-medium text-primary underline-offset-4 hover:underline"
         >
           {expanded
             ? (fewerLabel ?? `Mostrar sólo los primeros ${visibleCount}`)

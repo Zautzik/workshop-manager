@@ -7,8 +7,8 @@ export const dynamic = 'force-dynamic';
 
 /** What a machine consumes, and how fast — used for stock forecasting. */
 const SupplySchema = z.object({
-  machine_id: z.string().uuid(),
-  inventory_item_id: z.string().uuid(),
+  machine_id: z.string().guid(),
+  inventory_item_id: z.string().guid(),
   consumption_rate: z.coerce.number().min(0),
   rate_unit: z.string().min(1).max(50),
   is_critical: z.boolean().optional(),
@@ -27,13 +27,13 @@ export async function GET(req: NextRequest) {
   if (isAuthError(auth)) return auth;
 
   const machineId = new URL(req.url).searchParams.get('machine_id');
-  if (!machineId || !z.string().uuid().safeParse(machineId).success) {
+  if (!machineId || !z.string().guid().safeParse(machineId).success) {
     return NextResponse.json({ error: 'Se requiere machine_id' }, { status: 400 });
   }
 
   const { data, error } = await supabaseAdmin
     .from('machine_supply_requirements')
-    .select('*, inventory_items ( id, name, unit, sku )')
+    .select('*, inventory_items ( id, name, unit, sku, category )')
     .eq('machine_id', machineId)
     // Lo crítico primero: es lo que detiene la máquina si falta.
     .order('is_critical', { ascending: false });
@@ -97,7 +97,7 @@ export async function DELETE(req: NextRequest) {
 
   const { searchParams } = new URL(req.url);
   const id = searchParams.get('id');
-  if (!id || !z.string().uuid().safeParse(id).success) {
+  if (!id || !z.string().guid().safeParse(id).success) {
     return NextResponse.json({ error: 'Se requiere un ID de insumo válido' }, { status: 400 });
   }
 

@@ -3,26 +3,24 @@
 import dynamic from 'next/dynamic';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import AnalyticsFilterBar from '@/components/analitica/AnalyticsFilterBar';
+import { PageShell } from '@/components/layout/PageShell';
 
-const ExecutiveOverview = dynamic(() => import('@/components/admin/ExecutiveOverview'));
-const AlarmasDeCosto = dynamic(
-  () => import('@/components/analitica/AlarmasDeCosto').then((m) => m.AlarmasDeCosto),
-);
+// Las alarmas de costo viven DENTRO del Resumen, junto a los plazos: lo que
+// pierde plata y lo que llega tarde se miran lado a lado, no uno debajo del
+// otro ocupando cada uno la pantalla.
+const ResumenEjecutivo = dynamic(() => import('@/components/analitica/ResumenEjecutivo'));
 
 export default function AnaliticaDashboardPage() {
   return (
     <ProtectedRoute allowedRoles={['admin', 'manager']}>
-      <div className="p-6 md:p-8 space-y-6">
+      <PageShell>
         <AnalyticsFilterBar />
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Resumen Ejecutivo</h1>
-          <p className="text-sm text-muted-foreground mt-1">Vista general del estado operativo</p>
+          <h1 className="text-xl sm:text-2xl font-bold text-foreground">Resumen</h1>
+          <p className="mt-0.5 text-sm text-muted-foreground">El estado del taller en una pantalla: plata, plazos y producción.</p>
         </div>
-        {/* Lo que pierde plata va antes que cualquier KPI: una alarma que hay
-            que ir a buscar no es una alarma. */}
-        <AlarmasDeCosto />
-        <ExecutiveOverview />
-      </div>
+        <ResumenEjecutivo />
+      </PageShell>
     </ProtectedRoute>
   );
 }

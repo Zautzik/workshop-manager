@@ -53,7 +53,7 @@ function loadEnv() {
     process.exit(1);
   }
   const env = {};
-  for (const line of readFileSync(file, 'utf8').split('\n')) {
+  for (const line of readFileSync(file, 'utf8').split(/\r?\n/)) {
     const m = line.match(/^\s*([A-Z_0-9]+)\s*=\s*(.*)$/);
     if (m) env[m[1]] = m[2].trim().replace(/^["']|["']$/g, '');
   }
@@ -94,7 +94,6 @@ const SENSIBLES = [
   'compensation_rates',
   'hr_documents',
   'employee_incentives',
-  'attendance_events',
 ];
 
 // Las doce que la migración 20261014120000 pone bajo RLS. Antes de aplicarla se
@@ -163,7 +162,6 @@ const TOLERADAS = new Map([
   ['jobs',                        'policy USING(true) — trabajos del taller'],
   ['worker_assignments',          'policy USING(true) — asignaciones de turno'],
   ['maintenance_work_orders',     'policy USING(true) — órdenes de mantención'],
-  ['machine_cost_entries',        'policy USING(true) — costos por máquina'],
   ['machine_supply_requirements', 'policy USING(true) — insumos por máquina'],
   ['batches',                     'SIN RLS — quedó fuera de 20261014120000'],
 ]);

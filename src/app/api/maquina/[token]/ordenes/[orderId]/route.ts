@@ -35,8 +35,7 @@ export const dynamic = 'force-dynamic';
  * ítems y cerrar órdenes de esa máquina desde cualquier parte, y el registro no
  * dirá quién fue. Son evidencia bajo FSSC 22000. El token acota el daño a una
  * máquina y se puede revocar regenerándolo, pero si hace falta saber QUIÉN, el
- * paso siguiente es pedir la credencial del operario como hace
- * `/api/attendance/clock`. Está anotado en la migración 20261016150000.
+ * paso siguiente es pedir la credencial del operario (`employees.badge_code`). Está anotado en la migración 20261016150000.
  *
  * Por eso esta ruta NO acepta todo lo que acepta el PATCH con sesión: sólo lo
  * que el operario hace frente a la máquina.
@@ -61,7 +60,7 @@ function fallaInterna(contexto: string, detalle: unknown) {
 		{ status: 500 },
 	);
 }
-const TokenSchema = z.string().uuid();
+const TokenSchema = z.string().guid();
 
 /**
  * Lo que el QR puede cambiar: arrancar, marcar ítems, cerrar, y dejar una nota.
@@ -146,7 +145,7 @@ export async function PATCH(
 ) {
 	const { token, orderId } = await params;
 
-	if (!TokenSchema.safeParse(token).success || !z.string().uuid().safeParse(orderId).success) {
+	if (!TokenSchema.safeParse(token).success || !z.string().guid().safeParse(orderId).success) {
 		return NextResponse.json({ error: 'Etiqueta u orden no válida' }, { status: 404 });
 	}
 

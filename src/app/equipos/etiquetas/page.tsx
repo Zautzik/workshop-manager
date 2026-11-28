@@ -16,6 +16,7 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { machineTypeLabel } from '@/types/machine-type';
 import { usageUnitInline } from '@/types/machine-usage-unit';
+import { PageShell } from '@/components/layout/PageShell';
 
 interface MachineRow {
   id: string; name: string; type: string; usage_unit: string; is_active: boolean;
@@ -92,9 +93,9 @@ function Etiquetas() {
 export default function EtiquetasPage() {
   return (
     <ProtectedRoute allowedRoles={['admin', 'manager', 'supervisor']}>
-      <div className="p-6 print:p-0">
+      <PageShell className="print:p-0">
         <Etiquetas />
-      </div>
+      </PageShell>
     </ProtectedRoute>
   );
 }

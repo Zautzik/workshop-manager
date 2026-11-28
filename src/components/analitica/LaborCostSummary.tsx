@@ -42,14 +42,14 @@ export default function LaborCostSummary() {
         </CardTitle>
         <Link
           href="/personas/consola?tab=retribucion"
-          className="text-xs font-medium text-primary hover:underline flex items-center gap-1"
+          className="tap text-xs font-medium text-primary hover:underline flex items-center gap-1"
         >
           Ver nómina completa <ArrowRight className="h-3 w-3" />
         </Link>
       </CardHeader>
       <CardContent>
         {isLoading ? (
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             {[...Array(3)].map((_, i) => <Skeleton key={i} className="h-20 w-full" />)}
           </div>
         ) : isError ? (
@@ -65,7 +65,7 @@ export default function LaborCostSummary() {
             </div>
           </div>
         ) : (
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <Stat icon={DollarSign} label="Costo bruto" value={fmtMoney(grossTotal)} tone="text-green-500" />
             <Stat icon={Clock} label="Horas extra" value={`${Math.round(overtimeHours)} h`} tone="text-amber-500" />
             <Stat icon={Users} label="Empleados" value={String(rows.length)} tone="text-indigo-500" />

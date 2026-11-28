@@ -231,3 +231,28 @@
     @apply sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-50 focus:px-4 focus:py-2 focus:bg-primary focus:text-primary-foreground focus:rounded-md;
   }
 }
+
+/* ── Phone text floor (plan 2026-11-25, F7) ────────────────────────────────
+   Dense desktop screens use 10–11 px labels; on a 390 px phone held at arm's
+   length they are unreadable (the layout crawl counted hundreds). Below sm
+   they render at 12 px. Pixel-tuned boards (Gantt, Tablero, Planta) carry
+   data-board on the shell wrapper and keep their sizes — their cells are
+   sized to the text. */
+@media (max-width: 639px) {
+  main .text-\[10px\]:not([data-board] *),
+  main .text-\[11px\]:not([data-board] *) {
+    font-size: 0.75rem;
+  }
+}
+
+/* ── Tap targets on phones (2026-11-26) ──────────────────────────────────────
+   A text link or a compact control that is fine under a mouse is a 16–26 px
+   target under a thumb. `.tap` gives it at least 36 px of height on a phone
+   without changing how it looks or sits from sm up. */
+@media (max-width: 639px) {
+  .tap {
+    min-height: 2.25rem;
+    display: inline-flex;
+    align-items: center;
+  }
+}

@@ -56,6 +56,7 @@ import {
 	type RateRow,
 	type ShiftDef,
 } from '@/lib/labor-from-shifts';
+import { laborLineDescription } from '@/lib/labor-line';
 
 export const STAGE_PASS_REF = 'stage_pass';
 
@@ -202,7 +203,6 @@ async function laborRows(otId: string, passes: PassForLabor[]) {
 		for (const l of r.lines) {
 			if (l.rate == null) missingRates++;
 			const who = nameById.get(l.employee_id) ?? 'Operario';
-			const shiftLabel = /^turno\b/i.test(l.shift_name) ? l.shift_name : `turno ${l.shift_name}`;
 			rows.push({
 				ot_id: otId,
 				kind: 'actual' as const,
@@ -210,7 +210,10 @@ async function laborRows(otId: string, passes: PassForLabor[]) {
 				source: STAGE_PASS_REF,
 				ref_type: STAGE_PASS_REF,
 				ref_id: p.id,
-				description: `Mano de obra — ${who} (${l.hours} h, ${shiftLabel} ${l.date}${l.rate == null ? ', sin tarifa en Planta' : ''})`,
+				description: laborLineDescription({ who, hours: l.hours, shiftName: l.shift_name, date: l.date, missingRate: l.rate == null }),
+				// Who this line is for. The name above is for people to read;
+				// readers group by this id (migration 20261126130000).
+				employee_id: l.employee_id,
 				quantity: l.hours,
 				unit: 'hrs',
 				unit_cost: l.rate ?? 0,

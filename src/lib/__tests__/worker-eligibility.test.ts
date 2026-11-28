@@ -63,21 +63,23 @@ describe('isWorkerEligibleForStation', () => {
 });
 
 describe('workerSortScore', () => {
-	it('a igual costo, rating más alto puntúa mejor', () => {
-		const bueno = workerSortScore({ overall_rating: 5 }, 5000, false);
-		const malo = workerSortScore({ overall_rating: 1 }, 5000, false);
-		expect(bueno).toBeGreaterThan(malo);
+	it('a igual costo, más nivel en la competencia de la estación puntúa mejor', () => {
+		expect(workerSortScore(4, 5000, false)).toBeGreaterThan(workerSortScore(2, 5000, false));
 	});
 
-	it('a igual rating, costo más bajo puntúa mejor', () => {
-		const barato = workerSortScore({ overall_rating: 3 }, 3000, false);
-		const caro = workerSortScore({ overall_rating: 3 }, 6000, false);
-		expect(barato).toBeGreaterThan(caro);
+	it('a igual nivel, costo más bajo puntúa mejor', () => {
+		expect(workerSortScore(3, 3000, false)).toBeGreaterThan(workerSortScore(3, 6000, false));
+	});
+
+	it('un nivel de diferencia pesa más que la diferencia normal de tarifa', () => {
+		expect(workerSortScore(3, 7000, false)).toBeGreaterThan(workerSortScore(2, 4000, false));
+	});
+
+	it('sin competencia registrada cuenta como nivel 0, no como un rating inventado', () => {
+		expect(workerSortScore(null, 5000, false)).toBeLessThan(workerSortScore(1, 5000, false));
 	});
 
 	it('sobretiempo penaliza el puntaje', () => {
-		const normal = workerSortScore({ overall_rating: 3 }, 5000, false);
-		const overtime = workerSortScore({ overall_rating: 3 }, 5000, true);
-		expect(overtime).toBeLessThan(normal);
+		expect(workerSortScore(3, 5000, true)).toBeLessThan(workerSortScore(3, 5000, false));
 	});
 });

@@ -10,6 +10,7 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { MIN_PASSWORD_LENGTH, MAX_PASSWORD_LENGTH, COMMON_PASSWORD_COUNT } from '@/lib/password-policy';
 import { CostOverrunAlerts } from '@/components/financial/CostOverrunAlerts';
 import { useCostAlerts } from '@/hooks/use-cost-alerts';
+import { PageShell } from '@/components/layout/PageShell';
 
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -22,7 +23,7 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
 
 function ManageLink({ href }: { href: string }) {
   return (
-    <Link href={href} className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline">
+    <Link href={href} className="tap inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline">
       Gestionar <ArrowRight className="h-3 w-3" />
     </Link>
   );
@@ -40,9 +41,9 @@ export default function AdminSettingsPage() {
 
   return (
     <ProtectedRoute allowedRoles={['admin']}>
-      <div className="p-6 space-y-6">
+      <PageShell>
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Configuración del Sistema</h1>
+          <h1 className="text-xl sm:text-2xl font-bold text-foreground">Configuración del Sistema</h1>
           <p className="text-sm text-muted-foreground mt-1">Parámetros generales de la aplicación</p>
         </div>
 
@@ -70,7 +71,7 @@ export default function AdminSettingsPage() {
             </CardHeader>
             <CardContent className="space-y-1">
               <Row label="Tema">
-                <Button variant="outline" size="sm" className="h-7 gap-1 text-xs" onClick={() => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')}>
+                <Button variant="outline" size="sm" className="h-9 gap-1 text-xs sm:h-7" onClick={() => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')}>
                   {!mounted ? 'Tema' : resolvedTheme === 'dark' ? <><Moon className="h-3 w-3" /> Oscuro</> : <><Sun className="h-3 w-3" /> Claro</>}
                 </Button>
               </Row>
@@ -152,7 +153,7 @@ export default function AdminSettingsPage() {
         <p className="text-xs text-muted-foreground">
           El tema se aplica al instante. El resto de los parámetros se gestiona en su módulo correspondiente.
         </p>
-      </div>
+      </PageShell>
     </ProtectedRoute>
   );
 }

@@ -52,7 +52,7 @@ export default function AppDiagnostics() {
 			{/* Header */}
 			<div className="flex items-center justify-between">
 				<div>
-					<h1 className="text-2xl font-bold text-foreground">Diagnósticos de Aplicación</h1>
+					<h1 className="text-xl sm:text-2xl font-bold text-foreground">Diagnósticos de Aplicación</h1>
 					<p className="text-sm text-muted-foreground mt-1">
 						Métricas, webhooks, seguridad y logs de actividad — últimos 14 días
 					</p>
@@ -97,7 +97,7 @@ export default function AppDiagnostics() {
 
 			{/* Status bar */}
 			{data && (
-				<div className="flex items-center gap-4 text-xs text-muted-foreground border rounded-md px-4 py-2 bg-muted/30">
+				<div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground border rounded-md px-4 py-2 bg-muted/30">
 					<StatusDot status={data.health.db.status} />
 					<span>DB {data.health.db.status === 'ok' ? 'online' : 'offline'}</span>
 					{data.health.db.latencyMs !== null && <LatencyPill ms={data.health.db.latencyMs} />}
@@ -132,14 +132,14 @@ export default function AppDiagnostics() {
 			)}
 
 			{/* Tabs */}
-			<div className="flex gap-1 border-b border-border">
+			<div className="flex gap-1 overflow-x-auto border-b border-border [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
 				{TABS.map(({ id, label, icon: Icon }) => {
 					const active = tab === id;
 					return (
 						<button
 							key={id}
 							onClick={() => setTab(id)}
-							className={`flex items-center gap-1.5 px-4 py-2 text-sm font-medium border-b-2 transition-colors -mb-px ${
+							className={`flex shrink-0 items-center gap-1.5 px-4 py-2 text-sm font-medium border-b-2 transition-colors -mb-px ${
 								active
 									? 'border-primary text-foreground'
 									: 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'

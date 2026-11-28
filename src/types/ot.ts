@@ -14,6 +14,10 @@ export interface Client {
   city?: string | null;
   payment_terms?: string | null;
   notes?: string | null;
+  /** Receptor del DTE (migración 20261125120000); ausentes si la base no la tiene. */
+  giro?: string | null;
+  region_code?: string | null;
+  comuna_code?: string | null;
   is_active: boolean;
   created_at: string;
   updated_at: string;

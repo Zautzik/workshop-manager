@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
+import { amountCLP } from '@/lib/limits';
 import { isAuthError, requireAuth } from '@/lib/api-middleware';
 import { supabaseAdmin } from '@/integrations/supabase/server';
+import { invoiceNetForDispatch } from '@/lib/dispatch-billing';
 
 export const dynamic = 'force-dynamic';
 
@@ -26,16 +28,16 @@ export async function GET(req: NextRequest) {
 }
 
 const CreateInvoiceSchema = z.object({
-  ot_id: z.string().uuid().optional().nullable(),
-  client_id: z.string().uuid().optional().nullable(),
+  ot_id: z.string().guid().optional().nullable(),
+  client_id: z.string().guid().optional().nullable(),
   client_name: z.string().max(255).optional().nullable(),
   // Se IGNORA cuando vienen `guide_ids`: ahí el neto lo deriva el servidor de
   // las guías y del precio de la OT. Sólo se usa en una factura suelta, sin
   // guías. Opcional para que un llamador que factura guías no tenga que
   // mandar un número que no se va a mirar.
-  net_amount: z.coerce.number().min(0).optional().default(0),
+  net_amount: amountCLP().optional().default(0),
   due_date: z.string().optional().nullable(),
-  guide_ids: z.array(z.string().uuid()).optional().default([]),
+  guide_ids: z.array(z.string().guid()).optional().default([]),
   notes: z.string().max(2000).optional().nullable(),
 });
 
@@ -178,8 +180,32 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // CLP no muestra centavos → se redondea a peso entero, igual que la pantalla.
-    net = Math.round(unidades * (quoted / ordered));
+    // Lo que ya facturaron las facturas anteriores de la OT (no anuladas): la
+    // que completa la OT se lleva el resto, así las partes suman la cotización
+    // exacta en vez de errar por $1 (auditoría M7).
+    const { data: previas, error: prevErr } = await supabaseAdmin
+      .from('sales_invoices' as any)
+      .select('id, net_amount')
+      .eq('ot_id', otId)
+      .neq('status', 'cancelled');
+    if (prevErr) return NextResponse.json({ error: prevErr.message }, { status: 500 });
+    const previasRows = (previas ?? []) as unknown as Array<{ id: string; net_amount: number | null }>;
+    const alreadyInvoicedNet = previasRows.reduce((a, f) => a + Number(f.net_amount ?? 0), 0);
+    let alreadyInvoicedUnits = 0;
+    if (previasRows.length > 0) {
+      const { data: guiasPrevias, error: gErr } = await supabaseAdmin
+        .from('dispatch_guides' as any)
+        .select('quantity')
+        .in('invoice_id', previasRows.map((f) => f.id));
+      if (gErr) return NextResponse.json({ error: gErr.message }, { status: 500 });
+      alreadyInvoicedUnits = ((guiasPrevias ?? []) as unknown as Array<{ quantity: number | null }>).reduce(
+        (a, g) => a + Number(g.quantity ?? 0),
+        0,
+      );
+    }
+
+    // CLP no muestra centavos: se redondea a peso entero, una sola vez.
+    net = invoiceNetForDispatch({ ordered, quoted, units: unidades, alreadyInvoicedUnits, alreadyInvoicedNet });
   } else {
     // Sin guías no hay de dónde derivar: es una factura suelta y el monto lo
     // pone quien la emite. Queda explícito que ESTE es el único caso en que el

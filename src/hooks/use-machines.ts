@@ -1,7 +1,6 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
 import type { MachineStatus } from '@/types/machine-status';
 export type { MachineStatus } from '@/types/machine-status';
 import type { MachineType } from '@/types/machine-type';
@@ -66,19 +65,6 @@ export interface MachineSupplyRequirement {
   inventory_items?: { id: string; name: string; unit: string; category: string } | null;
 }
 
-export interface MachineCostEntry {
-  id: string;
-  machine_id: string;
-  period_month: string;
-  energy_kwh?: number | null;
-  energy_cost?: number | null;
-  maintenance_cost?: number | null;
-  supplies_cost?: number | null;
-  other_cost?: number | null;
-  notes?: string | null;
-  created_at: string;
-}
-
 export type MachineUpsert = Omit<Machine,
   'id' | 'created_at' | 'updated_at' | 'workstations' | 'machine_supply_requirements'
 > & { id?: string };
@@ -90,7 +76,6 @@ const Q = {
   list:       ['machines', 'list'] as const,
   detail:     (id: string) => ['machines', 'detail', id] as const,
   supplies:   (machineId: string) => ['machines', 'supplies', machineId] as const,
-  costs:      (machineId: string) => ['machines', 'costs', machineId] as const,
   planta:     ['planta', 'live'] as const,
 };
 
@@ -212,41 +197,11 @@ export function useMachineSupplies(machineId: string | undefined | null) {
     queryKey: Q.supplies(machineId ?? ''),
     enabled: Boolean(machineId),
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('machine_supply_requirements')
-        .select('*, inventory_items(id, name, unit, category)')
-        .eq('machine_id', machineId!)
-        .order('is_critical', { ascending: false });
-      if (error) throw error;
-      return (data ?? []) as MachineSupplyRequirement[];
-    },
-  });
-}
-
-/**
- * Cost history for a machine (machine_cost_entries).
- *
- * Renamed from `useMachineCosts` -- a SEPARATE `useMachineCosts()` in
- * use-financial-queries.ts (no args, queries the different `machine_costs`
- * table, fleet-wide) has always had the exact same name. Different query
- * keys, so no cache collision like useOTs()/useMachines()/useInventoryItems()
- * -- but the same name resolving to two unrelated queries depending on which
- * file autocomplete grabs is its own trap. This name matches what it
- * actually returns (`MachineCostEntry[]`).
- */
-export function useMachineCostEntries(machineId: string | undefined | null) {
-  return useQuery<MachineCostEntry[]>({
-    queryKey: Q.costs(machineId ?? ''),
-    enabled: Boolean(machineId),
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('machine_cost_entries')
-        .select('*')
-        .eq('machine_id', machineId!)
-        .order('period_month', { ascending: false })
-        .limit(24);
-      if (error) throw error;
-      return (data ?? []) as MachineCostEntry[];
+      // Its route, not the table (audit H5).
+      const res = await fetch(`/api/machine-supplies?machine_id=${encodeURIComponent(machineId!)}`, { credentials: 'include' });
+      const body = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(body?.error ?? 'No se pudieron cargar los insumos');
+      return (body ?? []) as MachineSupplyRequirement[];
     },
   });
 }
@@ -407,28 +362,6 @@ export function useDeleteMachineSupply() {
     },
     onSuccess: (_d, vars) => {
       qc.invalidateQueries({ queryKey: Q.supplies(vars.machineId) });
-    },
-  });
-}
-
-export function useUpsertMachineCost() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: async (entry: Omit<MachineCostEntry, 'id' | 'created_at'> & { id?: string }) => {
-      const res = await fetch('/api/machine-cost-entries', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify(entry),
-      });
-      const data = await res.json().catch(() => null);
-      if (!res.ok) {
-        throw new Error(data?.error || 'No se pudieron guardar los costos');
-      }
-      return data;
-    },
-    onSuccess: (_d, vars) => {
-      qc.invalidateQueries({ queryKey: Q.costs(vars.machine_id) });
     },
   });
 }

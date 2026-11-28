@@ -5,6 +5,7 @@ import { supabaseAdmin } from '@/integrations/supabase/server';
 import { MIN_PASSWORD_LENGTH, MAX_PASSWORD_LENGTH, checkPassword } from '@/lib/password-policy';
 import { buildRateLimitActor, enforceRouteRateLimit } from '@/lib/api-rate-limit';
 import { APP_ROLES, type AppRole } from '@/types/app-role';
+import { rolesByUserId } from '@/lib/user-roles';
 
 const CreateUserSchema = z.object({
 	email: z.string().email().max(255),
@@ -12,7 +13,10 @@ const CreateUserSchema = z.object({
 		.string()
 		.min(MIN_PASSWORD_LENGTH, `Password must be at least ${MIN_PASSWORD_LENGTH} characters.`)
 		.max(MAX_PASSWORD_LENGTH)
-		.refine((p) => checkPassword(p).ok, (p) => ({ message: checkPassword(p).reason ?? 'Invalid password.' })),
+		.superRefine((p, ctx) => {
+			const r = checkPassword(p);
+			if (!r.ok) ctx.addIssue({ code: 'custom', message: r.reason ?? 'Invalid password.' });
+		}),
 	name: z.string().min(1).max(255).optional(),
 	role: z.enum(APP_ROLES),
 	department: z.string().max(100).optional().nullable(),
@@ -55,21 +59,18 @@ export async function GET(request: NextRequest) {
 		const authUsers = authList?.users ?? [];
 
 		// Fetch roles for all returned users
-		const userIds = authUsers.map((u) => u.id);
-		const { data: roles, error: rolesError } = await supabaseAdmin
-			.from('user_roles')
-			.select('*')
-			.in('user_id', userIds.length > 0 ? userIds : ['__none__']);
-
 		// A failed roles fetch must not silently render as "everyone has no
 		// role" — that's indistinguishable from a genuinely unassigned user.
-		if (rolesError) {
+		let roles: Awaited<ReturnType<typeof rolesByUserId>>;
+		try {
+			roles = await rolesByUserId(authUsers.map((u) => u.id));
+		} catch (rolesError) {
 			console.error('Error fetching user roles:', rolesError);
 			return NextResponse.json({ error: 'Failed to fetch user roles' }, { status: 500 });
 		}
 
 		const usersWithRoles = authUsers.map((u) => {
-			const userRole = (roles ?? []).find((r) => r.user_id === u.id);
+			const userRole = roles.get(u.id);
 			return {
 				id: u.id,
 				email: u.email,
@@ -195,7 +196,7 @@ export async function DELETE(request: NextRequest) {
 		const { searchParams } = new URL(request.url);
 		const userId = searchParams.get('id');
 
-		if (!userId || !z.string().uuid().safeParse(userId).success) {
+		if (!userId || !z.string().guid().safeParse(userId).success) {
 			return NextResponse.json({ error: 'Valid user ID required' }, { status: 400 });
 		}
 
@@ -223,7 +224,7 @@ export async function DELETE(request: NextRequest) {
 }
 
 const UpdateUserSchema = z.object({
-	id: z.string().uuid(),
+	id: z.string().guid(),
 	role: z.enum(APP_ROLES).optional(),
 	department: z.string().max(100).optional().nullable(),
 	manager_domain: z.string().max(100).optional().nullable(),

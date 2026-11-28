@@ -81,7 +81,7 @@ export default function Breadcrumbs({ className }: { className?: string }) {
                 {crumb.label}
               </span>
             ) : (
-              <Link href={crumb.href} className="transition-colors hover:text-foreground">
+              <Link href={crumb.href} className="inline-flex min-h-8 items-center transition-colors hover:text-foreground sm:min-h-0">
                 {crumb.label}
               </Link>
             )}
@@ -108,5 +108,5 @@ export function ModuleBreadcrumbs() {
 
   if (!trail || pathname === trail.module.href) return null;
 
-  return <Breadcrumbs className="px-6 pt-5 md:pr-36 print:hidden" />;
+  return <Breadcrumbs className="px-4 pt-4 sm:px-6 sm:pt-5 md:pr-36 lg:px-8 print:hidden" />;
 }

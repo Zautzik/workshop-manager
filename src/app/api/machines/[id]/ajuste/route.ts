@@ -21,7 +21,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
 	if (isAuthError(auth)) return auth;
 
 	const { id } = await params;
-	if (!z.string().uuid().safeParse(id).success) {
+	if (!z.string().guid().safeParse(id).success) {
 		return NextResponse.json({ error: 'ID de máquina inválido' }, { status: 400 });
 	}
 

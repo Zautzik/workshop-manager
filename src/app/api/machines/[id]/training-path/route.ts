@@ -9,11 +9,11 @@ const StepSchema = z.object({
   step_order: z.coerce.number().int().min(1).max(99),
   title: z.string().min(3).max(160),
   description: z.string().max(2000).nullable().optional(),
-  skill_id: z.string().uuid().nullable().optional(),
+  skill_id: z.string().guid().nullable().optional(),
   target_proficiency: z.coerce.number().int().min(1).max(5).nullable().optional(),
   estimated_hours: z.coerce.number().min(0).max(2000).nullable().optional(),
-  training_article_id: z.string().uuid().nullable().optional(),
-  mentor_employee_id: z.string().uuid().nullable().optional(),
+  training_article_id: z.string().guid().nullable().optional(),
+  mentor_employee_id: z.string().guid().nullable().optional(),
   requires_evidence: z.boolean().optional(),
 });
 
@@ -108,8 +108,8 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
 }
 
 const ProgressSchema = z.object({
-  path_id: z.string().uuid(),
-  employee_id: z.string().uuid(),
+  path_id: z.string().guid(),
+  employee_id: z.string().guid(),
   status: z.enum(['pendiente', 'en_curso', 'completado', 'validado']),
   hours_logged: z.coerce.number().min(0).optional(),
   evidence_url: z.string().url().nullable().optional(),

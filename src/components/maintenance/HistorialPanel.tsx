@@ -369,7 +369,7 @@ function HistorialCompleto() {
         <button
           type="button"
           onClick={() => setShowAllMonths((v) => !v)}
-          className="text-xs font-medium text-primary underline-offset-4 hover:underline"
+          className="tap text-xs font-medium text-primary underline-offset-4 hover:underline"
         >
           {showAllMonths ? `Mostrar sólo los últimos ${VISIBLE_MONTHS} meses` : `Ver más meses (${months.length - VISIBLE_MONTHS} más)`}
         </button>

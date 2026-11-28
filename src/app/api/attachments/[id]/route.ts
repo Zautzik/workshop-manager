@@ -23,7 +23,7 @@ export async function DELETE(
   if (isAuthError(auth)) return auth;
 
   const { id } = await params;
-  if (!id || !z.string().uuid().safeParse(id).success) {
+  if (!id || !z.string().guid().safeParse(id).success) {
     return NextResponse.json({ error: 'Se requiere un ID de adjunto válido' }, { status: 400 });
   }
 

@@ -8,6 +8,7 @@ import { Factory, Package, MessageSquare, QrCode, CheckCircle2, XCircle, Clock, 
 import { toast } from 'sonner';
 import { formatCLP } from '@/lib/format';
 import { useCaptures, useReviewCapture, type CaptureEvent } from '@/hooks/use-captures';
+import { PageShell } from '@/components/layout/PageShell';
 
 const DOMAIN: Record<string, { label: string; cls: string; icon: React.ElementType }> = {
   production: { label: 'Producción', cls: 'bg-blue-500/15 text-blue-600', icon: Factory },
@@ -152,13 +153,13 @@ function Kpi({ label, value, tint, icon: Icon }: { label: string; value: string;
 export default function CapturasPage() {
   return (
     <ProtectedRoute allowedRoles={['admin', 'manager', 'supervisor']}>
-      <div className="p-6 space-y-6">
+      <PageShell>
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Capturas en Campo</h1>
+          <h1 className="text-xl sm:text-2xl font-bold text-foreground">Capturas en Campo</h1>
           <p className="text-sm text-muted-foreground mt-1">Bandeja unificada de todo lo reportado por el equipo (producción y bodega) vía WhatsApp / QR.</p>
         </div>
         <CapturasInner />
-      </div>
+      </PageShell>
     </ProtectedRoute>
   );
 }

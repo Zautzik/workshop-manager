@@ -60,7 +60,7 @@ function RetiroInner() {
 	return (
 		<div className="space-y-4 p-6 md:p-8">
 			<div>
-				<h1 className="text-2xl font-bold text-foreground">Simulacro de retiro</h1>
+				<h1 className="text-xl sm:text-2xl font-bold text-foreground">Simulacro de retiro</h1>
 				<p className="mt-1 text-sm text-muted-foreground">
 					Del reclamo al lote, y del lote a todo lo que salió con él.
 				</p>

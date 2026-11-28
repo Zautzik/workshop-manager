@@ -26,11 +26,16 @@ export interface MergedPerson {
   hire_date: string | null;
   contract: any | null;
   comp: any | null;
-  rating: number;
-  quality: number;
-  speed: number;
-  attendance: number;
-  teamwork: number;
+  /**
+   * Evaluations (0–100), entered by hand in the employee form. null = never
+   * evaluated: the columns used to default to 75/100, which screens showed as
+   * real ratings (audit C4).
+   */
+  rating: number | null;
+  quality: number | null;
+  speed: number | null;
+  attendance: number | null;
+  teamwork: number | null;
   skills: any[];
   top: { name: string; level: number } | null;
   email: string | null;

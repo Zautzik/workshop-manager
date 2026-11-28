@@ -46,13 +46,13 @@ export function AgendaSemanalSidebar({
           <span className="text-xs font-semibold text-foreground">Agenda</span>
         </div>
         <div className="flex items-center gap-1">
-          <Button variant="outline" size="icon" onClick={onPreviousWeek} className="h-6 w-6 border-border bg-card/50 hover:bg-card">
+          <Button variant="outline" size="icon" onClick={onPreviousWeek} className="h-9 w-9 sm:h-6 sm:w-6 border-border bg-card/50 hover:bg-card">
             <ChevronLeft className="w-3 h-3" />
           </Button>
-          <Button variant="outline" size="icon" onClick={onNextWeek} className="h-6 w-6 border-border bg-card/50 hover:bg-card">
+          <Button variant="outline" size="icon" onClick={onNextWeek} className="h-9 w-9 sm:h-6 sm:w-6 border-border bg-card/50 hover:bg-card">
             <ChevronRight className="w-3 h-3" />
           </Button>
-          <Button size="sm" onClick={onPublish} disabled={publishLoading} className="h-6 px-2 text-[10px]">
+          <Button size="sm" onClick={onPublish} disabled={publishLoading} className="h-9 px-2 text-xs sm:h-6 sm:text-[10px]">
             <UploadCloud className="w-3 h-3 mr-1" />
             {publishLoading ? '...' : 'Publicar'}
           </Button>

@@ -277,13 +277,13 @@ export function ComprasDialog({ ot, open, onOpenChange, onDone }: Props) {
 							de los que este requisito ya cubre — probablemente un retroceso o una merma la hizo crecer.
 						</span>
 						<div className="flex shrink-0 gap-1.5">
-							<Button size="sm" variant="outline" className="h-7 text-xs" onClick={agregarSugerencia}>
+							<Button size="sm" variant="outline" className="h-9 sm:h-7 text-xs" onClick={agregarSugerencia}>
 								Agregar requisito
 							</Button>
 							<Button
 								size="sm"
 								variant="ghost"
-								className="h-7 text-xs text-muted-foreground"
+								className="h-9 sm:h-7 text-xs text-muted-foreground"
 								onClick={() => setSugerenciaDescartada(true)}
 							>
 								Descartar

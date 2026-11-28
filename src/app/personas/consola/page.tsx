@@ -20,6 +20,7 @@ import { ContratosContent } from '@/components/hr/ContratosContent';
 import { LicenciasContent } from '@/components/hr/LicenciasContent';
 import { MonthlyPayrollCalculator } from '@/components/financial/MonthlyPayrollCalculator';
 import { useTabFromUrl } from '@/hooks/use-tab-from-url';
+import { PageShell } from '@/components/layout/PageShell';
 
 const loading = (
   <div className="space-y-4 pt-4">
@@ -81,9 +82,9 @@ function ConsolaTabs() {
 export default function ConsolaOperativaPage() {
   return (
     <ProtectedRoute allowedRoles={['admin', 'hr_manager', 'supervisor']}>
-      <div className="p-6 space-y-6 max-w-[1200px] mx-auto">
+      <PageShell>
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Consola Operativa</h1>
+          <h1 className="text-xl sm:text-2xl font-bold text-foreground">Consola Operativa</h1>
           <p className="text-sm text-muted-foreground mt-1">
             El equipo hoy: quién es cada persona, cuánto cuesta, dónde está asignada y su situación laboral
           </p>
@@ -92,7 +93,7 @@ export default function ConsolaOperativaPage() {
         <Suspense fallback={loading}>
           <ConsolaTabs />
         </Suspense>
-      </div>
+      </PageShell>
     </ProtectedRoute>
   );
 }

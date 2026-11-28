@@ -24,7 +24,7 @@ import {
 } from '@/components/ui/select';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
-import { useOTs } from '@/hooks/use-operations-queries';
+import { useOTSearch } from '@/hooks/use-operations-queries';
 import {
   FileText,
   Printer,
@@ -51,6 +51,9 @@ interface CostLineItem {
   actual_unit: string;
   actual_unit_cost: number | null;
   actual_cost: number;
+  /** Por unidad: un rubro puede mezclar pliegos y kg, y esos no se suman. */
+  estimated_quantities?: { unit: string; qty: number }[];
+  actual_quantities?: { unit: string; qty: number }[];
   deviation_pct: number | null;
   has_actual: boolean;
   workflow_steps: string[];
@@ -85,7 +88,6 @@ interface CostAnalysis {
 /* ------------------------------------------------------------------ */
 
 export function OTCostAnalysisReport() {
-  const { data: ots = [] } = useOTs();
   const [selectedOTId, setSelectedOTId] = useState<string>('');
   const [analysis, setAnalysis] = useState<CostAnalysis | null>(null);
   const [loading, setLoading] = useState(false);
@@ -93,12 +95,8 @@ export function OTCostAnalysisReport() {
   const [searchTerm, setSearchTerm] = useState('');
   const printRef = useRef<HTMLDivElement>(null);
 
-  // Filter OTs for selector
-  const filteredOTs = ots.filter(
-    (o) =>
-      o.ot_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      o.client_name.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // Selector: searched on the server over every OT, newest first (audit C2).
+  const { data: filteredOTs = [] } = useOTSearch(searchTerm, { limit: 50 });
 
   const fetchAnalysis = async (otId: string) => {
     setLoading(true);
@@ -181,6 +179,11 @@ export function OTCostAnalysisReport() {
   };
 
   const fmtMoney = (n: number) => `$${Math.round(n).toLocaleString()}`;
+  /** Una unidad: el número. Varias: «1.000 pliegos + 3,5 kg». Ninguna: —. */
+  const fmtQtys = (single: number | null, list: { unit: string; qty: number }[] | undefined) => {
+    if (list && list.length > 1) return list.map((q) => `${q.qty.toLocaleString()} ${q.unit}`).join(' + ');
+    return single !== null && single > 0 ? single.toLocaleString() : '—';
+  };
 
   return (
     <div className="space-y-6">
@@ -310,7 +313,7 @@ export function OTCostAnalysisReport() {
                   <strong>{fmtMoney(analysis.ot.budget_amount)}</strong>
                 </div>
                 <div>
-                  <span className="text-muted-foreground">Etapas reportadas:</span>{' '}
+                  <span className="text-muted-foreground">Orígenes del costo real:</span>{' '}
                   <strong>{analysis.workflow_steps_reported.length}</strong>
                 </div>
               </div>
@@ -415,13 +418,13 @@ export function OTCostAnalysisReport() {
                           )}
                         </TableCell>
                         <TableCell className="text-right text-sm">
-                          {item.estimated_qty > 0 ? item.estimated_qty.toLocaleString() : '—'}
+                          {fmtQtys(item.estimated_qty, item.estimated_quantities)}
                         </TableCell>
                         <TableCell className="text-xs text-muted-foreground">
                           {item.estimated_unit || item.actual_unit}
                         </TableCell>
                         <TableCell className="text-right text-sm">
-                          {item.actual_qty !== null ? item.actual_qty.toLocaleString() : '—'}
+                          {fmtQtys(item.actual_qty, item.actual_quantities)}
                         </TableCell>
                         <TableCell className="text-right text-sm">
                           {item.estimated_cost > 0 ? fmtMoney(item.estimated_cost) : '—'}
@@ -466,7 +469,7 @@ export function OTCostAnalysisReport() {
               {/* Workflow Steps Legend */}
               {analysis.workflow_steps_reported.length > 0 && (
                 <div className="mt-4 text-xs text-muted-foreground">
-                  <span className="font-medium">Etapas con costos reportados:</span>{' '}
+                  <span className="font-medium">De dónde sale el costo real:</span>{' '}
                   {analysis.workflow_steps_reported.map((step) => (
                     <Badge key={step} variant="outline" className="ml-1 text-[10px]">
                       {step}

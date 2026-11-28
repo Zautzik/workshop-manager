@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
+import { units } from '@/lib/limits';
 
 import { isAuthError, requireAuth } from '@/lib/api-middleware';
 import { supabaseAdmin } from '@/integrations/supabase/server';
@@ -123,15 +124,15 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
 }
 
 const FilaSchema = z.object({
-  id: z.string().uuid().optional(),
+  id: z.string().guid().optional(),
   kind: z.enum(['papel', 'tinta_especial', 'envase', 'servicio', 'insumo', 'otro']),
   description: z.string().min(1).max(300),
-  item_id: z.string().uuid().nullish(),
-  quantity: z.coerce.number().min(0).nullish(),
+  item_id: z.string().guid().nullish(),
+  quantity: units().nullish(),
   unit: z.string().max(20).nullish(),
   source: z.enum(['comprar', 'bodega', 'tercerizar']),
-  purchase_id: z.string().uuid().nullish(),
-  lot_id: z.string().uuid().nullish(),
+  purchase_id: z.string().guid().nullish(),
+  lot_id: z.string().guid().nullish(),
   status: z.enum(['pendiente', 'en_curso', 'resuelto', 'no_aplica']).default('pendiente'),
   notes: z.string().max(1000).nullish(),
 });

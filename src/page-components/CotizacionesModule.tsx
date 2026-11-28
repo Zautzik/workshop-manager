@@ -8,7 +8,7 @@ import { toast } from 'sonner';
 
 import { VistoBuenoDialog } from '@/components/workflow/VistoBuenoDialog';
 import { Plus } from 'lucide-react';
-import { useOTs } from '@/hooks/use-operations-queries';
+import { useActiveOTs } from '@/hooks/use-operations-queries';
 import { useQuery } from '@tanstack/react-query';
 import { useMachines } from '@/hooks/use-operations-queries';
 import { EMPTY_FINISHES } from '@/types/ot';
@@ -21,12 +21,13 @@ import { buildEstimate, type Coverage, type PressRef } from './cotizaciones-shar
 import { CotizacionSpecSection, type CotizacionFormState } from './CotizacionSpecSection';
 import { CotizacionPricingSection } from './CotizacionPricingSection';
 import { EsperandoVistoBuenoTable } from './EsperandoVistoBuenoTable';
+import { CotizacionesHistorial } from './CotizacionesHistorial';
 
 export default function CotizacionesModule() {
   const qc = useQueryClient();
   const router = useRouter();
 
-  const { data: ots = [] } = useOTs();
+  const { data: ots = [] } = useActiveOTs();
 
   /**
    * Las que todavía no tienen la prueba firmada.
@@ -388,6 +389,9 @@ export default function CotizacionesModule() {
           todavía no está confirmado con el cliente. Lo que ya pasó a compra de
           papel salió de su cancha y vive en el tablero. */}
       <EsperandoVistoBuenoTable esperando={esperando} onRegistrarVistoBueno={setDecidiendo} />
+
+      {/* Every quote, searchable, and how many close (audit M8). */}
+      <CotizacionesHistorial />
 
       {/* Quién decidió, contra qué, y —si dijo que no— por qué. Al guardar, un
           disparador copia el firmante al visto bueno, así que la lista se

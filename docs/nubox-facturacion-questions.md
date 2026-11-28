@@ -1,5 +1,9 @@
 # Nubox DTE (Facturación Electrónica) — information to gather
 
+> **2026-11-25:** la integración ya está construida y apagada. Ver
+> [nubox-integracion.md](nubox-integracion.md) para los pasos de conexión; este
+> documento queda como la lista de datos que hay que pedirle a Nubox.
+
 > Fill this in and I'll build the Nubox PSP adapter (factura + guía de despacho).
 > Nothing here is needed to keep using the rest of the app — it only gates the
 > billing module. Group A (access) + B (emisor) unblock the first working call.

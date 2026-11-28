@@ -24,6 +24,7 @@ import {
 import { HEADER_ICON, HEADER_ICON_BUTTON } from '@/components/shell/header-controls';
 import { HOME_ITEM, MODULES } from '@/lib/navigation';
 import { NotificationCenter } from '@/components/NotificationCenter';
+import { useNotificationsRealtime } from '@/hooks/use-notifications';
 import { ReportingQuickActions } from '@/components/ReportingQuickActions';
 import { GlobalSearch } from '@/components/GlobalSearch';
 import QuickLinks from '@/components/home/QuickLinks';
@@ -67,8 +68,25 @@ const navItems: NavItem[] = [
   })),
 ];
 
+/**
+ * Routes that use the full width instead of the 1600 px content cap: boards
+ * whose value is horizontal room (Gantt, Tablero, Planta) and the hex
+ * launchers, whose watercolor wash must reach the edges.
+ */
+const WIDE_ROUTES = ['/operaciones/calendar', '/operaciones/kanban', '/operaciones/planta'];
+const LAUNCHER_ROUTES = ['/home', '/operaciones', '/calidad', '/comercial', '/personas', '/equipos', '/analitica', '/administracion'];
+function isBoardRoute(pathname: string): boolean {
+  return WIDE_ROUTES.some((r) => pathname === r || pathname.startsWith(r + '/'));
+}
+function isWideRoute(pathname: string): boolean {
+  return LAUNCHER_ROUTES.includes(pathname) || isBoardRoute(pathname);
+}
+
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const { user, role, loading, signOut } = useAuth();
+  // The single realtime channel for this user's notifications: the bell and
+  // the Notificaciones page only read the cache it fills (audit C1).
+  useNotificationsRealtime();
   const { theme, setTheme } = useTheme();
   const router = useRouter();
   const pathname = usePathname();
@@ -144,7 +162,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     // taller, sin sesion. Lo que autoriza es el token de la etiqueta, no una
     // cuenta. Sin esto rebota a /login, el mismo bug que tenia /track/.
     pathname.startsWith('/m/');
-  const isFullscreenRoute = pathname === '/estacion' || pathname === '/operaciones/whatsapp/operator' || pathname.startsWith('/track/') || pathname.startsWith('/legal/') || pathname.startsWith('/m/');
+  const isFullscreenRoute = pathname === '/operaciones/whatsapp/operator' || pathname.startsWith('/track/') || pathname.startsWith('/legal/') || pathname.startsWith('/m/');
 
   // Kick unauthenticated visitors off protected routes. This runs in an effect
   // because navigating during render updates the Router while AppShell is still
@@ -514,7 +532,16 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             padding below md clears the floating brand; from md up the rail head
             holds those controls and the page starts at the very top. */}
         <div className="flex-1 overflow-y-auto pt-14 md:pt-0 print:overflow-visible print:pt-0">
-          {children}
+          {/* One width rule for every page (plan 2026-11-25, F1): content
+              stops at CONTENT_MAX and centres, so a 2560 px monitor adds
+              margin instead of stretching cards. Boards whose whole point is
+              width, and the hex launchers with their full-bleed wash, opt out. */}
+          <div
+            className={cn('mx-auto h-full w-full', !isWideRoute(pathname) && 'max-w-[1600px]')}
+            data-board={isBoardRoute(pathname) || undefined}
+          >
+            {children}
+          </div>
         </div>
       </main>
     </div>

@@ -5,7 +5,7 @@ import { definitionFor } from "@/lib/machine-calendar";
 import { shiftPaidHours } from "@/lib/shift-hours";
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
-import { supabase } from "@/integrations/supabase/client";
+import { readApi } from "@/lib/read-api";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
@@ -17,7 +17,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useCompensationRatesForDate, useSchedulingCostModel, useWorkerAssignments, useWorkerMonthlyOvertime, useWorkflowCertificationAlerts, useWorkflowContracts, useWorkflowIncentiveStatuses, useWorkflowLeaveStatuses, useWorkflowWeeklyHours, useWorkersByRating, useWorkstations, useShifts, fetchWorkerAssignments } from "@/hooks/use-workflow-queries";
 import { useRealtimeProduction } from "@/hooks/use-realtime-production";
 import { DndContext, DragEndEvent, DragOverlay } from "@dnd-kit/core";
-import { isWorkerQualifiedForStation } from "@/lib/workstation-skills";
+import { getWorkerQualificationScore, isWorkerQualifiedForStation } from "@/lib/workstation-skills";
 import { isWorkerEligibleForStation, workerConflictFlags, workerSortScore } from "@/lib/worker-eligibility";
 import { useStationsUnderMaintenance } from "@/hooks/use-maintenance-queries";
 import { dateToLocalIso, startOfIsoWeek, weekDatesFrom } from "@/lib/week-dates";
@@ -483,9 +483,9 @@ export default function PlantaBoard({ initialTab = 'layout' }: PlantaBoardProps)
       const leave = leaveByEmployee.get(employeeId);
       const leaveStatus = leave
         ? leave.status === 'approved'
-          ? `On leave (${leave.leave_type})`
-          : 'Leave pending'
-        : 'Available';
+          ? `Con licencia (${leave.leave_type})`
+          : 'Licencia pendiente'
+        : 'Disponible';
       const leaveTone = leave
         ? leave.status === 'approved'
           ? 'alert'
@@ -496,14 +496,19 @@ export default function PlantaBoard({ initialTab = 'layout' }: PlantaBoardProps)
       const hasAwardedIncentive = incentives.some((item: any) =>
         ['approved', 'paid'].includes(String(item.status || '').toLowerCase())
       );
+      // Eligibility needs real evaluations; a score nobody entered is not a 75
+      // (audit C4) — it is "not evaluated", and that is what the board says.
+      const evaluated = worker?.attendance_score != null && worker?.overall_rating != null;
       const incentiveStatus = hasAwardedIncentive
-        ? 'Awarded this month'
-        : Number(worker?.attendance_score ?? 0) >= 90 && Number(worker?.overall_rating ?? 0) >= 75
-          ? 'Eligible'
-          : 'Review';
+        ? 'Incentivo otorgado este mes'
+        : !evaluated
+          ? 'Sin evaluar'
+          : Number(worker.attendance_score) >= 90 && Number(worker.overall_rating) >= 75
+            ? 'Elegible'
+            : 'Revisar';
       const incentiveTone = hasAwardedIncentive
         ? 'ok'
-        : incentiveStatus === 'Eligible'
+        : incentiveStatus === 'Elegible'
           ? 'ok'
           : 'warn';
 
@@ -519,13 +524,13 @@ export default function PlantaBoard({ initialTab = 'layout' }: PlantaBoardProps)
           .sort((a, b) => a.days - b.days)[0];
 
         if (urgency.days < 0) {
-          certificationAlert = 'Certification expired';
+          certificationAlert = 'Certificación vencida';
           certificationTone = 'alert';
         } else if (urgency.days <= 7) {
-          certificationAlert = `Certification expires in ${urgency.days} day(s)`;
+          certificationAlert = `Certificación vence en ${urgency.days} día${urgency.days === 1 ? '' : 's'}`;
           certificationTone = 'alert';
         } else {
-          certificationAlert = `Certification due in ${urgency.days} day(s)`;
+          certificationAlert = `Certificación por vencer en ${urgency.days} días`;
           certificationTone = 'warn';
         }
       }
@@ -759,8 +764,10 @@ export default function PlantaBoard({ initialTab = 'layout' }: PlantaBoardProps)
     [assignments, selectedShiftId]
   );
 
-  const sortScoreFor = (worker: any, isOvertime: boolean) =>
-    workerSortScore(worker, Number(compensationByEmployee?.[worker?.id]?.hourly_rate || 0), isOvertime);
+  // Rank by the skill THIS station asks for, then cost (audit C4: no more
+  // overall_rating, which nothing writes).
+  const sortScoreFor = (worker: any, isOvertime: boolean, station: any) =>
+    workerSortScore(getWorkerQualificationScore(worker, station), Number(compensationByEmployee?.[worker?.id]?.hourly_rate || 0), isOvertime);
 
   const handleBulkAutoFillShift = async () => {
     if (!selectedShiftId) {
@@ -805,7 +812,7 @@ export default function PlantaBoard({ initialTab = 'layout' }: PlantaBoardProps)
             return { worker, isOvertime };
           })
           .filter(({ worker, isOvertime }: { worker: any; isOvertime: boolean }) => isWorkerEligibleForStation(worker, station, isOvertime, workerIndicatorsById?.[worker.id]))
-          .sort((a: { worker: any; isOvertime: boolean }, b: { worker: any; isOvertime: boolean }) => sortScoreFor(b.worker, b.isOvertime) - sortScoreFor(a.worker, a.isOvertime));
+          .sort((a: { worker: any; isOvertime: boolean }, b: { worker: any; isOvertime: boolean }) => sortScoreFor(b.worker, b.isOvertime, station) - sortScoreFor(a.worker, a.isOvertime, station));
 
         for (const candidate of candidates.slice(0, capacityLeft)) {
           const role = candidate.isOvertime ? 'overtime_operator_50' : 'operator';
@@ -875,7 +882,7 @@ export default function PlantaBoard({ initialTab = 'layout' }: PlantaBoardProps)
             return { worker, isOvertime };
           })
           .filter(({ worker, isOvertime }: { worker: any; isOvertime: boolean }) => isWorkerEligibleForStation(worker, station, isOvertime, workerIndicatorsById?.[worker.id]))
-          .sort((a: { worker: any; isOvertime: boolean }, b: { worker: any; isOvertime: boolean }) => sortScoreFor(b.worker, b.isOvertime) - sortScoreFor(a.worker, a.isOvertime))[0];
+          .sort((a: { worker: any; isOvertime: boolean }, b: { worker: any; isOvertime: boolean }) => sortScoreFor(b.worker, b.isOvertime, station) - sortScoreFor(a.worker, a.isOvertime, station))[0];
 
         if (!replacement) {
           unresolved += 1;
@@ -937,7 +944,7 @@ export default function PlantaBoard({ initialTab = 'layout' }: PlantaBoardProps)
           .filter((worker: any) => !workersAssignedOtherShifts.has(worker.id))
           .map((worker: any): { worker: any; isOvertime: boolean } => ({ worker, isOvertime: false }))
           .filter(({ worker, isOvertime }: { worker: any; isOvertime: boolean }) => isWorkerEligibleForStation(worker, station, isOvertime, workerIndicatorsById?.[worker.id]))
-          .sort((a: { worker: any; isOvertime: boolean }, b: { worker: any; isOvertime: boolean }) => sortScoreFor(b.worker, false) - sortScoreFor(a.worker, false))[0];
+          .sort((a: { worker: any; isOvertime: boolean }, b: { worker: any; isOvertime: boolean }) => sortScoreFor(b.worker, false, station) - sortScoreFor(a.worker, false, station))[0];
 
         if (!replacement) {
           remaining += 1;
@@ -992,24 +999,12 @@ export default function PlantaBoard({ initialTab = 'layout' }: PlantaBoardProps)
         return;
       }
 
-      const [{ data: leaveRows, error: leaveError }, { data: contractsRows, error: contractsError }] = await Promise.all([
-        supabase
-          .from('leave_requests')
-          .select('employee_id, leave_type, status, start_date, end_date')
-          .in('employee_id', employeeIds)
-          .eq('status', 'approved')
-          .lte('start_date', weekEndIso)
-          .gte('end_date', weekStartIso),
-        supabase
-          .from('employment_contracts')
-          .select('employee_id, contract_start_date, contract_end_date, max_hours_per_week, base_hours_per_week, overtime_allowed, overtime_cap_hours_per_week')
-          .in('employee_id', employeeIds)
-          .lte('contract_start_date', weekEndIso)
-          .or(`contract_end_date.is.null,contract_end_date.gte.${weekStartIso}`),
-      ]);
-
-      if (leaveError) throw leaveError;
-      if (contractsError) throw contractsError;
+      // Server read (audit H5): the same two queries, behind /api/reads.
+      const { leave: leaveRows, contracts: contractsRows } = await readApi<{ leave: any[]; contracts: any[] }>('week-hr-limits', {
+        employee_ids: employeeIds.join(','),
+        from: weekStartIso,
+        to: weekEndIso,
+      });
 
       const toMinutes = (timeValue?: string | null) => {
         if (!timeValue) return 0;
@@ -1139,18 +1134,18 @@ export default function PlantaBoard({ initialTab = 'layout' }: PlantaBoardProps)
                     key={v}
                     type="button"
                     onClick={() => setRosterView(v)}
-                    className={`rounded px-3 py-1 text-xs font-medium ${rosterView === v ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+                    className={`rounded px-3 py-2 text-xs font-medium sm:py-1 ${rosterView === v ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}
                   >
                     {v === 'semana' ? 'Semana' : 'Día'}
                   </button>
                 ))}
               </div>
               <div className="flex items-center gap-1 text-xs">
-                <Button variant="outline" size="sm" className="h-7 px-2" onClick={goToPreviousWeek} aria-label="Semana anterior">‹</Button>
+                <Button variant="outline" size="sm" className="h-9 px-3 sm:h-7 sm:px-2" onClick={goToPreviousWeek} aria-label="Semana anterior">‹</Button>
                 <span className="min-w-[9rem] text-center font-medium">
                   Semana del {weekDates[0]?.getDate()}/{(weekDates[0]?.getMonth() ?? 0) + 1} al {weekDates[6]?.getDate()}/{(weekDates[6]?.getMonth() ?? 0) + 1}
                 </span>
-                <Button variant="outline" size="sm" className="h-7 px-2" onClick={goToNextWeek} aria-label="Semana siguiente">›</Button>
+                <Button variant="outline" size="sm" className="h-9 px-3 sm:h-7 sm:px-2" onClick={goToNextWeek} aria-label="Semana siguiente">›</Button>
               </div>
               {rosterView === 'dia' && <span className="text-xs text-muted-foreground">Día {selectedDate}</span>}
             </div>
@@ -1198,7 +1193,7 @@ export default function PlantaBoard({ initialTab = 'layout' }: PlantaBoardProps)
                       size="sm"
                       onClick={() => setSelectedShiftId(opt.ids[0])}
                       variant={active ? "default" : "outline"}
-                      className={`h-6 px-2 text-xs ${active
+                      className={`h-9 px-2 text-xs sm:h-6 ${active
                         ? "bg-primary hover:bg-primary/90 text-primary-foreground"
                         : "border-border bg-card/50 hover:bg-card"}`}
                     >

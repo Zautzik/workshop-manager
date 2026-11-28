@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
+import { amountCLP, unitCostCLP, units, wholeUnits } from '@/lib/limits';
 import { isAuthError, requireAuth } from '@/lib/api-middleware';
 import { supabaseAdmin } from '@/integrations/supabase/server';
 import { resolveSalesScope, scopeFilterId } from '@/lib/sales-scope';
@@ -9,9 +10,9 @@ const ROLES = ['admin', 'manager', 'supervisor', 'vendedor'] as const;
 const EstimateLineSchema = z.object({
   category: z.string(),
   description: z.string(),
-  quantity: z.coerce.number(),
+  quantity: units(),
   unit: z.string(),
-  unit_cost: z.coerce.number(),
+  unit_cost: unitCostCLP(),
 });
 
 // Nada de esto cambia qué puede pasar hoy -- es la misma cotización que ya se
@@ -19,12 +20,12 @@ const EstimateLineSchema = z.object({
 // `quantity`) o un campo corrupto llegara derecho a la base sin que nadie lo
 // mirara antes: acá es donde se para.
 const CreateVbSchema = z.object({
-  client_id: z.string().uuid().optional().nullable(),
+  client_id: z.string().guid().optional().nullable(),
   client_name: z.string().max(200).optional().nullable(),
-  salesman_id: z.string().uuid().optional().nullable(),
+  salesman_id: z.string().guid().optional().nullable(),
   product_name: z.string().max(200).optional().nullable(),
   product_type: z.string().max(100).optional().nullable(),
-  quantity: z.coerce.number().int().min(0).optional().nullable(),
+  quantity: wholeUnits().optional().nullable(),
   width_cm: z.coerce.number().min(0).optional().nullable(),
   height_cm: z.coerce.number().min(0).optional().nullable(),
   substrate_type: z.string().max(100).optional().nullable(),
@@ -40,17 +41,17 @@ const CreateVbSchema = z.object({
   calc_plates: z.coerce.number().min(0).optional().nullable(),
   calc_print_hours: z.coerce.number().min(0).optional().nullable(),
   calc_finish_hours: z.coerce.number().min(0).optional().nullable(),
-  subtotal_cost: z.coerce.number().min(0).default(0),
+  subtotal_cost: amountCLP().default(0),
   margin_pct: z.coerce.number().default(0),
   markup_pct: z.coerce.number().default(0),
-  total_price: z.coerce.number().min(0).default(0),
-  unit_price: z.coerce.number().min(0).default(0),
-  floor_price: z.coerce.number().min(0).default(0),
+  total_price: amountCLP().default(0),
+  unit_price: amountCLP().default(0),
+  floor_price: amountCLP().default(0),
   status: z.enum(['draft', 'sent', 'signed', 'converted', 'rejected', 'expired']).default('draft'),
   notes: z.string().max(2000).optional().nullable(),
   deadline: z.string().optional().nullable(),
   priority_level: z.string().max(50).optional().default('normal'),
-  press_id: z.string().uuid().optional().nullable(),
+  press_id: z.string().guid().optional().nullable(),
 });
 
 // GET /api/vistos-buenos — list quotes (Vistos Buenos).

@@ -5,8 +5,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { FileSpreadsheet, PenLine, CheckCircle2, Factory } from 'lucide-react';
 import { useVistosBuenos } from '@/hooks/use-commercial-queries';
-import { useOTs } from '@/hooks/use-operations-queries';
+import { useActiveOTs } from '@/hooks/use-operations-queries';
 import { formatCLP } from '@/lib/format';
+import { PageShell } from '@/components/layout/PageShell';
 
 const STAGE_BADGE: Record<string, string> = {
   draft: 'bg-slate-500/15 text-slate-500',
@@ -17,7 +18,7 @@ const STAGE_BADGE: Record<string, string> = {
 
 function PipelineInner() {
   const { data: vbs = [] } = useVistosBuenos();
-  const { data: ots = [] } = useOTs();
+  const { data: ots = [] } = useActiveOTs();
 
   const f = useMemo(() => {
     const sum = (s: string) => vbs.filter((v) => v.status === s).reduce((a, v) => a + Number(v.total_price || 0), 0);
@@ -125,13 +126,13 @@ function PipelineInner() {
 export default function PipelineVentasPage() {
   return (
     <ProtectedRoute allowedRoles={['admin', 'manager']}>
-      <div className="p-6 space-y-6">
+      <PageShell>
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Pipeline de Ventas</h1>
+          <h1 className="text-xl sm:text-2xl font-bold text-foreground">Pipeline de Ventas</h1>
           <p className="text-sm text-muted-foreground mt-1">El embudo completo: cotización → firma → OT → planta, de todos los vendedores.</p>
         </div>
         <PipelineInner />
-      </div>
+      </PageShell>
     </ProtectedRoute>
   );
 }

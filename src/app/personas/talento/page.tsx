@@ -18,6 +18,7 @@ import { Network, GraduationCap, Award, Gift } from 'lucide-react';
 import { CertificacionesContent } from '@/components/hr/CertificacionesContent';
 import { IncentivosContent } from '@/components/hr/IncentivosContent';
 import { useTabFromUrl } from '@/hooks/use-tab-from-url';
+import { PageShell } from '@/components/layout/PageShell';
 
 // Both are heavy trees; keep them out of the initial bundle.
 const CraftSkillTree = dynamic(() => import('@/components/hr/CraftSkillTree'));
@@ -94,9 +95,9 @@ function TalentoTabs() {
 export default function DesarrolloTalentoPage() {
   return (
     <ProtectedRoute allowedRoles={['admin', 'hr_manager', 'supervisor']}>
-      <div className="p-6 space-y-6 max-w-[1200px] mx-auto">
+      <PageShell>
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Desarrollo de Talento</h1>
+          <h1 className="text-xl sm:text-2xl font-bold text-foreground">Desarrollo de Talento</h1>
           <p className="text-sm text-muted-foreground mt-1">
             Cómo crece cada persona: competencias, formación, acreditaciones y reconocimiento
           </p>
@@ -105,7 +106,7 @@ export default function DesarrolloTalentoPage() {
         <Suspense fallback={loading}>
           <TalentoTabs />
         </Suspense>
-      </div>
+      </PageShell>
     </ProtectedRoute>
   );
 }

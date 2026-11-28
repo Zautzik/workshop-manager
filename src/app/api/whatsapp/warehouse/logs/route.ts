@@ -48,12 +48,12 @@ export async function GET(req: NextRequest) {
 
 const ManualEntrySchema = z.object({
   action_type: z.enum(['receive', 'use', 'return', 'check']),
-  item_id: z.string().uuid(),
+  item_id: z.string().guid(),
   quantity: z.number().positive().optional(),
   unit: z.string().max(20).optional(),
   unit_cost: z.number().min(0).optional(),
   ot_number: z.string().max(10).regex(/^\d{1,6}$/).optional(),
-  lot_id: z.string().uuid().optional(),
+  lot_id: z.string().guid().optional(),
   supplier_name: z.string().max(200).optional(),
   notes: z.string().max(500).optional(),
   operator_name: z.string().max(100),

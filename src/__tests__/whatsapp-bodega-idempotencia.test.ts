@@ -45,7 +45,7 @@ vi.mock('@/lib/whatsapp-maintenance-ingest', () => ({
 }));
 
 const { POST } = await import('@/app/api/whatsapp/warehouse/webhook/route');
-const { eventMessageId } = await import('@/lib/whatsapp-ingest');
+const { eventMessageKey } = await import('@/lib/whatsapp-ingest');
 
 function photoEnvelope(id?: string) {
   return {
@@ -113,19 +113,20 @@ describe('webhook de bodega — candado de wamid', () => {
   });
 });
 
-describe('eventMessageId — la llave de cada evento de un mensaje', () => {
-  it('un mensaje de un solo evento conserva el wamid', () => {
-    expect(eventMessageId('wamid.X', 0, 1)).toBe('wamid.X');
+describe('eventMessageKey — la llave de cada evento de un mensaje', () => {
+  it('el primer evento conserva el wamid tal cual', () => {
+    expect(eventMessageKey('wamid.X', 0)).toBe('wamid.X');
   });
 
   it('un mensaje compuesto da una llave distinta y estable por evento', () => {
-    const fin = eventMessageId('wamid.X', 0, 2);
-    const inicio = eventMessageId('wamid.X', 1, 2);
+    const fin = eventMessageKey('wamid.X', 0);
+    const inicio = eventMessageKey('wamid.X', 1);
     expect(fin).not.toBe(inicio);
-    expect(eventMessageId('wamid.X', 1, 2)).toBe(inicio);
+    expect(inicio).toBe('wamid.X#1');
+    expect(eventMessageKey('wamid.X', 1)).toBe(inicio);
   });
 
   it('sin wamid no hay llave', () => {
-    expect(eventMessageId(null, 1, 2)).toBeNull();
+    expect(eventMessageKey(null, 1)).toBeNull();
   });
 });

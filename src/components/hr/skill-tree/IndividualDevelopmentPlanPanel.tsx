@@ -35,19 +35,19 @@ export function IndividualDevelopmentPlanPanel({
     <div className="mx-4 mt-3 rounded-lg border border-[#1e293b] bg-[#0d1117] p-3">
       <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
         <div>
-          <p className="text-[11px] uppercase tracking-wide text-slate-500">Individual Development Plan</p>
+          <p className="text-[11px] uppercase tracking-wide text-slate-500">Plan de desarrollo individual</p>
           <p className="text-sm text-slate-100 font-semibold">{employeeName} - {templateName}</p>
-          <p className="text-[11px] text-cyan-300 mt-0.5">Role readiness: {readiness}%</p>
+          <p className="text-[11px] text-cyan-300 mt-0.5">Preparación para el rol: {readiness}%</p>
         </div>
         <div className="flex items-center gap-2">
-          <Button size="sm" variant="outline" onClick={onCopy}>Copy Plan</Button>
+          <Button size="sm" variant="outline" onClick={onCopy}>Copiar plan</Button>
           <Button size="sm" variant="outline" onClick={onDownload}>Descargar .txt</Button>
         </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
         <div className="rounded border border-[#1e293b] bg-[#0a0f15] p-2.5">
-          <p className="text-xs font-semibold text-slate-100">30 Days</p>
+          <p className="text-xs font-semibold text-slate-100">30 días</p>
           <ul className="mt-1.5 space-y-1 text-xs text-slate-300 list-disc pl-4">
             {goals30.map(goal => (
               <li key={`30-${goal}`}>{goal}</li>
@@ -56,7 +56,7 @@ export function IndividualDevelopmentPlanPanel({
         </div>
 
         <div className="rounded border border-[#1e293b] bg-[#0a0f15] p-2.5">
-          <p className="text-xs font-semibold text-slate-100">60 Days</p>
+          <p className="text-xs font-semibold text-slate-100">60 días</p>
           <ul className="mt-1.5 space-y-1 text-xs text-slate-300 list-disc pl-4">
             {goals60.map(goal => (
               <li key={`60-${goal}`}>{goal}</li>
@@ -65,7 +65,7 @@ export function IndividualDevelopmentPlanPanel({
         </div>
 
         <div className="rounded border border-[#1e293b] bg-[#0a0f15] p-2.5">
-          <p className="text-xs font-semibold text-slate-100">90 Days</p>
+          <p className="text-xs font-semibold text-slate-100">90 días</p>
           <ul className="mt-1.5 space-y-1 text-xs text-slate-300 list-disc pl-4">
             {goals90.map(goal => (
               <li key={`90-${goal}`}>{goal}</li>

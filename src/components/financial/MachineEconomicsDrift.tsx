@@ -32,18 +32,24 @@ interface MachineDriftRow {
   breakdown: { energy: number; maintenance: number; depreciation: number };
   data_complete: boolean;
   missing_fields: string[];
-  drift: {
-    catalog: number;
-    derived: number;
-    deltaPct: number | null;
-    material: boolean;
-    direction: 'under' | 'over' | 'aligned';
-  };
+  /** Lo que el libro carga por una hora de esta máquina; null = no se cobra por hora. */
+  charged_hourly: number | null;
+  charged_label: string | null;
+  /** `supuesto` = el catálogo no trae la tarifa y se usó el defecto del motor. */
+  charged_source: 'catalogo' | 'supuesto' | null;
+  drift: MachineDrift | null;
+}
+
+interface MachineDrift {
+  catalog: number;
+  derived: number;
+  deltaPct: number | null;
+  material: boolean;
+  direction: 'under' | 'over' | 'aligned';
 }
 
 interface MachineEconomicsResponse {
   monthly_productive_hours: number;
-  catalog_hourly: number;
   machines: MachineDriftRow[];
   summary: { total: number; with_complete_economics: number; undercharging: number; overcharging: number; aligned: number };
 }
@@ -66,7 +72,7 @@ function useMachineEconomics(hours: number) {
   });
 }
 
-const DIRECTION_STYLE: Record<MachineDriftRow['drift']['direction'], { text: string; icon: typeof TrendingUp; label: string }> = {
+const DIRECTION_STYLE: Record<MachineDrift['direction'], { text: string; icon: typeof TrendingUp; label: string }> = {
   under: { text: 'text-red-500', icon: TrendingUp, label: 'Cobrando bajo costo' },
   over: { text: 'text-yellow-500', icon: TrendingDown, label: 'Cobrando sobre costo' },
   aligned: { text: 'text-green-500', icon: Minus, label: 'Alineada' },
@@ -80,17 +86,17 @@ export function MachineEconomicsDrift() {
   // si no, se saltan en algunos renders y React se queja de "more hooks than
   // during the previous render" apenas la data llega.
   const rankedUndercharging: RankedListItem[] = useMemo(() => {
-    const undercharging = (data?.machines ?? []).filter((m) => m.data_complete && m.drift.direction === 'under');
-    const sorted = [...undercharging].sort((a, b) => (b.drift.deltaPct ?? 0) - (a.drift.deltaPct ?? 0));
-    const max = Math.max(1, ...sorted.map((m) => m.drift.deltaPct ?? 0));
+    const undercharging = (data?.machines ?? []).filter((m) => m.data_complete && m.drift?.direction === 'under');
+    const sorted = [...undercharging].sort((a, b) => (b.drift?.deltaPct ?? 0) - (a.drift?.deltaPct ?? 0));
+    const max = Math.max(1, ...sorted.map((m) => m.drift?.deltaPct ?? 0));
     return sorted.map((m) => ({
       id: m.machine_id,
       label: m.name,
       sublabel: m.type,
-      barPct: ((m.drift.deltaPct ?? 0) / max) * 100,
+      barPct: ((m.drift?.deltaPct ?? 0) / max) * 100,
       barColor: '#ef4444',
-      value: `+${m.drift.deltaPct}%`,
-      title: `Cuesta ${formatCLP(m.derived_hourly)}/hr real vs ${formatCLP(m.drift.catalog)}/hr de catálogo`,
+      value: `+${m.drift?.deltaPct}%`,
+      title: `Cuesta ${formatCLP(m.derived_hourly)}/hr real vs ${formatCLP(m.charged_hourly ?? 0)}/hr de catálogo`,
     }));
   }, [data?.machines]);
 
@@ -101,7 +107,7 @@ export function MachineEconomicsDrift() {
     return <p className="text-sm text-destructive">No se pudo calcular la economía de las máquinas.</p>;
   }
 
-  const undercharging = data.machines.filter((m) => m.data_complete && m.drift.direction === 'under');
+  const undercharging = data.machines.filter((m) => m.data_complete && m.drift?.direction === 'under');
 
   return (
     <div className="space-y-6">
@@ -131,9 +137,9 @@ export function MachineEconomicsDrift() {
           <div>
             <CardTitle>Tarifa real vs. tarifa de catálogo</CardTitle>
             <p className="mt-1 text-sm text-muted-foreground">
-              El catálogo cobra <b className="text-foreground">{formatCLP(data.catalog_hourly)}/hr</b> por
-              prensa. Esto es lo que cada máquina cuesta de verdad, prorrateando mantención y
-              depreciación sobre sus horas productivas del mes.
+              Lo que cada máquina cuesta de verdad —prorrateando mantención y depreciación sobre
+              sus horas productivas del mes— al lado de la tarifa que el libro carga por su hora
+              cuando se cierra una pasada.
             </p>
           </div>
           <div className="flex shrink-0 items-center gap-2">
@@ -174,6 +180,20 @@ export function MachineEconomicsDrift() {
                       </tr>
                     );
                   }
+                  if (!m.drift) {
+                    return (
+                      <tr key={m.machine_id} className="border-b hover:bg-muted/50">
+                        <td className="py-2 px-4">
+                          {m.name}
+                          <span className="ml-1.5 text-xs text-muted-foreground">{m.type}</span>
+                        </td>
+                        <td className="py-2 px-4 text-right font-semibold">{formatCLP(m.derived_hourly)}</td>
+                        <td colSpan={3} className="py-2 px-4 text-muted-foreground text-sm">
+                          No se cobra por hora de máquina: no hay tarifa contra la cual comparar.
+                        </td>
+                      </tr>
+                    );
+                  }
                   const style = DIRECTION_STYLE[m.drift.direction];
                   const Icon = style.icon;
                   return (
@@ -183,7 +203,17 @@ export function MachineEconomicsDrift() {
                         <span className="ml-1.5 text-xs text-muted-foreground">{m.type}</span>
                       </td>
                       <td className="py-2 px-4 text-right font-semibold">{formatCLP(m.derived_hourly)}</td>
-                      <td className="py-2 px-4 text-right text-muted-foreground">{formatCLP(m.drift.catalog)}</td>
+                      <td className="py-2 px-4 text-right text-muted-foreground">
+                        {formatCLP(m.drift.catalog)}
+                        {m.charged_source === 'supuesto' && (
+                          <span
+                            className="ml-1.5 text-xs text-yellow-500"
+                            title="El catálogo no trae esta tarifa; es el valor por defecto del motor."
+                          >
+                            supuesta
+                          </span>
+                        )}
+                      </td>
                       <td className={`py-2 px-4 text-right font-bold ${style.text}`}>
                         {m.drift.deltaPct != null ? `${m.drift.deltaPct > 0 ? '+' : ''}${m.drift.deltaPct}%` : '—'}
                       </td>
@@ -205,8 +235,8 @@ export function MachineEconomicsDrift() {
           <AlertTriangle className="h-4 w-4" />
           <AlertDescription>
             {undercharging.length === 1
-              ? `${undercharging[0].name} cuesta más por hora de lo que el catálogo cobra por su tiempo de prensa.`
-              : `${undercharging.length} máquinas cuestan más por hora de lo que el catálogo cobra por su tiempo de prensa.`}{' '}
+              ? `${undercharging[0].name} cuesta más por hora de lo que el catálogo cobra por su hora.`
+              : `${undercharging.length} máquinas cuestan más por hora de lo que el catálogo cobra por su hora.`}{' '}
             Las cotizaciones que las usan pueden estar subestimando el costo real.
           </AlertDescription>
         </Alert>

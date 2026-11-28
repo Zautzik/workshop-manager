@@ -61,7 +61,7 @@ describe('ubicar una ruta en el árbol de navegación', () => {
     for (const m of MODULES) {
       for (const g of m.groups) {
         for (const it of g.items) {
-          // Las secciones que viven fuera del módulo (p. ej. /estacion) se
+          // Las secciones que viven fuera del módulo (p. ej. una pantalla completa) se
           // resuelven por su propia ruta, no por la del módulo que las lista.
           if (!it.href.startsWith(m.href + '/')) continue;
           expect(findNavTrail(it.href)?.leaf?.href, it.href).toBe(it.href);

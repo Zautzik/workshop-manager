@@ -17,7 +17,7 @@ export function SecurityPanel({ data }: { data: DiagnosticsData }) {
 	return (
 		<div className="space-y-4">
 			{/* Summary pills */}
-			<div className="grid grid-cols-3 gap-3">
+			<div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
 				<Card>
 					<CardContent className="pt-4 pb-3">
 						<p className="text-2xl font-bold">{users.length}</p>

@@ -122,7 +122,7 @@ export default function RecallReport() {
           </Card>
 
           {/* Impact summary */}
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <Stat icon={ClipboardList} label="OTs afectadas" value={trace.summary.ot_count} tone="text-amber-500" />
             <Stat icon={Users} label="Clientes afectados" value={trace.summary.customer_count} tone="text-rose-500" />
             <Stat icon={Boxes} label="Cantidad consumida" value={trace.summary.total_consumed.toLocaleString()} tone="text-indigo-500" />

@@ -13,7 +13,7 @@ const CreateArticleSchema = z.object({
 });
 
 const UpdateArticleSchema = z.object({
-  id: z.string().uuid(),
+  id: z.string().guid(),
   title: z.string().min(1).max(300).optional(),
   category: z.string().max(100).nullable().optional(),
   tags: z.array(z.string()).optional(),

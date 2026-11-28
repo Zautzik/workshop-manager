@@ -118,7 +118,7 @@ function getRlTier(pathname: string, method: string): RlTier | null {
  *   browser never learns a rebuild finished (the page stops auto-reloading on
  *   save). The socket's host is derived from the request rather than hardcoded
  *   to localhost so this also works when the dev server is reached over a LAN
- *   IP — e.g. testing the estación kiosk on a tablet.
+ *   IP — e.g. testing the app on a tablet.
  */
 function buildCsp(nonce: string, host: string): string {
 	const isDev = process.env.NODE_ENV !== 'production';

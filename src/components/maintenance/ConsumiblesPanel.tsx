@@ -193,7 +193,7 @@ export function ConsumiblesPanel() {
                         )}
                       </div>
                       <Button
-                        variant="ghost" size="sm" className="h-7 text-xs"
+                        variant="ghost" size="sm" className="h-9 sm:h-7 text-xs"
                         onClick={() => del.mutate(s.id)} disabled={del.isPending}
                       >
                         <Trash2 className="mr-1 h-3 w-3" /> Quitar

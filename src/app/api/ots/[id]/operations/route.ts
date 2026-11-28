@@ -16,7 +16,7 @@ export async function GET(
 
 	const { id } = await params;
 
-	if (!id || !z.string().uuid().safeParse(id).success) {
+	if (!id || !z.string().guid().safeParse(id).success) {
 		return NextResponse.json({ error: 'Valid OT id required' }, { status: 400 });
 	}
 

@@ -17,13 +17,17 @@ export interface MachineActivityResponse {
   summary: {
     machine_count: number;
     total_production_hours: number;
+    /** Hours from passes whose machine could not be determined. */
+    unattributed_hours: number;
+    /** Those hours by route stage — the machine type is known, the unit is not. */
+    unattributed_by_stage: Array<{ stage: string; hours: number }>;
     producing_now: number;
     active_ots: number;
     busiest: { name: string | null; hours: number } | null;
   };
 }
 
-/** Real machine load from ot_status_history (production hours / OTs / active). */
+/** Real machine load: closed-pass hours from the ledger (ot_stage_reports), OTs, active now. */
 export function useMachineActivity() {
   return useQuery<MachineActivityResponse>({
     queryKey: ['machine-activity'],

@@ -3,6 +3,7 @@ import { requireAuth, isAuthError } from '@/lib/api-middleware';
 import { supabaseAdmin } from '@/integrations/supabase/server';
 import { fetchAll } from '@/lib/fetch-all';
 import { STAGE_PASS_REF } from '@/lib/stage-valuation';
+import { laborLinePerson } from '@/lib/labor-line';
 
 export const dynamic = 'force-dynamic';
 
@@ -15,7 +16,7 @@ export const dynamic = 'force-dynamic';
  * pestaña lee ESAS líneas: las mismas que suma el margen de Rentabilidad.
  *
  * Antes recalculaba la mano de obra por su cuenta desde las marcas del kiosco
- * (labor-attribution.ts) — una segunda verdad que no coincidía con el margen
+ * (labor-attribution.ts, borrado con el kiosco el 2026-11-25) — una segunda verdad que no coincidía con el margen
  * y que, sin marcas de reloj, dejaba la pestaña vacía aunque el libro tuviera
  * la mano de obra cargada (2026-11-12).
  *
@@ -24,11 +25,6 @@ export const dynamic = 'force-dynamic';
  * faltan tarifas.
  */
 
-/** «Mano de obra — Ana Soto (2 h, turno Mañana 2026-11-12)» → «Ana Soto». */
-const personOf = (description: string): string | null => {
-	const m = /^Mano de obra — (.+?) \(/.exec(description ?? '');
-	return m ? m[1] : null;
-};
 
 export async function GET(req: NextRequest) {
 	const auth = await requireAuth(['admin', 'manager', 'supervisor']);
@@ -42,7 +38,7 @@ export async function GET(req: NextRequest) {
 	const linesPage = (desde: number, hasta: number) => {
 		let q = supabaseAdmin
 			.from('ot_cost_lines')
-			.select('ot_id, ref_id, description, quantity, unit_cost, total, occurred_at')
+			.select('ot_id, ref_id, employee_id, description, quantity, unit_cost, total, occurred_at')
 			.eq('kind', 'actual')
 			.eq('category', 'labor')
 			.eq('ref_type', STAGE_PASS_REF);
@@ -62,13 +58,17 @@ export async function GET(req: NextRequest) {
 	let lines: any[];
 	let passes: any[];
 	let ratesCount: number;
+	let nameById: Map<string, string>;
 	try {
-		const [l, p, r] = await Promise.all([
+		const [l, p, r, e] = await Promise.all([
 			fetchAll<any>(linesPage),
 			fetchAll<any>(passesPage),
 			supabaseAdmin.from('compensation_rates').select('id', { count: 'exact', head: true }),
+			supabaseAdmin.from('employees').select('id, full_name'),
 		]);
 		if (r.error) throw new Error(r.error.message);
+		if (e.error) throw new Error(e.error.message);
+		nameById = new Map((e.data ?? []).map((x) => [x.id as string, x.full_name as string]));
 		lines = l.rows;
 		passes = p.rows;
 		ratesCount = r.count ?? 0;
@@ -94,13 +94,15 @@ export async function GET(req: NextRequest) {
 	}
 
 	// Agrupado por OT.
-	const byOt = new Map<string, { hours: number; cost: number; people: Set<string> }>();
+	const byOt = new Map<string, { hours: number; cost: number; people: Set<string>; last: string | null }>();
 	for (const l of lines) {
-		const g = byOt.get(l.ot_id) ?? { hours: 0, cost: 0, people: new Set<string>() };
+		const g = byOt.get(l.ot_id) ?? { hours: 0, cost: 0, people: new Set<string>(), last: null };
 		g.hours += Number(l.quantity ?? 0);
 		g.cost += Number(l.total ?? 0);
-		const who = personOf(l.description);
-		if (who) g.people.add(who);
+		if (l.occurred_at && (!g.last || l.occurred_at > g.last)) g.last = l.occurred_at;
+		// Who: the line's employee_id (current name), or its text for old lines.
+		const who = laborLinePerson(l, nameById);
+		if (who) g.people.add(who.name);
 		byOt.set(l.ot_id, g);
 	}
 
@@ -125,6 +127,8 @@ export async function GET(req: NextRequest) {
 				ot_number: o?.ot_number ?? null,
 				client_name: o?.client_name ?? null,
 				revenue,
+				// Cuándo se cargó la última hora a esta OT (cierre de etapa).
+				last_labor_at: g.last,
 				total_hours: Math.round(g.hours * 100) / 100,
 				// Las horas extra no se separan todavía: la línea va a la tarifa base.
 				overtime_hours: 0,

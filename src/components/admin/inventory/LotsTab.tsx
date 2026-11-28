@@ -112,7 +112,7 @@ export function LotsTab({
               <button
                 type="button"
                 onClick={() => setLotOnlyProblem((v) => !v)}
-                className="font-semibold underline underline-offset-2"
+                className="tap font-semibold underline underline-offset-2"
               >
                 {lotOnlyProblem ? 'Ver todos' : 'Ver sólo éstos'}
               </button>

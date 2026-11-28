@@ -17,7 +17,7 @@ export default function MachineActivityReport() {
     // Ordenadas por carga real: la lista debe reforzar visualmente al "equipo
     // más activo" de arriba, no dejarlo como un dato suelto que no calza con
     // el orden de abajo.
-    return [...rows]
+    const byMachine = [...rows]
       .sort((a, b) => b.production_hours - a.production_hours)
       .map((m) => ({
         id: m.machine_id,
@@ -29,7 +29,18 @@ export default function MachineActivityReport() {
         barColor: '#6366f1',
         value: `${m.production_hours} h`,
       }));
-  }, [data?.machines]);
+    // Hours whose stage is known but not the exact unit (old passes stored the
+    // press for every stage): shown as their own rows, never pinned on a guess.
+    const byStage = (data?.summary.unattributed_by_stage ?? []).map((u) => ({
+      id: `stage-${u.stage}`,
+      label: `${u.stage} — máquina sin precisar`,
+      sublabel: 'La pasada no guardó cuál de las máquinas de esa etapa',
+      barPct: (u.hours / Math.max(1, max, u.hours)) * 100,
+      barColor: '#94a3b8',
+      value: `${u.hours} h`,
+    }));
+    return [...byMachine, ...byStage].sort((a, b) => parseFloat(b.value) - parseFloat(a.value));
+  }, [data?.machines, data?.summary.unattributed_by_stage]);
 
   if (isLoading || !data) {
     return <div className="space-y-3"><div className="grid grid-cols-2 lg:grid-cols-4 gap-3">{[...Array(4)].map((_, i) => <Skeleton key={i} className="h-24 w-full" />)}</div><Skeleton className="h-72 w-full" /></div>;
@@ -55,7 +66,8 @@ export default function MachineActivityReport() {
             <RankedList items={ranked} visibleCount={8} />
           )}
           <p className="mt-4 text-xs text-muted-foreground">
-            Horas de producción derivadas del tiempo que las OTs asignadas pasaron en etapas de impresión, troquelado y acabado.
+            Horas de las pasadas cerradas (el mismo libro que valoriza el costo de cada OT).
+
           </p>
         </CardContent>
       </Card>

@@ -218,7 +218,7 @@ export function RepetirOTAnterior({ onApply }: Props) {
                         Ese trabajo costó más de lo que se cobró. Revisa el precio antes de repetirlo.
                       </p>
                     )}
-                    <Button size="sm" className="h-7 text-xs" onClick={() => apply(ot)}>
+                    <Button size="sm" className="h-9 sm:h-7 text-xs" onClick={() => apply(ot)}>
                       Usar estas especificaciones
                     </Button>
                   </div>

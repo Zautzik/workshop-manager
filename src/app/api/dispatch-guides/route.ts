@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
+import { wholeUnits } from '@/lib/limits';
 import { isAuthError, requireAuth } from '@/lib/api-middleware';
 import { supabaseAdmin } from '@/integrations/supabase/server';
 
@@ -25,10 +26,10 @@ export async function GET(req: NextRequest) {
 }
 
 const CreateGuideSchema = z.object({
-  ot_id: z.string().uuid(),
-  client_id: z.string().uuid().optional().nullable(),
+  ot_id: z.string().guid(),
+  client_id: z.string().guid().optional().nullable(),
   client_name: z.string().max(255).optional().nullable(),
-  quantity: z.coerce.number().int().min(1),
+  quantity: wholeUnits().min(1),
   dispatch_date: z.string().optional(),
   carrier: z.string().max(255).optional().nullable(),
   vehicle_plate: z.string().max(50).optional().nullable(),

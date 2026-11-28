@@ -108,7 +108,7 @@ const ProfileFields = {
   giro: z.string().max(255).optional().nullable(),
   email: z.string().email().max(255).optional().nullable().or(z.literal('')),
   phone: z.string().max(50).optional().nullable(),
-  category_ids: z.array(z.string().uuid()).optional(),
+  category_ids: z.array(z.string().guid()).optional(),
   certifications: z.array(z.object({
     name: z.string().min(1).max(100),
     code: z.string().max(100).optional().nullable(),

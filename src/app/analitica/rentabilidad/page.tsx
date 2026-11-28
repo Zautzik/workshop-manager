@@ -10,6 +10,7 @@ import { OTCostAnalysisReport } from '@/components/financial/OTCostAnalysisRepor
 import { OTFinancialTracking } from '@/components/financial/OTFinancialTracking';
 import { MaquetaLoadPanel } from '@/components/financial/MaquetaLoadPanel';
 import AnalyticsFilterBar from '@/components/analitica/AnalyticsFilterBar';
+import { PageShell } from '@/components/layout/PageShell';
 
 // El orden importa: se aterriza en el margen del TRABAJO, no en una de sus
 // partidas. La mano de obra es un componente del costo, no la pregunta —
@@ -34,7 +35,7 @@ function RentabilidadTabs() {
 
   return (
     <Tabs value={active} onValueChange={onChange} className="w-full">
-      <TabsList className="grid w-full max-w-xl grid-cols-3">
+      <TabsList>
         <TabsTrigger value="seguimiento" className="gap-2">
           <PieChart className="h-4 w-4" /> Margen por trabajo
         </TabsTrigger>
@@ -62,10 +63,10 @@ function RentabilidadTabs() {
 export default function AnaliticaRentabilidadPage() {
   return (
     <ProtectedRoute allowedRoles={['admin', 'manager']}>
-      <div className="mx-auto max-w-[1400px] space-y-6 p-6 md:p-8">
+      <PageShell>
         <AnalyticsFilterBar />
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Rentabilidad por OT</h1>
+          <h1 className="text-xl sm:text-2xl font-bold text-foreground">Rentabilidad por OT</h1>
           <p className="text-sm text-muted-foreground mt-1">
             Márgenes, costos estimados vs reales y seguimiento financiero de cada orden
           </p>
@@ -77,7 +78,7 @@ export default function AnaliticaRentabilidadPage() {
             ninguna pantalla lo llamaba (auditoría 2026-08-31). Se omite sola
             cuando no hay maquetas registradas todavía. */}
         <MaquetaLoadPanel />
-      </div>
+      </PageShell>
     </ProtectedRoute>
   );
 }
